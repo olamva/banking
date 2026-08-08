@@ -35,11 +35,14 @@ card does not appear in `/accounts` even with `includeCreditCardAccounts=true`,
 and `/personal/banking/credit/accounts` and `/credit/cards` both 403, so the
 underlying purchases cannot be fetched.
 
+Confirmed closed, not merely blocked: the logged-in portal offers a customer
+client exactly four APIs — Hello World, Accounts, Transactions, Transfer. There
+is no route to credit card data through this API at all.
+
 Consequence for step 5: the bills **count as spending** rather than being
-excluded as internal (see `CLAUDE.md`). Reopen only if the credit API becomes
-available — its docs render at developer.sparebank1.no only after BankID login,
-and only via the APIs section of the front page, since direct URLs under `/api/`
-and `/apis` hit the backend and 401.
+excluded as internal (see `CLAUDE.md`). Getting the purchase detail would mean
+importing statements from the card issuer separately, which is a different
+project; until someone does that, the card is one opaque line per payment.
 
 **Pagination.** `rowLimit` exists on the transactions endpoints and we have never
 set it. A month that returns a suspiciously round row count is the tell.

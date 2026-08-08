@@ -65,10 +65,16 @@ in the catalog is not the media type version, and v5 is not accepted.
 `rowLimit` exists, so there is an unverified pagination ceiling — if a month ever
 returns a suspiciously round number of rows, that is why.
 
-**403, not scope you can grant yourself:** `/personal/banking/credit/accounts`
-and `/personal/banking/credit/cards` both return an empty-bodied 403. The
-personal-client editor in the portal has no API access selector, so this is not
-something to fix in config.
+**A customer client gets four APIs, and that is all:** Hello World, Accounts,
+Transactions, Transfer. Anything else 403s with an empty body —
+`/personal/banking/credit/accounts` and `/credit/cards` among them. This is by
+design, not configuration: the client editor has no API access selector, and the
+logged-in catalog lists only those four for the customer market.
+
+Do not take the catalog dump as a menu. `/api/applicationcatalog/apis/all` is
+reachable without logging in and lists every API in the estate, including
+partner and internal ones a customer client can never call. The filtered
+`/api/applicationcatalog/apis` is the real entitlement list.
 
 ## Envelopes
 
