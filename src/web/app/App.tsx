@@ -109,12 +109,19 @@ const ExcludedNote = ({ excluded, where }: ExcludedNoteProps) =>
 
 type SetFilters = Dispatch<SetStateAction<Filters>>;
 
-/** Clicking a bar filters to it; clicking the one already filtered to clears it. */
+/**
+ * Clicking a bar filters to it; clicking the one already filtered to clears it.
+ * It always means "show me this", so it drops out of exclude mode — a click that
+ * hid the bar you just asked to see would be a trap.
+ */
 const pickCategory = (onFilters: SetFilters) => (category: string) =>
   onFilters((f) => ({
     ...f,
+    categoryMode: "include",
     categories:
-      f.categories.length === 1 && f.categories[0] === category
+      f.categoryMode === "include" &&
+      f.categories.length === 1 &&
+      f.categories[0] === category
         ? []
         : [category],
   }));
@@ -171,9 +178,10 @@ const MonthView = ({ txns, filters, onFilters, period: month }: ViewProps) => {
   const onCategory = (label: string) =>
     pickCategory(onFilters)(slugOf.get(label) ?? label);
 
-  // A breakdown of one category is a bar chart of itself. Drop it, and let the
-  // rows lead instead — that is what you picked a single category to look at.
-  const single = filters.categories.length === 1;
+  // A breakdown of one category is a bar chart of itself, so it goes. Excluding
+  // one is the opposite: everything else is still in, and still worth breaking down.
+  const single =
+    filters.categories.length === 1 && filters.categoryMode === "include";
 
   // Nothing renders a box it has no rows for. Filtered to rent, "income" is a
   // zero and "net" is the spend again with a minus sign; both are noise.
@@ -264,7 +272,8 @@ const YearView = ({ txns, filters, onFilters, period: year }: ViewProps) => {
     label: categoryLabel(c.category),
     total: c.total,
   }));
-  const single = filters.categories.length === 1;
+  const single =
+    filters.categories.length === 1 && filters.categoryMode === "include";
 
   const slugOf = slugsByLabel(stats.categories.map((c) => c.category));
   const onCategory = (label: string) =>

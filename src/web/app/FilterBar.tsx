@@ -37,15 +37,19 @@ const CONTROL = 'rounded-md border border-line bg-page px-2 py-1.5 text-[13px] t
 
 interface ChipProps {
   label: string;
+  /** An excluding chip is doing the opposite of an including one; it should not look identical. */
+  tone?: 'include' | 'exclude';
   onRemove: () => void;
 }
 
 /** An active filter, and the way to drop it. */
-const Chip = ({ label, onRemove }: ChipProps) => (
+const Chip = ({ label, tone = 'include', onRemove }: ChipProps) => (
   <button
     type="button"
     onClick={onRemove}
-    className="flex items-center gap-1 rounded-full border border-series-1 bg-series-1 py-1 pr-1.5 pl-2.5 text-xs text-white"
+    className={`flex items-center gap-1 rounded-full border py-1 pr-1.5 pl-2.5 text-xs text-white ${
+      tone === 'exclude' ? 'border-critical-strong bg-critical-strong' : 'border-series-1 bg-series-1'
+    }`}
   >
     {label}
     <Icon role="img" aria-label={`Remove ${label}`} icon={CloseIcon} size={12} className="shrink-0 opacity-80" />
@@ -59,6 +63,7 @@ export const FilterBar = ({ view, onView, months, month, onMonth, years, year, o
   };
 
   const picked = filters.categories.length;
+  const excluding = filters.categoryMode === 'exclude';
 
   /**
    * `details` opens itself and closes itself on its own summary, but nothing
@@ -86,7 +91,7 @@ export const FilterBar = ({ view, onView, months, month, onMonth, years, year, o
   // there would only be a second copy that shoves the page down as you type.
   const searchChip = filters.search !== '' && view !== 'transactions';
   const chips = picked > 0 || searchChip;
-  const dirty = picked > 0 || filters.search !== '';
+  const dirty = picked > 0 || filters.search !== '' || excluding;
 
   return (
     <div className="mb-5 flex flex-wrap items-center gap-2 rounded-[10px] border border-line bg-surface px-3 py-2.5">
@@ -150,6 +155,21 @@ export const FilterBar = ({ view, onView, months, month, onMonth, years, year, o
           />
         </summary>
         <div className="absolute z-20 mt-1 max-h-72 w-56 overflow-y-auto rounded-md border border-line bg-surface p-1.5 shadow-lg">
+          {/* Same list, read either way round: the only ones to show, or the only
+              ones to hide. Sits above the boxes it changes the meaning of. */}
+          <div className="mb-1.5 flex overflow-hidden rounded-md border border-line">
+            {(['include', 'exclude'] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                aria-pressed={filters.categoryMode === m}
+                onClick={() => onFilters({ ...filters, categoryMode: m })}
+                className={`flex-1 px-2 py-1 text-xs capitalize ${filters.categoryMode === m ? 'bg-series-1 text-white' : 'bg-page text-ink-soft'}`}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
           {categories.length === 0 ? (
             <div className="px-1.5 py-1 text-xs text-ink-muted">Nothing in this period.</div>
           ) : (
@@ -176,8 +196,14 @@ export const FilterBar = ({ view, onView, months, month, onMonth, years, year, o
 
       {chips && (
         <div className="flex basis-full flex-wrap gap-1.5" role="group" aria-label="Active filters">
+          {/* The mode is invisible once the menu closes, so the chips carry it. */}
           {filters.categories.map((c) => (
-            <Chip key={c} label={categoryLabel(c)} onRemove={() => toggleCategory(c)} />
+            <Chip
+              key={c}
+              label={excluding ? `Not ${categoryLabel(c)}` : categoryLabel(c)}
+              tone={excluding ? 'exclude' : 'include'}
+              onRemove={() => toggleCategory(c)}
+            />
           ))}
           {/* On the dashboards there is no search box, so without this a search
               set from a bar click would be a filter with nothing to clear it. */}
