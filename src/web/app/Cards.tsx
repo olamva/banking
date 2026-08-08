@@ -3,7 +3,7 @@
  */
 import { useState, type ReactNode } from 'react';
 import type { Categorized } from '../../core/types.ts';
-import { fmtNOK, fmtPct } from './format.ts';
+import { categoryLabel, fmtNOK, fmtPct } from './format.ts';
 import {
   DownIcon,
   FlatIcon,
@@ -11,7 +11,6 @@ import {
   SortAscIcon,
   SortDescIcon,
   SortableIcon,
-  TableIcon,
   TransactionsIcon,
   UpIcon,
   type IconSvgElement,
@@ -158,31 +157,14 @@ export const DataTable = ({ columns, rows, scroll }: DataTableProps) => (
   </div>
 );
 
-interface TableToggleProps {
-  columns: Column[];
-  rows: string[][];
-}
-
-/** The numbers behind a chart, one click away — collapsed so they stay out of the way. */
-export const TableToggle = ({ columns, rows }: TableToggleProps) => (
-  <details className="mt-2.5">
-    {/* The icon sits in a span rather than on the summary: `display: flex` on a
-        summary drops the disclosure marker. */}
-    <summary className="cursor-pointer text-xs text-ink-muted">
-      <span className="inline-flex items-center gap-1.5 align-middle">
-        <Icon aria-hidden icon={TableIcon} size={13} />
-        Table
-      </span>
-    </summary>
-    <DataTable columns={columns} rows={rows} />
-  </details>
-);
-
 const merchantOf = (t: Categorized) => t.counterparty ?? t.description;
 
 const SORTS = {
   date: (a: Categorized, b: Categorized) => a.date.localeCompare(b.date),
   merchant: (a: Categorized, b: Categorized) => merchantOf(a).localeCompare(merchantOf(b)),
+  // On the label, not the slug, so the order matches the column: `Strøm` belongs
+  // under S, where it reads, and not under the `stroem` nobody sees.
+  category: (a: Categorized, b: Categorized) => categoryLabel(a.category).localeCompare(categoryLabel(b.category)),
   amount: (a: Categorized, b: Categorized) => a.amount - b.amount,
 };
 
@@ -193,9 +175,8 @@ interface TransactionsCardProps {
 }
 
 /**
- * Every row in view, newest first. With one category picked this is the whole
- * point of the page, so it leads; otherwise it sits below the charts as the
- * detail behind them.
+ * Every row in view, newest first. It has a view of its own now — the dashboards
+ * are the charts, this is the rows behind them.
  *
  * ponytail: renders every row. A year is a couple of thousand `<tr>` and the
  * page is local — virtualise or paginate only if that ever gets slow.
@@ -208,7 +189,7 @@ export const TransactionsCard = ({ txns }: TransactionsCardProps) => {
 
   // Names A-Z on first click, everything else biggest/newest first. A third
   // click drops the sort and the rows fall back to the order they arrived in.
-  const firstAsc = (key: SortKey) => key === 'merchant';
+  const firstAsc = (key: SortKey) => key === 'merchant' || key === 'category';
   const head = (label: string, key: SortKey, num?: boolean): Column => ({
     label,
     num,
@@ -231,14 +212,14 @@ export const TransactionsCard = ({ txns }: TransactionsCardProps) => {
           columns={[
             head('Date', 'date'),
             head('Merchant / description', 'merchant'),
-            { label: 'Category' },
+            head('Category', 'category'),
             { label: 'Source' },
             head('Amount', 'amount', true),
           ]}
           rows={sorted.map((t) => [
             t.date,
             merchantOf(t),
-            t.category,
+            categoryLabel(t.category),
             t.source === 'card' ? 'card' : 'bank',
             fmtNOK(t.amount),
           ])}
