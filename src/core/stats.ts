@@ -150,6 +150,28 @@ function aggregateCents(txns: Categorized[]): CentsAgg {
   return agg;
 }
 
+export type Totals = {
+  totalIn: number;
+  totalOut: number;
+  net: number;
+  excluded: ExcludedSummary;
+};
+
+/**
+ * What a set of rows adds up to, and nothing else. `monthStats` carries the same
+ * four numbers, but building one to read them sorts categories and
+ * counterparties nobody asked for — and a date range has no month to name.
+ */
+export function totals(txns: Categorized[]): Totals {
+  const agg = aggregateCents(txns);
+  return {
+    totalIn: fromCents(agg.inCents),
+    totalOut: fromCents(agg.outCents),
+    net: fromCents(agg.inCents - agg.outCents),
+    excluded: { count: agg.excludedCount, total: fromCents(agg.excludedCents) },
+  };
+}
+
 function topCounterparties(txns: Categorized[], limit = 10): CounterpartyTotal[] {
   const byCp = new Map<string, { cents: number; count: number }>();
   for (const t of txns) {

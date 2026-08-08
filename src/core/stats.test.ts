@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { monthStats, yearStats, blindSpot, subsAndRecurring } from './stats.ts';
+import { monthStats, yearStats, blindSpot, subsAndRecurring, totals } from './stats.ts';
 import type { Categorized } from './types.ts';
 
 function txn(partial: Partial<Categorized> & { id: string; amount: number }): Categorized {
@@ -42,6 +42,12 @@ test('excluded rows are kept out of totals but reported', () => {
   const stats = monthStats('2026-07', txns);
   assert.equal(stats.totalOut, 100);
   assert.deepEqual(stats.excluded, { count: 2, total: 1000 });
+
+  // The standalone totals the range view uses must not drift from the stats
+  // object: a matched pair reports the volume that moved, not zero.
+  const t = totals(txns);
+  assert.deepEqual(t.excluded, stats.excluded);
+  assert.deepEqual([t.totalIn, t.totalOut, t.net], [stats.totalIn, stats.totalOut, stats.net]);
 });
 
 test('card rows have no counterparty, are excluded from topCounterparties, and their share is surfaced', () => {
