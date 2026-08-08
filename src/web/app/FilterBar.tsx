@@ -8,6 +8,7 @@
  * exist so an active filter is always visible and always one click from gone —
  * a filter you cannot see is a filter you cannot turn off.
  */
+import { useEffect, useRef } from 'react';
 import type { Filters } from '../../core/select.ts';
 import { NO_FILTERS } from '../../core/select.ts';
 import { categoryLabel } from './format.ts';
@@ -58,6 +59,29 @@ export const FilterBar = ({ view, onView, months, month, onMonth, years, year, o
   };
 
   const picked = filters.categories.length;
+
+  /**
+   * `details` opens itself and closes itself on its own summary, but nothing
+   * else — Escape and a click elsewhere are ours. Open state stays in the DOM
+   * rather than in React, so the listeners just read it and set it back.
+   */
+  const menu = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    const close = (e: Event) => {
+      const el = menu.current;
+      if (!el?.open) return;
+      if (e instanceof KeyboardEvent && e.key !== 'Escape') return;
+      if (e.type === 'pointerdown' && el.contains(e.target as Node)) return;
+      el.open = false;
+    };
+    document.addEventListener('keydown', close);
+    document.addEventListener('pointerdown', close);
+    return () => {
+      document.removeEventListener('keydown', close);
+      document.removeEventListener('pointerdown', close);
+    };
+  }, []);
+
   const dirty = picked > 0 || filters.search !== '';
 
   return (
@@ -110,7 +134,7 @@ export const FilterBar = ({ view, onView, months, month, onMonth, years, year, o
 
       {/* `details` rather than a button and an open flag: the disclosure state is
           the browser's problem, and there is none of ours to get out of sync. */}
-      <details className="relative">
+      <details ref={menu} className="relative">
         <summary className={`${CONTROL} cursor-pointer list-none marker:content-none`}>
           Categories{picked > 0 && ` (${picked})`}
         </summary>
