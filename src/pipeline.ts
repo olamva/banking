@@ -26,7 +26,7 @@ export function monthsOnDisk(): string[] {
 }
 
 /**
- * Steps 4-6 for one month's raw files, plus the merchant lookup.
+ * One month's raw files, from normalize to categorize, plus the merchant lookup.
  *
  * Exclusion runs per month because both legs of an internal transfer share a
  * date and so can never land in different months. Enrichment goes first, so the

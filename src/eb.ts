@@ -1,5 +1,5 @@
 // Enable Banking (licensed AISP) — the only route to the credit card, which
-// SpareBank 1's own customer API does not expose. See PLAN.md.
+// SpareBank 1's own customer API does not expose.
 import { createServer } from 'node:https';
 import { createSign, randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';

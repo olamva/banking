@@ -1,9 +1,6 @@
 /**
  * The canonical record. Both sources normalize into this and everything
- * downstream reads only this — steps 5 to 7 must never touch data/raw/ shapes.
- *
- * Agreed up front precisely so parallel agents do not each invent their own.
- * Changing it is a cross-cutting change: say so rather than widening it quietly.
+ * downstream reads only this — nothing past normalize touches data/raw/ shapes.
  */
 export type Source = 'sb1' | 'card';
 
@@ -32,15 +29,15 @@ export type Txn = {
 };
 
 /**
- * Step 5 output. Exclusions are flagged, never dropped, so the excluded set
- * stays auditable — `reason` is what makes it auditable, so always set it.
+ * Exclusions are flagged, never dropped, so the excluded set stays auditable —
+ * `reason` is what makes it auditable, so always set it.
  */
 export type Classified = Txn & {
   excluded: boolean;
   reason: string | null;
 };
 
-/** Step 6 output, and what the database stores. */
+/** What the database stores. */
 export type Categorized = Classified & {
   /** Final category after overrides. Card rows always land in the card bucket. */
   category: string;

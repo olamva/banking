@@ -1,4 +1,4 @@
-// Step 4 — flatten data/raw/<month>/*.json into Txn[]. Pure, no network.
+// Flattens data/raw/<month>/*.json into Txn[]. Pure, no network.
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Txn } from './types.ts';
@@ -29,7 +29,7 @@ type EbFile = {
     /** Null while still pending — the same open pending rows reappear in every
      *  month's file regardless of the query range, so these can't be
      *  attributed to a month. Skip rather than fall back to transaction_date:
-     *  CLAUDE.md is explicit that booking date is the only date that counts. */
+     *  the booking date is the only date Txn commits to. */
     booking_date: string | null;
     remittance_information: string[];
     status: string;

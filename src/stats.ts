@@ -1,7 +1,7 @@
 /**
- * Step 8. Pure aggregation over `Categorized[]` — no I/O, no database import,
- * no network. Everything here is exported types the dashboard (step 9) builds
- * against directly: keep the shape flat and treat it as a contract.
+ * Pure aggregation over `Categorized[]` — no I/O, no database import, no
+ * network. Everything here is exported types the dashboard builds against
+ * directly: keep the shape flat and treat it as a contract.
  *
  * This is the *only* implementation of the money aggregation. The dashboard
  * embeds `STATS_FNS` verbatim into the page (see the bottom of this file), so

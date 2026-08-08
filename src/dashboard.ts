@@ -1,7 +1,7 @@
 /**
- * Step 9. Renders one self-contained HTML file to data/dashboard.html, with
- * every transaction embedded as JSON. No framework, no chart library, no
- * network, no server — vanilla JS + inline SVG runs entirely in the browser.
+ * Renders one self-contained HTML file to data/dashboard.html, with every
+ * transaction embedded as JSON. No framework, no chart library, no network,
+ * no server — vanilla JS + inline SVG runs entirely in the browser.
  *
  * There is no aggregation logic in this file. The page re-filters client-side,
  * and it does that by calling `monthStats`/`yearStats` from `src/stats.ts`,
@@ -23,7 +23,7 @@ export type Filters = {
 
 // ---------------------------------------------------------------------------
 // Selection — which rows are in view. No money logic; that is stats.ts.
-// Tested here, and embedded into the page alongside STATS_FNS.
+// Embedded into the page alongside STATS_FNS.
 // ---------------------------------------------------------------------------
 
 export function inMonth(t: Categorized, month: string): boolean {
@@ -71,7 +71,7 @@ export function distinctCategories(txns: Categorized[]): string[] {
 const VIEW_FNS = [inMonth, inYear, matchesFilters, prevMonth, distinctMonths, distinctYears, distinctCategories];
 
 // ---------------------------------------------------------------------------
-// Presentation — CSS and client-side rendering. Not money logic, not tested.
+// Presentation — CSS and client-side rendering. Not money logic.
 // ---------------------------------------------------------------------------
 
 const CSS = `
