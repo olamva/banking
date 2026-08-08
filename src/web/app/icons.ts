@@ -25,8 +25,10 @@ export { default as SortableIcon } from '@hugeicons/core-free-icons/ArrowUpDownI
 // Controls.
 export { default as SearchIcon } from '@hugeicons/core-free-icons/Search01Icon';
 export { default as ResetFiltersIcon } from '@hugeicons/core-free-icons/FilterResetIcon';
-export { default as ThemeIcon } from '@hugeicons/core-free-icons/ContrastIcon';
-export { default as TableIcon } from '@hugeicons/core-free-icons/Table01Icon';
+// One per theme option — "system" is the machine, not whichever way it resolved.
+export { default as SystemThemeIcon } from '@hugeicons/core-free-icons/ComputerIcon';
+export { default as LightThemeIcon } from '@hugeicons/core-free-icons/Sun03Icon';
+export { default as DarkThemeIcon } from '@hugeicons/core-free-icons/Moon02Icon';
 
 // Card headings.
 export { default as CategoryIcon } from '@hugeicons/core-free-icons/PieChartIcon';

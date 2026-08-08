@@ -5,6 +5,16 @@ export const fmtNOK = (n: number): string => `${Math.round(n).toLocaleString('nb
 
 export const fmtPct = (share: number): string => `${Math.round(share * 1000) / 10}%`;
 
+/**
+ * Slugs come from the bank and from overrides.json, so a generic rule beats a
+ * map that drifts every time the file is hand-edited. Only the slugs that spell
+ * a Norwegian letter out need naming.
+ */
+const ODD: Record<string, string> = { stroem: 'Strøm', helse_og_velvaere: 'Helse og velvære' };
+
+export const categoryLabel = (slug: string): string =>
+  ODD[slug] ?? slug.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
+
 export const monthLabel = (month: string): string => {
   const [y, m] = month.split('-').map(Number);
   return new Date(Date.UTC(y!, m! - 1, 1)).toLocaleDateString('nb-NO', { month: 'short', timeZone: 'UTC' });

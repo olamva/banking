@@ -33,16 +33,28 @@ export const useTransactions = (): Load => {
   return load;
 };
 
-/** Theme is three-state: explicit dark, explicit light, or whatever the system says. */
-export const cycleTheme = (): void => {
+/**
+ * Theme is three-state: explicit dark, explicit light, or whatever the system
+ * says. Picked outright rather than cycled — cycling ran off the stored value
+ * while the CSS resolved from the system one, so the first click on an
+ * already-dark page did nothing visible.
+ */
+export const THEMES = ['system', 'light', 'dark'] as const;
+export type Theme = (typeof THEMES)[number];
+
+/** Clamped, so a hand-edited key cannot leave the picker with no option selected. */
+export const readTheme = (): Theme => {
+  const saved = localStorage.getItem('dashboardTheme') as Theme | null;
+  return saved && THEMES.includes(saved) ? saved : 'system';
+};
+
+export const setTheme = (t: Theme): void => {
   const html = document.documentElement;
-  const current = html.getAttribute('data-theme');
-  const next = current === 'dark' ? 'light' : current === 'light' ? null : 'dark';
-  if (next) {
-    html.setAttribute('data-theme', next);
-    localStorage.setItem('dashboardTheme', next);
-  } else {
+  if (t === 'system') {
     html.removeAttribute('data-theme');
     localStorage.removeItem('dashboardTheme');
+  } else {
+    html.setAttribute('data-theme', t);
+    localStorage.setItem('dashboardTheme', t);
   }
 };
