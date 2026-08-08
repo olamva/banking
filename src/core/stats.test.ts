@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { monthStats, yearStats, blindSpot } from './stats.ts';
+import { monthStats, yearStats, blindSpot, subsAndRecurring } from './stats.ts';
 import type { Categorized } from './types.ts';
 
 function txn(partial: Partial<Categorized> & { id: string; amount: number }): Categorized {
@@ -92,6 +92,27 @@ test('subscriptions and recurring rows are surfaced, excluded rows are not', () 
   assert.equal(stats.subscriptions[0].id, '1');
   assert.equal(stats.recurring.length, 1);
   assert.equal(stats.recurring[0].id, '2');
+});
+
+/**
+ * The page shows one list, and `recurring` and `subscription` have been
+ * identical on every SB1 row so far — so without the dedup every such row
+ * appears twice, and it is the amounts beside them that make that a money bug.
+ */
+test('subsAndRecurring merges the two lists without repeating a row', () => {
+  const both = txn({ id: '1', amount: -99, isSubscription: true, isRecurring: true, date: '2026-07-20' });
+  const subOnly = txn({ id: '2', amount: -20, isSubscription: true, date: '2026-07-05' });
+  const recOnly = txn({ id: '3', amount: -30, isRecurring: true, date: '2026-07-10' });
+
+  const merged = subsAndRecurring(monthStats('2026-07', [both, subOnly, recOnly]));
+  assert.deepEqual(merged.map((t) => t.id), ['2', '3', '1'], 'deduplicated and sorted by date');
+});
+
+/** Same id on two sources is two transactions — the key is the pair, as in the database. */
+test('subsAndRecurring keys on source and id together', () => {
+  const bank = txn({ id: 'x', amount: -99, isSubscription: true });
+  const card = txn({ id: 'x', source: 'card', amount: -99, isRecurring: true });
+  assert.equal(subsAndRecurring(monthStats('2026-07', [bank, card])).length, 2);
 });
 
 test('blindSpot counts only spending that still has no merchant', () => {

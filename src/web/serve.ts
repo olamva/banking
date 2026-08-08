@@ -1,28 +1,33 @@
 /**
- * `pnpm dev` — the dashboard as a living page instead of a generated file.
+ * `pnpm dev` — the dashboard, the only way it is served.
  *
- * Every request re-reads the database and re-renders, so an `import` in another
- * terminal shows up on reload with no build step. If the data has gone stale it
- * also re-syncs the current month first.
+ * Two things on one port: `/api/txns` reads the database and returns every row
+ * as JSON, and everything else is handed to Vite, running in *middleware mode*
+ * inside this process. That is why there is no `vite build`, no `dist/` and no
+ * second port — the page is only ever run locally, so the dev server is the
+ * only server it needs, and Ctrl-C stops one thing rather than two.
  *
- * That last part is the dangerous one. SpareBank 1 allows 60 requests an hour
+ * The database is re-read per request, so a `rebuild` in another terminal shows
+ * up on reload. With `--pull` a stale current month is re-synced first.
+ *
+ * That last part is the dangerous one, which is why it is opt-in and not the
+ * default: analysis stays offline unless you ask. SpareBank 1 allows 60/hour
  * and a refresh costs one per account, so anything that turns a page view into
  * a sync has to be defended on several sides at once:
  *
- * - staleness is recorded on disk, so restarting the server — which `--watch`
- *   does on every save — does not re-trigger a pull;
+ * - staleness is recorded on disk, so restarting the server does not re-trigger
+ *   a pull;
  * - the request ledger is on disk too, and `sb1.get` refuses past the cap;
  * - one refresh runs at a time, so two tabs share it rather than doubling it;
  * - a refresh that fails is remembered as an attempt, so a broken token
  *   produces one failure per interval instead of one per reload;
  * - only the current month is pulled, plus the previous one early in a month
  *   while card transactions are still posting;
- * - and `--no-pull` turns the whole thing off for offline work on the page.
+ * - and none of it happens at all without `--pull`.
  */
 import { createServer } from 'node:http';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { openDb, queryRange } from '../core/db.ts';
-import { renderDashboard } from './dashboard.ts';
 import { rebuildAll, DB_FILE } from '../core/pipeline.ts';
 import { syncMonth, ebSyncMonth, syncCost } from '../net/sync.ts';
 import { canAfford, remaining, used, HOURLY_CAP } from '../net/budget.ts';
@@ -30,7 +35,7 @@ import { canAfford, remaining, used, HOURLY_CAP } from '../net/budget.ts';
 const STATE = 'data/sync-state.json';
 
 /** Long enough that a day's work never triggers a second pull by accident. */
-const DEFAULT_MAX_AGE_MIN = 360;
+export const DEFAULT_MAX_AGE_MIN = 360;
 
 type State = { lastAttempt?: number };
 
@@ -133,31 +138,40 @@ function maybeRefresh(maxAgeMin: number): Promise<void> {
   return settle(join(() => refresh(monthsToRefresh(), age)));
 }
 
-function page(): string {
+/** Every row, as the page wants them. Re-read per request — a rebuild shows up on reload. */
+function allTxns(): string {
   const db = openDb(DB_FILE);
   try {
-    return renderDashboard(queryRange(db, '0000-00', '9999-99'));
+    return JSON.stringify(queryRange(db, '0000-00', '9999-99'));
   } finally {
     db.close();
   }
 }
 
-export function serve(port: number, opts: { pull: boolean; maxAgeMin: number }): void {
+export async function serve(port: number, opts: { pull: boolean; maxAgeMin: number }): Promise<void> {
+  // Imported here rather than at the top: `pnpm sb1 report` loads this module's
+  // siblings and has no business paying for Vite's startup.
+  const { createServer: createViteServer } = await import('vite');
+  const vite = await createViteServer({
+    configFile: 'vite.config.ts',
+    server: { middlewareMode: true },
+    appType: 'spa',
+  });
+
   const server = createServer((req, res) => {
-    if (req.url === '/favicon.ico') {
-      res.writeHead(204).end();
+    if (req.url !== '/api/txns') {
+      vite.middlewares(req, res);
       return;
     }
     void (async () => {
       try {
         if (opts.pull) await maybeRefresh(opts.maxAgeMin);
-        const html = page();
         res.writeHead(200, {
-          'Content-Type': 'text/html; charset=utf-8',
-          // Always re-render; a cached page is the opposite of the point.
+          'Content-Type': 'application/json; charset=utf-8',
+          // Always fresh; a cached copy of the data is the opposite of the point.
           'Cache-Control': 'no-store',
         });
-        res.end(html);
+        res.end(allTxns());
       } catch (e) {
         res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
         res.end(`${e instanceof Error ? e.message : e}\n`);
@@ -170,7 +184,7 @@ export function serve(port: number, opts: { pull: boolean; maxAgeMin: number }):
     console.error(
       opts.pull
         ? `auto-refresh when data is over ${opts.maxAgeMin} min old — ${used()}/${HOURLY_CAP} requests used this hour`
-        : 'auto-refresh off (--no-pull)',
+        : 'offline — pass --pull to auto-refresh stale data',
     );
     console.error('local only, and it holds every transaction — do not expose this port');
   });

@@ -4,12 +4,22 @@
   "type": "module",
   "scripts": {
     "sb1": "node --env-file=.env.local src/cli.ts",
-    "dev": "node --watch --env-file=.env.local src/cli.ts dev",
+    "dev": "node --env-file=.env.local src/cli.ts dev",
     "test": "node --test 'src/**/*.test.ts'",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^26.1.2",
-    "typescript": "^5.9.2"
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.0.5",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.9.2",
+    "vite": "^8.2.1"
+  },
+  "dependencies": {
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
   }
 }

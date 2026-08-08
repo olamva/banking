@@ -28,7 +28,7 @@ and the result lands in SQLite. Reports and the dashboard read from there.
 data/raw/  ──normalize──►  Txn  ──enrich──►  ──exclude──►  ──categorize──►  SQLite
                                 (merchant)   (transfers)    (overrides)        │
                                                                  report ◄──────┤
-                                                              dashboard ◄──────┘
+                                                               pnpm dev ◄──────┘
 ```
 
 ## Setup
@@ -36,7 +36,7 @@ data/raw/  ──normalize──►  Txn  ──enrich──►  ──exclude�
 Needs Node 24+ (built-in TypeScript execution and `node:sqlite`) and pnpm.
 
 ```bash
-pnpm install                        # typescript and @types/node, nothing else
+pnpm install
 pnpm dev                            # http://localhost:4000
 ```
 
@@ -59,10 +59,10 @@ pnpm sb1 statement <file.csv>       # ingest a card statement export, then rebui
 pnpm sb1 rebuild                    # rebuild data/banking.db from data/raw/
 pnpm sb1 report --month YYYY-MM     # totals, categories, counterparties, card share
 pnpm sb1 report --year YYYY         # per-month series and year categories
-pnpm sb1 dashboard                  # renders data/dashboard.html, a static snapshot
 
 # the living app
-pnpm dev                            # serve on :4000, auto-refreshing stale data
+pnpm dev                            # serve the dashboard on :4000, offline
+pnpm dev --pull                     # ...and refresh stale months from the API
 pnpm sb1 budget                     # SB1 requests used this hour
 
 pnpm test                           # node --test, no framework
@@ -70,7 +70,7 @@ pnpm typecheck
 ```
 
 `rebuild` reconstructs the whole database from `data/raw/` — a few hundred
-milliseconds, and the only way rows get in. `report` and `dashboard` read the
+milliseconds, and the only way rows get in. `report` and `pnpm dev` read the
 database, so it has to have run first.
 
 ## The dashboard
@@ -79,50 +79,52 @@ database, so it has to have run first.
 pnpm dev          # then open http://localhost:4000
 ```
 
-Every request re-reads the database and re-renders, so a `rebuild` in another
-terminal shows up on reload. Month and year views, filtering by category,
-source, text and amount range, all re-computed in the browser.
+A React app served by Vite in middleware mode inside the same process, so one
+command gives you the page on one port with hot reload and no build step. The
+server exposes exactly one endpoint, `/api/txns`, which re-reads the database
+per request — a `rebuild` in another terminal shows up on reload. Month and year
+views, filtering by source, text and amount range, all computed in the browser
+by importing `src/core/stats.ts` directly.
 
-There is still a static form if you want a file rather than a server:
+Categories filter as **chips: click any number of them**, none means all. Pick
+exactly one and the page rearranges — a breakdown of a single category is a bar
+chart of itself, so it drops out and the transaction table leads instead. That
+table is always there either way, listing every row in view newest first.
 
-```bash
-pnpm sb1 dashboard && open data/dashboard.html
-```
-
-**Never share either one.** They embed every transaction you have, and so does a
-screenshot. The server binds to `127.0.0.1` and the file is gitignored; keep it
-that way.
+**Never share it.** It embeds every transaction you have, and so does a
+screenshot. The server binds to `127.0.0.1`; keep it that way.
 
 ### Auto-refresh, and not tripping the rate limit
 
-If the data is more than six hours old, loading the page re-syncs the current
-month first — plus the previous month during its first week, while card
-transactions are still posting.
+`pnpm dev` is offline by default. With `--pull`, loading the page re-syncs the
+current month first if the data is more than six hours old — plus the previous
+month during its first week, while card transactions are still posting.
 
 SpareBank 1 allows **60 requests an hour** and one refresh costs one per
 account, so the obvious ways to burn that are all defended:
 
 | Risk | Defence |
 |---|---|
-| `--watch` restarting on every save | staleness is recorded on disk, not in memory |
+| Restarting the server | staleness is recorded on disk, not in memory |
 | Two tabs, or a reload during a pull | one refresh at a time; the others join it |
 | Anything at all | every call is ledgered; `sb1.get` refuses past the cap |
 | A dead token retrying forever | a failed attempt still counts as an attempt |
-| Editing the page offline | `--no-pull` |
+| Just wanting to look at the data | the network is opt-in; no `--pull`, no calls |
 
 The cap is 40, leaving headroom so a hand-run `sync` still works afterwards.
 Raise it with `SB1_HOURLY_CAP` if you really mean to. `pnpm sb1 budget` shows
 where you are.
 
 ```bash
-pnpm dev --no-pull            # never touch the network
-pnpm dev --max-age 60         # refresh if older than an hour
+pnpm dev                      # never touches the network
+pnpm dev --pull               # refresh if older than six hours
+pnpm dev --pull --max-age 60  # refresh if older than an hour
 pnpm dev --port 5000
 ```
 
 ## A typical month
 
-Mostly, nothing: leave `pnpm dev` running and it keeps the current month
+Mostly, nothing: leave `pnpm dev --pull` running and it keeps the current month
 current. By hand, if you want a report in the terminal:
 
 ```bash
@@ -199,12 +201,13 @@ src/core/normalize.ts data/raw/<month>/*.json -> Txn[]
 src/core/statement.ts the issuer CSV -> the merchant on card rows
 src/core/exclude.ts   flags internal transfers and card bill payments
 src/core/categorize.ts bank category + overrides.json
-src/core/db.ts        node:sqlite store, upsert by (source, id)
+src/core/db.ts        node:sqlite store, rebuilt wholesale
 src/core/stats.ts     the only money aggregation
+src/core/select.ts    which rows are in view — filters, months, categories
 src/core/pipeline.ts  the offline chain; imports nothing that touches a network
 
-src/web/dashboard.ts renders the HTML; embeds stats.ts, adds no maths
-src/web/serve.ts     pnpm dev: the living page, and when to auto-refresh
+src/web/serve.ts     pnpm dev: /api/txns, Vite middleware, when to auto-refresh
+src/web/app/         the React app — App, FilterBar, Charts, Cards
 src/cli.ts           command dispatch
 
 docs/              privacy policy and terms, required to register the
@@ -212,15 +215,22 @@ docs/              privacy policy and terms, required to register the
                    see docs/README.md before editing either
 ```
 
+`src/core/` runs in both Node and the browser, so the page aggregates with the
+exact code `node --test` pins.
+
 Everything holding personal data is gitignored: `data/`, `accounts.json`,
 `overrides.json`, `secrets/`, `.env.local`.
 
 ## Design rules
 
-Zero runtime dependencies — Node's stdlib covers the whole job, including
-SQLite and TypeScript execution. `data/raw/` is the source of truth and is never
-rewritten in place; the database is derived and can be deleted at any time.
-Analysis never calls the API. Anything that sums money leaves a test behind.
+React, Vite and Tailwind v4 for the dashboard; Node's stdlib for everything else,
+including SQLite, HTTP and TypeScript execution. No ORM, no chart library, no
+component library, no state manager — the charts are hand-written SVG and the
+state is four `useState`s. There is no build step: Vite runs in middleware mode
+inside the server, so `pnpm dev` is one process on one port and `dist/` does not
+exist. `data/raw/` is the source of truth and is never rewritten in place; the
+database is derived and can be deleted at any time. Analysis never calls the
+API. Anything that sums money leaves a test behind.
 
 The rest, including the exclusion rules and why they are what they are, is in
 `.claude/CLAUDE.md`.

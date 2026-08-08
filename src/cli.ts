@@ -1,14 +1,13 @@
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { get, login, ReauthRequired } from './net/sb1.ts';
+import { get, login } from './net/sb1.ts';
 import * as eb from './net/eb.ts';
 import { parseStatement, statementRange } from './core/statement.ts';
 import { openDb, queryMonth, queryRange } from './core/db.ts';
 import { monthStats, yearStats, byMonth, blindSpot } from './core/stats.ts';
-import { writeDashboard } from './web/dashboard.ts';
 import { rebuildAll, DB_FILE, RAW } from './core/pipeline.ts';
 import { syncMonth, ebSyncMonth } from './net/sync.ts';
-import { serve } from './web/serve.ts';
+import { serve, DEFAULT_MAX_AGE_MIN } from './web/serve.ts';
 import { used, remaining, HOURLY_CAP } from './net/budget.ts';
 import type { Categorized } from './core/types.ts';
 
@@ -157,15 +156,6 @@ function report(): void {
   }
 }
 
-/** Local file, opened locally. It embeds every transaction — never share it. */
-async function dashboard(): Promise<void> {
-  const db = openDb(DB_FILE);
-  const rows = queryRange(db, '0000-00', '9999-99');
-  db.close();
-  await writeDashboard(rows);
-  console.error(`wrote data/dashboard.html — ${rows.length} rows, local file, do not share`);
-}
-
 try {
   if (cmd === 'login') await login();
   else if (cmd === 'accounts') await accounts();
@@ -175,19 +165,18 @@ try {
   else if (cmd === 'statement') await statement();
   else if (cmd === 'rebuild') await rebuildAll();
   else if (cmd === 'report') report();
-  else if (cmd === 'dashboard') await dashboard();
   else if (cmd === 'budget') console.error(`${used()}/${HOURLY_CAP} SB1 requests used this hour, ${remaining()} left`);
   else if (cmd === 'dev') {
-    serve(Number(flag('port') ?? 4000), {
-      pull: !has('no-pull'),
-      maxAgeMin: Number(flag('max-age') ?? 360),
+    await serve(Number(flag('port') ?? 4000), {
+      pull: has('pull'),
+      maxAgeMin: Number(flag('max-age') ?? DEFAULT_MAX_AGE_MIN),
     });
   } else {
     console.error('usage: pnpm sb1 <login | accounts | sync --month YYYY-MM [--force]');
     console.error('                | eb-login | eb-sync --month YYYY-MM [--force]');
     console.error('                | statement <file.csv> | rebuild');
-    console.error('                | report --month YYYY-MM | report --year YYYY | dashboard');
-    console.error('                | dev [--port 4000] [--max-age 360] [--no-pull] | budget>');
+    console.error('                | report --month YYYY-MM | report --year YYYY');
+    console.error('                | dev [--port 4000] [--pull [--max-age 360]] | budget>');
     process.exit(1);
   }
 } catch (e) {

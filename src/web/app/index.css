@@ -1,0 +1,80 @@
+@import 'tailwindcss';
+
+/**
+ * The palette is Tailwind theme variables, so `bg-surface` compiles to
+ * `var(--color-surface)`. Dark mode then redefines the *variables* rather than
+ * doubling every class with a `dark:` twin — one place to change a colour, and
+ * the SVG charts (which cannot use utility classes for fills) read the same
+ * variables the utilities do.
+ *
+ * Three states, deliberately: an explicit choice wins in both directions, and
+ * with no choice stored the system decides.
+ */
+@theme {
+  --color-page: #f9f9f7;
+  --color-surface: #fcfcfb;
+  --color-ink: #0b0b0b;
+  --color-ink-soft: #52514e;
+  --color-ink-muted: #898781;
+  --color-grid: #e1e0d9;
+  --color-axis: #c3c2b7;
+  --color-line: rgb(11 11 11 / 0.1);
+  --color-series-1: #2a78d6;
+  --color-series-1-track: #cde2fb;
+  --color-series-2: #eb6834;
+  --color-up: #e34948;
+  --color-down: #2a78d6;
+  --color-hover: #f0efec;
+  --color-good: #0ca30c;
+  --color-critical: #d03b3b;
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    html:not([data-theme='light']) {
+      color-scheme: dark;
+      --color-page: #0d0d0d;
+      --color-surface: #1a1a19;
+      --color-ink: #ffffff;
+      --color-ink-soft: #c3c2b7;
+      --color-ink-muted: #898781;
+      --color-grid: #2c2c2a;
+      --color-axis: #383835;
+      --color-line: rgb(255 255 255 / 0.1);
+      --color-series-1: #3987e5;
+      --color-series-1-track: #184f95;
+      --color-series-2: #d95926;
+      --color-up: #e66767;
+      --color-down: #3987e5;
+      --color-hover: #262624;
+    }
+  }
+
+  html[data-theme='dark'] {
+    color-scheme: dark;
+    --color-page: #0d0d0d;
+    --color-surface: #1a1a19;
+    --color-ink: #ffffff;
+    --color-ink-soft: #c3c2b7;
+    --color-ink-muted: #898781;
+    --color-grid: #2c2c2a;
+    --color-axis: #383835;
+    --color-line: rgb(255 255 255 / 0.1);
+    --color-series-1: #3987e5;
+    --color-series-1-track: #184f95;
+    --color-series-2: #d95926;
+    --color-up: #e66767;
+    --color-down: #3987e5;
+    --color-hover: #262624;
+  }
+
+  body {
+    background-color: var(--color-page);
+    color: var(--color-ink);
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  }
+}

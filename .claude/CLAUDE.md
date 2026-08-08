@@ -28,17 +28,18 @@ src/core/normalize.ts data/raw/<month>/*.json -> Txn[]
 src/core/statement.ts issuer CSV -> the merchant on card rows
 src/core/exclude.ts   Txn[] -> Classified[]; flags transfers and bill payments
 src/core/categorize.ts Classified[] -> Categorized[]; bank category + overrides
-src/core/db.ts        node:sqlite store, upsert by (source, id)
+src/core/db.ts        node:sqlite store, rebuilt wholesale
 src/core/stats.ts     the only money aggregation — monthStats() and yearStats()
+src/core/select.ts    which rows are in view; no money logic, ever
 src/core/pipeline.ts  the offline chain, importable by the CLI and the server
 
-src/web/dashboard.ts  renders the page HTML; embeds stats.ts, adds no maths
-src/web/serve.ts      pnpm dev — living page plus the auto-refresh policy
+src/web/serve.ts      pnpm dev — /api/txns, Vite middleware, the refresh policy
+src/web/app/          the React app: App, FilterBar, Charts, Cards
 src/cli.ts            command dispatch
 
+vite.config.ts    root is src/web/app; middleware mode only, there is no build
 data/raw/         API responses, verbatim, gitignored
 data/raw/card-statements/  issuer CSV exports, the only merchant source
-data/dashboard.html  generated, local-only, gitignored
 data/banking.db   derived SQLite store, rebuildable from data/raw, gitignored
 accounts.json     which accounts are mine (hand-edited), gitignored
 overrides.json    substring or /regex/ -> category, gitignored
@@ -48,18 +49,23 @@ overrides.json    substring or /regex/ -> category, gitignored
 call to reproduce. The database is **derived and disposable** — deleting it must
 never lose anything, and `rebuild` must reconstruct it from `data/raw/` alone.
 
+Everything under `src/core/` is imported by **both** Node and the browser, so it
+must stay free of `node:` imports. That is what lets the page aggregate with the
+exact code `node --test` pins instead of a copy that drifts.
+
 ## Rules
 
 **Analysis never calls the API.** Fetching lives in `src/net/sync.ts` and the
 two client modules it wraps; everything downstream reads `data/raw/`. The rule
 is the directory split: **nothing in `src/core/` may import from `src/net/`**,
-and that includes indirectly. If an analysis step needs a field
-that isn't in the raw JSON, extend `sync`, re-run it, and commit nothing.
+and that includes indirectly. If an analysis step needs a field that isn't in
+the raw JSON, extend `sync`, re-run it, and commit nothing.
 
-`pnpm dev` is the one place both halves meet: it may trigger a sync before
-rendering. That is the server composing the two, not analysis reaching for the
-network, and every guard around it is there to keep the request count sane —
-see the header of `src/web/serve.ts` before changing any of it.
+`pnpm dev --pull` is the one place both halves meet: it may trigger a sync
+before rendering. That is the server composing the two, not analysis reaching
+for the network, and every guard around it is there to keep the request count
+sane — see the header of `src/web/serve.ts` before changing any of it. Without
+`--pull` the server never touches the network at all, which is the default.
 
 **Every SB1 request is ledgered.** `sb1.get` and the token exchange both call
 `budget.spend`, which refuses past the hourly cap. Anything that adds a new call
@@ -79,20 +85,29 @@ messages or docs. `.env.local`, `data/`, `accounts.json` and `overrides.json`
 are gitignored; keep it that way. JSON and CSV output are unredacted — strip
 account numbers before anything leaves the machine.
 
-The dashboard is a **local file, opened locally**. Never publish it — not as a
-hosted artifact, not to a gist, not to any preview or sharing service. It embeds
-every transaction you have. Same rule for screenshots of it.
+The dashboard is **served on 127.0.0.1 and read locally**. Never publish it —
+not as a hosted artifact, not to a gist, not to any preview or sharing service.
+It embeds every transaction you have. Same rule for screenshots of it.
 
-**Zero runtime dependencies.** Node's built-in TS execution, `fetch`,
-`node:http`/`node:https`, `node:sqlite` and the macOS `security` keychain cover
-the whole job. devDeps are typescript and @types/node only. No ORM, no query
-builder, no migration tool, no chart library, no frontend framework — all of
-those are a few lines of stdlib or hand-written SVG here. Check with me first if
-you think a package is genuinely warranted.
+**The dependency list is short on purpose.** React, Vite and Tailwind v4 are in,
+for the dashboard and nothing else. Everything server-side is still stdlib:
+Node's built-in TS execution, `fetch`, `node:http`/`node:https`, `node:sqlite`
+and the macOS `security` keychain. No ORM, no query builder, no migration tool,
+no chart library, no component library, no state manager, no router, no date
+library — the charts are hand-written SVG in `src/web/app/Charts.tsx` and the
+state is four `useState`s. Check with me first if you think another package is
+genuinely warranted.
+
+**There is no build step.** Vite runs in middleware mode inside `src/web/
+serve.ts`, so `pnpm dev` is one process on one port, and `dist/` does not exist.
+The page is only ever served to localhost, which is what makes that safe. Don't
+add `vite build` to make it "production-ready" — there is no production.
 
 **Money logic leaves a test behind.** Anything that signs, sums, excludes or
 categorises gets one `node --test` case in `src/*/*.test.ts`. No frameworks, no
-fixtures built from real transactions.
+fixtures built from real transactions. The React components are deliberately
+dumb so this stays possible: logic that deserves a test belongs in `src/core/`,
+where Node can reach it without a DOM.
 
 ## Data model
 

@@ -3,10 +3,10 @@
  * network. Everything here is exported types the dashboard builds against
  * directly: keep the shape flat and treat it as a contract.
  *
- * This is the *only* implementation of the money aggregation. The dashboard
- * embeds `STATS_FNS` verbatim into the page (see the bottom of this file), so
- * the browser re-filters with the exact code `node --test` pins rather than a
- * hand-synced copy that drifts the first time a rule changes.
+ * This is the *only* implementation of the money aggregation. The React app
+ * imports this module and Vite bundles it, so the browser re-filters with the
+ * exact code `node --test` pins rather than a hand-synced copy that drifts the
+ * first time a rule changes. Keep it free of `node:` imports for that reason.
  */
 import type { Categorized } from './types.ts';
 
@@ -264,24 +264,17 @@ export function yearStats(year: string, monthsTxns: { month: string; txns: Categ
 }
 
 /**
- * Every function in this module, in declaration order so `const` bindings are
- * initialised before their users. `src/dashboard.ts` serialises these with
- * `.toString()` into the page's <script>; Node's type stripping blanks the
- * annotations to whitespace, so what lands in the browser is valid JS and,
- * more to the point, is literally this file. Add a helper here when you add
- * one above, or the page throws a ReferenceError.
+ * The dashboard shows subscriptions and recurring rows as one list, and the two
+ * overlap. Deduplicated on `(source, id)`, the database's own key.
  */
-export const STATS_FNS = [
-  toCents,
-  fromCents,
-  round4,
-  byDate,
-  allocateShares,
-  categoriesFromCents,
-  aggregateCents,
-  topCounterparties,
-  monthStats,
-  blindSpot,
-  byMonth,
-  yearStats,
-];
+export function subsAndRecurring(stats: MonthStats): Categorized[] {
+  const seen = new Set<string>();
+  return [...stats.subscriptions, ...stats.recurring]
+    .filter((t) => {
+      const key = `${t.source}:${t.id}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort(byDate);
+}
