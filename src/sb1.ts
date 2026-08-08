@@ -1,6 +1,7 @@
 import { createServer } from 'node:http';
 import { execFile, execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
+import { spend } from './budget.ts';
 
 const API = 'https://api.sparebank1.no';
 const KEYCHAIN_SERVICE = 'sb1-banking';
@@ -41,6 +42,7 @@ function keychainGet(): string | null {
 type TokenResponse = { access_token: string; refresh_token: string; expires_in: number };
 
 async function postToken(params: Record<string, string>): Promise<TokenResponse> {
+  spend(); // token exchanges count against the hourly limit like anything else
   const res = await fetch(`${API}/oauth/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -116,6 +118,7 @@ async function getAccessToken(): Promise<string> {
 
 /** GET an SB1 API path. Everything personal-banking answers to the v1 media type. */
 export async function get(path: string): Promise<unknown> {
+  spend();
   const res = await fetch(`${API}${path}`, {
     headers: {
       Authorization: `Bearer ${await getAccessToken()}`,
