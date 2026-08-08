@@ -8,6 +8,7 @@ import {
   DownIcon,
   FlatIcon,
   Icon,
+  SearchIcon,
   SortAscIcon,
   SortDescIcon,
   SortableIcon,
@@ -172,6 +173,9 @@ type SortKey = keyof typeof SORTS;
 
 interface TransactionsCardProps {
   txns: Categorized[];
+  /** The search box sits on the table it filters, rather than off in the filter bar. */
+  search: string;
+  onSearch: (search: string) => void;
 }
 
 /**
@@ -181,7 +185,7 @@ interface TransactionsCardProps {
  * ponytail: renders every row. A year is a couple of thousand `<tr>` and the
  * page is local — virtualise or paginate only if that ever gets slow.
  */
-export const TransactionsCard = ({ txns }: TransactionsCardProps) => {
+export const TransactionsCard = ({ txns, search, onSearch }: TransactionsCardProps) => {
   const [by, setBy] = useState<SortKey | null>('date');
   const [asc, setAsc] = useState(false);
 
@@ -204,6 +208,22 @@ export const TransactionsCard = ({ txns }: TransactionsCardProps) => {
 
   return (
     <Card title={`Transactions (${txns.length})`} icon={TransactionsIcon} wide>
+      <div className="relative">
+        <Icon
+          aria-hidden
+          icon={SearchIcon}
+          size={17}
+          className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-muted"
+        />
+        <input
+          type="search"
+          className="w-full rounded-md border border-line bg-page py-2.5 pr-3 pl-10 text-sm text-ink"
+          placeholder="Search merchant or description…"
+          value={search}
+          onChange={(e) => onSearch(e.target.value)}
+          aria-label="Search merchant or description"
+        />
+      </div>
       {sorted.length === 0 ? (
         <div className="py-10 text-center text-ink-muted">No transactions match the current filters.</div>
       ) : (
