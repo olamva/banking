@@ -33,6 +33,15 @@
     color-scheme: light;
   }
 
+  /*
+   * Views differ in height, so the scrollbar appears and disappears as you move
+   * between them, and every column shifts sideways with it. Reserving the gutter
+   * costs nothing under macOS overlay scrollbars, where the gutter is zero width.
+   */
+  html {
+    scrollbar-gutter: stable;
+  }
+
   @media (prefers-color-scheme: dark) {
     html:not([data-theme='light']) {
       color-scheme: dark;
