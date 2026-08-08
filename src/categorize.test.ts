@@ -50,6 +50,16 @@ test('an override still applies to a card row', () => {
   assert.equal(out.category, 'subscriptions');
 });
 
+test('an override matches the merchant, which is where a card row carries it', () => {
+  // The card's own description is a generic Varekjøp; the merchant only exists
+  // in counterparty, filled from the issuer's statement export.
+  const [out] = categorize(
+    [classified({ source: 'card', description: 'Varekjøp', counterparty: 'KAFFEBAR, OSLO', bankCategory: null })],
+    { kaffebar: 'kafe_og_restaurant' },
+  );
+  assert.equal(out.category, 'kafe_og_restaurant');
+});
+
 test('sb1 row with no bankCategory falls to ukategorisert, not the card bucket', () => {
   const [out] = categorize([classified({ bankCategory: null })], {});
   assert.equal(out.category, 'ukategorisert');
