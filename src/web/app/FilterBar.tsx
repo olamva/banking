@@ -5,6 +5,7 @@
  */
 import type { Filters } from '../../core/select.ts';
 import { NO_FILTERS } from '../../core/select.ts';
+import { Icon, ResetFiltersIcon, SearchIcon } from './icons.ts';
 
 export type View = 'month' | 'year';
 
@@ -78,14 +79,22 @@ export const FilterBar = ({ view, onView, months, month, onMonth, years, year, o
         <option value="card">Card only</option>
       </select>
 
-      <input
-        type="search"
-        className={`${CONTROL} w-40`}
-        placeholder="Search description…"
-        value={filters.search}
-        onChange={(e) => onFilters({ ...filters, search: e.target.value })}
-        aria-label="Search description"
-      />
+      <div className="relative">
+        <Icon
+          aria-hidden
+          icon={SearchIcon}
+          size={14}
+          className="pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-ink-muted"
+        />
+        <input
+          type="search"
+          className={`${CONTROL} w-44 pl-7`}
+          placeholder="Search description…"
+          value={filters.search}
+          onChange={(e) => onFilters({ ...filters, search: e.target.value })}
+          aria-label="Search description"
+        />
+      </div>
       <input
         type="number"
         className={`${CONTROL} w-24`}
@@ -106,8 +115,9 @@ export const FilterBar = ({ view, onView, months, month, onMonth, years, year, o
       <button
         type="button"
         onClick={() => onFilters(NO_FILTERS)}
-        className="ml-auto rounded-md border border-line px-2.5 py-1.5 text-xs text-ink-muted"
+        className="ml-auto flex items-center gap-1.5 rounded-md border border-line px-2.5 py-1.5 text-xs text-ink-muted"
       >
+        <Icon aria-hidden icon={ResetFiltersIcon} size={14} />
         Reset filters
       </button>
 

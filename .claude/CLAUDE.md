@@ -34,7 +34,7 @@ src/core/select.ts    which rows are in view; no money logic, ever
 src/core/pipeline.ts  the offline chain, importable by the CLI and the server
 
 src/web/serve.ts      pnpm dev — /api/txns, Vite middleware, the refresh policy
-src/web/app/          the React app: App, FilterBar, Charts, Cards
+src/web/app/          the React app: App, FilterBar, Charts, Cards, icons
 src/cli.ts            command dispatch
 
 vite.config.ts    root is src/web/app; middleware mode only, there is no build
@@ -89,8 +89,11 @@ The dashboard is **served on 127.0.0.1 and read locally**. Never publish it —
 not as a hosted artifact, not to a gist, not to any preview or sharing service.
 It embeds every transaction you have. Same rule for screenshots of it.
 
-**The dependency list is short on purpose.** React, Vite and Tailwind v4 are in,
-for the dashboard and nothing else. Everything server-side is still stdlib:
+**The dependency list is short on purpose.** React, Vite, Tailwind v4 and
+Hugeicons are in, for the dashboard and nothing else. Hugeicons is imported one
+icon module at a time through `src/web/app/icons.ts` — its barrel export is a
+6 MB file and there is no build step to tree-shake it, so never import from
+`@hugeicons/core-free-icons` directly. Everything server-side is still stdlib:
 Node's built-in TS execution, `fetch`, `node:http`/`node:https`, `node:sqlite`
 and the macOS `security` keychain. No ORM, no query builder, no migration tool,
 no chart library, no component library, no state manager, no router, no date

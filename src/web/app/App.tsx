@@ -26,6 +26,18 @@ import { Card, DataTable, MeterTile, StatTile, TableToggle, TransactionsCard, de
 import { FilterBar, type View } from './FilterBar.tsx';
 import { cycleTheme, useTransactions } from './data.ts';
 import { fmtNOK, fmtPct } from './format.ts';
+import {
+  CategoryIcon,
+  ChangesIcon,
+  CounterpartyIcon,
+  ErrorIcon,
+  Icon,
+  InfoIcon,
+  LoadingIcon,
+  MonthlyIcon,
+  RecurringIcon,
+  ThemeIcon,
+} from './icons.ts';
 
 /** What the card meter says underneath — only when the statement export has not reached every row. */
 const cardNote = (rows: Categorized[]): string => {
@@ -41,9 +53,12 @@ interface ExcludedNoteProps {
 /** An audit line, so it always reports the whole period and ignores the filters. */
 const ExcludedNote = ({ excluded, period }: ExcludedNoteProps) =>
   excluded.count === 0 ? null : (
-    <div className="mt-3 text-[11px] text-ink-muted">
-      {excluded.count} transaction(s) totalling {fmtNOK(excluded.total)} excluded this {period} (internal transfers, card bill
-      payments).
+    <div className="mt-3 flex items-start gap-1.5 text-[11px] text-ink-muted">
+      <Icon aria-hidden icon={InfoIcon} size={13} className="mt-px shrink-0" />
+      <span>
+        {excluded.count} transaction(s) totalling {fmtNOK(excluded.total)} excluded this {period} (internal transfers, card
+        bill payments).
+      </span>
     </div>
   );
 
@@ -100,7 +115,7 @@ const MonthView = ({ txns, filters, onFilters, period: month }: ViewProps) => {
         {single && <TransactionsCard txns={shown} />}
 
         {!single && cats.length > 0 && (
-          <Card title="Spending by category">
+          <Card title="Spending by category" icon={CategoryIcon}>
             <HorizontalBars items={cats} onPick={pickCategory(onFilters)} />
             <TableToggle
               columns={[{ label: 'Category' }, { label: 'Total', num: true }]}
@@ -110,7 +125,7 @@ const MonthView = ({ txns, filters, onFilters, period: month }: ViewProps) => {
         )}
 
         {deltas.length > 0 && (
-          <Card title="Biggest changes vs last month">
+          <Card title="Biggest changes vs last month" icon={ChangesIcon}>
             <DivergingBars deltas={deltas} onPick={pickCategory(onFilters)} />
             <TableToggle
               columns={[{ label: 'Category' }, { label: 'This month', num: true }, { label: 'Last month', num: true }, { label: 'Delta', num: true }]}
@@ -120,7 +135,7 @@ const MonthView = ({ txns, filters, onFilters, period: month }: ViewProps) => {
         )}
 
         {cps.length > 0 && (
-          <Card title="Biggest counterparties">
+          <Card title="Biggest counterparties" icon={CounterpartyIcon}>
             <HorizontalBars items={cps} onPick={pickCounterparty(onFilters)} />
             <TableToggle
               columns={[{ label: 'Counterparty' }, { label: 'Total', num: true }, { label: 'Count', num: true }]}
@@ -130,7 +145,7 @@ const MonthView = ({ txns, filters, onFilters, period: month }: ViewProps) => {
         )}
 
         {subs.length > 0 && (
-          <Card title="Subscriptions & recurring">
+          <Card title="Subscriptions & recurring" icon={RecurringIcon}>
             <DataTable
               columns={[{ label: 'Date' }, { label: 'Description' }, { label: 'Category' }, { label: 'Amount', num: true }]}
               rows={subs.map((t) => [t.date, t.counterparty ?? t.description, t.category, fmtNOK(t.amount)])}
@@ -166,7 +181,7 @@ const YearView = ({ txns, filters, onFilters, period: year }: ViewProps) => {
 
       <div className="grid grid-cols-[repeat(auto-fit,minmax(360px,1fr))] gap-4">
         {stats.months.length > 0 && (
-          <Card title="Income & spend by month" wide>
+          <Card title="Income & spend by month" icon={MonthlyIcon} wide>
             <ChartLegend />
             <MonthlyGroupedBars series={stats.months} />
             <TableToggle
@@ -183,7 +198,7 @@ const YearView = ({ txns, filters, onFilters, period: year }: ViewProps) => {
         )}
 
         {!single && cats.length > 0 && (
-          <Card title="Spending by category (year)">
+          <Card title="Spending by category (year)" icon={CategoryIcon}>
             <HorizontalBars items={cats} onPick={pickCategory(onFilters)} />
             <TableToggle
               columns={[{ label: 'Category' }, { label: 'Total', num: true }]}
@@ -229,8 +244,9 @@ export const App = () => {
         <button
           type="button"
           onClick={cycleTheme}
-          className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-ink-soft"
+          className="flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-ink-soft"
         >
+          <Icon aria-hidden icon={ThemeIcon} size={14} />
           Toggle theme
         </button>
       </header>
@@ -249,8 +265,18 @@ export const App = () => {
         onFilters={setFilters}
       />
 
-      {load.status === 'loading' && <div className="py-10 text-center text-ink-muted">Loading…</div>}
-      {load.status === 'error' && <div className="py-10 text-center text-critical">Could not load transactions: {load.message}</div>}
+      {load.status === 'loading' && (
+        <div className="flex items-center justify-center gap-2 py-10 text-ink-muted">
+          <Icon aria-hidden icon={LoadingIcon} size={16} className="animate-spin" />
+          Loading…
+        </div>
+      )}
+      {load.status === 'error' && (
+        <div className="flex items-center justify-center gap-2 py-10 text-critical">
+          <Icon aria-hidden icon={ErrorIcon} size={16} className="shrink-0" />
+          Could not load transactions: {load.message}
+        </div>
+      )}
       {load.status === 'ready' && txns.length === 0 && (
         <div className="py-10 text-center text-ink-muted">No transactions yet — run `pnpm sb1 rebuild`.</div>
       )}

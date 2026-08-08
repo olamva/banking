@@ -4,16 +4,32 @@
 import { useState, type ReactNode } from 'react';
 import type { Categorized } from '../../core/types.ts';
 import { fmtNOK, fmtPct } from './format.ts';
+import {
+  DownIcon,
+  FlatIcon,
+  Icon,
+  SortAscIcon,
+  SortDescIcon,
+  SortableIcon,
+  TableIcon,
+  TransactionsIcon,
+  UpIcon,
+  type IconSvgElement,
+} from './icons.ts';
 
 interface CardProps {
   title: string;
+  icon?: IconSvgElement;
   wide?: boolean;
   children: ReactNode;
 }
 
-export const Card = ({ title, wide, children }: CardProps) => (
+export const Card = ({ title, icon, wide, children }: CardProps) => (
   <div className={`min-w-0 rounded-[10px] border border-line bg-surface p-4 ${wide ? 'col-span-full' : ''}`}>
-    <h2 className="mb-2.5 text-sm font-semibold">{title}</h2>
+    <h2 className="mb-2.5 flex items-center gap-1.5 text-sm font-semibold">
+      {icon && <Icon aria-hidden icon={icon} size={15} className="shrink-0 text-ink-soft" />}
+      {title}
+    </h2>
     {children}
   </div>
 );
@@ -42,8 +58,18 @@ export const StatTile = ({ label, value, delta }: StatTileProps) => (
     <div className="text-xs text-ink-soft">{label}</div>
     <div className="mt-1 text-[26px] font-semibold">{value}</div>
     {delta && (
-      <div className={`mt-1 text-xs ${Math.abs(delta.pct) < 0.005 ? 'text-ink-muted' : delta.good ? 'text-good' : 'text-critical'}`}>
-        {delta.raw > 0 ? '↑' : delta.raw < 0 ? '↓' : '→'} {fmtNOK(Math.abs(delta.raw))} vs last month
+      <div
+        className={`mt-1 flex items-center gap-1 text-xs ${Math.abs(delta.pct) < 0.005 ? 'text-ink-muted' : delta.good ? 'text-good' : 'text-critical'}`}
+      >
+        {/* Labelled, not decorative: direction is otherwise only in the colour. */}
+        <Icon
+          role="img"
+          aria-label={delta.raw > 0 ? 'up' : delta.raw < 0 ? 'down' : 'unchanged'}
+          icon={delta.raw > 0 ? UpIcon : delta.raw < 0 ? DownIcon : FlatIcon}
+          size={14}
+          className="shrink-0"
+        />
+        {fmtNOK(Math.abs(delta.raw))} vs last month
       </div>
     )}
   </div>
@@ -70,8 +96,10 @@ export const MeterTile = ({ label, share, note }: MeterTileProps) => (
 export interface Column {
   label: string;
   num?: boolean;
-  /** Set to make the header a sort button. The caller owns the sort and the arrow in `label`. */
+  /** Set to make the header a sort button. The caller owns the sort; the header owns the arrow. */
   onClick?: () => void;
+  /** Which way this column is sorted, or null when it is sortable but not the sorted one. */
+  sort?: 'asc' | 'desc' | null;
 }
 
 interface DataTableProps {
@@ -89,11 +117,24 @@ export const DataTable = ({ columns, rows, scroll }: DataTableProps) => (
           {columns.map((c) => (
             <th
               key={c.label}
+              aria-sort={c.sort ? (c.sort === 'asc' ? 'ascending' : 'descending') : undefined}
               className={`border-b border-grid bg-surface py-1 pr-2 font-semibold ${c.num ? 'text-right' : 'text-left'} ${scroll ? 'sticky top-0' : ''}`}
             >
               {c.onClick ? (
-                <button type="button" onClick={c.onClick} className="font-semibold text-ink-soft hover:text-ink">
+                <button
+                  type="button"
+                  onClick={c.onClick}
+                  className="inline-flex items-center gap-1 font-semibold text-ink-soft hover:text-ink"
+                >
                   {c.label}
+                  {/* Always shown, so a sortable column looks sortable before anyone hovers it.
+                      Decorative — `aria-sort` on the `th` above says the same thing. */}
+                  <Icon
+                    aria-hidden
+                    icon={c.sort === 'asc' ? SortAscIcon : c.sort === 'desc' ? SortDescIcon : SortableIcon}
+                    size={13}
+                    className={`shrink-0 ${c.sort ? '' : 'text-ink-muted opacity-50'}`}
+                  />
                 </button>
               ) : (
                 c.label
@@ -125,7 +166,14 @@ interface TableToggleProps {
 /** The numbers behind a chart, one click away — collapsed so they stay out of the way. */
 export const TableToggle = ({ columns, rows }: TableToggleProps) => (
   <details className="mt-2.5">
-    <summary className="cursor-pointer text-xs text-ink-muted">Table</summary>
+    {/* The icon sits in a span rather than on the summary: `display: flex` on a
+        summary drops the disclosure marker. */}
+    <summary className="cursor-pointer text-xs text-ink-muted">
+      <span className="inline-flex items-center gap-1.5 align-middle">
+        <Icon aria-hidden icon={TableIcon} size={13} />
+        Table
+      </span>
+    </summary>
     <DataTable columns={columns} rows={rows} />
   </details>
 );
@@ -153,20 +201,28 @@ interface TransactionsCardProps {
  * page is local — virtualise or paginate only if that ever gets slow.
  */
 export const TransactionsCard = ({ txns }: TransactionsCardProps) => {
-  const [by, setBy] = useState<SortKey>('date');
+  const [by, setBy] = useState<SortKey | null>('date');
   const [asc, setAsc] = useState(false);
 
-  const sorted = [...txns].sort((a, b) => (asc ? 1 : -1) * SORTS[by](a, b));
+  const sorted = by ? [...txns].sort((a, b) => (asc ? 1 : -1) * SORTS[by](a, b)) : txns;
 
-  // Names A-Z on first click, everything else biggest/newest first.
+  // Names A-Z on first click, everything else biggest/newest first. A third
+  // click drops the sort and the rows fall back to the order they arrived in.
+  const firstAsc = (key: SortKey) => key === 'merchant';
   const head = (label: string, key: SortKey, num?: boolean): Column => ({
-    label: by === key ? `${label} ${asc ? '↑' : '↓'}` : label,
+    label,
     num,
-    onClick: () => (by === key ? setAsc(!asc) : (setBy(key), setAsc(key === 'merchant'))),
+    sort: by === key ? (asc ? 'asc' : 'desc') : null,
+    onClick: () =>
+      by !== key
+        ? (setBy(key), setAsc(firstAsc(key)))
+        : asc === firstAsc(key)
+          ? setAsc(!asc)
+          : setBy(null),
   });
 
   return (
-    <Card title={`Transactions (${txns.length})`} wide>
+    <Card title={`Transactions (${txns.length})`} icon={TransactionsIcon} wide>
       {sorted.length === 0 ? (
         <div className="py-10 text-center text-ink-muted">No transactions match the current filters.</div>
       ) : (
