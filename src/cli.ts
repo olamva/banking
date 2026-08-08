@@ -5,7 +5,7 @@ import * as eb from './eb.ts';
 import { normalizeMonth } from './normalize.ts';
 import { exclude, type Accounts } from './exclude.ts';
 import { categorize, loadOverrides } from './categorize.ts';
-import { enrich, readStatements, type StatementRow } from './statement.ts';
+import { enrich, readStatements, parseStatement, statementRange, type StatementRow } from './statement.ts';
 import { openDb, upsertMany, rebuild as rebuildDb, queryMonth, queryRange } from './db.ts';
 import { monthStats, yearStats, byMonth } from './stats.ts';
 import { writeDashboard } from './dashboard.ts';
@@ -122,6 +122,42 @@ async function pipeline(month: string, statement: StatementRow[]): Promise<Categ
   return categorize(exclude(txns, accountsJson), await loadOverrides());
 }
 
+const STATEMENTS = `${RAW}/card-statements`;
+
+/**
+ * Ingest a statement export and rebuild. There is no API behind this — the
+ * issuer publishes the merchant only in the CSV you download from the portal,
+ * which is the whole reason this file exists — so it is a manual export, and
+ * this command is the manual step made repeatable.
+ *
+ * Stored under its own booking-date range, and never over an existing file:
+ * data/raw/ is immutable. Re-running with the same export is a no-op.
+ */
+async function statement(): Promise<void> {
+  const src = args[1];
+  if (!src) throw new Error('statement needs a path: pnpm sb1 statement ~/Downloads/transactions.csv');
+
+  const csv = await readFile(src.replace(/^~/, process.env.HOME ?? '~'), 'utf8');
+  const rows = parseStatement(csv);
+  if (!rows.length) throw new Error(`${src} parsed to no rows — is it the issuer's CSV export?`);
+
+  const { from, to } = statementRange(rows);
+  const dest = `${STATEMENTS}/${from}_${to}.csv`;
+  await mkdir(STATEMENTS, { recursive: true });
+
+  if (existsSync(dest)) {
+    if ((await readFile(dest, 'utf8')) === csv) {
+      console.error(`${dest} already holds this export — nothing to do`);
+    } else {
+      throw new Error(`${dest} exists with different content. data/raw/ is immutable: rename or remove it first.`);
+    }
+  } else {
+    await writeFile(dest, csv);
+    console.error(`wrote ${dest} — ${rows.length} rows, ${from} to ${to}`);
+  }
+  await rebuild();
+}
+
 /** Step 7: normalize -> exclude -> categorize -> upsert. Idempotent per (source, id). */
 async function importCmd(): Promise<void> {
   const months = flag('month') ? [flag('month')!] : monthsOnDisk();
@@ -225,6 +261,7 @@ try {
   else if (cmd === 'sync') await sync();
   else if (cmd === 'eb-login') await ebLogin();
   else if (cmd === 'eb-sync') await ebSync();
+  else if (cmd === 'statement') await statement();
   else if (cmd === 'import') await importCmd();
   else if (cmd === 'rebuild') await rebuild();
   else if (cmd === 'report') report();
@@ -232,11 +269,14 @@ try {
   else {
     console.error('usage: pnpm sb1 <login | accounts | sync --month YYYY-MM [--force]');
     console.error('                | eb-login | eb-sync --month YYYY-MM [--force]');
-    console.error('                | import [--month YYYY-MM] | rebuild');
+    console.error('                | statement <file.csv> | import [--month YYYY-MM] | rebuild');
     console.error('                | report --month YYYY-MM | report --year YYYY | dashboard>');
     process.exit(1);
   }
 } catch (e) {
-  console.error(e instanceof ReauthRequired ? e.message : e);
+  // Every throw here is a message meant for the person running the command —
+  // a missing flag, an expired consent, a file that would overwrite raw data.
+  // The stack is noise that buries it; set DEBUG to get it back.
+  console.error(e instanceof Error && !process.env.DEBUG ? e.message : e);
   process.exit(1);
 }
