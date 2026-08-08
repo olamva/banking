@@ -19,12 +19,19 @@ pnpm typecheck
 ## Layout
 
 ```
-src/sb1.ts        auth, keychain, get(), monthRange()
-src/cli.ts        command dispatch and the sync/accounts commands
+src/sb1.ts        SpareBank 1 auth, keychain, get(), monthRange()
+src/eb.ts         Enable Banking auth and card transactions
+src/types.ts      Txn / Classified / Categorized — the shared contract
+src/cli.ts        command dispatch
 data/raw/         API responses, verbatim, gitignored
+data/banking.db   derived SQLite store, rebuildable from data/raw, gitignored
 accounts.json     which accounts are mine (hand-edited), gitignored
 overrides.json    description pattern -> category, gitignored
 ```
+
+`data/raw/` stays the source of truth: it is the only thing that costs an API
+call to reproduce. The database is **derived and disposable** — deleting it must
+never lose anything, and `rebuild` must reconstruct it from `data/raw/` alone.
 
 ## Rules
 
@@ -40,16 +47,22 @@ midnight, so every July timestamp is `22:00Z`. Format with
 `Europe/Oslo`, never UTC — UTC shifts every transaction back one day and moves
 the 1st of the month into the previous month.
 
-**Nothing personal enters git.** No account numbers, account keys, names,
-balances or descriptions in source, tests, fixtures, commit messages or docs.
-`.env.local`, `data/`, `accounts.json` and `overrides.json` are gitignored;
-keep it that way. JSON and CSV output are unredacted — strip account numbers
-before anything leaves the machine.
+**Nothing personal enters git, or the network.** No account numbers, account
+keys, names, balances or descriptions in source, tests, fixtures, commit
+messages or docs. `.env.local`, `data/`, `accounts.json` and `overrides.json`
+are gitignored; keep it that way. JSON and CSV output are unredacted — strip
+account numbers before anything leaves the machine.
+
+The dashboard is a **local file, opened locally**. Never publish it — not as a
+hosted artifact, not to a gist, not to any preview or sharing service. It embeds
+every transaction you have. Same rule for screenshots of it.
 
 **Zero runtime dependencies.** Node's built-in TS execution, `fetch`,
-`node:http` and the macOS `security` keychain cover the whole job. devDeps are
-typescript and @types/node only. Don't add a package for something a few lines
-of stdlib does; check with me first if you think one is genuinely warranted.
+`node:http`/`node:https`, `node:sqlite` and the macOS `security` keychain cover
+the whole job. devDeps are typescript and @types/node only. No ORM, no query
+builder, no migration tool, no chart library, no frontend framework — all of
+those are a few lines of stdlib or hand-written SVG here. Check with me first if
+you think a package is genuinely warranted.
 
 **Money logic leaves a test behind.** Anything that signs, sums, excludes or
 categorises gets one `node --test` case in `src/*.test.ts`. No frameworks, no

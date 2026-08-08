@@ -36,3 +36,9 @@ export type Classified = Txn & {
   excluded: boolean;
   reason: string | null;
 };
+
+/** Step 6 output, and what the database stores. */
+export type Categorized = Classified & {
+  /** Final category after overrides. Card rows always land in the card bucket. */
+  category: string;
+};

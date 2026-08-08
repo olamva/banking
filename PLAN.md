@@ -15,6 +15,9 @@ Enable Banking. Feb–Jul 2026 is on disk for both sources.
 
 ## Next
 
+Everything below is pure and testable except the storage layer. Sync stays the
+only thing that touches a network.
+
 **Step 4 — normalize.** `src/normalize.ts`: flatten `data/raw/<month>/*.json`
 into `Txn[]`. Two shapes go in (see the table in `CLAUDE.md`) and one comes out.
 The traps: SB1 dates are epoch millis at Oslo midnight, so format with
@@ -28,15 +31,29 @@ marked `mine` (both sides present — match amount + date + opposite sign), and
 `Kredittbanken ASA` bill payments, which are now double-counting because the
 card's own rows carry the spending.
 
-**Step 6 — categorize.** Bank category as the base layer, `overrides.json`
-(description pattern → category) on top. Overrides stay out of source. Card rows
-have no bank category, so they need their own bucket rather than falling into
-`ukategorisert` alongside SB1 rows that merely failed classification.
+**Step 6 — categorize.** `src/categorize.ts`: produce `Categorized[]`. Bank
+category as the base layer, `overrides.json` (description pattern → category) on
+top. Overrides stay out of source. Card rows have no bank category, so they get
+their own bucket rather than falling into `ukategorisert` alongside SB1 rows
+that merely failed classification.
 
-**Step 7 — report.** `report --month YYYY-MM` emitting JSON and markdown:
-category totals, top counterparties, subscriptions, delta vs previous month.
-State the card bucket's share of the month explicitly — it is ~40% of spending
-with no merchant detail, and a report that hides that is misleading.
+**Step 7 — storage.** `src/db.ts` over `node:sqlite`, no ORM. One table of
+`Categorized` rows keyed by `(source, id)`, upserted so a re-sync of a month is
+idempotent. Indexed by month and category, since that is what every query does.
+The database is derived: `rebuild` drops it and reconstructs from `data/raw/`,
+and deleting the file must never lose anything.
+
+**Step 8 — statistics.** `src/stats.ts`: pure aggregation over `Categorized[]`
+for one month and for a year. Totals in and out, per-category with share of
+month, top counterparties, subscriptions and recurring, month-over-month delta,
+and per-month series for a year view. Card rows are ~40% of spending with no
+merchant, so every aggregate must expose that share rather than burying it.
+
+**Step 9 — dashboard.** `src/dashboard.ts` renders one self-contained HTML file
+to `data/dashboard.html`, with the data embedded as JSON. Vanilla JS, inline
+SVG, no framework, no chart library, no server, no network requests. Month
+browsing, a year view, and filters. It contains every transaction, so it is
+local-only and never published anywhere.
 
 ## Open questions
 
@@ -85,17 +102,20 @@ cleanly by file if agents stay in their own lane:
 | Step | Owns | Reads | Produces |
 |---|---|---|---|
 | 4 normalize | `src/normalize.ts` | `data/raw/` | `Txn[]` |
-| 5 exclusions | `src/exclude.ts` | `Txn[]` | `Classified[]` |
-| 6 categorize | `src/categorize.ts` | `Classified[]`, `overrides.json` | categories |
-| 7 report | `src/report.ts` | all of the above | JSON + markdown |
+| 5 exclusions | `src/exclude.ts` | `Txn[]`, `accounts.json` | `Classified[]` |
+| 6 categorize | `src/categorize.ts` | `Classified[]`, `overrides.json` | `Categorized[]` |
+| 7 storage | `src/db.ts` | `Categorized[]` | `data/banking.db` |
+| 8 statistics | `src/stats.ts` | `Categorized[]` | aggregates |
+| 9 dashboard | `src/dashboard.ts` | `src/stats.ts` output | `data/dashboard.html` |
 
-The shared type is settled: `src/types.ts` holds `Txn` and `Classified`, so no
-step needs to invent its own shape. Import from there rather than redeclaring,
-and if the type genuinely has to change, say so — every other step depends on it.
+Steps 4 to 8 are independent of each other, because `src/types.ts` already fixes
+the shape every one of them passes along. They can run at the same time. Step 9
+is the exception: it consumes whatever `src/stats.ts` exports, so it starts once
+step 8 has landed.
 
-`src/cli.ts` is shared. Every step adds one command to the dispatch, so touch
-only your own branch of it and expect a small conflict. `src/sb1.ts` and
-`src/eb.ts` should not need changes unless you are adding an API call.
+**Do not touch `src/cli.ts`.** Every step exports plain functions and is wired
+into the CLI afterwards, in one pass. Four agents editing the same dispatch
+block is the only guaranteed conflict in this repo, and it buys nothing.
 
-Step 4 blocks the rest in practice. Steps 5, 6 and 7 can start once `Txn` is
-being produced from real files — before that they have nothing to run against.
+Import types from `src/types.ts` rather than redeclaring them. If a type
+genuinely has to change, say so out loud — every other step depends on it.
