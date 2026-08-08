@@ -156,18 +156,22 @@ export const FilterBar = ({ view, onView, months, month, onMonth, years, year, o
         </summary>
         <div className="absolute z-20 mt-1 max-h-72 w-56 overflow-y-auto rounded-md border border-line bg-surface p-1.5 shadow-lg">
           {/* Same list, read either way round: the only ones to show, or the only
-              ones to hide. One button that flips, not two that look like a
-              choice already made — it names the state it is in, and pressing it
-              is how you leave that state. */}
+              ones to hide. Both words stay visible so the alternative is never a
+              guess, but the whole thing is one button — clicking anywhere on it
+              flips, including the half already lit. */}
           <button
             type="button"
             aria-pressed={excluding}
+            aria-label="Exclude the checked categories"
             onClick={() => onFilters({ ...filters, categoryMode: excluding ? 'include' : 'exclude' })}
-            className={`mb-1.5 w-full rounded-md border px-2 py-1 text-xs text-white ${
-              excluding ? 'border-critical-strong bg-critical-strong' : 'border-series-1 bg-series-1'
-            }`}
+            className="mb-1.5 flex w-full overflow-hidden rounded-md border border-line text-xs"
           >
-            {excluding ? 'Exclude' : 'Include'}
+            <span className={`flex-1 px-2 py-1 ${excluding ? 'bg-page text-ink-soft' : 'bg-series-1 text-white'}`}>
+              Include
+            </span>
+            <span className={`flex-1 px-2 py-1 ${excluding ? 'bg-critical-strong text-white' : 'bg-page text-ink-soft'}`}>
+              Exclude
+            </span>
           </button>
           {categories.length === 0 ? (
             <div className="px-1.5 py-1 text-xs text-ink-muted">Nothing in this period.</div>
