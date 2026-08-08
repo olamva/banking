@@ -1,0 +1,269 @@
+/**
+ * Step 8. Pure aggregation over `Categorized[]` — no I/O, no database import,
+ * no network. Everything here is exported types the dashboard (step 9) builds
+ * against directly: keep the shape flat and treat it as a contract.
+ *
+ * This is the *only* implementation of the money aggregation. The dashboard
+ * embeds `STATS_FNS` verbatim into the page (see the bottom of this file), so
+ * the browser re-filters with the exact code `node --test` pins rather than a
+ * hand-synced copy that drifts the first time a rule changes.
+ */
+import type { Categorized } from './types.ts';
+
+export type CategoryTotal = {
+  category: string;
+  /** NOK, magnitude spent (never negative). */
+  total: number;
+  /** 0-1. Every category's share in one aggregate sums to 1 (or 0 if nothing was spent). */
+  share: number;
+};
+
+export type CounterpartyTotal = {
+  counterparty: string;
+  /** NOK, magnitude spent. */
+  total: number;
+  count: number;
+};
+
+export type CategoryDelta = {
+  category: string;
+  current: number;
+  previous: number;
+  delta: number;
+};
+
+export type ExcludedSummary = {
+  count: number;
+  /** NOK, sum of |amount| across excluded rows — not netted, so a matched transfer pair still shows the volume that moved. */
+  total: number;
+};
+
+export type MonthDelta = {
+  totalIn: number;
+  totalOut: number;
+  net: number;
+};
+
+export type MonthStats = {
+  month: string;
+  totalIn: number;
+  totalOut: number;
+  net: number;
+  categories: CategoryTotal[];
+  /** Top 10 by spend. Card rows have no counterparty and are never in this list. */
+  topCounterparties: CounterpartyTotal[];
+  subscriptions: Categorized[];
+  recurring: Categorized[];
+  categoryDeltas: CategoryDelta[];
+  /** null when no previous month was supplied. */
+  delta: MonthDelta | null;
+  excluded: ExcludedSummary;
+  /** 0-1 share of totalOut that came from card rows — the blind spot, surfaced rather than buried in `categories`. */
+  cardShare: number;
+};
+
+export type MonthSummary = {
+  month: string;
+  totalIn: number;
+  totalOut: number;
+  net: number;
+  cardShare: number;
+  excluded: ExcludedSummary;
+};
+
+export type YearStats = {
+  year: string;
+  /** One entry per input month, sorted ascending — a series ready for charting. */
+  months: MonthSummary[];
+  categories: CategoryTotal[];
+  averageMonth: {
+    totalIn: number;
+    totalOut: number;
+    net: number;
+  };
+  excluded: ExcludedSummary;
+  cardShare: number;
+};
+
+const toCents = (amount: number) => Math.round(amount * 100);
+const fromCents = (cents: number) => cents / 100;
+const round4 = (n: number) => Math.round(n * 10000) / 10000;
+const byDate = (a: Categorized, b: Categorized) => a.date.localeCompare(b.date);
+
+/** Largest-remainder rounding: integer basis points that always sum to 10000, so shares always sum to 1. */
+function allocateShares(parts: number[]): number[] {
+  const total = parts.reduce((sum, p) => sum + p, 0);
+  if (total <= 0) return parts.map(() => 0);
+  const scale = 10000;
+  const raw = parts.map((p) => (p / total) * scale);
+  const bp = raw.map(Math.floor);
+  const remainder = scale - bp.reduce((sum, b) => sum + b, 0);
+  const byFraction = raw
+    .map((r, i) => ({ i, frac: r - Math.floor(r) }))
+    .sort((a, b) => b.frac - a.frac);
+  for (let k = 0; k < remainder; k++) bp[byFraction[k].i]++;
+  return bp.map((b) => b / scale);
+}
+
+function categoriesFromCents(byCategory: Map<string, number>): CategoryTotal[] {
+  const categories = [...byCategory.keys()];
+  const cents = categories.map((c) => byCategory.get(c)!);
+  const shares = allocateShares(cents);
+  return categories
+    .map((category, i) => ({ category, total: fromCents(cents[i]), share: shares[i] }))
+    .sort((a, b) => b.total - a.total);
+}
+
+type CentsAgg = {
+  inCents: number;
+  outCents: number;
+  cardCents: number;
+  categoryCents: Map<string, number>;
+  excludedCount: number;
+  excludedCents: number;
+};
+
+function aggregateCents(txns: Categorized[]): CentsAgg {
+  const agg: CentsAgg = {
+    inCents: 0,
+    outCents: 0,
+    cardCents: 0,
+    categoryCents: new Map(),
+    excludedCount: 0,
+    excludedCents: 0,
+  };
+  for (const t of txns) {
+    const cents = toCents(t.amount);
+    if (t.excluded) {
+      agg.excludedCount++;
+      agg.excludedCents += Math.abs(cents);
+      continue;
+    }
+    if (cents > 0) agg.inCents += cents;
+    if (cents < 0) {
+      const spend = -cents;
+      agg.outCents += spend;
+      agg.categoryCents.set(t.category, (agg.categoryCents.get(t.category) ?? 0) + spend);
+      if (t.source === 'card') agg.cardCents += spend;
+    }
+  }
+  return agg;
+}
+
+function topCounterparties(txns: Categorized[], limit = 10): CounterpartyTotal[] {
+  const byCp = new Map<string, { cents: number; count: number }>();
+  for (const t of txns) {
+    if (t.excluded || t.amount >= 0 || t.counterparty === null) continue;
+    const entry = byCp.get(t.counterparty) ?? { cents: 0, count: 0 };
+    entry.cents += -toCents(t.amount);
+    entry.count++;
+    byCp.set(t.counterparty, entry);
+  }
+  return [...byCp.entries()]
+    .map(([counterparty, { cents, count }]) => ({ counterparty, total: fromCents(cents), count }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, limit);
+}
+
+export function monthStats(month: string, txns: Categorized[], previous?: Categorized[]): MonthStats {
+  const agg = aggregateCents(txns);
+  const prevAgg = previous ? aggregateCents(previous) : null;
+
+  const categoryDeltas: CategoryDelta[] = [];
+  if (prevAgg) {
+    const names = new Set([...agg.categoryCents.keys(), ...prevAgg.categoryCents.keys()]);
+    for (const category of names) {
+      const current = fromCents(agg.categoryCents.get(category) ?? 0);
+      const prev = fromCents(prevAgg.categoryCents.get(category) ?? 0);
+      categoryDeltas.push({ category, current, previous: prev, delta: current - prev });
+    }
+    categoryDeltas.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+  }
+
+  return {
+    month,
+    totalIn: fromCents(agg.inCents),
+    totalOut: fromCents(agg.outCents),
+    net: fromCents(agg.inCents - agg.outCents),
+    categories: categoriesFromCents(agg.categoryCents),
+    topCounterparties: topCounterparties(txns),
+    subscriptions: txns.filter((t) => !t.excluded && t.isSubscription).sort(byDate),
+    recurring: txns.filter((t) => !t.excluded && t.isRecurring).sort(byDate),
+    categoryDeltas,
+    delta: prevAgg
+      ? {
+          totalIn: fromCents(agg.inCents - prevAgg.inCents),
+          totalOut: fromCents(agg.outCents - prevAgg.outCents),
+          net: fromCents(agg.inCents - agg.outCents - (prevAgg.inCents - prevAgg.outCents)),
+        }
+      : null,
+    excluded: { count: agg.excludedCount, total: fromCents(agg.excludedCents) },
+    cardShare: agg.outCents > 0 ? round4(agg.cardCents / agg.outCents) : 0,
+  };
+}
+
+/** Groups by booking month, ready for `yearStats`. */
+export function byMonth(txns: Categorized[]): { month: string; txns: Categorized[] }[] {
+  const buckets = new Map<string, Categorized[]>();
+  for (const t of txns) {
+    const month = t.date.slice(0, 7);
+    const bucket = buckets.get(month);
+    if (bucket) bucket.push(t);
+    else buckets.set(month, [t]);
+  }
+  return [...buckets.entries()].sort().map(([month, txns]) => ({ month, txns }));
+}
+
+export function yearStats(year: string, monthsTxns: { month: string; txns: Categorized[] }[]): YearStats {
+  const sorted = [...monthsTxns].sort((a, b) => a.month.localeCompare(b.month));
+
+  const months: MonthSummary[] = sorted.map(({ month, txns }) => {
+    const agg = aggregateCents(txns);
+    return {
+      month,
+      totalIn: fromCents(agg.inCents),
+      totalOut: fromCents(agg.outCents),
+      net: fromCents(agg.inCents - agg.outCents),
+      cardShare: agg.outCents > 0 ? round4(agg.cardCents / agg.outCents) : 0,
+      excluded: { count: agg.excludedCount, total: fromCents(agg.excludedCents) },
+    };
+  });
+
+  const agg = aggregateCents(sorted.flatMap((m) => m.txns));
+  const n = months.length || 1;
+
+  return {
+    year,
+    months,
+    categories: categoriesFromCents(agg.categoryCents),
+    averageMonth: {
+      totalIn: fromCents(Math.round(agg.inCents / n)),
+      totalOut: fromCents(Math.round(agg.outCents / n)),
+      net: fromCents(Math.round((agg.inCents - agg.outCents) / n)),
+    },
+    excluded: { count: agg.excludedCount, total: fromCents(agg.excludedCents) },
+    cardShare: agg.outCents > 0 ? round4(agg.cardCents / agg.outCents) : 0,
+  };
+}
+
+/**
+ * Every function in this module, in declaration order so `const` bindings are
+ * initialised before their users. `src/dashboard.ts` serialises these with
+ * `.toString()` into the page's <script>; Node's type stripping blanks the
+ * annotations to whitespace, so what lands in the browser is valid JS and,
+ * more to the point, is literally this file. Add a helper here when you add
+ * one above, or the page throws a ReferenceError.
+ */
+export const STATS_FNS = [
+  toCents,
+  fromCents,
+  round4,
+  byDate,
+  allocateShares,
+  categoriesFromCents,
+  aggregateCents,
+  topCounterparties,
+  monthStats,
+  byMonth,
+  yearStats,
+];
