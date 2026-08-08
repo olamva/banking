@@ -1,7 +1,16 @@
+# build / tooling
 node_modules/
-.env.local
-data/
-accounts.json
-overrides.json
+.claude/worktrees/
+
+# credentials — the RSA key Enable Banking signs with, and the loopback TLS pair
+secrets/
 *.pem
 *.key
+.env.local
+
+# personal data: raw API responses, the derived database, the dashboard
+data/
+
+# hand-edited local config, both contain account keys or descriptions
+accounts.json
+overrides.json

@@ -14,7 +14,7 @@ test('transactions follows continuation_key to the end', async (t) => {
     return new Response(JSON.stringify(pages[calls++]), { status: 200 });
   });
   process.env.EB_APP_ID ??= 'test';
-  process.env.EB_KEY_FILE ??= 'localhost-key.pem';
+  process.env.EB_KEY_FILE ??= 'secrets/localhost-key.pem';
 
   const { transactions } = await import('./eb.ts');
   const rows = await transactions('uid', '2026-07-01', '2026-07-31');

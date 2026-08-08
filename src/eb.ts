@@ -59,8 +59,8 @@ export async function login(): Promise<Session> {
 
   const code = await new Promise<string>((resolve, reject) => {
     const server = createServer({
-      cert: readFileSync('localhost-cert.pem'),
-      key: readFileSync('localhost-key.pem'),
+      cert: readFileSync('secrets/localhost-cert.pem'),
+      key: readFileSync('secrets/localhost-key.pem'),
     }, (req, res) => {
       const url = new URL(req.url ?? '/', redirectUri);
       if (url.pathname !== pathname) {
