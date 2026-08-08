@@ -171,6 +171,12 @@ the bank:
 Keep patterns specific — a bare street name will also catch every shop on that
 street.
 
+`/overrides` in Claude Code reads the database and `overrides.json` and suggests
+patterns worth adding — only where a merchant with real money behind it is
+landing in `card spending`, `ukategorisert` or `diverse`. It sends merchant
+names to the model, which is the one place this repo talks to the network on
+purpose. Run `pnpm sb1 rebuild` after accepting a change.
+
 ## Layout
 
 ```
