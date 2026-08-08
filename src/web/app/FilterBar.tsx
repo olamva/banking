@@ -82,6 +82,10 @@ export const FilterBar = ({ view, onView, months, month, onMonth, years, year, o
     };
   }, []);
 
+  // The search box is on the transactions table, in plain sight — a chip for it
+  // there would only be a second copy that shoves the page down as you type.
+  const searchChip = filters.search !== '' && view !== 'transactions';
+  const chips = picked > 0 || searchChip;
   const dirty = picked > 0 || filters.search !== '';
 
   return (
@@ -163,16 +167,14 @@ export const FilterBar = ({ view, onView, months, month, onMonth, years, year, o
         </button>
       )}
 
-      {dirty && (
+      {chips && (
         <div className="flex basis-full flex-wrap gap-1.5" role="group" aria-label="Active filters">
           {filters.categories.map((c) => (
             <Chip key={c} label={categoryLabel(c)} onRemove={() => toggleCategory(c)} />
           ))}
-          {/* The search box lives on the transactions table, so without this a
-              search set there would be invisible everywhere else. */}
-          {filters.search && (
-            <Chip label={`“${filters.search}”`} onRemove={() => onFilters({ ...filters, search: '' })} />
-          )}
+          {/* On the dashboards there is no search box, so without this a search
+              set from a bar click would be a filter with nothing to clear it. */}
+          {searchChip && <Chip label={`“${filters.search}”`} onRemove={() => onFilters({ ...filters, search: '' })} />}
         </div>
       )}
     </div>

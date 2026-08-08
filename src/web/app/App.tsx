@@ -6,10 +6,13 @@
  * directly, so the browser runs the exact code `node --test` pins; `src/core/
  * select.ts` decides which rows are in view. This file only arranges them.
  */
-import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
-import type { Categorized } from '../../core/types.ts';
-import { blindSpot, byMonth, monthStats, subsAndRecurring, totals, yearStats } from '../../core/stats.ts';
-import type { ExcludedSummary } from '../../core/stats.ts';
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import {
   daysAgo,
   distinctCategories,
@@ -21,13 +24,41 @@ import {
   matchesFilters,
   prevMonth,
   type Filters,
-} from '../../core/select.ts';
-import { ChartLegend, DivergingBars, HorizontalBars, MonthlyLines, visibleDeltas } from './Charts.tsx';
-import { Card, DataTable, MeterTile, StatTile, TransactionsCard, deltaInfo } from './Cards.tsx';
-import { FilterBar, type View } from './FilterBar.tsx';
-import { THEMES, readTheme, setTheme, useTransactions, type Theme } from './data.ts';
-import { readUrl, writeUrl } from './url.ts';
-import { categoryLabel, fmtNOK } from './format.ts';
+} from "../../core/select.ts";
+import type { ExcludedSummary } from "../../core/stats.ts";
+import {
+  blindSpot,
+  byMonth,
+  monthStats,
+  subsAndRecurring,
+  totals,
+  yearStats,
+} from "../../core/stats.ts";
+import type { Categorized } from "../../core/types.ts";
+import {
+  Card,
+  DataTable,
+  MeterTile,
+  StatTile,
+  TransactionsCard,
+  deltaInfo,
+} from "./Cards.tsx";
+import {
+  ChartLegend,
+  DivergingBars,
+  HorizontalBars,
+  MonthlyLines,
+  visibleDeltas,
+} from "./Charts.tsx";
+import { FilterBar, type View } from "./FilterBar.tsx";
+import {
+  THEMES,
+  readTheme,
+  setTheme,
+  useTransactions,
+  type Theme,
+} from "./data.ts";
+import { categoryLabel, fmtNOK } from "./format.ts";
 import {
   CategoryIcon,
   ChangesIcon,
@@ -41,14 +72,21 @@ import {
   MonthlyIcon,
   RecurringIcon,
   SystemThemeIcon,
-} from './icons.ts';
+} from "./icons.ts";
+import { readUrl, writeUrl } from "./url.ts";
 
-const THEME_ICONS = { system: SystemThemeIcon, light: LightThemeIcon, dark: DarkThemeIcon };
+const THEME_ICONS = {
+  system: SystemThemeIcon,
+  light: LightThemeIcon,
+  dark: DarkThemeIcon,
+};
 
 /** What the card meter says underneath — only when the statement export has not reached every row. */
 const cardNote = (rows: Categorized[]): string => {
   const blind = blindSpot(rows);
-  return blind.count === 0 ? '' : `${blind.count} rows still have no merchant (${fmtNOK(blind.total)}) — no statement export covers them.`;
+  return blind.count === 0
+    ? ""
+    : `${blind.count} rows still have no merchant (${fmtNOK(blind.total)}) — no statement export covers them.`;
 };
 
 interface ExcludedNoteProps {
@@ -63,8 +101,8 @@ const ExcludedNote = ({ excluded, where }: ExcludedNoteProps) =>
     <div className="mt-3 flex items-start gap-1.5 text-[11px] text-ink-muted">
       <Icon aria-hidden icon={InfoIcon} size={13} className="mt-px shrink-0" />
       <span>
-        {excluded.count} transaction(s) totalling {fmtNOK(excluded.total)} excluded {where} (internal transfers, card bill
-        payments).
+        {excluded.count} transaction(s) totalling {fmtNOK(excluded.total)}{" "}
+        excluded {where} (internal transfers, card bill payments).
       </span>
     </div>
   );
@@ -73,17 +111,27 @@ type SetFilters = Dispatch<SetStateAction<Filters>>;
 
 /** Clicking a bar filters to it; clicking the one already filtered to clears it. */
 const pickCategory = (onFilters: SetFilters) => (category: string) =>
-  onFilters((f) => ({ ...f, categories: f.categories.length === 1 && f.categories[0] === category ? [] : [category] }));
+  onFilters((f) => ({
+    ...f,
+    categories:
+      f.categories.length === 1 && f.categories[0] === category
+        ? []
+        : [category],
+  }));
 
 /**
  * The charts draw whatever string they are handed, so categories go in already
  * readable — which means a click comes back as "Bil og transport" when the
  * filter needs `bil_og_transport`. One map back, built from the rows in view.
  */
-const slugsByLabel = (slugs: string[]) => new Map(slugs.map((s) => [categoryLabel(s), s]));
+const slugsByLabel = (slugs: string[]) =>
+  new Map(slugs.map((s) => [categoryLabel(s), s]));
 
 const pickCounterparty = (onFilters: SetFilters) => (counterparty: string) =>
-  onFilters((f) => ({ ...f, search: f.search === counterparty ? '' : counterparty }));
+  onFilters((f) => ({
+    ...f,
+    search: f.search === counterparty ? "" : counterparty,
+  }));
 
 interface ViewProps {
   txns: Categorized[];
@@ -95,17 +143,33 @@ interface ViewProps {
 const MonthView = ({ txns, filters, onFilters, period: month }: ViewProps) => {
   const all = txns.filter((t) => inMonth(t, month));
   const shown = all.filter((t) => matchesFilters(t, filters));
-  const previous = txns.filter((t) => inMonth(t, prevMonth(month))).filter((t) => matchesFilters(t, filters));
+  const previous = txns
+    .filter((t) => inMonth(t, prevMonth(month)))
+    .filter((t) => matchesFilters(t, filters));
 
   const stats = monthStats(month, shown, previous);
   const prev = monthStats(prevMonth(month), previous);
-  const cats = stats.categories.map((c) => ({ label: categoryLabel(c.category), total: c.total }));
-  const cps = stats.topCounterparties.map((c) => ({ label: c.counterparty, total: c.total, count: c.count }));
+  const cats = stats.categories.map((c) => ({
+    label: categoryLabel(c.category),
+    total: c.total,
+  }));
+  const cps = stats.topCounterparties.map((c) => ({
+    label: c.counterparty,
+    total: c.total,
+    count: c.count,
+  }));
   const subs = subsAndRecurring(stats);
-  const deltas = visibleDeltas(stats.categoryDeltas).map((d) => ({ ...d, category: categoryLabel(d.category) }));
+  const deltas = visibleDeltas(stats.categoryDeltas).map((d) => ({
+    ...d,
+    category: categoryLabel(d.category),
+  }));
 
-  const slugOf = slugsByLabel([...stats.categories.map((c) => c.category), ...stats.categoryDeltas.map((d) => d.category)]);
-  const onCategory = (label: string) => pickCategory(onFilters)(slugOf.get(label) ?? label);
+  const slugOf = slugsByLabel([
+    ...stats.categories.map((c) => c.category),
+    ...stats.categoryDeltas.map((d) => d.category),
+  ]);
+  const onCategory = (label: string) =>
+    pickCategory(onFilters)(slugOf.get(label) ?? label);
 
   // A breakdown of one category is a bar chart of itself. Drop it, and let the
   // rows lead instead — that is what you picked a single category to look at.
@@ -117,15 +181,33 @@ const MonthView = ({ txns, filters, onFilters, period: month }: ViewProps) => {
     <>
       <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
         {stats.totalOut > 0 && (
-          <StatTile label="Spent" value={fmtNOK(stats.totalOut)} delta={deltaInfo(stats.totalOut, prev.totalOut, false)} />
+          <StatTile
+            label="Spent"
+            value={fmtNOK(stats.totalOut)}
+            delta={deltaInfo(stats.totalOut, prev.totalOut, false)}
+          />
         )}
         {stats.totalIn > 0 && (
-          <StatTile label="Income" value={fmtNOK(stats.totalIn)} delta={deltaInfo(stats.totalIn, prev.totalIn, true)} />
+          <StatTile
+            label="Income"
+            value={fmtNOK(stats.totalIn)}
+            delta={deltaInfo(stats.totalIn, prev.totalIn, true)}
+          />
         )}
         {stats.totalIn > 0 && stats.totalOut > 0 && (
-          <StatTile label="Net" value={fmtNOK(stats.net)} delta={deltaInfo(stats.net, prev.net, true)} />
+          <StatTile
+            label="Net"
+            value={fmtNOK(stats.net)}
+            delta={deltaInfo(stats.net, prev.net, true)}
+          />
         )}
-        {stats.cardShare > 0 && <MeterTile label="Card spend" share={stats.cardShare} note={cardNote(shown)} />}
+        {stats.cardShare > 0 && (
+          <MeterTile
+            label="Card spend"
+            share={stats.cardShare}
+            note={cardNote(shown)}
+          />
+        )}
       </div>
 
       <div className="grid grid-cols-[repeat(auto-fit,minmax(360px,1fr))] gap-4">
@@ -150,8 +232,18 @@ const MonthView = ({ txns, filters, onFilters, period: month }: ViewProps) => {
         {subs.length > 0 && (
           <Card title="Subscriptions & recurring" icon={RecurringIcon}>
             <DataTable
-              columns={[{ label: 'Date' }, { label: 'Description' }, { label: 'Category' }, { label: 'Amount', num: true }]}
-              rows={subs.map((t) => [t.date, t.counterparty ?? t.description, categoryLabel(t.category), fmtNOK(t.amount)])}
+              columns={[
+                { label: "Date" },
+                { label: "Description" },
+                { label: "Category" },
+                { label: "Amount", num: true },
+              ]}
+              rows={subs.map((t) => [
+                t.date,
+                t.counterparty ?? t.description,
+                categoryLabel(t.category),
+                fmtNOK(t.amount),
+              ])}
             />
           </Card>
         )}
@@ -168,19 +260,41 @@ const YearView = ({ txns, filters, onFilters, period: year }: ViewProps) => {
 
   const stats = yearStats(year, byMonth(shown));
   const avg = stats.averageMonth;
-  const cats = stats.categories.map((c) => ({ label: categoryLabel(c.category), total: c.total }));
+  const cats = stats.categories.map((c) => ({
+    label: categoryLabel(c.category),
+    total: c.total,
+  }));
   const single = filters.categories.length === 1;
 
   const slugOf = slugsByLabel(stats.categories.map((c) => c.category));
-  const onCategory = (label: string) => pickCategory(onFilters)(slugOf.get(label) ?? label);
+  const onCategory = (label: string) =>
+    pickCategory(onFilters)(slugOf.get(label) ?? label);
 
   return (
     <>
       <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
-        {avg.totalOut > 0 && <StatTile label="Average monthly spend" value={fmtNOK(avg.totalOut)} />}
-        {avg.totalIn > 0 && <StatTile label="Average monthly income" value={fmtNOK(avg.totalIn)} />}
-        {avg.totalIn > 0 && avg.totalOut > 0 && <StatTile label="Average monthly net" value={fmtNOK(avg.net)} />}
-        {stats.cardShare > 0 && <MeterTile label="Card spend" share={stats.cardShare} note={cardNote(shown)} />}
+        {avg.totalOut > 0 && (
+          <StatTile
+            label="Average monthly spend"
+            value={fmtNOK(avg.totalOut)}
+          />
+        )}
+        {avg.totalIn > 0 && (
+          <StatTile
+            label="Average monthly income"
+            value={fmtNOK(avg.totalIn)}
+          />
+        )}
+        {avg.totalIn > 0 && avg.totalOut > 0 && (
+          <StatTile label="Average monthly net" value={fmtNOK(avg.net)} />
+        )}
+        {stats.cardShare > 0 && (
+          <MeterTile
+            label="Card spend"
+            share={stats.cardShare}
+            note={cardNote(shown)}
+          />
+        )}
       </div>
 
       <div className="grid grid-cols-[repeat(auto-fit,minmax(360px,1fr))] gap-4">
@@ -211,16 +325,23 @@ interface TransactionsViewProps {
 }
 
 /** The rows themselves, with what they add up to. No deltas — a range has no previous range. */
-const TransactionsView = ({ rows, filters, onFilters }: TransactionsViewProps) => {
+const TransactionsView = ({
+  rows,
+  filters,
+  onFilters,
+}: TransactionsViewProps) => {
   const shown = rows.filter((t) => matchesFilters(t, filters));
   const sums = totals(shown);
 
   return (
     <>
+      {/* All three, always — unlike the dashboards, which hide a tile they have
+          no rows for. Here the numbers move on every keystroke, and a tile that
+          vanishes at zero takes the rows below it for a ride up the page. */}
       <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
-        {sums.totalOut > 0 && <StatTile label="Spent" value={fmtNOK(sums.totalOut)} />}
-        {sums.totalIn > 0 && <StatTile label="Income" value={fmtNOK(sums.totalIn)} />}
-        {sums.totalIn > 0 && sums.totalOut > 0 && <StatTile label="Net" value={fmtNOK(sums.net)} />}
+        <StatTile label="Spent" value={fmtNOK(sums.totalOut)} />
+        <StatTile label="Income" value={fmtNOK(sums.totalIn)} />
+        <StatTile label="Net" value={fmtNOK(sums.net)} />
       </div>
 
       <div className="grid grid-cols-[repeat(auto-fit,minmax(360px,1fr))] gap-4">
@@ -250,9 +371,12 @@ export const App = () => {
 
   // The raw month/year, never the derived one below: null in the URL is what
   // keeps "latest period" meaning latest, rather than freezing today's answer.
-  useEffect(() => writeUrl({ view, month, year, days, filters }), [view, month, year, days, filters]);
+  useEffect(
+    () => writeUrl({ view, month, year, days, filters }),
+    [view, month, year, days, filters],
+  );
 
-  const txns = load.status === 'ready' ? load.txns : [];
+  const txns = load.status === "ready" ? load.txns : [];
   const months = useMemo(() => distinctMonths(txns), [txns]);
   const years = useMemo(() => distinctYears(txns), [txns]);
 
@@ -268,15 +392,25 @@ export const App = () => {
   // Every preset is open-ended at the top, so only the lower bound is ever set.
   const since = days === null ? null : daysAgo(days);
   const inView = (t: Categorized) =>
-    view === 'month' ? inMonth(t, activeMonth ?? '') : view === 'year' ? inYear(t, activeYear ?? '') : inRange(t, since, null);
+    view === "month"
+      ? inMonth(t, activeMonth ?? "")
+      : view === "year"
+        ? inYear(t, activeYear ?? "")
+        : inRange(t, since, null);
 
   const categories = useMemo(
-    () => [...new Set([...distinctCategories(txns.filter(inView)), ...filters.categories])].sort(),
+    () =>
+      [
+        ...new Set([
+          ...distinctCategories(txns.filter(inView)),
+          ...filters.categories,
+        ]),
+      ].sort(),
     [txns, view, activeMonth, activeYear, since, filters.categories],
   );
 
   return (
-    <div className="mx-auto max-w-[1180px] px-6 pt-5 pb-16">
+    <div className="mx-auto max-w-295 p-6">
       <header className="mb-4 flex flex-wrap items-baseline justify-between gap-4">
         <h1 className="text-xl font-semibold">Spending dashboard</h1>
         {/* Three named options rather than a cycling button: a toggle whose next
@@ -325,25 +459,50 @@ export const App = () => {
         onFilters={setFilters}
       />
 
-      {load.status === 'loading' && (
+      {load.status === "loading" && (
         <div className="flex items-center justify-center gap-2 py-10 text-ink-muted">
-          <Icon aria-hidden icon={LoadingIcon} size={16} className="animate-spin" />
+          <Icon
+            aria-hidden
+            icon={LoadingIcon}
+            size={16}
+            className="animate-spin"
+          />
           Loading…
         </div>
       )}
-      {load.status === 'error' && (
+      {load.status === "error" && (
         <div className="flex items-center justify-center gap-2 py-10 text-critical">
           <Icon aria-hidden icon={ErrorIcon} size={16} className="shrink-0" />
           Could not load transactions: {load.message}
         </div>
       )}
-      {load.status === 'ready' && txns.length === 0 && (
-        <div className="py-10 text-center text-ink-muted">No transactions yet — run `pnpm sb1 rebuild`.</div>
+      {load.status === "ready" && txns.length === 0 && (
+        <div className="py-10 text-center text-ink-muted">
+          No transactions yet — run `pnpm sb1 rebuild`.
+        </div>
       )}
-      {load.status === 'ready' && view === 'month' && activeMonth && <MonthView txns={txns} filters={filters} onFilters={setFilters} period={activeMonth} />}
-      {load.status === 'ready' && view === 'year' && activeYear && <YearView txns={txns} filters={filters} onFilters={setFilters} period={activeYear} />}
-      {load.status === 'ready' && view === 'transactions' && (
-        <TransactionsView rows={txns.filter(inView)} filters={filters} onFilters={setFilters} />
+      {load.status === "ready" && view === "month" && activeMonth && (
+        <MonthView
+          txns={txns}
+          filters={filters}
+          onFilters={setFilters}
+          period={activeMonth}
+        />
+      )}
+      {load.status === "ready" && view === "year" && activeYear && (
+        <YearView
+          txns={txns}
+          filters={filters}
+          onFilters={setFilters}
+          period={activeYear}
+        />
+      )}
+      {load.status === "ready" && view === "transactions" && (
+        <TransactionsView
+          rows={txns.filter(inView)}
+          filters={filters}
+          onFilters={setFilters}
+        />
       )}
     </div>
   );
