@@ -27,30 +27,29 @@ category totals, top counterparties, subscriptions, delta vs previous month.
 
 ## Open questions
 
-**Credit card transactions are missing, and that is settled.** Feb–Jul holds 21
-payments to `Kredittbanken ASA`, all KID payments to the same creditor account
-with the same KID, in irregular amounts several times a month — revolving credit
-being paid down, not a loan schedule. Together they are ~30% of all outflow. The
-card does not appear in `/accounts` even with `includeCreditCardAccounts=true`,
-and `/personal/banking/credit/accounts` and `/credit/cards` both 403, so the
-underlying purchases cannot be fetched.
+**Credit card transactions — solved, via a second API.** SpareBank 1's own
+customer API cannot reach the card: it never appears in `/accounts` even with
+`includeCreditCardAccounts=true`, `/personal/banking/credit/*` 403s, and the
+logged-in portal offers a customer client exactly four APIs. The issuer's own
+PSD2 portal is licensed-TPP-only. But the card *is* reachable through SMN's PSD2
+interface as a `CARD` account, via Enable Banking, which holds the AISP licence
+on our behalf. See `.claude/skills/enable-banking/SKILL.md`.
 
-Confirmed closed, not merely blocked: the logged-in portal offers a customer
-client exactly four APIs — Hello World, Accounts, Transactions, Transfer. There
-is no route to credit card data through this API at all.
+What this changed: the bills are now excluded as internal transfers, which is
+what the original plan said, and the card's own transactions are the source of
+card spending. That matters more than it sounds — bills and spending diverge
+badly inside a month (April 2026: 35k paid against 22k spent; July: 5.7k paid
+against 14.4k spent), so the bill-as-proxy approach was wrong month by month
+even though the six-month totals nearly matched.
 
-The issuer's PSD2 API is not a way around it either. `psd2.kredittbanken.no`
-does publish a Card Account Information product, but production access requires
-being "a PSD2-approved TPP with at least one of the roles: AISP, PISP, CBPII"
-plus a QSealC production certificate, i.e. a licensed payment institution. The
-sandbox only serves mock data. Reaching it as an individual would mean going
-through a licensed aggregator that holds the TPP licence — which also means
-handing a third party the whole financial picture.
+What it did **not** solve: card rows have no merchant, no MCC, and a generic
+`Varekjøp` description. Amounts and dates are right; categorisation beyond a
+single card bucket is impossible. That blind spot is worth stating in the
+report, and the only route to detail is a statement export from the issuer.
 
-Consequence for step 5: the bills **count as spending** rather than being
-excluded as internal (see `CLAUDE.md`). Getting the purchase detail would mean
-importing statements exported from the issuer's netbank, which is a separate
-job; until someone does that, the card is one opaque line per payment.
+Also unresolved: February returns only 9 card rows against 76–136 in later
+months. Either the card saw little use then or PSD2 history is truncated.
+Worth a look before trusting any month that early.
 
 **Pagination.** `rowLimit` exists on the transactions endpoints and we have never
 set it. A month that returns a suspiciously round row count is the tell.

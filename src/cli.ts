@@ -1,6 +1,7 @@
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { get, login, monthRange, ReauthRequired } from './sb1.ts';
+import * as eb from './eb.ts';
 
 const args = process.argv.slice(2);
 const cmd = args[0];
@@ -59,12 +60,40 @@ async function sync(): Promise<void> {
   }
 }
 
+/** Enable Banking: authorise once, then the card is readable for 90 days. */
+async function ebLogin(): Promise<void> {
+  const session = await eb.login();
+  await dump(eb.sessionFile, session);
+  for (const a of session.accounts) {
+    console.error(`  ${a.uid} | ${a.cash_account_type} | ${a.product ?? ''} ${a.currency ?? ''}`);
+  }
+}
+
+/** Card transactions, same layout as the SB1 sync so normalize sees one tree. */
+async function ebSync(): Promise<void> {
+  const month = flag('month');
+  if (!month) throw new Error('eb-sync needs --month YYYY-MM');
+  const { from, to } = monthRange(month);
+  for (const a of eb.readSession().accounts) {
+    if (a.cash_account_type !== 'CARD') continue;
+    const file = `data/raw/${month}/eb-${a.uid}.json`;
+    if (existsSync(file) && !has('force')) {
+      console.error(`skip ${file}`);
+      continue;
+    }
+    await dump(file, { account: a, transactions: await eb.transactions(a.uid, from, to) });
+  }
+}
+
 try {
   if (cmd === 'login') await login();
   else if (cmd === 'accounts') await accounts();
   else if (cmd === 'sync') await sync();
+  else if (cmd === 'eb-login') await ebLogin();
+  else if (cmd === 'eb-sync') await ebSync();
   else {
-    console.error('usage: pnpm sb1 <login | accounts | sync --month YYYY-MM [--force]>');
+    console.error('usage: pnpm sb1 <login | accounts | sync --month YYYY-MM [--force]');
+    console.error('                | eb-login | eb-sync --month YYYY-MM [--force]>');
     process.exit(1);
   }
 } catch (e) {
