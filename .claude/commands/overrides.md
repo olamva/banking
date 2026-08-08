@@ -20,7 +20,7 @@ excluded rows dropped, amounts in NOK, biggest first):
 
 ## How categorisation works
 
-`src/categorize.ts`: patterns are case-insensitive substrings, checked in
+`src/core/categorize.ts`: patterns are case-insensitive substrings, checked in
 **file order, first match wins**, against `description + ' ' + counterparty`.
 No match → the bank's own category, or `card spending` for card rows.
 

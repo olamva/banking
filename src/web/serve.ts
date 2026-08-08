@@ -21,11 +21,11 @@
  */
 import { createServer } from 'node:http';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { openDb, queryRange } from './db.ts';
+import { openDb, queryRange } from '../core/db.ts';
 import { renderDashboard } from './dashboard.ts';
-import { rebuildAll, DB_FILE } from './pipeline.ts';
-import { syncMonth, ebSyncMonth, syncCost } from './sync.ts';
-import { canAfford, remaining, used, HOURLY_CAP } from './budget.ts';
+import { rebuildAll, DB_FILE } from '../core/pipeline.ts';
+import { syncMonth, ebSyncMonth, syncCost } from '../net/sync.ts';
+import { canAfford, remaining, used, HOURLY_CAP } from '../net/budget.ts';
 
 const STATE = 'data/sync-state.json';
 

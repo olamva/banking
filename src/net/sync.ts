@@ -9,7 +9,7 @@ import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { get, monthRange } from './sb1.ts';
 import * as eb from './eb.ts';
-import { RAW } from './pipeline.ts';
+import { RAW } from '../core/pipeline.ts';
 
 async function dump(file: string, data: unknown): Promise<void> {
   await mkdir(file.slice(0, file.lastIndexOf('/')), { recursive: true });

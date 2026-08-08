@@ -12,22 +12,30 @@ things the real data does that the code has to survive.
 
 ## Layout
 
+`src/` is split by **which half of the rule a file is on**: `net/` is allowed to
+make requests, `core/` is not, and `web/` composes the two. That is the layout's
+whole job — if a new file's directory is unobvious, ask which side of "analysis
+never calls the API" it sits on and the answer follows.
+
 ```
-src/sb1.ts        SpareBank 1 auth, keychain, get(), monthRange()
-src/eb.ts         Enable Banking auth and card transactions
-src/types.ts      Txn / Classified / Categorized — the shared contract
-src/normalize.ts  data/raw/<month>/*.json -> Txn[]
-src/statement.ts  issuer CSV -> the merchant on card rows
-src/exclude.ts    Txn[] -> Classified[]; flags transfers and bill payments
-src/categorize.ts Classified[] -> Categorized[]; bank category + overrides.json
-src/db.ts         node:sqlite store, upsert by (source, id)
-src/stats.ts      the only money aggregation — monthStats() and yearStats()
-src/dashboard.ts  renders data/dashboard.html; embeds stats.ts, adds no maths
-src/pipeline.ts   the offline chain, importable by the CLI and the server
-src/sync.ts       the network half — nothing downstream of data/raw/ imports it
-src/budget.ts     rolling-hour ledger of SB1 requests, persisted to disk
-src/serve.ts      pnpm dev — living page plus the auto-refresh policy
-src/cli.ts        command dispatch
+src/net/sb1.ts        SpareBank 1 auth, keychain, get(), monthRange()
+src/net/eb.ts         Enable Banking auth and card transactions
+src/net/sync.ts       the network half — nothing in core/ may import this
+src/net/budget.ts     rolling-hour ledger of SB1 requests, persisted to disk
+
+src/core/types.ts     Txn / Classified / Categorized — the shared contract
+src/core/normalize.ts data/raw/<month>/*.json -> Txn[]
+src/core/statement.ts issuer CSV -> the merchant on card rows
+src/core/exclude.ts   Txn[] -> Classified[]; flags transfers and bill payments
+src/core/categorize.ts Classified[] -> Categorized[]; bank category + overrides
+src/core/db.ts        node:sqlite store, upsert by (source, id)
+src/core/stats.ts     the only money aggregation — monthStats() and yearStats()
+src/core/pipeline.ts  the offline chain, importable by the CLI and the server
+
+src/web/dashboard.ts  renders the page HTML; embeds stats.ts, adds no maths
+src/web/serve.ts      pnpm dev — living page plus the auto-refresh policy
+src/cli.ts            command dispatch
+
 data/raw/         API responses, verbatim, gitignored
 data/raw/card-statements/  issuer CSV exports, the only merchant source
 data/dashboard.html  generated, local-only, gitignored
@@ -42,16 +50,16 @@ never lose anything, and `rebuild` must reconstruct it from `data/raw/` alone.
 
 ## Rules
 
-**Analysis never calls the API.** Fetching lives in `src/sync.ts` and the two
-client modules it wraps; everything downstream reads `data/raw/`. The rule is
-enforced by import lists — `src/pipeline.ts` must never import `sb1.ts` or
-`eb.ts`, and nothing it imports may either. If an analysis step needs a field
+**Analysis never calls the API.** Fetching lives in `src/net/sync.ts` and the
+two client modules it wraps; everything downstream reads `data/raw/`. The rule
+is the directory split: **nothing in `src/core/` may import from `src/net/`**,
+and that includes indirectly. If an analysis step needs a field
 that isn't in the raw JSON, extend `sync`, re-run it, and commit nothing.
 
 `pnpm dev` is the one place both halves meet: it may trigger a sync before
 rendering. That is the server composing the two, not analysis reaching for the
 network, and every guard around it is there to keep the request count sane —
-see the header of `src/serve.ts` before changing any of it.
+see the header of `src/web/serve.ts` before changing any of it.
 
 **Every SB1 request is ledgered.** `sb1.get` and the token exchange both call
 `budget.spend`, which refuses past the hourly cap. Anything that adds a new call
@@ -83,12 +91,12 @@ those are a few lines of stdlib or hand-written SVG here. Check with me first if
 you think a package is genuinely warranted.
 
 **Money logic leaves a test behind.** Anything that signs, sums, excludes or
-categorises gets one `node --test` case in `src/*.test.ts`. No frameworks, no
+categorises gets one `node --test` case in `src/*/*.test.ts`. No frameworks, no
 fixtures built from real transactions.
 
 ## Data model
 
-`src/types.ts` defines `Txn`, the canonical record, committed to **booking
+`src/core/types.ts` defines `Txn`, the canonical record, committed to **booking
 date**. It is shared by every step — read it before writing anything downstream,
 and treat widening it as a cross-cutting change to announce, not to slip in.
 
@@ -154,7 +162,7 @@ and silent on everything else.
 
 The merchant comes from the issuer's own **statement CSV export**, ingested with
 `pnpm sb1 statement <file.csv>` into `data/raw/card-statements/`.
-`src/statement.ts` joins it to the card rows on booking date and amount, which
+`src/core/statement.ts` joins it to the card rows on booking date and amount, which
 matched all 498 rows of Feb–Jul exactly.
 
 There is no API behind this and there will not be — the export is downloaded

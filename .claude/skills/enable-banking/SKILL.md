@@ -1,6 +1,6 @@
 ---
 name: enable-banking
-description: Contract for the Enable Banking AIS API — the only route to the credit card, which SpareBank 1's own API does not expose. JWT auth, the authorisation flow, consent expiry, and the transaction shape. Use when touching src/eb.ts, when a call to api.enablebanking.com fails, or when interpreting data/raw/*/eb-*.json.
+description: Contract for the Enable Banking AIS API — the only route to the credit card, which SpareBank 1's own API does not expose. JWT auth, the authorisation flow, consent expiry, and the transaction shape. Use when touching src/net/eb.ts, when a call to api.enablebanking.com fails, or when interpreting data/raw/*/eb-*.json.
 ---
 
 # Enable Banking (AIS)
@@ -10,7 +10,7 @@ licence and no eIDAS certificate of our own. It exists in this project for one
 reason: the SpareBank 1 Mastercard is invisible to SpareBank 1's own customer
 API, and reachable through SMN's PSD2 interface as a card account.
 
-Base URL `https://api.enablebanking.com`. Implementation in `src/eb.ts`.
+Base URL `https://api.enablebanking.com`. Implementation in `src/net/eb.ts`.
 
 ## Auth
 

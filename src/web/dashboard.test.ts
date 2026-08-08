@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { renderDashboard, embeddedSource, matchesFilters, inMonth, inYear, prevMonth, distinctMonths } from './dashboard.ts';
-import { monthStats } from './stats.ts';
-import type { Categorized } from './types.ts';
+import { monthStats } from '../core/stats.ts';
+import type { Categorized } from '../core/types.ts';
 
 // Aggregation is not tested here: the dashboard has none. It embeds stats.ts,
 // which src/stats.test.ts pins. These cover selection and the page shell.

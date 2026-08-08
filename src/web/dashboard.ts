@@ -10,8 +10,8 @@
  * view, and how to draw them.
  */
 import { mkdir, writeFile } from 'node:fs/promises';
-import { STATS_FNS } from './stats.ts';
-import type { Categorized } from './types.ts';
+import { STATS_FNS } from '../core/stats.ts';
+import type { Categorized } from '../core/types.ts';
 
 export type Filters = {
   category: string;

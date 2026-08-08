@@ -1,16 +1,16 @@
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { get, login, ReauthRequired } from './sb1.ts';
-import * as eb from './eb.ts';
-import { parseStatement, statementRange } from './statement.ts';
-import { openDb, queryMonth, queryRange } from './db.ts';
-import { monthStats, yearStats, byMonth, blindSpot } from './stats.ts';
-import { writeDashboard } from './dashboard.ts';
-import { rebuildAll, DB_FILE, RAW } from './pipeline.ts';
-import { syncMonth, ebSyncMonth } from './sync.ts';
-import { serve } from './serve.ts';
-import { used, remaining, HOURLY_CAP } from './budget.ts';
-import type { Categorized } from './types.ts';
+import { get, login, ReauthRequired } from './net/sb1.ts';
+import * as eb from './net/eb.ts';
+import { parseStatement, statementRange } from './core/statement.ts';
+import { openDb, queryMonth, queryRange } from './core/db.ts';
+import { monthStats, yearStats, byMonth, blindSpot } from './core/stats.ts';
+import { writeDashboard } from './web/dashboard.ts';
+import { rebuildAll, DB_FILE, RAW } from './core/pipeline.ts';
+import { syncMonth, ebSyncMonth } from './net/sync.ts';
+import { serve } from './web/serve.ts';
+import { used, remaining, HOURLY_CAP } from './net/budget.ts';
+import type { Categorized } from './core/types.ts';
 
 const args = process.argv.slice(2);
 const cmd = args[0];

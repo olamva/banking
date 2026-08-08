@@ -185,22 +185,28 @@ purpose. Run `pnpm sb1 rebuild` after accepting a change.
 
 ## Layout
 
+`src/` is split by which half of the one rule a file is on — `net/` may make
+requests, `core/` may not, `web/` composes them.
+
 ```
-src/sb1.ts         SpareBank 1 auth, keychain, get(), monthRange()
-src/eb.ts          Enable Banking auth and card transactions
-src/types.ts       Txn / Classified / Categorized — the shared contract
-src/normalize.ts   data/raw/<month>/*.json -> Txn[]
-src/statement.ts   the issuer CSV -> the merchant on card rows
-src/exclude.ts     flags internal transfers and card bill payments
-src/categorize.ts  bank category + overrides.json
-src/db.ts          node:sqlite store, upsert by (source, id)
-src/stats.ts       the only money aggregation
-src/dashboard.ts   renders the HTML; embeds stats.ts, adds no maths
-src/pipeline.ts    the offline chain; imports nothing that touches a network
-src/sync.ts        the network half: SB1 and card fetching
-src/budget.ts      rolling-hour ledger of SB1 requests
-src/serve.ts       pnpm dev: the living page, and when to auto-refresh
-src/cli.ts         command dispatch
+src/net/sb1.ts       SpareBank 1 auth, keychain, get(), monthRange()
+src/net/eb.ts        Enable Banking auth and card transactions
+src/net/sync.ts      the network half: SB1 and card fetching
+src/net/budget.ts    rolling-hour ledger of SB1 requests
+
+src/core/types.ts     Txn / Classified / Categorized — the shared contract
+src/core/normalize.ts data/raw/<month>/*.json -> Txn[]
+src/core/statement.ts the issuer CSV -> the merchant on card rows
+src/core/exclude.ts   flags internal transfers and card bill payments
+src/core/categorize.ts bank category + overrides.json
+src/core/db.ts        node:sqlite store, upsert by (source, id)
+src/core/stats.ts     the only money aggregation
+src/core/pipeline.ts  the offline chain; imports nothing that touches a network
+
+src/web/dashboard.ts renders the HTML; embeds stats.ts, adds no maths
+src/web/serve.ts     pnpm dev: the living page, and when to auto-refresh
+src/cli.ts           command dispatch
+
 docs/              privacy policy and terms, required to register the
                    Enable Banking application — also published as a gist,
                    see docs/README.md before editing either
