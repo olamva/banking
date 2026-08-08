@@ -8,13 +8,16 @@
 import type { Categorized } from './types.ts';
 
 export type Filters = {
-  /** Empty means every category; otherwise the row's category must be one of these. */
+  /** Empty means every category, whichever way `categoryMode` is set. */
   categories: string[];
+  /** Whether `categories` names the only rows to show, or the only ones to hide. */
+  categoryMode: 'include' | 'exclude';
   search: string;
 };
 
 export const NO_FILTERS: Filters = {
   categories: [],
+  categoryMode: 'include',
   search: '',
 };
 
@@ -55,7 +58,10 @@ export function daysAgo(days: number, today = new Date()): string {
 }
 
 export function matchesFilters(t: Categorized, f: Filters): boolean {
-  if (f.categories.length && !f.categories.includes(t.category)) return false;
+  if (f.categories.length) {
+    const listed = f.categories.includes(t.category);
+    if (f.categoryMode === 'exclude' ? listed : !listed) return false;
+  }
   if (f.search) {
     const q = f.search.toLowerCase();
     const hay = (t.description + ' ' + (t.counterparty ?? '')).toLowerCase();

@@ -44,6 +44,23 @@ test('matchesFilters: several categories at once, and none means all', () => {
   assert.equal(all.filter((t) => matchesFilters(t, NO_FILTERS)).length, 3);
 });
 
+/** The same list read the other way round: excluding is the complement of including. */
+test('matchesFilters: exclude hides exactly what include would have kept', () => {
+  const groceries = txn({ id: '1', amount: -100, category: 'dagligvarer' });
+  const transport = txn({ id: '2', amount: -50, category: 'transport' });
+  const rent = txn({ id: '3', amount: -18000, category: 'faste_boutgifter' });
+  const all = [groceries, transport, rent];
+
+  const list = ['dagligvarer', 'transport'];
+  const kept = all.filter((t) => matchesFilters(t, { ...NO_FILTERS, categories: list }));
+  const dropped = all.filter((t) => matchesFilters(t, { ...NO_FILTERS, categories: list, categoryMode: 'exclude' }));
+  assert.deepEqual(dropped, [rent]);
+  assert.deepEqual([...kept, ...dropped].sort((a, b) => a.id.localeCompare(b.id)), all);
+
+  // An empty list means every row either way — never an empty page.
+  assert.equal(all.filter((t) => matchesFilters(t, { ...NO_FILTERS, categoryMode: 'exclude' })).length, 3);
+});
+
 test('inMonth and inYear read the booking date, not a timestamp', () => {
   const t = txn({ id: '1', amount: -10, date: '2026-07-01' });
   assert.equal(inMonth(t, '2026-07'), true);
