@@ -146,8 +146,7 @@ export const DivergingBars = ({ deltas: shown, onPick }: DivergingBarsProps) => 
   const rowH = 26;
   const mid = width / 2;
   const halfW = Math.max(width / 2 - 90, 20);
-  const plotH = shown.length * rowH + 8;
-  const height = plotH + 18;
+  const height = shown.length * rowH + 8;
   const maxAbs = Math.max(...shown.map((d) => Math.abs(d.delta)), 1);
 
   // Doubled, because niceStep sizes for one axis and this one spends its range
@@ -162,23 +161,19 @@ export const DivergingBars = ({ deltas: shown, onPick }: DivergingBarsProps) => 
         <Empty>No change from last month.</Empty>
       ) : (
         <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
-          {/* A scale, so the bars can be compared without hovering every one. */}
+          {/* Gridlines only, no tick row: at card width the labels collided into
+              each other, and every bar carries its own number anyway. These are
+              for comparing bars against each other, not for reading a value off. */}
           {ticks.map((v) => {
             const dx = (v / gridMax) * halfW;
             return (
               <g key={v}>
-                <line x1={mid - dx} x2={mid - dx} y1={0} y2={plotH} className="stroke-grid" />
-                <line x1={mid + dx} x2={mid + dx} y1={0} y2={plotH} className="stroke-grid" />
-                <text x={mid - dx} y={height - 5} textAnchor="middle" className="fill-ink-muted text-[11px]">
-                  {fmtNOK(-v).replace(' kr', '')}
-                </text>
-                <text x={mid + dx} y={height - 5} textAnchor="middle" className="fill-ink-muted text-[11px]">
-                  {fmtNOK(v).replace(' kr', '')}
-                </text>
+                <line x1={mid - dx} x2={mid - dx} y1={0} y2={height} className="stroke-grid" />
+                <line x1={mid + dx} x2={mid + dx} y1={0} y2={height} className="stroke-grid" />
               </g>
             );
           })}
-          <line x1={mid} x2={mid} y1={0} y2={plotH} className="stroke-axis" />
+          <line x1={mid} x2={mid} y1={0} y2={height} className="stroke-axis" />
           {shown.map((d, i) => {
             const y = i * rowH + 4;
             const w = Math.max((Math.abs(d.delta) / gridMax) * halfW, 1);
