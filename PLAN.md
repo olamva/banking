@@ -39,10 +39,18 @@ Confirmed closed, not merely blocked: the logged-in portal offers a customer
 client exactly four APIs — Hello World, Accounts, Transactions, Transfer. There
 is no route to credit card data through this API at all.
 
+The issuer's PSD2 API is not a way around it either. `psd2.kredittbanken.no`
+does publish a Card Account Information product, but production access requires
+being "a PSD2-approved TPP with at least one of the roles: AISP, PISP, CBPII"
+plus a QSealC production certificate, i.e. a licensed payment institution. The
+sandbox only serves mock data. Reaching it as an individual would mean going
+through a licensed aggregator that holds the TPP licence — which also means
+handing a third party the whole financial picture.
+
 Consequence for step 5: the bills **count as spending** rather than being
 excluded as internal (see `CLAUDE.md`). Getting the purchase detail would mean
-importing statements from the card issuer separately, which is a different
-project; until someone does that, the card is one opaque line per payment.
+importing statements exported from the issuer's netbank, which is a separate
+job; until someone does that, the card is one opaque line per payment.
 
 **Pagination.** `rowLimit` exists on the transactions endpoints and we have never
 set it. A month that returns a suspiciously round row count is the tell.
