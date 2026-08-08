@@ -54,6 +54,7 @@ pnpm sb1 eb-login                   # Enable Banking consent, 90 days, card only
 pnpm sb1 eb-sync --month YYYY-MM    # card transactions
 
 # offline — reads data/raw/ or the database
+pnpm sb1 statement <file.csv>       # ingest a card statement export, then rebuild
 pnpm sb1 import                     # every month on disk into data/banking.db
 pnpm sb1 import --month YYYY-MM     # just the one
 pnpm sb1 rebuild                    # drop the database, reconstruct from data/raw/
@@ -92,8 +93,27 @@ pnpm sb1 report --month 2026-08
 Card transactions post late and can arrive pending, so run this a few days into
 the following month, or re-run with `--force`.
 
-For merchant detail on card rows, export the statement CSV from the issuer and
-drop it in `data/raw/card-statements/`, then `pnpm sb1 rebuild`.
+## Card merchants
+
+Card rows arrive from the API with an amount and a date and nothing else. The
+merchant only exists in the statement CSV you download from the issuer's portal
+— there is no API for it, so this step stays manual:
+
+```bash
+pnpm sb1 statement ~/Downloads/transactions.csv
+```
+
+That files the export under its own booking-date range in
+`data/raw/card-statements/` and rebuilds the database. Re-running with an export
+you have already ingested is a no-op, and it will refuse to write over an
+existing file, because `data/raw/` is immutable.
+
+Each export covers everything since the card was opened, so they overlap; the
+duplicate lines are collapsed on read. Just ingest the newest one — the older
+files can stay where they are.
+
+Any month not covered by an export keeps `counterparty: null` on its card rows,
+and `report` says how many and how much rather than pretending otherwise.
 
 ## Categories
 
@@ -124,7 +144,8 @@ src/stats.ts       the only money aggregation
 src/dashboard.ts   renders the HTML; embeds stats.ts, adds no maths
 src/cli.ts         command dispatch
 docs/              privacy policy and terms, required to register the
-                   Enable Banking application
+                   Enable Banking application — also published as a gist,
+                   see docs/README.md before editing either
 ```
 
 Everything holding personal data is gitignored: `data/`, `accounts.json`,

@@ -137,9 +137,16 @@ The Enable Banking API returns `creditor`, `merchant_category_code` and
 only `Varekjøp` as remittance information. The API is correct on amount and date
 and silent on everything else.
 
-The merchant comes from the issuer's own **statement CSV export**, dropped into
-`data/raw/card-statements/`. `src/statement.ts` joins it to the card rows on
-booking date and amount, which matched all 498 rows of Feb–Jul exactly.
+The merchant comes from the issuer's own **statement CSV export**, ingested with
+`pnpm sb1 statement <file.csv>` into `data/raw/card-statements/`.
+`src/statement.ts` joins it to the card rows on booking date and amount, which
+matched all 498 rows of Feb–Jul exactly.
+
+There is no API behind this and there will not be — the export is downloaded
+from the issuer's portal by hand. The command exists to make the manual step
+repeatable: it files the CSV under its own booking-date range, refuses to write
+over an existing one, and rebuilds. Exports overlap by design, each covering
+everything since the card was opened, so duplicate lines are collapsed on read.
 
 It is a **lookup, not a source**. Card rows still come from Enable Banking,
 which has stable ids and is what `rebuild` reconstructs from; the CSV has no
