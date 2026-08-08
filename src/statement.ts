@@ -44,12 +44,35 @@ export function parseStatement(csv: string): StatementRow[] {
     });
 }
 
-/** Every CSV under the directory, so a fresh export is dropped in, not merged over. */
+/**
+ * Every CSV under the directory, so a fresh export is dropped in rather than
+ * written over an old one.
+ *
+ * Exports overlap heavily — each one covers everything since the card was
+ * opened — so identical lines are collapsed. Two genuinely separate purchases
+ * at the same merchant on the same day for the same amount collapse too, and
+ * that is fine: `enrich` falls back to the last line in a group, which is the
+ * same merchant either way.
+ */
 export function readStatements(dir = 'data/raw/card-statements'): StatementRow[] {
   if (!existsSync(dir)) return [];
-  return readdirSync(dir)
+  const rows = readdirSync(dir)
     .filter((name) => name.endsWith('.csv'))
+    .sort()
     .flatMap((name) => parseStatement(readFileSync(join(dir, name), 'utf8')));
+  const seen = new Set<string>();
+  return rows.filter((r) => {
+    const k = `${r.date}|${r.amount.toFixed(2)}|${r.merchant}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
+/** Booking-date span of an export, used to name the file it is stored as. */
+export function statementRange(rows: StatementRow[]): { from: string; to: string } {
+  const dates = rows.map((r) => r.date).sort();
+  return { from: dates[0]!, to: dates[dates.length - 1]! };
 }
 
 const key = (date: string, amount: number) => `${date}|${amount.toFixed(2)}`;

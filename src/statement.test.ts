@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseStatement, enrich } from './statement.ts';
+import { parseStatement, enrich, statementRange } from './statement.ts';
 import type { Txn } from './types.ts';
 
 function card(partial: Partial<Txn> & { id: string; amount: number }): Txn {
@@ -54,6 +54,15 @@ test('never touches SB1 rows, which have a counterparty of their own', () => {
 test('a card row with no statement line keeps its null merchant', () => {
   const out = enrich([card({ id: '1', amount: -1 })], parseStatement(CSV));
   assert.equal(out[0]!.counterparty, null);
+});
+
+test('statementRange spans the booking dates, which names the stored file', () => {
+  const rows = parseStatement(
+    '"a";"b";"c";"d";"e"\n' +
+      '"2026-07-14";"2026-07-15";"X";"-1,00";"F"\n' +
+      '"2026-02-26";"2026-02-27";"Y";"-1,00";"F"\n',
+  );
+  assert.deepEqual(statementRange(rows), { from: '2026-02-27', to: '2026-07-15' });
 });
 
 test('same date and amount: each row takes a distinct line, totals unaffected either way', () => {
