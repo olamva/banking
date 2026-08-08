@@ -5,6 +5,7 @@ import * as eb from './eb.ts';
 import { normalizeMonth } from './normalize.ts';
 import { exclude, type Accounts } from './exclude.ts';
 import { categorize, loadOverrides } from './categorize.ts';
+import { enrich, readStatements, type StatementRow } from './statement.ts';
 import { openDb, upsertMany, rebuild as rebuildDb, queryMonth, queryRange } from './db.ts';
 import { monthStats, yearStats, byMonth } from './stats.ts';
 import { writeDashboard } from './dashboard.ts';
@@ -106,22 +107,29 @@ function monthsOnDisk(): string[] {
 }
 
 /**
- * Steps 4-6 for one month's raw files. Exclusion runs per month because both
- * sides of an internal transfer share a date, so they are never split across
- * two months — no need to hold the whole history in memory to match them.
+ * Steps 4-6 for one month's raw files, plus the merchant lookup. Exclusion runs
+ * per month because both sides of an internal transfer share a date, so they
+ * are never split across two months — no need to hold the whole history in
+ * memory to match them.
+ *
+ * Enrichment goes before exclusion so the merchant is available to overrides,
+ * and it only writes `counterparty`, so the exclusion rules still match on the
+ * source's own description.
  */
-async function pipeline(month: string): Promise<Categorized[]> {
+async function pipeline(month: string, statement: StatementRow[]): Promise<Categorized[]> {
   const accountsJson: Accounts = JSON.parse(await readFile('accounts.json', 'utf8'));
-  return categorize(exclude(normalizeMonth(`${RAW}/${month}`), accountsJson), await loadOverrides());
+  const txns = enrich(normalizeMonth(`${RAW}/${month}`), statement);
+  return categorize(exclude(txns, accountsJson), await loadOverrides());
 }
 
 /** Step 7: normalize -> exclude -> categorize -> upsert. Idempotent per (source, id). */
 async function importCmd(): Promise<void> {
   const months = flag('month') ? [flag('month')!] : monthsOnDisk();
+  const statement = readStatements();
   await mkdir('data', { recursive: true });
   const db = openDb(DB_FILE);
   for (const month of months) {
-    const rows = await pipeline(month);
+    const rows = await pipeline(month, statement);
     upsertMany(db, rows);
     console.error(`${month}: ${rows.length} rows`);
   }
@@ -133,8 +141,9 @@ async function rebuild(): Promise<void> {
   await rm(DB_FILE, { force: true });
   await mkdir('data', { recursive: true });
   const db = openDb(DB_FILE);
+  const statement = readStatements();
   const rows: Categorized[] = [];
-  for (const month of monthsOnDisk()) rows.push(...(await pipeline(month)));
+  for (const month of monthsOnDisk()) rows.push(...(await pipeline(month, statement)));
   rebuildDb(db, rows);
   console.error(`rebuilt ${DB_FILE} from ${monthsOnDisk().length} months, ${rows.length} rows`);
   db.close();
@@ -144,11 +153,23 @@ const nok = (n: number) => `${Math.round(n).toLocaleString('nb-NO')} kr`;
 const pct = (share: number) => `${(share * 100).toFixed(1)}%`;
 const pad = (s: string, w: number) => s.padEnd(w);
 
+/**
+ * Card rows only carry a merchant once the issuer's statement covers them, so
+ * say how much is still unattributable rather than claiming the whole card
+ * bucket is opaque — that stopped being true when the export landed.
+ */
+function blindSpot(rows: Categorized[]): string {
+  const blind = rows.filter((t) => !t.excluded && t.amount < 0 && t.counterparty === null);
+  if (!blind.length) return ', every row has a merchant';
+  const total = blind.reduce((sum, t) => sum + -t.amount, 0);
+  return `, ${blind.length} rows with no merchant (${nok(total)})`;
+}
+
 function reportMonth(month: string, rows: Categorized[], previous: Categorized[]): void {
   const s = monthStats(month, rows, previous.length ? previous : undefined);
   console.log(`\n${month}   ${rows.length} rows`);
   console.log(`  in ${nok(s.totalIn)}   out ${nok(s.totalOut)}   net ${nok(s.net)}`);
-  console.log(`  card ${pct(s.cardShare)} of spending — no merchant on those rows, this is the blind spot`);
+  console.log(`  card ${pct(s.cardShare)} of spending${blindSpot(rows)}`);
   console.log(`  excluded ${s.excluded.count} txns, ${nok(s.excluded.total)} of volume`);
   console.log('  categories');
   for (const c of s.categories) console.log(`    ${pad(c.category, 24)} ${pad(nok(c.total), 12)} ${pct(c.share)}`);
@@ -167,7 +188,7 @@ function reportYear(year: string, rows: Categorized[]): void {
     console.log(`  ${pad(m.month, 10)} ${pad(nok(m.totalOut), 12)} ${pad(nok(m.totalIn), 12)} ${pad(nok(m.net), 12)} ${pad(pct(m.cardShare), 7)} ${m.excluded.count} / ${nok(m.excluded.total)}`);
   }
   console.log(`  average month: out ${nok(y.averageMonth.totalOut)}, in ${nok(y.averageMonth.totalIn)}, net ${nok(y.averageMonth.net)}`);
-  console.log(`  card ${pct(y.cardShare)} of spending — no merchant on those rows, this is the blind spot`);
+  console.log(`  card ${pct(y.cardShare)} of spending${blindSpot(rows)}`);
   console.log(`  excluded ${y.excluded.count} txns, ${nok(y.excluded.total)} of volume`);
   console.log('  categories');
   for (const c of y.categories) console.log(`    ${pad(c.category, 24)} ${pad(nok(c.total), 12)} ${pct(c.share)}`);
