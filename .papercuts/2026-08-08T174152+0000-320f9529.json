@@ -1,0 +1,11 @@
+{
+  "id": "320f9529",
+  "ts": "2026-08-08T17:41:52+00:00",
+  "text": "node --watch + Vite middleware mode = infinite restart loop: Vite writes node_modules/.vite-temp/vite.config.ts.timestamp-*.mjs on every config load, node --watch sees it and restarts, repeat",
+  "tags": [
+    "tools",
+    "vite"
+  ],
+  "who": "agent",
+  "where": "package.json"
+}

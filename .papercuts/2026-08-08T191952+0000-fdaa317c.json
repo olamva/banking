@@ -1,0 +1,11 @@
+{
+  "id": "fdaa317c",
+  "ts": "2026-08-08T19:19:52+00:00",
+  "text": "src/net/eb.test.ts fails in a fresh git worktree: reads secrets/localhost-key.pem, which is gitignored so never present. pnpm test is green in the main checkout only.",
+  "tags": [
+    "tests",
+    "worktree"
+  ],
+  "who": "agent",
+  "where": "src/net/eb.test.ts"
+}

@@ -1,0 +1,10 @@
+{
+  "id": "544d0d53",
+  "ts": "2026-08-08T17:41:52+00:00",
+  "text": "Vite server.fs.allow resolves relative to `root`, not the project dir; a too-narrow allow list still appears to work because Vite serves modules already in the graph, so it only 403s on the first value (non-type) import from outside root",
+  "tags": [
+    "vite"
+  ],
+  "who": "agent",
+  "where": "vite.config.ts"
+}
