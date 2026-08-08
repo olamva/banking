@@ -75,6 +75,15 @@ import {
 } from "./icons.ts";
 import { readUrl, writeUrl } from "./url.ts";
 
+/**
+ * Two columns rather than three. At this page width three tracks are 360px each,
+ * which is what truncates every bar label, and any card count that is not a
+ * multiple of three leaves one sitting alone in a third of a row. The last card
+ * takes the whole row when it would otherwise be the odd one out.
+ */
+const CARD_GRID =
+  "grid grid-cols-[repeat(auto-fit,minmax(460px,1fr))] gap-4 [&>*:last-child:nth-child(odd)]:col-span-full";
+
 const THEME_ICONS = {
   system: SystemThemeIcon,
   light: LightThemeIcon,
@@ -218,7 +227,7 @@ const MonthView = ({ txns, filters, onFilters, period: month }: ViewProps) => {
         )}
       </div>
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(360px,1fr))] gap-4">
+      <div className={CARD_GRID}>
         {!single && cats.length > 0 && (
           <Card title="Spending by category" icon={CategoryIcon}>
             <HorizontalBars items={cats} onPick={onCategory} />
@@ -306,7 +315,7 @@ const YearView = ({ txns, filters, onFilters, period: year }: ViewProps) => {
         )}
       </div>
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(360px,1fr))] gap-4">
+      <div className={CARD_GRID}>
         {stats.months.length > 0 && (
           <Card title="Income & spend by month" icon={MonthlyIcon} wide>
             <ChartLegend />
@@ -314,8 +323,10 @@ const YearView = ({ txns, filters, onFilters, period: year }: ViewProps) => {
           </Card>
         )}
 
+        {/* Wide as well: the chart above it already takes the row, so anything
+            narrower here is a card with half a row of nothing beside it. */}
         {!single && cats.length > 0 && (
-          <Card title="Spending by category (year)" icon={CategoryIcon}>
+          <Card title="Spending by category (year)" icon={CategoryIcon} wide>
             <HorizontalBars items={cats} onPick={onCategory} />
           </Card>
         )}
@@ -353,7 +364,7 @@ const TransactionsView = ({
         <StatTile label="Net" value={fmtNOK(sums.net)} />
       </div>
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(360px,1fr))] gap-4">
+      <div className={CARD_GRID}>
         <TransactionsCard
           txns={shown}
           search={filters.search}
