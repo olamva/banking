@@ -156,20 +156,19 @@ export const FilterBar = ({ view, onView, months, month, onMonth, years, year, o
         </summary>
         <div className="absolute z-20 mt-1 max-h-72 w-56 overflow-y-auto rounded-md border border-line bg-surface p-1.5 shadow-lg">
           {/* Same list, read either way round: the only ones to show, or the only
-              ones to hide. Sits above the boxes it changes the meaning of. */}
-          <div className="mb-1.5 flex overflow-hidden rounded-md border border-line">
-            {(['include', 'exclude'] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                aria-pressed={filters.categoryMode === m}
-                onClick={() => onFilters({ ...filters, categoryMode: m })}
-                className={`flex-1 px-2 py-1 text-xs capitalize ${filters.categoryMode === m ? 'bg-series-1 text-white' : 'bg-page text-ink-soft'}`}
-              >
-                {m}
-              </button>
-            ))}
-          </div>
+              ones to hide. One button that flips, not two that look like a
+              choice already made — it names the state it is in, and pressing it
+              is how you leave that state. */}
+          <button
+            type="button"
+            aria-pressed={excluding}
+            onClick={() => onFilters({ ...filters, categoryMode: excluding ? 'include' : 'exclude' })}
+            className={`mb-1.5 w-full rounded-md border px-2 py-1 text-xs text-white ${
+              excluding ? 'border-critical-strong bg-critical-strong' : 'border-series-1 bg-series-1'
+            }`}
+          >
+            {excluding ? 'Exclude' : 'Include'}
+          </button>
           {categories.length === 0 ? (
             <div className="px-1.5 py-1 text-xs text-ink-muted">Nothing in this period.</div>
           ) : (
