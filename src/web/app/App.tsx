@@ -389,6 +389,16 @@ export const App = () => {
   // January is not a filter March has any use for. Narrowed by the period only:
   // narrowing by the other filters too would let the search box empty the rail.
   // Whatever is switched on stays listed, or turning it off becomes impossible.
+  /**
+   * A search belongs to the table it was typed on. Carrying it into a dashboard
+   * leaves the charts filtered by a string with no box to clear it — the same
+   * reason the chip exists there for a search set by clicking a bar.
+   */
+  const changeView = (next: View) => {
+    if (view === 'transactions' && next !== 'transactions') setFilters((f) => ({ ...f, search: '' }));
+    setView(next);
+  };
+
   // Every preset is open-ended at the top, so only the lower bound is ever set.
   const since = days === null ? null : daysAgo(days);
   const inView = (t: Categorized) =>
@@ -445,7 +455,7 @@ export const App = () => {
 
       <FilterBar
         view={view}
-        onView={setView}
+        onView={changeView}
         months={months}
         month={activeMonth}
         onMonth={setMonth}
