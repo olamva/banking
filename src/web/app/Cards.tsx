@@ -96,6 +96,13 @@ export const MeterTile = ({ label, share, note }: MeterTileProps) => (
 export interface Column {
   label: string;
   num?: boolean;
+  /**
+   * Shrink to the widest cell instead of sharing the slack. `w-px` with
+   * `nowrap` is the table-layout way of saying "as narrow as the content
+   * allows", which leaves one flexible column to absorb the rest — so filtering
+   * the rows cannot shuffle every column sideways.
+   */
+  min?: boolean;
   /** Set to make the header a sort button. The caller owns the sort; the header owns the arrow. */
   onClick?: () => void;
   /** Which way this column is sorted, or null when it is sortable but not the sorted one. */
@@ -118,7 +125,7 @@ export const DataTable = ({ columns, rows, scroll }: DataTableProps) => (
             <th
               key={c.label}
               aria-sort={c.sort ? (c.sort === 'asc' ? 'ascending' : 'descending') : undefined}
-              className={`border-b border-grid bg-surface py-1 pr-2 font-semibold ${c.num ? 'text-right' : 'text-left'} ${scroll ? 'sticky top-0' : ''}`}
+              className={`border-b border-grid bg-surface py-1 pr-2 font-semibold ${c.num ? 'text-right' : 'text-left'} ${c.min ? 'w-px whitespace-nowrap' : ''} ${scroll ? 'sticky top-0' : ''}`}
             >
               {c.onClick ? (
                 <button
@@ -147,7 +154,10 @@ export const DataTable = ({ columns, rows, scroll }: DataTableProps) => (
         {rows.map((row, i) => (
           <tr key={i} className="hover:bg-hover">
             {row.map((cell, j) => (
-              <td key={j} className={`border-b border-grid py-1 pr-2 ${columns[j]?.num ? 'text-right tabular-nums' : 'text-left'}`}>
+              <td
+                key={j}
+                className={`border-b border-grid py-1 pr-2 ${columns[j]?.num ? 'text-right tabular-nums' : 'text-left'} ${columns[j]?.min ? 'w-px whitespace-nowrap' : ''}`}
+              >
                 {cell}
               </td>
             ))}
@@ -194,9 +204,9 @@ export const TransactionsCard = ({ txns, search, onSearch }: TransactionsCardPro
   // Names A-Z on first click, everything else biggest/newest first. A third
   // click drops the sort and the rows fall back to the order they arrived in.
   const firstAsc = (key: SortKey) => key === 'merchant' || key === 'category';
-  const head = (label: string, key: SortKey, num?: boolean): Column => ({
+  const head = (label: string, key: SortKey, extra?: Partial<Column>): Column => ({
     label,
-    num,
+    ...extra,
     sort: by === key ? (asc ? 'asc' : 'desc') : null,
     onClick: () =>
       by !== key
@@ -229,12 +239,15 @@ export const TransactionsCard = ({ txns, search, onSearch }: TransactionsCardPro
       ) : (
         <DataTable
           scroll
+          /* Everything but the merchant is content-width, so the one column
+             whose text actually varies is the one that absorbs the slack —
+             filtering the rows no longer slides the others sideways. */
           columns={[
-            head('Date', 'date'),
+            head('Date', 'date', { min: true }),
             head('Merchant / description', 'merchant'),
-            head('Category', 'category'),
-            { label: 'Source' },
-            head('Amount', 'amount', true),
+            head('Category', 'category', { min: true }),
+            { label: 'Source', min: true },
+            head('Amount', 'amount', { num: true, min: true }),
           ]}
           rows={sorted.map((t) => [
             t.date,
