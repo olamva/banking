@@ -1,7 +1,7 @@
 /**
  * The boxes everything sits in: cards, KPI tiles and tables. Presentation only.
  */
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { Categorized } from '../../core/types.ts';
 import { fmtNOK, fmtPct } from './format.ts';
 
@@ -52,7 +52,8 @@ export const StatTile = ({ label, value, delta }: StatTileProps) => (
 interface MeterTileProps {
   label: string;
   share: number;
-  note: string;
+  /** Only when there is something to say — an empty note renders nothing. */
+  note?: string;
 }
 
 export const MeterTile = ({ label, share, note }: MeterTileProps) => (
@@ -62,13 +63,15 @@ export const MeterTile = ({ label, share, note }: MeterTileProps) => (
     <div className="mt-2 h-2.5 overflow-hidden rounded-md bg-series-1-track">
       <div className="h-full rounded-md bg-series-1" style={{ width: `${Math.min(share * 100, 100)}%` }} />
     </div>
-    <div className="mt-1.5 text-[11px] text-ink-muted">{note}</div>
+    {note && <div className="mt-1.5 text-[11px] text-ink-muted">{note}</div>}
   </div>
 );
 
 export interface Column {
   label: string;
   num?: boolean;
+  /** Set to make the header a sort button. The caller owns the sort and the arrow in `label`. */
+  onClick?: () => void;
 }
 
 interface DataTableProps {
@@ -88,7 +91,13 @@ export const DataTable = ({ columns, rows, scroll }: DataTableProps) => (
               key={c.label}
               className={`border-b border-grid bg-surface py-1 pr-2 font-semibold ${c.num ? 'text-right' : 'text-left'} ${scroll ? 'sticky top-0' : ''}`}
             >
-              {c.label}
+              {c.onClick ? (
+                <button type="button" onClick={c.onClick} className="font-semibold text-ink-soft hover:text-ink">
+                  {c.label}
+                </button>
+              ) : (
+                c.label
+              )}
             </th>
           ))}
         </tr>
@@ -121,13 +130,15 @@ export const TableToggle = ({ columns, rows }: TableToggleProps) => (
   </details>
 );
 
-const TXN_COLUMNS: Column[] = [
-  { label: 'Date' },
-  { label: 'Merchant / description' },
-  { label: 'Category' },
-  { label: 'Source' },
-  { label: 'Amount', num: true },
-];
+const merchantOf = (t: Categorized) => t.counterparty ?? t.description;
+
+const SORTS = {
+  date: (a: Categorized, b: Categorized) => a.date.localeCompare(b.date),
+  merchant: (a: Categorized, b: Categorized) => merchantOf(a).localeCompare(merchantOf(b)),
+  amount: (a: Categorized, b: Categorized) => a.amount - b.amount,
+};
+
+type SortKey = keyof typeof SORTS;
 
 interface TransactionsCardProps {
   txns: Categorized[];
@@ -142,7 +153,18 @@ interface TransactionsCardProps {
  * page is local — virtualise or paginate only if that ever gets slow.
  */
 export const TransactionsCard = ({ txns }: TransactionsCardProps) => {
-  const sorted = [...txns].sort((a, b) => b.date.localeCompare(a.date));
+  const [by, setBy] = useState<SortKey>('date');
+  const [asc, setAsc] = useState(false);
+
+  const sorted = [...txns].sort((a, b) => (asc ? 1 : -1) * SORTS[by](a, b));
+
+  // Names A-Z on first click, everything else biggest/newest first.
+  const head = (label: string, key: SortKey, num?: boolean): Column => ({
+    label: by === key ? `${label} ${asc ? '↑' : '↓'}` : label,
+    num,
+    onClick: () => (by === key ? setAsc(!asc) : (setBy(key), setAsc(key === 'merchant'))),
+  });
+
   return (
     <Card title={`Transactions (${txns.length})`} wide>
       {sorted.length === 0 ? (
@@ -150,10 +172,16 @@ export const TransactionsCard = ({ txns }: TransactionsCardProps) => {
       ) : (
         <DataTable
           scroll
-          columns={TXN_COLUMNS}
+          columns={[
+            head('Date', 'date'),
+            head('Merchant / description', 'merchant'),
+            { label: 'Category' },
+            { label: 'Source' },
+            head('Amount', 'amount', true),
+          ]}
           rows={sorted.map((t) => [
             t.date,
-            t.counterparty ?? t.description,
+            merchantOf(t),
             t.category,
             t.source === 'card' ? 'card' : 'bank',
             fmtNOK(t.amount),

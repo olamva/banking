@@ -52,10 +52,12 @@ export interface BarItem {
 
 interface HorizontalBarsProps {
   items: BarItem[];
+  /** Given, every bar becomes a filter button for its own label. */
+  onPick?: (label: string) => void;
 }
 
 /** Category totals or top counterparties. One hue — this encodes magnitude, not identity. */
-export const HorizontalBars = ({ items }: HorizontalBarsProps) => {
+export const HorizontalBars = ({ items, onPick }: HorizontalBarsProps) => {
   const [ref, width] = useWidth();
   const { bind, node } = useTooltip();
 
@@ -85,7 +87,8 @@ export const HorizontalBars = ({ items }: HorizontalBarsProps) => {
                   width={w}
                   height={16}
                   rx={4}
-                  className="cursor-default fill-series-1 hover:opacity-85"
+                  onClick={onPick && (() => onPick(item.label))}
+                  className={`fill-series-1 hover:opacity-85 ${onPick ? 'cursor-pointer' : 'cursor-default'}`}
                   {...bind(
                     <>
                       <div className="text-ink-soft">{item.label}</div>
@@ -109,16 +112,25 @@ export const HorizontalBars = ({ items }: HorizontalBarsProps) => {
   );
 };
 
+/**
+ * The bars worth drawing: the eight biggest moves, rounding noise dropped. The
+ * caller trims, so it can tell an empty chart from a full one and hide the card.
+ */
+export const visibleDeltas = (deltas: CategoryDelta[]): CategoryDelta[] =>
+  deltas.filter((d) => Math.abs(d.delta) > 0.5).slice(0, 8);
+
 interface DivergingBarsProps {
+  /** Already trimmed by the caller — see `visibleDeltas`. */
   deltas: CategoryDelta[];
+  /** Given, every bar becomes a filter button for its own category. */
+  onPick?: (category: string) => void;
 }
 
 /** Red spent more, blue spent less. Diverging, because zero is the meaningful middle. */
-export const DivergingBars = ({ deltas }: DivergingBarsProps) => {
+export const DivergingBars = ({ deltas: shown, onPick }: DivergingBarsProps) => {
   const [ref, width] = useWidth();
   const { bind, node } = useTooltip();
 
-  const shown = deltas.filter((d) => Math.abs(d.delta) > 0.5).slice(0, 8);
   const rowH = 26;
   const mid = width / 2;
   const halfW = Math.max(width / 2 - 90, 20);
@@ -144,7 +156,8 @@ export const DivergingBars = ({ deltas }: DivergingBarsProps) => {
                   width={w}
                   height={16}
                   rx={4}
-                  className={`cursor-default hover:opacity-85 ${positive ? 'fill-up' : 'fill-down'}`}
+                  onClick={onPick && (() => onPick(d.category))}
+                  className={`hover:opacity-85 ${onPick ? 'cursor-pointer' : 'cursor-default'} ${positive ? 'fill-up' : 'fill-down'}`}
                   {...bind(
                     <>
                       <div className="text-ink-soft">{d.category}</div>
