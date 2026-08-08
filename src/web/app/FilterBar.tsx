@@ -12,7 +12,7 @@ import { useEffect, useRef } from 'react';
 import type { Filters } from '../../core/select.ts';
 import { NO_FILTERS } from '../../core/select.ts';
 import { categoryLabel } from './format.ts';
-import { CloseIcon, Icon, ResetFiltersIcon } from './icons.ts';
+import { CloseIcon, DropdownIcon, Icon, ResetFiltersIcon } from './icons.ts';
 
 export type View = 'month' | 'year' | 'transactions';
 
@@ -138,9 +138,16 @@ export const FilterBar = ({ view, onView, months, month, onMonth, years, year, o
 
       {/* `details` rather than a button and an open flag: the disclosure state is
           the browser's problem, and there is none of ours to get out of sync. */}
-      <details ref={menu} className="relative">
-        <summary className={`${CONTROL} cursor-pointer list-none marker:content-none`}>
+      <details ref={menu} className="group relative">
+        {/* The caret is the only thing saying this opens rather than toggles. */}
+        <summary className={`${CONTROL} flex list-none items-center gap-1.5 marker:content-none`}>
           Categories{picked > 0 && ` (${picked})`}
+          <Icon
+            aria-hidden
+            icon={DropdownIcon}
+            size={14}
+            className="shrink-0 text-ink-muted transition-transform group-open:rotate-180"
+          />
         </summary>
         <div className="absolute z-20 mt-1 max-h-72 w-56 overflow-y-auto rounded-md border border-line bg-surface p-1.5 shadow-lg">
           {categories.length === 0 ? (

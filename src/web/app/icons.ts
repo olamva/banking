@@ -26,6 +26,7 @@ export { default as SortableIcon } from '@hugeicons/core-free-icons/ArrowUpDownI
 export { default as SearchIcon } from '@hugeicons/core-free-icons/Search01Icon';
 export { default as ResetFiltersIcon } from '@hugeicons/core-free-icons/FilterResetIcon';
 export { default as CloseIcon } from '@hugeicons/core-free-icons/Cancel01Icon';
+export { default as DropdownIcon } from '@hugeicons/core-free-icons/ArrowDown01Icon';
 // One per theme option — "system" is the machine, not whichever way it resolved.
 export { default as SystemThemeIcon } from '@hugeicons/core-free-icons/ComputerIcon';
 export { default as LightThemeIcon } from '@hugeicons/core-free-icons/Sun03Icon';
