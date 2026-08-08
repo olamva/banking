@@ -120,20 +120,37 @@ type SetFilters = Dispatch<SetStateAction<Filters>>;
 
 /**
  * Clicking a bar filters to it; clicking the one already filtered to clears it.
- * It always means "show me this", so it drops out of exclude mode — a click that
- * hid the bar you just asked to see would be a trap.
+ * A plain click always means "show me this", so it drops out of exclude mode — a
+ * click that hid the bar just asked for would be a trap.
+ *
+ * Meta-click means the opposite, and accumulates: showing is naturally one thing
+ * at a time, hiding is naturally several, so each meta-click adds to the list
+ * rather than replacing it. An include list means something else, so it goes.
  */
-const pickCategory = (onFilters: SetFilters) => (category: string) =>
-  onFilters((f) => ({
-    ...f,
-    categoryMode: "include",
-    categories:
-      f.categoryMode === "include" &&
-      f.categories.length === 1 &&
-      f.categories[0] === category
-        ? []
-        : [category],
-  }));
+const pickCategory =
+  (onFilters: SetFilters) => (category: string, exclude = false) =>
+    onFilters((f) => {
+      if (exclude) {
+        const list = f.categoryMode === "exclude" ? f.categories : [];
+        return {
+          ...f,
+          categoryMode: "exclude",
+          categories: list.includes(category)
+            ? list.filter((c) => c !== category)
+            : [...list, category],
+        };
+      }
+      return {
+        ...f,
+        categoryMode: "include",
+        categories:
+          f.categoryMode === "include" &&
+          f.categories.length === 1 &&
+          f.categories[0] === category
+            ? []
+            : [category],
+      };
+    });
 
 /**
  * The charts draw whatever string they are handed, so categories go in already
@@ -184,8 +201,8 @@ const MonthView = ({ txns, filters, onFilters, period: month }: ViewProps) => {
     ...stats.categories.map((c) => c.category),
     ...stats.categoryDeltas.map((d) => d.category),
   ]);
-  const onCategory = (label: string) =>
-    pickCategory(onFilters)(slugOf.get(label) ?? label);
+  const onCategory = (label: string, meta: boolean) =>
+    pickCategory(onFilters)(slugOf.get(label) ?? label, meta);
 
   // A breakdown of one category is a bar chart of itself, so it goes. Excluding
   // one is the opposite: everything else is still in, and still worth breaking down.
@@ -285,8 +302,8 @@ const YearView = ({ txns, filters, onFilters, period: year }: ViewProps) => {
     filters.categories.length === 1 && filters.categoryMode === "include";
 
   const slugOf = slugsByLabel(stats.categories.map((c) => c.category));
-  const onCategory = (label: string) =>
-    pickCategory(onFilters)(slugOf.get(label) ?? label);
+  const onCategory = (label: string, meta: boolean) =>
+    pickCategory(onFilters)(slugOf.get(label) ?? label, meta);
 
   return (
     <>

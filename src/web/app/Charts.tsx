@@ -62,8 +62,12 @@ export interface BarItem {
 
 interface HorizontalBarsProps {
   items: BarItem[];
-  /** Given, every bar becomes a filter button for its own label. */
-  onPick?: (label: string) => void;
+  /**
+   * Given, every bar becomes a filter button for its own label. The second
+   * argument is whether the meta key was held — the chart does not know what
+   * that means, only that it happened.
+   */
+  onPick?: (label: string, meta: boolean) => void;
 }
 
 /** Category totals or top counterparties. One hue — this encodes magnitude, not identity. */
@@ -99,7 +103,7 @@ export const HorizontalBars = ({ items, onPick }: HorizontalBarsProps) => {
                   width={w}
                   height={16}
                   rx={4}
-                  onClick={onPick && (() => onPick(item.label))}
+                  onClick={onPick && ((e) => onPick(item.label, e.metaKey))}
                   className={`fill-series-1 hover:opacity-85 ${onPick ? 'cursor-pointer' : 'cursor-default'}`}
                   {...bind(
                     <>
@@ -134,8 +138,8 @@ export const visibleDeltas = (deltas: CategoryDelta[]): CategoryDelta[] =>
 interface DivergingBarsProps {
   /** Already trimmed by the caller — see `visibleDeltas`. */
   deltas: CategoryDelta[];
-  /** Given, every bar becomes a filter button for its own category. */
-  onPick?: (category: string) => void;
+  /** Given, every bar becomes a filter button for its own category; see `HorizontalBars`. */
+  onPick?: (category: string, meta: boolean) => void;
 }
 
 /** Red spent more, green spent less. Diverging, because zero is the meaningful middle. */
@@ -186,7 +190,7 @@ export const DivergingBars = ({ deltas: shown, onPick }: DivergingBarsProps) => 
                   width={w}
                   height={16}
                   rx={4}
-                  onClick={onPick && (() => onPick(d.category))}
+                  onClick={onPick && ((e) => onPick(d.category, e.metaKey))}
                   className={`hover:opacity-85 ${onPick ? 'cursor-pointer' : 'cursor-default'} ${positive ? 'fill-critical-strong' : 'fill-good-strong'}`}
                   {...bind(
                     <>
