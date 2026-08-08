@@ -5,31 +5,10 @@ transactions to disk once, then analyses them offline.
 
 Private repo, single user, personal use. Not a product.
 
-## Commands
-
-```bash
-# online — these are the only commands that touch the network
-pnpm sb1 login                      # BankID in the browser, stores refresh token in keychain
-pnpm sb1 accounts                   # writes data/raw/accounts.json + accounts.json
-pnpm sb1 sync --month YYYY-MM       # writes data/raw/YYYY-MM/<accountKey>.json, skips existing
-pnpm sb1 sync --month YYYY-MM --force
-pnpm sb1 eb-login                   # Enable Banking consent, 90 days, card only
-pnpm sb1 eb-sync --month YYYY-MM    # writes data/raw/YYYY-MM/eb-<uid>.json
-
-# offline — everything below reads data/raw/ or the database
-pnpm sb1 import                     # normalize -> exclude -> categorize -> upsert, all months on disk
-pnpm sb1 import --month YYYY-MM     # just the one month
-pnpm sb1 rebuild                    # drop data/banking.db, reconstruct from data/raw/ alone
-pnpm sb1 report --month YYYY-MM     # month totals, categories, counterparties, card share
-pnpm sb1 report --year YYYY         # per-month series and year categories
-pnpm sb1 dashboard                  # renders data/dashboard.html — local file, never share it
-
-pnpm test                           # node --test, no framework
-pnpm typecheck
-```
-
-`import` is idempotent per `(source, id)`, so re-running a month is free.
-`report` and `dashboard` read the database, so `import` has to have run first.
+**The commands are in `README.md`** — that is the one list, keep it the one
+list. `pnpm test` and `pnpm typecheck` both have to pass before anything is
+finished. What follows is the part a README would not carry: the rules, and the
+things the real data does that the code has to survive.
 
 ## Layout
 
@@ -38,6 +17,7 @@ src/sb1.ts        SpareBank 1 auth, keychain, get(), monthRange()
 src/eb.ts         Enable Banking auth and card transactions
 src/types.ts      Txn / Classified / Categorized — the shared contract
 src/normalize.ts  data/raw/<month>/*.json -> Txn[]
+src/statement.ts  issuer CSV -> the merchant on card rows
 src/exclude.ts    Txn[] -> Classified[]; flags transfers and bill payments
 src/categorize.ts Classified[] -> Categorized[]; bank category + overrides.json
 src/db.ts         node:sqlite store, upsert by (source, id)
@@ -45,10 +25,11 @@ src/stats.ts      the only money aggregation — monthStats() and yearStats()
 src/dashboard.ts  renders data/dashboard.html; embeds stats.ts, adds no maths
 src/cli.ts        command dispatch
 data/raw/         API responses, verbatim, gitignored
+data/raw/card-statements/  issuer CSV exports, the only merchant source
 data/dashboard.html  generated, local-only, gitignored
 data/banking.db   derived SQLite store, rebuildable from data/raw, gitignored
 accounts.json     which accounts are mine (hand-edited), gitignored
-overrides.json    description pattern -> category, gitignored
+overrides.json    description/merchant pattern -> category, gitignored
 ```
 
 `data/raw/` stays the source of truth: it is the only thing that costs an API
@@ -102,7 +83,7 @@ Two sources normalize into it and they do not agree on much:
 |---|---|---|
 | date | epoch millis at Oslo midnight | `YYYY-MM-DD` string |
 | amount | signed number | positive string + `credit_debit_indicator` |
-| counterparty | `cleanedDescription` | none — null |
+| counterparty | `cleanedDescription` | null until the statement CSV fills it |
 | category | the bank's own | none — null |
 | pending | never seen | `status: PDNG` happens |
 
@@ -115,8 +96,9 @@ Notes from the real data, not the plan:
   Keep both, expect one bit of signal.
 - SB1 categories are always exactly one entry at confidence 100. `diverse` +
   `ukategorisert` is ~40% of rows, so `overrides.json` does real work.
-- Card rows carry no category at all, which is a bigger hole: they are roughly
-  40% of monthly spending.
+- Card rows carry no category at all and are roughly 40% of monthly spending.
+  The merchant now arrives from the statement export, so overrides can reach
+  them; without one they fall into a single card bucket.
 
 ## Exclusions
 
@@ -148,8 +130,54 @@ merchant refunds and `Rabatt strømmetjenester` is cashback. Both are real.
 The check that catches all of this: every excluded reason must net to zero
 across the pair. If it doesn't, one leg is being matched and the other isn't.
 
-Card spending has **no merchant**: `creditor`, `merchant_category_code` and
-`bank_transaction_code` are null on every row, and 68 of 76 July rows carry only
-`Varekjøp` as remittance information. So card rows are correct in amount and
-date but cannot be categorised beyond a single card bucket. The report should
-say what share of the month that bucket is, since it is the blind spot.
+## The card's merchant
+
+The Enable Banking API returns `creditor`, `merchant_category_code` and
+`bank_transaction_code` as null on every card row, and almost every row carries
+only `Varekjøp` as remittance information. The API is correct on amount and date
+and silent on everything else.
+
+The merchant comes from the issuer's own **statement CSV export**, dropped into
+`data/raw/card-statements/`. `src/statement.ts` joins it to the card rows on
+booking date and amount, which matched all 498 rows of Feb–Jul exactly.
+
+It is a **lookup, not a source**. Card rows still come from Enable Banking,
+which has stable ids and is what `rebuild` reconstructs from; the CSV has no
+transaction id, so it could never be keyed on. Enrichment writes `counterparty`
+and nothing else — in particular it must never rewrite `description`, which the
+exclusion rules match on.
+
+Where several rows share a booking date and an amount, which line goes to which
+row is arbitrary. That is harmless: they are equal in amount by definition, so
+any permutation gives identical per-merchant totals.
+
+Without a statement covering a month, those rows keep `counterparty: null` and
+the report says how many and how much, rather than claiming the card bucket is
+wholly opaque.
+
+## Operational gotchas
+
+**Consent expiry.** The Enable Banking consent runs 90 days from 8 Aug 2026, so
+`eb-sync` starts failing around **6 Nov 2026**. `eb-login` renews it. Only the
+`CARD` account is linked; the deposit accounts were unlinked deliberately, since
+the SB1 API serves those directly.
+
+**Card posting lag.** Card transactions post late and can be `PDNG`, so a July
+report run on 1 Aug misses the tail of July. Run a few days into the following
+month, or re-run with `--force`.
+
+**Pending card rows have no booking date** and come back in *every* month's
+response regardless of the range queried. `normalize` drops them. Anything that
+keeps them, or dates them from `transaction_date`, counts the same transaction
+once per month synced — that is exactly how a naive read of six months of files
+reports 528 card rows instead of 498.
+
+**Re-syncing rewrites the file even when nothing changed**, because
+`classificationInput.id` is a fresh UUID per response. Compare row counts and
+transaction ids, never file hashes.
+
+**Pagination.** `rowLimit` exists on the SB1 transactions endpoints and we have
+never set it. Nothing has come back truncated so far and every response carries
+an empty `errors` array, but that is luck, not proof. A suspiciously round row
+count is the tell. The Enable Banking side follows `continuation_key` and has a
+test.
