@@ -11,15 +11,11 @@ export type Filters = {
   /** Empty means every category; otherwise the row's category must be one of these. */
   categories: string[];
   search: string;
-  minAmount: number | null;
-  maxAmount: number | null;
 };
 
 export const NO_FILTERS: Filters = {
   categories: [],
   search: '',
-  minAmount: null,
-  maxAmount: null,
 };
 
 export function inMonth(t: Categorized, month: string): boolean {
@@ -65,9 +61,6 @@ export function matchesFilters(t: Categorized, f: Filters): boolean {
     const hay = (t.description + ' ' + (t.counterparty ?? '')).toLowerCase();
     if (!hay.includes(q)) return false;
   }
-  const abs = Math.abs(t.amount);
-  if (f.minAmount != null && abs < f.minAmount) return false;
-  if (f.maxAmount != null && abs > f.maxAmount) return false;
   return true;
 }
 

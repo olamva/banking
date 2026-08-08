@@ -24,14 +24,12 @@ function txn(partial: Partial<Categorized> & { id: string; amount: number }): Ca
   };
 }
 
-test('matchesFilters: category, search and amount range', () => {
+test('matchesFilters: category and search', () => {
   const t = txn({ id: '1', amount: -123.45, description: 'Rema 1000', counterparty: 'Rema', category: 'dagligvarer' });
   assert.equal(matchesFilters(t, NO_FILTERS), true);
   assert.equal(matchesFilters(t, { ...NO_FILTERS, categories: ['transport'] }), false);
   assert.equal(matchesFilters(t, { ...NO_FILTERS, search: 'rema' }), true);
   assert.equal(matchesFilters(t, { ...NO_FILTERS, search: 'kiwi' }), false);
-  assert.equal(matchesFilters(t, { ...NO_FILTERS, minAmount: 200 }), false);
-  assert.equal(matchesFilters(t, { ...NO_FILTERS, maxAmount: 100 }), false);
 });
 
 /** No categories means all of them, not none — an empty filter must not empty the page. */

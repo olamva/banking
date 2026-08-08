@@ -37,8 +37,6 @@ export const toParams = (s: UrlState): string => {
   if (s.view === 'transactions' && s.days) p.set('days', String(s.days));
   if (s.filters.categories.length) p.set('cat', s.filters.categories.join(','));
   if (s.filters.search) p.set('q', s.filters.search);
-  if (s.filters.minAmount != null) p.set('min', String(s.filters.minAmount));
-  if (s.filters.maxAmount != null) p.set('max', String(s.filters.maxAmount));
   return p.toString();
 };
 
@@ -50,8 +48,6 @@ export const fromParams = (p: URLSearchParams): UrlState => ({
   filters: {
     categories: p.get('cat')?.split(',').filter(Boolean) ?? [],
     search: p.get('q') ?? '',
-    minAmount: num(p.get('min')),
-    maxAmount: num(p.get('max')),
   },
 });
 

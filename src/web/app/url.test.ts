@@ -18,7 +18,7 @@ test('a populated state round-trips, nulls included', () => {
     month: null,
     year: '2026',
     days: null,
-    filters: { categories: ['dagligvarer', 'transport'], search: 'rema', minAmount: 100, maxAmount: 2000 },
+    filters: { categories: ['dagligvarer', 'transport'], search: 'rema' },
   };
   assert.deepEqual(fromParams(new URLSearchParams(toParams(state))), state);
   assert.deepEqual(fromParams(new URLSearchParams(toParams(DEFAULT))), DEFAULT);
@@ -35,13 +35,10 @@ test('only the period the view uses reaches the URL', () => {
   assert.equal(toParams({ ...all, view: 'transactions' }), 'view=transactions&days=30');
 });
 
-/** NaN compares false against everything, so a junk amount would empty the page. */
-test('junk and empty params parse to null, not NaN, and an empty cat is no categories', () => {
-  const s = fromParams(new URLSearchParams('min=abc&max=&cat=&view=sideways&days=7'));
-  assert.equal(s.filters.minAmount, null);
-  assert.equal(s.filters.maxAmount, null);
+test('junk params fall back to the default, and an empty cat is no categories', () => {
+  const s = fromParams(new URLSearchParams('cat=&view=sideways&days=7'));
   assert.deepEqual(s.filters.categories, []);
   assert.equal(s.view, 'month');
-  // 7 is not one of the three presets, so it falls back to all time.
+  // 7 is not one of the presets, so it falls back to all time rather than to NaN.
   assert.equal(s.days, null);
 });
