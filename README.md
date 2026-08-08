@@ -167,8 +167,8 @@ the bank:
 
 ```json
 {
-  "Munkegata 34": "faste_boutgifter",
-  "/\\bleie\\b/": "faste_boutgifter"
+  "Munkegata 34": "husleie",
+  "/\\bleie\\b/": "husleie"
 }
 ```
 
@@ -179,9 +179,26 @@ the doubled backslash — it is JSON.
 Keep plain patterns specific. A bare street name catches every shop on that
 street, which is how `Munkegata` first swallowed a supermarket.
 
+A card row that no pattern matches falls to `reise` when the merchant's trailing
+ISO country is not `NOR`, and to `ukategorisert` when it is. The bank's own
+`diverse` collapses into `ukategorisert` too, so there is one opaque bucket, not
+three.
+
+`subscriptions.json` is a list of the same patterns, and it is a second axis
+rather than a category:
+
+```json
+["telenor", "youtubepremium", "claude"]
+```
+
+A match sets `isSubscription`, so YouTube Premium stays
+`medier_og_underholdning` and is still counted as a subscription. SB1 sets the
+flag itself on standing bank payments, and a pattern only ever adds to it. Card
+rows need a pattern to be seen at all, because Enable Banking has no such field.
+
 `/overrides` in Claude Code reads the database and `overrides.json` and suggests
 patterns worth adding — only where a merchant with real money behind it is
-landing in `card spending`, `ukategorisert` or `diverse`. It sends merchant
+landing in `ukategorisert`. It sends merchant
 names to the model, which is the one place this repo talks to the network on
 purpose. Run `pnpm sb1 rebuild` after accepting a change.
 
@@ -200,7 +217,7 @@ src/core/types.ts     Txn / Classified / Categorized — the shared contract
 src/core/normalize.ts data/raw/<month>/*.json -> Txn[]
 src/core/statement.ts the issuer CSV -> the merchant on card rows
 src/core/exclude.ts   flags internal transfers and card bill payments
-src/core/categorize.ts bank category + overrides.json
+src/core/categorize.ts bank category + overrides.json + subscriptions.json
 src/core/db.ts        node:sqlite store, rebuilt wholesale
 src/core/stats.ts     the only money aggregation
 src/core/select.ts    which rows are in view — filters, months, categories
@@ -219,7 +236,7 @@ docs/              privacy policy and terms, required to register the
 exact code `node --test` pins.
 
 Everything holding personal data is gitignored: `data/`, `accounts.json`,
-`overrides.json`, `secrets/`, `.env.local`.
+`overrides.json`, `subscriptions.json`, `secrets/`, `.env.local`.
 
 ## Design rules
 

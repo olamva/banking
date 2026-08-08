@@ -43,6 +43,7 @@ data/raw/card-statements/  issuer CSV exports, the only merchant source
 data/banking.db   derived SQLite store, rebuildable from data/raw, gitignored
 accounts.json     which accounts are mine (hand-edited), gitignored
 overrides.json    substring or /regex/ -> category, gitignored
+subscriptions.json  the same patterns, as a list; sets isSubscription, gitignored
 ```
 
 `data/raw/` stays the source of truth: it is the only thing that costs an API
@@ -81,7 +82,8 @@ the 1st of the month into the previous month.
 
 **Nothing personal enters git, or the network.** No account numbers, account
 keys, names, balances or descriptions in source, tests, fixtures, commit
-messages or docs. `.env.local`, `data/`, `accounts.json` and `overrides.json`
+messages or docs. `.env.local`, `data/`, `accounts.json`, `overrides.json` and
+`subscriptions.json`
 are gitignored; keep it that way. JSON and CSV output are unredacted — strip
 account numbers before anything leaves the machine.
 
@@ -134,12 +136,20 @@ Notes from the real data, not the plan:
   structured counterparty exists only on `/transactions/{id}/details`, one call
   per transaction, and is not worth it.
 - `recurring` and `subscription` have been identical on every SB1 row so far.
-  Keep both, expect one bit of signal.
-- SB1 categories are always exactly one entry at confidence 100. `diverse` +
-  `ukategorisert` is ~40% of rows, so `overrides.json` does real work.
+  Keep both, expect one bit of signal. The bank sets them only on standing bank
+  payments, and a card row can never carry them at all, so anything you pay by
+  card is invisible to the flag until `subscriptions.json` names it.
+- SB1 categories are always exactly one entry at confidence 100. `diverse` is
+  the bank's catch-all and carries no more signal than no category at all, so
+  `categorize` collapses it into `ukategorisert`. Together they are ~40% of
+  rows, which is why `overrides.json` does real work.
 - Card rows carry no category at all and are roughly 40% of monthly spending.
   The merchant now arrives from the statement export, so overrides can reach
-  them; without one they fall into a single card bucket.
+  them. Without one, a card row is `reise` if the merchant's trailing ISO
+  country is not `NOR`, and `ukategorisert` otherwise — there is no separate
+  card bucket. The country rule reads a foreign *biller* as a trip (Apple bills
+  from IRL, Fortnite from CHE); an override wins over it, which is where those
+  belong anyway.
 
 ## Exclusions
 
@@ -200,8 +210,9 @@ row is arbitrary. That is harmless: they are equal in amount by definition, so
 any permutation gives identical per-merchant totals.
 
 Without a statement covering a month, those rows keep `counterparty: null` and
-the report says how many and how much, rather than claiming the card bucket is
-wholly opaque.
+the report says how many and how much, rather than claiming those rows are
+wholly opaque. A null counterparty also has no country, so such a row is never
+guessed as travel.
 
 ## Operational gotchas
 

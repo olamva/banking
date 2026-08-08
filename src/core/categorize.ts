@@ -19,41 +19,88 @@ import type { Classified, Categorized } from './types.ts';
  */
 export type Overrides = Record<string, string>;
 
-const CARD_CATEGORY = 'card spending';
 const UNCATEGORIZED = 'ukategorisert';
+const TRAVEL = 'reise';
 
-export async function loadOverrides(path = 'overrides.json'): Promise<Overrides> {
-  if (!existsSync(path)) return {};
-  return JSON.parse(await readFile(path, 'utf8'));
+/**
+ * The statement export ends a card merchant with the terminal's ISO country,
+ * `NAME, CITY, XXX`. Anything but NOR was bought abroad, which for this account
+ * always means a trip — so those rows are travel rather than an opaque bucket.
+ *
+ * It misreads a foreign *biller* as a trip (Apple bills from IRL, Fortnite from
+ * CHE). An override wins over this, which is where those belong anyway.
+ */
+const FOREIGN_MERCHANT = /,\s*(?!NOR$)[A-Z]{3}$/;
+
+/**
+ * The bank's own catch-all carries no more information than having no category
+ * at all, so it collapses into one bucket rather than looking like a real one.
+ */
+const BANK_CATCH_ALL = 'diverse';
+
+/**
+ * subscriptions.json: `["<pattern>", ...]`, the same pattern language.
+ *
+ * A separate axis from the category, not a category of its own — Telenor is a
+ * fixed housing cost *and* a subscription, and forcing a choice between the two
+ * loses one of them. SB1 sets `subscription` itself on standing bank payments;
+ * a card row can never carry it, because Enable Banking has no such field, so
+ * every subscription paid by card needs a pattern here to be seen at all.
+ */
+export type Subscriptions = string[];
+
+async function loadJson<T>(path: string, fallback: T): Promise<T> {
+  if (!existsSync(path)) return fallback;
+  return JSON.parse(await readFile(path, 'utf8')) as T;
 }
 
-type Rule = { matches: (haystack: string) => boolean; category: string };
+export const loadOverrides = (path = 'overrides.json') => loadJson<Overrides>(path, {});
+export const loadSubscriptions = (path = 'subscriptions.json') => loadJson<Subscriptions>(path, []);
+
+type Matcher = (haystack: string) => boolean;
+type Rule = { matches: Matcher; category: string };
 
 /** Compiled once per run, not once per transaction. */
-function compile(pattern: string, category: string): Rule {
+function compile(pattern: string, source: string): Matcher {
   const asRegex = /^\/(.+)\/([a-z]*)$/.exec(pattern);
   if (!asRegex) {
     const needle = pattern.toLowerCase();
-    return { matches: (h) => h.includes(needle), category };
+    return (h) => h.includes(needle);
   }
   try {
     // Always case-insensitive: the haystack is lowercased before matching.
     const re = new RegExp(asRegex[1]!, asRegex[2]!.replace('i', '') + 'i');
-    return { matches: (h) => re.test(h), category };
+    return (h) => re.test(h);
   } catch (e) {
-    throw new Error(`overrides.json: ${pattern} is not a valid regex — ${e instanceof Error ? e.message : e}`);
+    throw new Error(`${source}: ${pattern} is not a valid regex — ${e instanceof Error ? e.message : e}`);
   }
 }
 
-export function categorize(txns: Classified[], overrides: Overrides): Categorized[] {
-  const rules = Object.entries(overrides).map(([pattern, category]) => compile(pattern, category));
-  return txns.map((t) => ({ ...t, category: categoryFor(t, rules) }));
+export function categorize(
+  txns: Classified[],
+  overrides: Overrides,
+  subscriptions: Subscriptions = [],
+): Categorized[] {
+  const rules: Rule[] = Object.entries(overrides).map(([pattern, category]) => ({
+    matches: compile(pattern, 'overrides.json'),
+    category,
+  }));
+  const subs = subscriptions.map((pattern) => compile(pattern, 'subscriptions.json'));
+  return txns.map((t) => {
+    const haystack = `${t.description} ${t.counterparty ?? ''}`.toLowerCase();
+    return {
+      ...t,
+      category: categoryFor(t, rules, haystack),
+      // The bank's own flag stands; a pattern only ever adds to it.
+      isSubscription: t.isSubscription || subs.some((m) => m(haystack)),
+    };
+  });
 }
 
-function categoryFor(t: Classified, rules: Rule[]): string {
-  const haystack = `${t.description} ${t.counterparty ?? ''}`.toLowerCase();
+function categoryFor(t: Classified, rules: Rule[], haystack: string): string {
   const override = rules.find((r) => r.matches(haystack));
   if (override) return override.category;
-  if (t.source === 'card') return CARD_CATEGORY;
-  return t.bankCategory ?? UNCATEGORIZED;
+  if (t.source === 'card' && FOREIGN_MERCHANT.test(t.counterparty ?? '')) return TRAVEL;
+  if (t.bankCategory && t.bankCategory !== BANK_CATCH_ALL) return t.bankCategory;
+  return UNCATEGORIZED;
 }

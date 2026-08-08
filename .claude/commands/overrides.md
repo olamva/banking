@@ -22,13 +22,18 @@ excluded rows dropped, amounts in NOK, biggest first):
 
 `src/core/categorize.ts`: patterns are case-insensitive substrings, checked in
 **file order, first match wins**, against `description + ' ' + counterparty`.
-No match → the bank's own category, or `card spending` for card rows.
+No match → `reise` if the card merchant's trailing ISO country is not `NOR`,
+otherwise the bank's own category, and `ukategorisert` for a card row or for the
+bank's `diverse` catch-all.
 
 ## What counts as worth flagging
 
-- **`card spending`, `ukategorisert` or `diverse`** on real money — those are
-  the buckets that carry no information. Sort by amount: a 4 000 kr merchant is
-  worth a pattern, a 39 kr one-off is not.
+- **`ukategorisert`** on real money — the one bucket that carries no
+  information. Sort by amount: a 4 000 kr merchant is worth a pattern, a 39 kr
+  one-off is not.
+- **A foreign biller sitting in `reise`** — the country rule calls anything
+  bought outside NOR a trip, so an online subscription billed abroad lands
+  there. An override is what corrects it.
 - **The same merchant in two categories** — usually the card row and the bank
   row of the same shop, only one of which a pattern reaches.
 - **A pattern that matches nothing** in the list above — dead, or it broke when

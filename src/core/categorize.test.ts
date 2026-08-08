@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { categorize, loadOverrides } from './categorize.ts';
+import { categorize, loadOverrides, loadSubscriptions } from './categorize.ts';
 import type { Classified } from './types.ts';
 
 function classified(overrides: Partial<Classified>): Classified {
@@ -34,12 +34,38 @@ test('override beats bankCategory, matched case-insensitively', () => {
   assert.equal(out.category, 'groceries');
 });
 
-test('card rows without an override land in the card bucket, not ukategorisert', () => {
+test('a domestic card row without an override is uncategorized, like an sb1 one', () => {
   const [out] = categorize(
-    [classified({ source: 'card', description: 'Varekjøp', bankCategory: null })],
+    [classified({ source: 'card', description: 'Varekjøp', counterparty: 'KAFFEBAR, OSLO, NOR', bankCategory: null })],
     {},
   );
-  assert.equal(out.category, 'card spending');
+  assert.equal(out.category, 'ukategorisert');
+});
+
+test('a card row bought abroad is travel, by the merchant country', () => {
+  const cat = (counterparty: string | null) =>
+    categorize([classified({ source: 'card', description: 'Varekjøp', counterparty, bankCategory: null })], {})[0]!
+      .category;
+  assert.equal(cat('LAWSON, TOKYO, JPN'), 'reise');
+  assert.equal(cat('KAFFEBAR, OSLO, NOR'), 'ukategorisert');
+  // no country at all: the issuer's own rows, which are never a trip
+  assert.equal(cat('Omkostninger regningsbetaling'), 'ukategorisert');
+  assert.equal(cat(null), 'ukategorisert');
+  // a city that ends in three letters is not a country code
+  assert.equal(cat('BAKERIET, OSLO'), 'ukategorisert');
+});
+
+test('an override beats the travel rule, so a foreign biller can be placed', () => {
+  const [out] = categorize(
+    [classified({ source: 'card', description: 'Varekjøp', counterparty: 'APPLE.COM/BILL, CORK, IRL', bankCategory: null })],
+    { 'apple.com/bill': 'medier_og_underholdning' },
+  );
+  assert.equal(out.category, 'medier_og_underholdning');
+});
+
+test("the bank's catch-all collapses into ukategorisert", () => {
+  const [out] = categorize([classified({ bankCategory: 'diverse' })], {});
+  assert.equal(out.category, 'ukategorisert');
 });
 
 test('an override still applies to a card row', () => {
@@ -79,7 +105,7 @@ test('an unparseable regex names itself rather than failing silently', () => {
   assert.throws(() => categorize([classified({})], { '/[unclosed/': 'x' }), /not a valid regex/);
 });
 
-test('sb1 row with no bankCategory falls to ukategorisert, not the card bucket', () => {
+test('sb1 row with no bankCategory falls to ukategorisert', () => {
   const [out] = categorize([classified({ bankCategory: null })], {});
   assert.equal(out.category, 'ukategorisert');
 });
@@ -87,4 +113,37 @@ test('sb1 row with no bankCategory falls to ukategorisert, not the card bucket',
 test('loadOverrides returns {} when the file is absent', async () => {
   const result = await loadOverrides('does-not-exist.json');
   assert.deepEqual(result, {});
+});
+
+test('loadSubscriptions returns [] when the file is absent', async () => {
+  assert.deepEqual(await loadSubscriptions('does-not-exist.json'), []);
+});
+
+test('a subscription pattern flags a card row the bank could never flag', () => {
+  const [out] = categorize(
+    [
+      classified({
+        source: 'card',
+        description: 'Varekjøp',
+        counterparty: 'GOOGLE *YouTubePremium, LONDON, GBR',
+        bankCategory: null,
+      }),
+    ],
+    { youtubepremium: 'medier_og_underholdning' },
+    ['youtubepremium'],
+  );
+  // the point of the second axis: a category *and* the flag, not one or the other
+  assert.equal(out.category, 'medier_og_underholdning');
+  assert.equal(out.isSubscription, true);
+});
+
+test("a subscription pattern only adds to the bank's flag, never clears it", () => {
+  const [flagged] = categorize([classified({ isSubscription: true })], {}, []);
+  assert.equal(flagged.isSubscription, true);
+  const [unflagged] = categorize([classified({ isSubscription: false })], {}, ['nothing-matches']);
+  assert.equal(unflagged.isSubscription, false);
+});
+
+test('a subscription pattern names its own file when the regex is broken', () => {
+  assert.throws(() => categorize([classified({})], {}, ['/[unclosed/']), /subscriptions\.json/);
 });
