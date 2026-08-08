@@ -33,7 +33,7 @@ data/raw/card-statements/  issuer CSV exports, the only merchant source
 data/dashboard.html  generated, local-only, gitignored
 data/banking.db   derived SQLite store, rebuildable from data/raw, gitignored
 accounts.json     which accounts are mine (hand-edited), gitignored
-overrides.json    description/merchant pattern -> category, gitignored
+overrides.json    substring or /regex/ -> category, gitignored
 ```
 
 `data/raw/` stays the source of truth: it is the only thing that costs an API
@@ -203,3 +203,21 @@ never set it. Nothing has come back truncated so far and every response carries
 an empty `errors` array, but that is luck, not proof. A suspiciously round row
 count is the tell. The Enable Banking side follows `continuation_key` and has a
 test.
+
+## Rows only enter the database by rebuild
+
+`rebuild` wipes the table and reconstructs from `data/raw/`. There is no
+incremental path, and adding one back needs more thought than it looks.
+
+An upsert keyed on `(source, id)` used to exist and was wrong: **SB1 reissues a
+transaction under a new id when a reservation becomes booked**, so re-syncing a
+month still in flight left the old id behind as a second row. A rent payment
+appeared twice, 18 000 kr counted as 36 000, and re-importing could never clear
+it — an upsert has no way to notice a row it did not produce.
+
+Deleting just the affected month would not fix it either: a card row from the
+July directory can book into June, so a directory does not own a month. Only a
+full reconstruct is safe without tracking which file produced which row.
+
+At a thousand rows this takes a few hundred milliseconds. Revisit when that
+stops being true, not before.

@@ -6,7 +6,7 @@ import { parseStatement, statementRange } from './statement.ts';
 import { openDb, queryMonth, queryRange } from './db.ts';
 import { monthStats, yearStats, byMonth, blindSpot } from './stats.ts';
 import { writeDashboard } from './dashboard.ts';
-import { importMonths, rebuildAll, monthsOnDisk, DB_FILE, RAW } from './pipeline.ts';
+import { rebuildAll, DB_FILE, RAW } from './pipeline.ts';
 import { syncMonth, ebSyncMonth } from './sync.ts';
 import { serve } from './serve.ts';
 import { used, remaining, HOURLY_CAP } from './budget.ts';
@@ -173,7 +173,6 @@ try {
   else if (cmd === 'eb-login') await ebLogin();
   else if (cmd === 'eb-sync') await ebSyncMonth(needMonth('eb-sync'), has('force'));
   else if (cmd === 'statement') await statement();
-  else if (cmd === 'import') await importMonths(flag('month') ? [flag('month')!] : monthsOnDisk());
   else if (cmd === 'rebuild') await rebuildAll();
   else if (cmd === 'report') report();
   else if (cmd === 'dashboard') await dashboard();
@@ -186,7 +185,7 @@ try {
   } else {
     console.error('usage: pnpm sb1 <login | accounts | sync --month YYYY-MM [--force]');
     console.error('                | eb-login | eb-sync --month YYYY-MM [--force]');
-    console.error('                | statement <file.csv> | import [--month YYYY-MM] | rebuild');
+    console.error('                | statement <file.csv> | rebuild');
     console.error('                | report --month YYYY-MM | report --year YYYY | dashboard');
     console.error('                | dev [--port 4000] [--max-age 360] [--no-pull] | budget>');
     process.exit(1);

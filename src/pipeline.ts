@@ -11,7 +11,7 @@ import { normalizeMonth } from './normalize.ts';
 import { enrich, readStatements } from './statement.ts';
 import { exclude, type Accounts } from './exclude.ts';
 import { categorize, loadOverrides } from './categorize.ts';
-import { openDb, upsertMany, rebuild as rebuildDb } from './db.ts';
+import { openDb, rebuild as rebuildDb } from './db.ts';
 import type { Categorized } from './types.ts';
 
 export const DB_FILE = 'data/banking.db';
@@ -39,28 +39,19 @@ export async function pipeline(month: string): Promise<Categorized[]> {
   return categorize(exclude(txns, accounts), await loadOverrides());
 }
 
-/** Upserts the given months. Idempotent per (source, id), so re-running is free. */
-export async function importMonths(months = monthsOnDisk()): Promise<number> {
-  await mkdir('data', { recursive: true });
-  const db = openDb(DB_FILE);
-  let total = 0;
-  try {
-    for (const month of months) {
-      const rows = await pipeline(month);
-      upsertMany(db, rows);
-      total += rows.length;
-      console.error(`${month}: ${rows.length} rows`);
-    }
-  } finally {
-    db.close();
-  }
-  return total;
-}
-
 /**
  * The database is derived and disposable: delete it and reconstruct from
- * data/raw/ alone. Unlike an upsert this also drops rows the pipeline no longer
- * produces, which an upsert would leave behind forever.
+ * data/raw/ alone.
+ *
+ * This is the only way rows get in, and deliberately so. An incremental upsert
+ * keyed on `(source, id)` used to exist alongside it, and it was wrong: SB1
+ * reissues a transaction under a *new* id when a reservation becomes booked, so
+ * re-syncing a month still in flight left the old id behind as a second row.
+ * One 18 000 kr rent payment showed up twice, and no amount of re-importing
+ * cleared it, because an upsert has no way to notice a row it did not produce.
+ *
+ * A full reconstruct is a few hundred milliseconds at this size and has no such
+ * failure mode. Revisit only when that stops being true.
  */
 export async function rebuildAll(): Promise<number> {
   rmSync(DB_FILE, { force: true });

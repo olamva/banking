@@ -23,7 +23,7 @@ import { createServer } from 'node:http';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { openDb, queryRange } from './db.ts';
 import { renderDashboard } from './dashboard.ts';
-import { importMonths, DB_FILE } from './pipeline.ts';
+import { rebuildAll, DB_FILE } from './pipeline.ts';
 import { syncMonth, ebSyncMonth, syncCost } from './sync.ts';
 import { canAfford, remaining, used, HOURLY_CAP } from './budget.ts';
 
@@ -107,7 +107,9 @@ async function refresh(months: string[], age: number | null): Promise<void> {
       }
     }
   }
-  await importMonths(months);
+  // A full reconstruct, not an upsert of just these months: SB1 reissues ids
+  // mid-month, and only a rebuild drops the row the old id left behind.
+  await rebuildAll();
 }
 
 /** A failed refresh must never take the page down — serve whatever is on disk. */
