@@ -36,6 +36,7 @@ export const toParams = (s: UrlState): string => {
   if (s.view === 'year' && s.year) p.set('year', s.year);
   if (s.view === 'transactions' && s.days) p.set('days', String(s.days));
   if (s.filters.categories.length) p.set('cat', s.filters.categories.join(','));
+  if (s.filters.categoryMode !== 'include') p.set('cat_mode', s.filters.categoryMode);
   if (s.filters.search) p.set('q', s.filters.search);
   return p.toString();
 };
@@ -47,6 +48,7 @@ export const fromParams = (p: URLSearchParams): UrlState => ({
   days: DAYS.find((d) => d === num(p.get('days'))) ?? null,
   filters: {
     categories: p.get('cat')?.split(',').filter(Boolean) ?? [],
+    categoryMode: p.get('cat_mode') === 'exclude' ? 'exclude' : 'include',
     search: p.get('q') ?? '',
   },
 });
