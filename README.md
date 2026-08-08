@@ -56,9 +56,7 @@ pnpm sb1 eb-sync --month YYYY-MM    # card transactions
 
 # offline — reads data/raw/ or the database
 pnpm sb1 statement <file.csv>       # ingest a card statement export, then rebuild
-pnpm sb1 import                     # every month on disk into data/banking.db
-pnpm sb1 import --month YYYY-MM     # just the one
-pnpm sb1 rebuild                    # drop the database, reconstruct from data/raw/
+pnpm sb1 rebuild                    # rebuild data/banking.db from data/raw/
 pnpm sb1 report --month YYYY-MM     # totals, categories, counterparties, card share
 pnpm sb1 report --year YYYY         # per-month series and year categories
 pnpm sb1 dashboard                  # renders data/dashboard.html, a static snapshot
@@ -71,8 +69,9 @@ pnpm test                           # node --test, no framework
 pnpm typecheck
 ```
 
-`import` is idempotent per `(source, id)`, so re-running a month is free.
-`report` and `dashboard` read the database, so `import` has to have run first.
+`rebuild` reconstructs the whole database from `data/raw/` — a few hundred
+milliseconds, and the only way rows get in. `report` and `dashboard` read the
+database, so it has to have run first.
 
 ## The dashboard
 
@@ -80,7 +79,7 @@ pnpm typecheck
 pnpm dev          # then open http://localhost:4000
 ```
 
-Every request re-reads the database and re-renders, so an `import` in another
+Every request re-reads the database and re-renders, so a `rebuild` in another
 terminal shows up on reload. Month and year views, filtering by category,
 source, text and amount range, all re-computed in the browser.
 
@@ -128,7 +127,7 @@ current. By hand, if you want a report in the terminal:
 
 ```bash
 pnpm sb1 sync --month 2026-08 && pnpm sb1 eb-sync --month 2026-08
-pnpm sb1 import --month 2026-08
+pnpm sb1 rebuild
 pnpm sb1 report --month 2026-08
 ```
 
@@ -165,11 +164,18 @@ category, checked against both the description and the merchant, and wins over
 the bank:
 
 ```json
-{ "Munkegata 34": "faste_boutgifter" }
+{
+  "Munkegata 34": "faste_boutgifter",
+  "/\\bleie\\b/": "faste_boutgifter"
+}
 ```
 
-Keep patterns specific — a bare street name will also catch every shop on that
-street.
+A pattern wrapped in slashes is a **regex**, which is how you match a word as a
+word: `\bleie\b` catches `Leie Juni & Juli` but not `utleie` or `leiebil`. Note
+the doubled backslash — it is JSON.
+
+Keep plain patterns specific. A bare street name catches every shop on that
+street, which is how `Munkegata` first swallowed a supermarket.
 
 `/overrides` in Claude Code reads the database and `overrides.json` and suggests
 patterns worth adding — only where a merchant with real money behind it is

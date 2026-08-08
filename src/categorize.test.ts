@@ -60,6 +60,25 @@ test('an override matches the merchant, which is where a card row carries it', (
   assert.equal(out.category, 'kafe_og_restaurant');
 });
 
+test('a slash-wrapped pattern is a regex, so a word can be matched as a word', () => {
+  const rent = { '/\\bleie\\b/': 'faste_boutgifter' };
+  const cat = (description: string) => categorize([classified({ description })], rent)[0]!.category;
+  assert.equal(cat('Til: Ola - Leie Juni & Juli'), 'faste_boutgifter');
+  assert.equal(cat('LEIE AUGUST'), 'faste_boutgifter');
+  // the whole point: these contain "leie" but are not the word
+  assert.equal(cat('UTLEIE AS'), 'dagligvarer');
+  assert.equal(cat('LEIEBIL BERGEN'), 'dagligvarer');
+});
+
+test('a plain pattern stays a substring, so partial words still match', () => {
+  const [out] = categorize([classified({ description: 'KAFFEBAR OSLO' })], { kaffe: 'kafe_og_restaurant' });
+  assert.equal(out.category, 'kafe_og_restaurant');
+});
+
+test('an unparseable regex names itself rather than failing silently', () => {
+  assert.throws(() => categorize([classified({})], { '/[unclosed/': 'x' }), /not a valid regex/);
+});
+
 test('sb1 row with no bankCategory falls to ukategorisert, not the card bucket', () => {
   const [out] = categorize([classified({ bankCategory: null })], {});
   assert.equal(out.category, 'ukategorisert');
