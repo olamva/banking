@@ -27,14 +27,19 @@ category totals, top counterparties, subscriptions, delta vs previous month.
 
 ## Open questions
 
-**Are credit card transactions missing?** July has a `-5738.00` payment to
-`Kredittbanken ASA`, which reads like a credit card bill — not spending in
-itself. But no card account comes back from `/accounts` even with
-`includeCreditCardAccounts=true`, and both `/personal/banking/credit/*`
-endpoints 403. So either there is no card (the payment is a loan or similar and
-nothing is missing), or the card's own transactions are unreachable and every
-report undercounts. Until this is settled, a report that excludes the bill must
-say so on its face rather than quietly dropping it.
+**Credit card transactions are missing, and that is settled.** Feb–Jul holds 21
+payments to `Kredittbanken ASA`, all KID payments to the same creditor account
+with the same KID, in irregular amounts several times a month — revolving credit
+being paid down, not a loan schedule. Together they are ~30% of all outflow. The
+card does not appear in `/accounts` even with `includeCreditCardAccounts=true`,
+and `/personal/banking/credit/accounts` and `/credit/cards` both 403, so the
+underlying purchases cannot be fetched.
+
+Consequence for step 5: the bills **count as spending** rather than being
+excluded as internal (see `CLAUDE.md`). Reopen only if the credit API becomes
+available — its docs render at developer.sparebank1.no only after BankID login,
+and only via the APIs section of the front page, since direct URLs under `/api/`
+and `/apis` hit the backend and 401.
 
 **Pagination.** `rowLimit` exists on the transactions endpoints and we have never
 set it. A month that returns a suspiciously round row count is the tell.

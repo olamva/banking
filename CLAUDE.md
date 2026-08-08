@@ -81,5 +81,10 @@ auditable. Both sides of a transfer are present because we sync every account,
 so match on amount + date + opposite sign, restricted to accounts marked `mine`
 in `accounts.json`.
 
-Credit card bill payments (`Kredittbanken ASA`) are not spending. See
-`PLAN.md` for the open question about the card transactions themselves.
+Credit card bill payments (`Kredittbanken ASA`) **count as spending** — the
+opposite of the usual rule. The card's own
+transactions are unreachable (`/personal/banking/credit/*` returns 403), so
+there is nothing to double-count, and excluding the bills would hide about 30%
+of all outflow. They get their own category; the report must say the detail
+behind them is unavailable. If the credit API ever opens up, this flips: exclude
+the bills and count the card transactions instead.
