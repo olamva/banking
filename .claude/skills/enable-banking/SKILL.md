@@ -43,10 +43,12 @@ and `eb-login` must run again. This is normal, not a bug.
 
 ## Accounts
 
-The session lists the linked accounts. `cash_account_type` is `CACC` for the
-deposit accounts and `CARD` for the Mastercard. **Only sync `CARD`** — the CACC
-accounts duplicate what the SB1 API already gives us in richer form, and there
-is no reason to route our own data through a third party twice.
+The session lists the linked accounts. `cash_account_type` is `CACC` for deposit
+accounts and `CARD` for the Mastercard. **Only the card is linked** — the deposit
+accounts were unlinked deliberately, because the SB1 API serves them directly and
+routing our own data through a third party twice buys nothing. `eb-sync` filters
+on `CARD` regardless, so re-linking something by accident does not silently
+widen what gets pulled.
 
 ## Transactions
 

@@ -57,22 +57,31 @@ fixtures built from real transactions.
 
 ## Data model
 
-The canonical record, committed to **booking date**:
+`src/types.ts` defines `Txn`, the canonical record, committed to **booking
+date**. It is shared by every step — read it before writing anything downstream,
+and treat widening it as a cross-cutting change to announce, not to slip in.
 
-```
-id, accountKey, date, amount (signed), description, counterparty,
-bankCategory, isRecurring, isSubscription
-```
+Two sources normalize into it and they do not agree on much:
+
+| | SB1 (`data/raw/<month>/<accountKey>.json`) | Card (`.../eb-<uid>.json`) |
+|---|---|---|
+| date | epoch millis at Oslo midnight | `YYYY-MM-DD` string |
+| amount | signed number | positive string + `credit_debit_indicator` |
+| counterparty | `cleanedDescription` | none — null |
+| category | the bank's own | none — null |
+| pending | never seen | `status: PDNG` happens |
 
 Notes from the real data, not the plan:
 
-- There is no counterparty field on the list endpoint. Use `cleanedDescription`.
-  Structured counterparty exists only on `/transactions/{id}/details`, one call
-  per transaction — not worth it.
-- `recurring` and `subscription` have been identical on every row so far. Keep
-  both, expect one bit of signal.
-- Categories are always exactly one entry at confidence 100. `diverse` +
+- SB1's list endpoint has no counterparty field. Use `cleanedDescription`;
+  structured counterparty exists only on `/transactions/{id}/details`, one call
+  per transaction, and is not worth it.
+- `recurring` and `subscription` have been identical on every SB1 row so far.
+  Keep both, expect one bit of signal.
+- SB1 categories are always exactly one entry at confidence 100. `diverse` +
   `ukategorisert` is ~40% of rows, so `overrides.json` does real work.
+- Card rows carry no category at all, which is a bigger hole: they are roughly
+  40% of monthly spending.
 
 ## Exclusions
 
