@@ -23,6 +23,10 @@ src/categorize.ts Classified[] -> Categorized[]; bank category + overrides.json
 src/db.ts         node:sqlite store, upsert by (source, id)
 src/stats.ts      the only money aggregation — monthStats() and yearStats()
 src/dashboard.ts  renders data/dashboard.html; embeds stats.ts, adds no maths
+src/pipeline.ts   the offline chain, importable by the CLI and the server
+src/sync.ts       the network half — nothing downstream of data/raw/ imports it
+src/budget.ts     rolling-hour ledger of SB1 requests, persisted to disk
+src/serve.ts      pnpm dev — living page plus the auto-refresh policy
 src/cli.ts        command dispatch
 data/raw/         API responses, verbatim, gitignored
 data/raw/card-statements/  issuer CSV exports, the only merchant source
@@ -38,9 +42,20 @@ never lose anything, and `rebuild` must reconstruct it from `data/raw/` alone.
 
 ## Rules
 
-**Analysis never calls the API.** `sync` is the only thing that talks to the
-bank. Everything downstream reads `data/raw/`. If an analysis command needs a
-field that isn't in the raw JSON, extend `sync`, re-run it, and commit nothing.
+**Analysis never calls the API.** Fetching lives in `src/sync.ts` and the two
+client modules it wraps; everything downstream reads `data/raw/`. The rule is
+enforced by import lists — `src/pipeline.ts` must never import `sb1.ts` or
+`eb.ts`, and nothing it imports may either. If an analysis step needs a field
+that isn't in the raw JSON, extend `sync`, re-run it, and commit nothing.
+
+`pnpm dev` is the one place both halves meet: it may trigger a sync before
+rendering. That is the server composing the two, not analysis reaching for the
+network, and every guard around it is there to keep the request count sane —
+see the header of `src/serve.ts` before changing any of it.
+
+**Every SB1 request is ledgered.** `sb1.get` and the token exchange both call
+`budget.spend`, which refuses past the hourly cap. Anything that adds a new call
+path gets this for free; anything that bypasses `sb1.get` does not, so don't.
 
 **Raw is immutable.** Never rewrite a file under `data/raw/` in place. Re-sync
 with `--force` if the bank restates a month.
