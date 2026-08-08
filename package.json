@@ -1,0 +1,14 @@
+{
+  "name": "banking",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sb1": "node --env-file=.env.local src/cli.ts",
+    "test": "node --test 'src/**/*.test.ts'",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.2",
+    "typescript": "^5.9.2"
+  }
+}

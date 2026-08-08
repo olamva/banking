@@ -1,0 +1,139 @@
+import { createServer } from 'node:http';
+import { execFile, execFileSync } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
+
+const API = 'https://api.sparebank1.no';
+const KEYCHAIN_SERVICE = 'sb1-banking';
+
+/** Thrown when the refresh chain is dead. Never swallow this into an empty result. */
+export class ReauthRequired extends Error {
+  constructor(cause: string) {
+    super(`BankID login required (${cause}). Run: pnpm sb1 login`);
+  }
+}
+
+function env(key: string): string {
+  const v = process.env[key];
+  if (!v) throw new Error(`Missing ${key} — is .env.local present?`);
+  return v;
+}
+
+// ponytail: refresh token goes through argv, so it is briefly visible in `ps`.
+// Swap for a stdin-fed helper if this box ever has untrusted local users.
+function keychainSet(token: string): void {
+  execFileSync('security', [
+    'add-generic-password', '-U',
+    '-s', KEYCHAIN_SERVICE, '-a', 'refresh_token',
+    '-w', token,
+  ]);
+}
+
+function keychainGet(): string | null {
+  try {
+    return execFileSync('security', [
+      'find-generic-password', '-s', KEYCHAIN_SERVICE, '-a', 'refresh_token', '-w',
+    ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  } catch {
+    return null;
+  }
+}
+
+type TokenResponse = { access_token: string; refresh_token: string; expires_in: number };
+
+async function postToken(params: Record<string, string>): Promise<TokenResponse> {
+  const res = await fetch(`${API}/oauth/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: env('CLIENT_ID'),
+      client_secret: env('CLIENT_SECRET'),
+      ...params,
+    }),
+  });
+  const body = await res.text();
+  if (!res.ok) throw new ReauthRequired(`token endpoint ${res.status}: ${body}`);
+  return JSON.parse(body) as TokenResponse;
+}
+
+/** Full authorization-code flow: loopback listener + BankID in the browser. */
+export async function login(): Promise<void> {
+  const redirectUri = env('REDIRECT_URI');
+  const { port, pathname } = new URL(redirectUri);
+  const state = randomBytes(16).toString('hex');
+
+  const code = await new Promise<string>((resolve, reject) => {
+    const server = createServer((req, res) => {
+      const url = new URL(req.url ?? '/', redirectUri);
+      if (url.pathname !== pathname) {
+        res.writeHead(404).end();
+        return;
+      }
+      const done = (msg: string) => {
+        res.writeHead(200, { 'Content-Type': 'text/plain' }).end(msg);
+        server.close();
+      };
+      const err = url.searchParams.get('error');
+      if (err) return done('Failed. Back to the terminal.'), reject(new Error(`authorize: ${err}`));
+      if (url.searchParams.get('state') !== state) {
+        return done('Failed. Back to the terminal.'), reject(new Error('state mismatch — aborting'));
+      }
+      const c = url.searchParams.get('code');
+      if (!c) return done('Failed. Back to the terminal.'), reject(new Error('no code in callback'));
+      done('Logged in. Back to the terminal.');
+      resolve(c);
+    });
+    server.on('error', reject);
+    server.listen(Number(port), '127.0.0.1', () => {
+      const authorize = new URL(`${API}/oauth/authorize`);
+      authorize.search = new URLSearchParams({
+        client_id: env('CLIENT_ID'),
+        response_type: 'code',
+        redirect_uri: redirectUri,
+        finInst: env('FINANCIAL_INSTITUTION'),
+        state,
+      }).toString();
+      console.error(`Opening BankID login (code expires in 2 min):\n${authorize}`);
+      execFile('open', [authorize.toString()]);
+    });
+  });
+
+  const t = await postToken({ grant_type: 'authorization_code', code, redirect_uri: redirectUri, state });
+  keychainSet(t.refresh_token);
+  console.error('Refresh token stored in keychain.');
+}
+
+let accessToken: string | undefined;
+
+async function getAccessToken(): Promise<string> {
+  if (accessToken) return accessToken;
+  const refresh = keychainGet();
+  if (!refresh) throw new ReauthRequired('no refresh token in keychain');
+  const t = await postToken({ grant_type: 'refresh_token', refresh_token: refresh });
+  keychainSet(t.refresh_token); // rotates on every use
+  accessToken = t.access_token;
+  return accessToken;
+}
+
+/** GET an SB1 API path. Everything personal-banking answers to the v1 media type. */
+export async function get(path: string): Promise<unknown> {
+  const res = await fetch(`${API}${path}`, {
+    headers: {
+      Authorization: `Bearer ${await getAccessToken()}`,
+      Accept: 'application/vnd.sparebank1.v1+json; charset=utf-8',
+    },
+  });
+  const body = await res.text();
+  if (res.status === 401) throw new ReauthRequired('API returned 401');
+  if (!res.ok) throw new Error(`GET ${path} -> ${res.status}: ${body.slice(0, 500)}`);
+  return JSON.parse(body);
+}
+
+/** Booking-date bounds for a YYYY-MM month, inclusive, as YYYY-MM-DD. */
+export function monthRange(month: string): { from: string; to: string } {
+  const m = /^(\d{4})-(\d{2})$/.exec(month);
+  if (!m) throw new Error(`--month must be YYYY-MM, got "${month}"`);
+  const [, y, mo] = m;
+  const last = new Date(Date.UTC(Number(y), Number(mo), 0)).getUTCDate();
+  if (!last) throw new Error(`invalid month "${month}"`);
+  return { from: `${y}-${mo}-01`, to: `${y}-${mo}-${String(last).padStart(2, '0')}` };
+}
