@@ -18,7 +18,10 @@ export type Txn = {
   /** Signed. Negative is money out. */
   amount: number;
   description: string;
-  /** Null on card rows — the card exposes no merchant at all. */
+  /**
+   * Null on a card row until the issuer's statement export fills it in — the
+   * Enable Banking API exposes no merchant at all. See src/statement.ts.
+   */
   counterparty: string | null;
   /** The bank's own category. Null on card rows. */
   bankCategory: string | null;
