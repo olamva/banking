@@ -1,12 +1,17 @@
 /**
- * The one control surface. Categories are chips rather than a select, because
- * any number of them can be on at once and ctrl-clicking a multi-select is not
- * something anyone should have to do.
+ * The one control surface: what period you are looking at, and which categories
+ * are in play.
+ *
+ * Categories are picked from a dropdown and removed from chips. The dropdown
+ * holds checkboxes rather than being a `<select multiple>`, because ctrl-
+ * clicking a multi-select is not something anyone should have to do; the chips
+ * exist so an active filter is always visible and always one click from gone —
+ * a filter you cannot see is a filter you cannot turn off.
  */
 import type { Filters } from '../../core/select.ts';
 import { NO_FILTERS } from '../../core/select.ts';
 import { categoryLabel } from './format.ts';
-import { Icon, ResetFiltersIcon, SearchIcon } from './icons.ts';
+import { CloseIcon, Icon, ResetFiltersIcon } from './icons.ts';
 
 export type View = 'month' | 'year' | 'transactions';
 
@@ -29,14 +34,31 @@ interface FilterBarProps {
 
 const CONTROL = 'rounded-md border border-line bg-page px-2 py-1.5 text-[13px] text-ink';
 
+interface ChipProps {
+  label: string;
+  onRemove: () => void;
+}
+
+/** An active filter, and the way to drop it. */
+const Chip = ({ label, onRemove }: ChipProps) => (
+  <button
+    type="button"
+    onClick={onRemove}
+    className="flex items-center gap-1 rounded-full border border-series-1 bg-series-1 py-1 pr-1.5 pl-2.5 text-xs text-white"
+  >
+    {label}
+    <Icon role="img" aria-label={`Remove ${label}`} icon={CloseIcon} size={12} className="shrink-0 opacity-80" />
+  </button>
+);
+
 export const FilterBar = ({ view, onView, months, month, onMonth, years, year, onYear, days, onDays, categories, filters, onFilters }: FilterBarProps) => {
   const toggleCategory = (cat: string) => {
     const on = filters.categories.includes(cat);
     onFilters({ ...filters, categories: on ? filters.categories.filter((c) => c !== cat) : [...filters.categories, cat] });
   };
 
-  const amount = (key: 'minAmount' | 'maxAmount') => (e: React.ChangeEvent<HTMLInputElement>) =>
-    onFilters({ ...filters, [key]: e.target.value === '' ? null : Number(e.target.value) });
+  const picked = filters.categories.length;
+  const dirty = picked > 0 || filters.search !== '';
 
   return (
     <div className="mb-5 flex flex-wrap items-center gap-2 rounded-[10px] border border-line bg-surface px-3 py-2.5">
@@ -86,64 +108,49 @@ export const FilterBar = ({ view, onView, months, month, onMonth, years, year, o
         </select>
       )}
 
-      <div className="relative">
-        <Icon
-          aria-hidden
-          icon={SearchIcon}
-          size={14}
-          className="pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-ink-muted"
-        />
-        <input
-          type="search"
-          className={`${CONTROL} w-44 pl-7`}
-          placeholder="Search description…"
-          value={filters.search}
-          onChange={(e) => onFilters({ ...filters, search: e.target.value })}
-          aria-label="Search description"
-        />
-      </div>
-      <input
-        type="number"
-        className={`${CONTROL} w-24`}
-        placeholder="Min NOK"
-        value={filters.minAmount ?? ''}
-        onChange={amount('minAmount')}
-        aria-label="Minimum amount"
-      />
-      <input
-        type="number"
-        className={`${CONTROL} w-24`}
-        placeholder="Max NOK"
-        value={filters.maxAmount ?? ''}
-        onChange={amount('maxAmount')}
-        aria-label="Maximum amount"
-      />
+      {/* `details` rather than a button and an open flag: the disclosure state is
+          the browser's problem, and there is none of ours to get out of sync. */}
+      <details className="relative">
+        <summary className={`${CONTROL} cursor-pointer list-none marker:content-none`}>
+          Categories{picked > 0 && ` (${picked})`}
+        </summary>
+        <div className="absolute z-20 mt-1 max-h-72 w-56 overflow-y-auto rounded-md border border-line bg-surface p-1.5 shadow-lg">
+          {categories.length === 0 ? (
+            <div className="px-1.5 py-1 text-xs text-ink-muted">Nothing in this period.</div>
+          ) : (
+            categories.map((c) => (
+              <label key={c} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-[13px] hover:bg-hover">
+                <input type="checkbox" checked={filters.categories.includes(c)} onChange={() => toggleCategory(c)} />
+                {categoryLabel(c)}
+              </label>
+            ))
+          )}
+        </div>
+      </details>
 
-      <button
-        type="button"
-        onClick={() => onFilters(NO_FILTERS)}
-        className="ml-auto flex items-center gap-1.5 rounded-md border border-line px-2.5 py-1.5 text-xs text-ink-muted"
-      >
-        <Icon aria-hidden icon={ResetFiltersIcon} size={14} />
-        Reset filters
-      </button>
+      {dirty && (
+        <button
+          type="button"
+          onClick={() => onFilters(NO_FILTERS)}
+          className="ml-auto flex items-center gap-1.5 rounded-md border border-line px-2.5 py-1.5 text-xs text-ink-muted"
+        >
+          <Icon aria-hidden icon={ResetFiltersIcon} size={14} />
+          Reset filters
+        </button>
+      )}
 
-      <div className="flex basis-full flex-wrap gap-1.5" role="group" aria-label="Filter by category">
-        {categories.map((c) => {
-          const on = filters.categories.includes(c);
-          return (
-            <button
-              key={c}
-              type="button"
-              aria-pressed={on}
-              onClick={() => toggleCategory(c)}
-              className={`rounded-full border px-2.5 py-1 text-xs ${on ? 'border-series-1 bg-series-1 text-white' : 'border-line bg-page text-ink-soft'}`}
-            >
-              {categoryLabel(c)}
-            </button>
-          );
-        })}
-      </div>
+      {dirty && (
+        <div className="flex basis-full flex-wrap gap-1.5" role="group" aria-label="Active filters">
+          {filters.categories.map((c) => (
+            <Chip key={c} label={categoryLabel(c)} onRemove={() => toggleCategory(c)} />
+          ))}
+          {/* The search box lives on the transactions table, so without this a
+              search set there would be invisible everywhere else. */}
+          {filters.search && (
+            <Chip label={`“${filters.search}”`} onRemove={() => onFilters({ ...filters, search: '' })} />
+          )}
+        </div>
+      )}
     </div>
   );
 };

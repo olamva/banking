@@ -207,10 +207,11 @@ interface TransactionsViewProps {
   /** Already narrowed to the chosen period; the filters are applied in here. */
   rows: Categorized[];
   filters: Filters;
+  onFilters: SetFilters;
 }
 
 /** The rows themselves, with what they add up to. No deltas — a range has no previous range. */
-const TransactionsView = ({ rows, filters }: TransactionsViewProps) => {
+const TransactionsView = ({ rows, filters, onFilters }: TransactionsViewProps) => {
   const shown = rows.filter((t) => matchesFilters(t, filters));
   const sums = totals(shown);
 
@@ -223,7 +224,11 @@ const TransactionsView = ({ rows, filters }: TransactionsViewProps) => {
       </div>
 
       <div className="grid grid-cols-[repeat(auto-fit,minmax(360px,1fr))] gap-4">
-        <TransactionsCard txns={shown} />
+        <TransactionsCard
+          txns={shown}
+          search={filters.search}
+          onSearch={(search) => onFilters((f) => ({ ...f, search }))}
+        />
       </div>
 
       {/* Over the period, not over `shown` — the note audits the range, not the search box. */}
@@ -273,12 +278,7 @@ export const App = () => {
   return (
     <div className="mx-auto max-w-[1180px] px-6 pt-5 pb-16">
       <header className="mb-4 flex flex-wrap items-baseline justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold">Spending dashboard</h1>
-          <div className="text-[13px] text-ink-soft">
-            Served locally from your own machine. Never share this page or a screenshot of it.
-          </div>
-        </div>
+        <h1 className="text-xl font-semibold">Spending dashboard</h1>
         {/* Three named options rather than a cycling button: a toggle whose next
             state you cannot see is a toggle you press twice. The icon names the
             option picked — "system" is the machine, not the way it resolved. */}
@@ -342,7 +342,9 @@ export const App = () => {
       )}
       {load.status === 'ready' && view === 'month' && activeMonth && <MonthView txns={txns} filters={filters} onFilters={setFilters} period={activeMonth} />}
       {load.status === 'ready' && view === 'year' && activeYear && <YearView txns={txns} filters={filters} onFilters={setFilters} period={activeYear} />}
-      {load.status === 'ready' && view === 'transactions' && <TransactionsView rows={txns.filter(inView)} filters={filters} />}
+      {load.status === 'ready' && view === 'transactions' && (
+        <TransactionsView rows={txns.filter(inView)} filters={filters} onFilters={setFilters} />
+      )}
     </div>
   );
 };
