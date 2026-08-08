@@ -8,13 +8,28 @@ Private repo, single user, personal use. Not a product.
 ## Commands
 
 ```bash
+# online — these are the only commands that touch the network
 pnpm sb1 login                      # BankID in the browser, stores refresh token in keychain
 pnpm sb1 accounts                   # writes data/raw/accounts.json + accounts.json
 pnpm sb1 sync --month YYYY-MM       # writes data/raw/YYYY-MM/<accountKey>.json, skips existing
 pnpm sb1 sync --month YYYY-MM --force
+pnpm sb1 eb-login                   # Enable Banking consent, 90 days, card only
+pnpm sb1 eb-sync --month YYYY-MM    # writes data/raw/YYYY-MM/eb-<uid>.json
+
+# offline — everything below reads data/raw/ or the database
+pnpm sb1 import                     # normalize -> exclude -> categorize -> upsert, all months on disk
+pnpm sb1 import --month YYYY-MM     # just the one month
+pnpm sb1 rebuild                    # drop data/banking.db, reconstruct from data/raw/ alone
+pnpm sb1 report --month YYYY-MM     # month totals, categories, counterparties, card share
+pnpm sb1 report --year YYYY         # per-month series and year categories
+pnpm sb1 dashboard                  # renders data/dashboard.html — local file, never share it
+
 pnpm test                           # node --test, no framework
 pnpm typecheck
 ```
+
+`import` is idempotent per `(source, id)`, so re-running a month is free.
+`report` and `dashboard` read the database, so `import` has to have run first.
 
 ## Layout
 
@@ -22,8 +37,15 @@ pnpm typecheck
 src/sb1.ts        SpareBank 1 auth, keychain, get(), monthRange()
 src/eb.ts         Enable Banking auth and card transactions
 src/types.ts      Txn / Classified / Categorized — the shared contract
+src/normalize.ts  data/raw/<month>/*.json -> Txn[]
+src/exclude.ts    Txn[] -> Classified[]; flags transfers and bill payments
+src/categorize.ts Classified[] -> Categorized[]; bank category + overrides.json
+src/db.ts         node:sqlite store, upsert by (source, id)
+src/stats.ts      the only money aggregation — monthStats() and yearStats()
+src/dashboard.ts  renders data/dashboard.html; embeds stats.ts, adds no maths
 src/cli.ts        command dispatch
 data/raw/         API responses, verbatim, gitignored
+data/dashboard.html  generated, local-only, gitignored
 data/banking.db   derived SQLite store, rebuildable from data/raw, gitignored
 accounts.json     which accounts are mine (hand-edited), gitignored
 overrides.json    description pattern -> category, gitignored
@@ -103,11 +125,28 @@ auditable. Both sides of a transfer are present because we sync every account,
 so match on amount + date + opposite sign, restricted to accounts marked `mine`
 in `accounts.json`.
 
-Credit card bill payments (`Kredittbanken ASA`) are **excluded**, like any
-internal transfer. The card's own transactions come from Enable Banking, so
-counting the bills as well would double-count. Bill amounts and card spend
-diverge wildly within a month — April 2026 paid 35k against 22k of spending —
-so the bills are worthless as a spending proxy anyway.
+Credit card bill payments are **excluded**, like any internal transfer. The
+card's own transactions come from Enable Banking, so counting the bills as well
+would double-count. Bill amounts and card spend diverge wildly within a month —
+April 2026 paid 35k against 22k of spending — so the bills are worthless as a
+spending proxy anyway.
+
+A bill payment has **two legs and both must be excluded**, which the first real
+run got wrong in two ways:
+
+- Match the bank leg on `Kredittbanken`, not `Kredittbanken ASA`. The issuer
+  also books these as `Kredittbanken - del av SpareBank 1`, and the narrower
+  string silently missed one.
+- The card leg is the `Innbetalinger` credit on the card account. It cannot ride
+  on the amount+date transfer rule, because the card posts the credit 0–3 days
+  after the bank debits it, and the card account is not in `accounts.json` at
+  all. Excluding only the bank leg leaves the credit counted as **income**.
+
+Card credits that are *not* `Innbetalinger` stay in: `Varekjøp` credits are
+merchant refunds and `Rabatt strømmetjenester` is cashback. Both are real.
+
+The check that catches all of this: every excluded reason must net to zero
+across the pair. If it doesn't, one leg is being matched and the other isn't.
 
 Card spending has **no merchant**: `creditor`, `merchant_category_code` and
 `bank_transaction_code` are null on every row, and 68 of 76 July rows carry only
