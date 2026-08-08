@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { monthStats, yearStats } from './stats.ts';
+import { monthStats, yearStats, blindSpot } from './stats.ts';
 import type { Categorized } from './types.ts';
 
 function txn(partial: Partial<Categorized> & { id: string; amount: number }): Categorized {
@@ -92,6 +92,23 @@ test('subscriptions and recurring rows are surfaced, excluded rows are not', () 
   assert.equal(stats.subscriptions[0].id, '1');
   assert.equal(stats.recurring.length, 1);
   assert.equal(stats.recurring[0].id, '2');
+});
+
+test('blindSpot counts only spending that still has no merchant', () => {
+  const txns = [
+    txn({ id: '1', source: 'card', amount: -300, counterparty: null }),
+    txn({ id: '2', source: 'card', amount: -100, counterparty: 'KAFFEBAR' }),
+    txn({ id: '3', amount: -50, counterparty: 'Rema' }),
+    // income and excluded rows are not spending, merchant or not
+    txn({ id: '4', source: 'card', amount: 900, counterparty: null }),
+    txn({ id: '5', source: 'card', amount: -500, counterparty: null, excluded: true, reason: 'transfer' }),
+  ];
+  assert.deepEqual(blindSpot(txns), { count: 1, total: 300 });
+});
+
+test('blindSpot is empty once a statement covers every card row', () => {
+  const txns = [txn({ id: '1', source: 'card', amount: -300, counterparty: 'KAFFEBAR' })];
+  assert.deepEqual(blindSpot(txns), { count: 0, total: 0 });
 });
 
 test('yearStats builds a monthly series and per-category totals across the year', () => {

@@ -536,6 +536,13 @@ function setView(view) {
 
 function round2(n) { return Math.round(n * 100) / 100; }
 
+/** What the card meter says underneath. blindSpot comes from stats.ts. */
+function cardNote(rows) {
+  var blind = blindSpot(rows);
+  if (!blind.count) return 'Every card row has a merchant.';
+  return blind.count + ' rows still have no merchant (' + fmtNOK(blind.total) + ') \\u2014 no statement export covers them.';
+}
+
 function deltaInfo(current, previous, goodIfUp) {
   var raw = round2(current - previous);
   var pct = previous !== 0 ? raw / Math.abs(previous) : (raw === 0 ? 0 : 1);
@@ -578,7 +585,7 @@ function renderMonthView(root) {
   statTile(kpis, 'Spent', fmtNOK(s.totalOut), deltaInfo(s.totalOut, prev.totalOut, false));
   statTile(kpis, 'Income', fmtNOK(s.totalIn), deltaInfo(s.totalIn, prev.totalIn, true));
   statTile(kpis, 'Net', fmtNOK(s.net), deltaInfo(s.net, prev.net, true));
-  meterTile(kpis, 'Card spend', card_, 'No merchant detail on card rows \\u2014 amount + date only.');
+  meterTile(kpis, 'Card spend', card_, cardNote(periodFiltered));
   root.appendChild(kpis);
 
   var cards = document.createElement('div');
@@ -657,7 +664,7 @@ function renderYearView(root) {
   statTile(kpis, 'Average monthly spend', fmtNOK(y.averageMonth.totalOut));
   statTile(kpis, 'Average monthly income', fmtNOK(y.averageMonth.totalIn));
   statTile(kpis, 'Average monthly net', fmtNOK(y.averageMonth.net));
-  meterTile(kpis, 'Card spend', card_, 'No merchant detail on card rows \\u2014 amount + date only.');
+  meterTile(kpis, 'Card spend', card_, cardNote(periodFiltered));
   root.appendChild(kpis);
 
   var cards = document.createElement('div');

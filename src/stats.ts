@@ -202,6 +202,23 @@ export function monthStats(month: string, txns: Categorized[], previous?: Catego
   };
 }
 
+/**
+ * Spending that still has no merchant — card rows from a month no statement
+ * export covers. Reported rather than assumed: the card bucket stopped being
+ * wholly opaque when the export landed, so "amount and date only" is now a
+ * claim that has to be checked against the rows in hand.
+ */
+export function blindSpot(txns: Categorized[]): ExcludedSummary {
+  let count = 0;
+  let cents = 0;
+  for (const t of txns) {
+    if (t.excluded || t.amount >= 0 || t.counterparty !== null) continue;
+    count++;
+    cents += -toCents(t.amount);
+  }
+  return { count, total: fromCents(cents) };
+}
+
 /** Groups by booking month, ready for `yearStats`. */
 export function byMonth(txns: Categorized[]): { month: string; txns: Categorized[] }[] {
   const buckets = new Map<string, Categorized[]>();
@@ -264,6 +281,7 @@ export const STATS_FNS = [
   aggregateCents,
   topCounterparties,
   monthStats,
+  blindSpot,
   byMonth,
   yearStats,
 ];
