@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { matchesFilters, inMonth, inYear, prevMonth, distinctMonths, distinctCategories, NO_FILTERS } from './select.ts';
+import { matchesFilters, daysAgo, inMonth, inRange, inYear, prevMonth, distinctMonths, distinctCategories, NO_FILTERS } from './select.ts';
 import type { Categorized } from './types.ts';
 
 // Selection only. Aggregation is stats.ts, pinned by src/core/stats.test.ts —
@@ -24,11 +24,10 @@ function txn(partial: Partial<Categorized> & { id: string; amount: number }): Ca
   };
 }
 
-test('matchesFilters: category, source, search and amount range', () => {
+test('matchesFilters: category, search and amount range', () => {
   const t = txn({ id: '1', amount: -123.45, description: 'Rema 1000', counterparty: 'Rema', category: 'dagligvarer' });
   assert.equal(matchesFilters(t, NO_FILTERS), true);
   assert.equal(matchesFilters(t, { ...NO_FILTERS, categories: ['transport'] }), false);
-  assert.equal(matchesFilters(t, { ...NO_FILTERS, source: 'card' }), false);
   assert.equal(matchesFilters(t, { ...NO_FILTERS, search: 'rema' }), true);
   assert.equal(matchesFilters(t, { ...NO_FILTERS, search: 'kiwi' }), false);
   assert.equal(matchesFilters(t, { ...NO_FILTERS, minAmount: 200 }), false);
@@ -52,6 +51,30 @@ test('inMonth and inYear read the booking date, not a timestamp', () => {
   assert.equal(inMonth(t, '2026-07'), true);
   assert.equal(inMonth(t, '2026-06'), false);
   assert.equal(inYear(t, '2026'), true);
+});
+
+/** An open end is the empty date box, which must mean "no bound" and not "no rows". */
+test('inRange is inclusive at both ends, and an open end bounds nothing', () => {
+  const t = txn({ id: '1', amount: -10, date: '2026-07-15' });
+  assert.equal(inRange(t, '2026-07-15', '2026-07-15'), true);
+  assert.equal(inRange(t, '2026-07-16', null), false);
+  assert.equal(inRange(t, null, '2026-07-14'), false);
+  assert.equal(inRange(t, null, null), true);
+  assert.equal(inRange(t, '2025-12-31', '2026-12-31'), true);
+});
+
+/** The Oslo rule again: a July timestamp is 22:00Z the day before, so UTC would shift every answer. */
+test('daysAgo counts back in Oslo-local days, across month and year boundaries', () => {
+  // 2026-08-09T06:00Z is 08:00 on the 9th in Oslo.
+  const summer = new Date('2026-08-09T06:00:00Z');
+  assert.equal(daysAgo(0, summer), '2026-08-09');
+  assert.equal(daysAgo(30, summer), '2026-07-10');
+  assert.equal(daysAgo(90, summer), '2026-05-11');
+
+  // 22:30Z on 31 Dec is already 23:30 the same day in Oslo — but 30 Jun 22:30Z
+  // is 1 Jul in Oslo, which is the case UTC would get wrong.
+  assert.equal(daysAgo(1, new Date('2027-01-01T10:00:00Z')), '2026-12-31');
+  assert.equal(daysAgo(0, new Date('2026-06-30T22:30:00Z')), '2026-07-01');
 });
 
 test('prevMonth handles the year boundary', () => {
