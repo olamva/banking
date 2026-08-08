@@ -1,7 +1,14 @@
-import { mkdir, writeFile, readFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { mkdir, writeFile, readFile, rm } from 'node:fs/promises';
+import { existsSync, readdirSync } from 'node:fs';
 import { get, login, monthRange, ReauthRequired } from './sb1.ts';
 import * as eb from './eb.ts';
+import { normalizeMonth } from './normalize.ts';
+import { exclude, type Accounts } from './exclude.ts';
+import { categorize, loadOverrides } from './categorize.ts';
+import { openDb, upsertMany, rebuild as rebuildDb, queryMonth, queryRange } from './db.ts';
+import { monthStats, yearStats, byMonth } from './stats.ts';
+import { writeDashboard } from './dashboard.ts';
+import type { Categorized } from './types.ts';
 
 const args = process.argv.slice(2);
 const cmd = args[0];
@@ -85,15 +92,127 @@ async function ebSync(): Promise<void> {
   }
 }
 
+// --- offline half: nothing below this line touches the network ---------------
+
+const DB_FILE = 'data/banking.db';
+const RAW = 'data/raw';
+
+/** Every YYYY-MM directory under data/raw/, ascending. */
+function monthsOnDisk(): string[] {
+  return readdirSync(RAW, { withFileTypes: true })
+    .filter((e) => e.isDirectory() && /^\d{4}-\d{2}$/.test(e.name))
+    .map((e) => e.name)
+    .sort();
+}
+
+/**
+ * Steps 4-6 for one month's raw files. Exclusion runs per month because both
+ * sides of an internal transfer share a date, so they are never split across
+ * two months — no need to hold the whole history in memory to match them.
+ */
+async function pipeline(month: string): Promise<Categorized[]> {
+  const accountsJson: Accounts = JSON.parse(await readFile('accounts.json', 'utf8'));
+  return categorize(exclude(normalizeMonth(`${RAW}/${month}`), accountsJson), await loadOverrides());
+}
+
+/** Step 7: normalize -> exclude -> categorize -> upsert. Idempotent per (source, id). */
+async function importCmd(): Promise<void> {
+  const months = flag('month') ? [flag('month')!] : monthsOnDisk();
+  await mkdir('data', { recursive: true });
+  const db = openDb(DB_FILE);
+  for (const month of months) {
+    const rows = await pipeline(month);
+    upsertMany(db, rows);
+    console.error(`${month}: ${rows.length} rows`);
+  }
+  db.close();
+}
+
+/** The database is derived and disposable: throw it away and rebuild from data/raw/. */
+async function rebuild(): Promise<void> {
+  await rm(DB_FILE, { force: true });
+  await mkdir('data', { recursive: true });
+  const db = openDb(DB_FILE);
+  const rows: Categorized[] = [];
+  for (const month of monthsOnDisk()) rows.push(...(await pipeline(month)));
+  rebuildDb(db, rows);
+  console.error(`rebuilt ${DB_FILE} from ${monthsOnDisk().length} months, ${rows.length} rows`);
+  db.close();
+}
+
+const nok = (n: number) => `${Math.round(n).toLocaleString('nb-NO')} kr`;
+const pct = (share: number) => `${(share * 100).toFixed(1)}%`;
+const pad = (s: string, w: number) => s.padEnd(w);
+
+function reportMonth(month: string, rows: Categorized[], previous: Categorized[]): void {
+  const s = monthStats(month, rows, previous.length ? previous : undefined);
+  console.log(`\n${month}   ${rows.length} rows`);
+  console.log(`  in ${nok(s.totalIn)}   out ${nok(s.totalOut)}   net ${nok(s.net)}`);
+  console.log(`  card ${pct(s.cardShare)} of spending — no merchant on those rows, this is the blind spot`);
+  console.log(`  excluded ${s.excluded.count} txns, ${nok(s.excluded.total)} of volume`);
+  console.log('  categories');
+  for (const c of s.categories) console.log(`    ${pad(c.category, 24)} ${pad(nok(c.total), 12)} ${pct(c.share)}`);
+  if (s.topCounterparties.length) {
+    console.log('  top counterparties');
+    for (const c of s.topCounterparties) console.log(`    ${pad(c.counterparty.slice(0, 30), 32)} ${pad(nok(c.total), 12)} ${c.count}x`);
+  }
+  console.log(`  subscriptions ${s.subscriptions.length}, recurring ${s.recurring.length}`);
+}
+
+function reportYear(year: string, rows: Categorized[]): void {
+  const y = yearStats(year, byMonth(rows));
+  console.log(`\n${year}   ${rows.length} rows across ${y.months.length} months`);
+  console.log(`  ${pad('month', 10)} ${pad('out', 12)} ${pad('in', 12)} ${pad('net', 12)} ${pad('card', 7)} excluded`);
+  for (const m of y.months) {
+    console.log(`  ${pad(m.month, 10)} ${pad(nok(m.totalOut), 12)} ${pad(nok(m.totalIn), 12)} ${pad(nok(m.net), 12)} ${pad(pct(m.cardShare), 7)} ${m.excluded.count} / ${nok(m.excluded.total)}`);
+  }
+  console.log(`  average month: out ${nok(y.averageMonth.totalOut)}, in ${nok(y.averageMonth.totalIn)}, net ${nok(y.averageMonth.net)}`);
+  console.log(`  card ${pct(y.cardShare)} of spending — no merchant on those rows, this is the blind spot`);
+  console.log(`  excluded ${y.excluded.count} txns, ${nok(y.excluded.total)} of volume`);
+  console.log('  categories');
+  for (const c of y.categories) console.log(`    ${pad(c.category, 24)} ${pad(nok(c.total), 12)} ${pct(c.share)}`);
+}
+
+/** Reads the database, never data/raw/ — run `import` first. */
+function report(): void {
+  const month = flag('month');
+  const year = flag('year');
+  if (!month && !year) throw new Error('report needs --month YYYY-MM or --year YYYY');
+  const db = openDb(DB_FILE);
+  if (month) {
+    const [y, m] = month.split('-').map(Number);
+    const prev = new Date(Date.UTC(y!, m! - 2, 1)).toISOString().slice(0, 7);
+    reportMonth(month, queryMonth(db, month), queryMonth(db, prev));
+  } else {
+    reportYear(year!, queryRange(db, `${year}-01`, `${year}-12`));
+  }
+  db.close();
+}
+
+/** Local file, opened locally. It embeds every transaction — never share it. */
+async function dashboard(): Promise<void> {
+  const db = openDb(DB_FILE);
+  const rows = queryRange(db, '0000-00', '9999-99');
+  db.close();
+  await writeDashboard(rows);
+  console.error(`wrote data/dashboard.html — ${rows.length} rows, local file, do not share`);
+}
+
 try {
   if (cmd === 'login') await login();
   else if (cmd === 'accounts') await accounts();
   else if (cmd === 'sync') await sync();
   else if (cmd === 'eb-login') await ebLogin();
   else if (cmd === 'eb-sync') await ebSync();
+  else if (cmd === 'import') await importCmd();
+  else if (cmd === 'rebuild') await rebuild();
+  else if (cmd === 'report') report();
+  else if (cmd === 'dashboard') await dashboard();
   else {
     console.error('usage: pnpm sb1 <login | accounts | sync --month YYYY-MM [--force]');
-    console.error('                | eb-login | eb-sync --month YYYY-MM [--force]>');
+    console.error('                | eb-login | eb-sync --month YYYY-MM [--force]');
+    console.error('                | import [--month YYYY-MM] | rebuild');
+    console.error('                | report --month YYYY-MM | report --year YYYY | dashboard>');
     process.exit(1);
   }
 } catch (e) {
