@@ -82,14 +82,22 @@ pnpm dev          # then open http://localhost:4000
 A React app served by Vite in middleware mode inside the same process, so one
 command gives you the page on one port with hot reload and no build step. The
 server exposes exactly one endpoint, `/api/txns`, which re-reads the database
-per request — a `rebuild` in another terminal shows up on reload. Month and year
-views, filtering by source, text and amount range, all computed in the browser
-by importing `src/core/stats.ts` directly.
+per request — a `rebuild` in another terminal shows up on reload. Everything is
+computed in the browser by importing `src/core/stats.ts` directly.
+
+**Two views over one period.** *Dashboard* is the tiles and the charts,
+*transactions* is the rows behind them, and one pair of pickers chooses what
+both are looking at: a year, then a month inside it or the whole of it. All time
+sits above the years and drops the month picker, having no year to be inside.
+Month and year were never two layouts — the same tiles over two window lengths —
+so what the dashboard shows follows the window. Deltas compare against the
+window before, the previous month or the previous year, and disappear for all
+time, which has nothing before it; the month-by-month chart and the "per month"
+averages appear once the window spans more than one month.
 
 Categories filter as **chips: click any number of them**, none means all. Pick
-exactly one and the page rearranges — a breakdown of a single category is a bar
-chart of itself, so it drops out and the transaction table leads instead. That
-table is always there either way, listing every row in view newest first.
+exactly one and the category breakdown drops out — a bar chart of a single
+category is a bar chart of itself. Meta-click a bar to exclude it instead.
 
 **Never share it.** It embeds every transaction you have, and so does a
 screenshot. The server binds to `127.0.0.1`; keep it that way.

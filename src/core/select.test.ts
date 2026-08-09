@@ -1,6 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { matchesFilters, daysAgo, inMonth, inRange, inYear, prevMonth, distinctMonths, distinctCategories, NO_FILTERS } from './select.ts';
+import {
+  matchesFilters,
+  inRange,
+  period,
+  prevMonth,
+  distinctMonths,
+  distinctCategories,
+  distinctMerchants,
+  NO_FILTERS,
+} from './select.ts';
 import type { Categorized } from './types.ts';
 
 // Selection only. Aggregation is stats.ts, pinned by src/core/stats.test.ts —
@@ -32,6 +41,31 @@ test('matchesFilters: category and search', () => {
   assert.equal(matchesFilters(t, { ...NO_FILTERS, search: 'kiwi' }), false);
 });
 
+/**
+ * The transfer legs net to zero and no sum counts them, so they are hidden by
+ * default — but the toggle has to reach them whatever else is filtered, or the
+ * excluded set stops being auditable.
+ */
+test('matchesFilters: excluded rows are hidden unless showExcluded, and no other filter overrides it', () => {
+  const transfer = txn({ id: '1', amount: -3706, excluded: true, reason: 'internal transfer' });
+  const spend = txn({ id: '2', amount: -123 });
+
+  assert.equal(matchesFilters(transfer, NO_FILTERS), false);
+  assert.equal(matchesFilters(spend, NO_FILTERS), true);
+  assert.equal(matchesFilters(transfer, { ...NO_FILTERS, showExcluded: true }), true);
+
+  // Hidden even when a filter names it, and shown only when the toggle is on.
+  const named = { ...NO_FILTERS, merchants: ['Kiwi'] };
+  assert.equal(matchesFilters(transfer, named), false);
+  assert.equal(matchesFilters(transfer, { ...named, showExcluded: true }), true);
+
+  // Still subject to the other filters once it is showing.
+  assert.equal(
+    matchesFilters(transfer, { ...NO_FILTERS, showExcluded: true, search: 'nothing' }),
+    false,
+  );
+});
+
 /** No categories means all of them, not none — an empty filter must not empty the page. */
 test('matchesFilters: several categories at once, and none means all', () => {
   const groceries = txn({ id: '1', amount: -100, category: 'dagligvarer' });
@@ -61,11 +95,31 @@ test('matchesFilters: exclude hides exactly what include would have kept', () =>
   assert.equal(all.filter((t) => matchesFilters(t, { ...NO_FILTERS, categoryMode: 'exclude' })).length, 3);
 });
 
-test('inMonth and inYear read the booking date, not a timestamp', () => {
-  const t = txn({ id: '1', amount: -10, date: '2026-07-01' });
-  assert.equal(inMonth(t, '2026-07'), true);
-  assert.equal(inMonth(t, '2026-06'), false);
-  assert.equal(inYear(t, '2026'), true);
+/** One period for both views, so a wrong bound here is wrong on every number the page shows. */
+test('period: a month covers its own days and nothing either side of it', () => {
+  const p = period('2026-02');
+  assert.deepEqual([p.kind, p.from, p.to], ['month', '2026-02-01', '2026-02-31']);
+  // The bound is a string comparison, so a short month needs no special case:
+  // the 28th is in, and no March date sorts under it.
+  const inside = (date: string) => inRange(txn({ id: '1', amount: -1, date }), p.from, p.to);
+  assert.equal(inside('2026-02-01'), true);
+  assert.equal(inside('2026-02-28'), true);
+  assert.equal(inside('2026-01-31'), false);
+  assert.equal(inside('2026-03-01'), false);
+  assert.deepEqual(p.prev, { from: '2026-01-01', to: '2026-01-31', label: 'last month' });
+});
+
+test('period: a year, and its previous window is the year before', () => {
+  const p = period('2026');
+  assert.deepEqual([p.kind, p.from, p.to], ['year', '2026-01-01', '2026-12-31']);
+  assert.deepEqual(p.prev, { from: '2025-01-01', to: '2025-12-31', label: 'last year' });
+});
+
+/** All time bounds nothing and has nothing before it — no deltas to draw. */
+test('period: all time, and anything unrecognised, is unbounded and has no previous', () => {
+  for (const p of [period('all'), period('sideways'), period('')]) {
+    assert.deepEqual([p.kind, p.from, p.to, p.prev], ['all', null, null, null]);
+  }
 });
 
 /** An open end is the empty date box, which must mean "no bound" and not "no rows". */
@@ -78,20 +132,6 @@ test('inRange is inclusive at both ends, and an open end bounds nothing', () => 
   assert.equal(inRange(t, '2025-12-31', '2026-12-31'), true);
 });
 
-/** The Oslo rule again: a July timestamp is 22:00Z the day before, so UTC would shift every answer. */
-test('daysAgo counts back in Oslo-local days, across month and year boundaries', () => {
-  // 2026-08-09T06:00Z is 08:00 on the 9th in Oslo.
-  const summer = new Date('2026-08-09T06:00:00Z');
-  assert.equal(daysAgo(0, summer), '2026-08-09');
-  assert.equal(daysAgo(30, summer), '2026-07-10');
-  assert.equal(daysAgo(90, summer), '2026-05-11');
-
-  // 22:30Z on 31 Dec is already 23:30 the same day in Oslo — but 30 Jun 22:30Z
-  // is 1 Jul in Oslo, which is the case UTC would get wrong.
-  assert.equal(daysAgo(1, new Date('2027-01-01T10:00:00Z')), '2026-12-31');
-  assert.equal(daysAgo(0, new Date('2026-06-30T22:30:00Z')), '2026-07-01');
-});
-
 test('prevMonth handles the year boundary', () => {
   assert.equal(prevMonth('2026-07'), '2026-06');
   assert.equal(prevMonth('2026-01'), '2025-12');
@@ -100,6 +140,32 @@ test('prevMonth handles the year boundary', () => {
 test('distinctMonths is sorted and deduplicated', () => {
   const txns = [txn({ id: '1', amount: -1, date: '2026-07-10' }), txn({ id: '2', amount: -1, date: '2026-06-10' }), txn({ id: '3', amount: -1, date: '2026-07-20' })];
   assert.deepEqual(distinctMonths(txns), ['2026-06', '2026-07']);
+});
+
+/** Both lists narrow at once, and a card row with no counterparty filters by the name the table shows. */
+test('matchesFilters: merchants, alongside the categories, and on the description when there is no counterparty', () => {
+  const rema = txn({ id: '1', amount: -100, counterparty: 'Rema 1000', category: 'dagligvarer' });
+  const kiwi = txn({ id: '2', amount: -50, counterparty: 'Kiwi', category: 'dagligvarer' });
+  const card = txn({ id: '3', amount: -20, counterparty: null, description: 'Varekjøp', category: 'ukategorisert' });
+  const all = [rema, kiwi, card];
+
+  const only = (f: Partial<typeof NO_FILTERS>) => all.filter((t) => matchesFilters(t, { ...NO_FILTERS, ...f }));
+  assert.deepEqual(only({ merchants: ['Rema 1000'] }), [rema]);
+  assert.deepEqual(only({ merchants: ['Rema 1000'], merchantMode: 'exclude' }), [kiwi, card]);
+  // No counterparty, so the description is the merchant — the same string the table cell offers.
+  assert.deepEqual(only({ merchants: ['Varekjøp'] }), [card]);
+  // The two lists are an AND: a merchant in the wrong category is out.
+  assert.deepEqual(only({ merchants: ['Rema 1000'], categories: ['transport'] }), []);
+  assert.equal(only({ merchantMode: 'exclude' }).length, 3);
+});
+
+test('distinctMerchants falls back to the description and is sorted and deduplicated', () => {
+  const txns = [
+    txn({ id: '1', amount: -1, counterparty: 'Kiwi' }),
+    txn({ id: '2', amount: -1, counterparty: null, description: 'Apple' }),
+    txn({ id: '3', amount: -1, counterparty: 'Kiwi' }),
+  ];
+  assert.deepEqual(distinctMerchants(txns), ['Apple', 'Kiwi']);
 });
 
 test('distinctCategories drives the filter chips, so it is sorted and deduplicated', () => {
