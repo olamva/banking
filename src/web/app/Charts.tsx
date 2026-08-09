@@ -8,8 +8,8 @@
  * src/core/stats.ts.
  */
 import { useId, useState, type ReactNode } from 'react';
-import { withGaps, type CategoryDelta, type MonthSummary } from '../../core/stats.ts';
-import { fmtNOK, fmtPct, monthLabel, niceStep, useWidth } from './format.ts';
+import { withGaps, type CategoryDelta, type SeriesPoint } from '../../core/stats.ts';
+import { fmtNOK, monthLabel, niceStep, pointLabel, useWidth } from './format.ts';
 
 interface TipState {
   x: number;
@@ -32,8 +32,10 @@ const useTooltip = () => {
 
   const node = tip ? (
     <div
-      className="pointer-events-none fixed z-10 max-w-60 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-ink shadow-lg"
-      style={{ left: Math.min(tip.x + 14, window.innerWidth - 250), top: Math.min(tip.y + 14, window.innerHeight - 100) }}
+      /* Wide enough for two years of running totals side by side — six figures
+         in three columns is wider than a wrapped merchant name ever was. */
+      className="pointer-events-none fixed z-10 max-w-72 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-ink shadow-lg"
+      style={{ left: Math.min(tip.x + 14, window.innerWidth - 300), top: Math.min(tip.y + 14, window.innerHeight - 100) }}
     >
       {tip.content}
     </div>
@@ -155,7 +157,7 @@ export const DivergingBars = ({ deltas: shown, onPick }: DivergingBarsProps) => 
   return (
     <div ref={ref}>
       {shown.length === 0 ? (
-        <Empty>No change from last month.</Empty>
+        <Empty>No change worth drawing.</Empty>
       ) : (
         <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
           {/* Only the zero line. The gridlines that used to flank it were for
@@ -236,31 +238,44 @@ const runsOf = <T,>(dense: (T | null)[]): { m: T; i: number }[][] => {
   return runs;
 };
 
-interface MonthlyLinesProps {
-  series: MonthSummary[];
+export type Bucket = 'day' | 'month';
+
+interface SpendLinesProps {
+  /** Already in the bucket it says it is in — see `dailySeries` / `monthlySeries`. */
+  series: SeriesPoint[];
+  bucket: Bucket;
   /**
-   * Whether any month has income at all. Filtered to a spending category there
-   * is none, and the green line, the band and half the legend then describe a
-   * flat zero — three encodings of "not applicable" drawn over the one series
-   * that carries something. The caller derives it because it titles the card.
+   * Whether any point has income at all. Filtered to a spending category there
+   * is none, and a green line along the axis is not a finding. The caller
+   * derives it because it titles the card.
    */
   income: boolean;
   /**
-   * The same months one period back, drawn faint behind. Empty when there is
+   * Whether to shade between the two lines. Separate from `income`, because the
+   * band is the thing that does not survive raw days: it reads the vertical gap
+   * as a surplus, which is only true of a whole period. Income lands on about a
+   * third of days, so day by day the shading calls almost every one of them an
+   * overspend — while the income line itself is perfectly honest and stays.
+   */
+  band: boolean;
+  /**
+   * The same span one period back, drawn faint behind. Empty when there is
    * nothing to compare against — see `vs` in App.tsx.
    */
-  compare?: MonthSummary[];
+  compare?: SeriesPoint[];
   /** What that window is called, for the legend and the tooltip. */
   compareLabel?: string;
 }
 
-/** Spent against income, month by month across a year. */
-export const MonthlyLines = ({
+/** Spent against income across a period, a point per day or per month. */
+export const SpendLines = ({
   series,
+  bucket,
   income: hasIncome,
+  band: hasBand,
   compare = [],
   compareLabel,
-}: MonthlyLinesProps) => {
+}: SpendLinesProps) => {
   const [ref, width] = useWidth(500);
   const { show, hide, node } = useTooltip();
   const [near, setNear] = useState<number | null>(null);
@@ -270,115 +285,182 @@ export const MonthlyLines = ({
    * A single year is already named by the filter that selected it, so there it
    * is dead space, and the gutter goes back to one row.
    */
-  const multiYear = new Set(series.map((m) => m.month.slice(0, 4))).size > 1;
+  const multiYear = new Set(series.map((p) => p.at.slice(0, 4))).size > 1;
   const height = multiYear ? 234 : 220;
   const padL = 50;
   const padB = multiYear ? 38 : 24;
   const padT = 10;
   const plotW = Math.max(width - padL - 16, 20);
   const plotH = height - padB - padT;
-  // Over both series: a compared month that outspent every current one would
+  // Over both series: a compared point that outspent every current one would
   // otherwise draw off the top of the plot.
-  const maxVal = Math.max(...[...series, ...compare].map((m) => Math.max(m.totalIn, m.totalOut)), 1);
+  const maxVal = Math.max(...[...series, ...compare].map((p) => Math.max(p.totalIn, p.totalOut)), 1);
   const step = niceStep(maxVal);
   const gridMax = Math.ceil(maxVal / step) * step;
+
   /**
-   * The x axis is the calendar, not the array: a month with no data still takes
-   * up its own slot, so a hole in the record is a hole on the page. Without it
-   * the axis silently relabels itself and May sits next to August looking like
-   * June.
+   * The x axis is the calendar, not the array.
+   *
+   * Only the monthly series needs help with that: it carries the months that
+   * have rows and nothing for the ones that do not, so without `withGaps` the
+   * axis silently relabels itself and May sits next to August looking like
+   * June. A daily series arrives dense already, and its empty days are real
+   * zeros rather than holes, so putting it through the same call would find
+   * nothing to do.
    */
-  const dense = withGaps(series);
+  const dense = bucket === 'month' ? withGaps(series) : series;
   const clusterW = plotW / Math.max(dense.length, 1);
   const ticks = Array.from({ length: Math.floor(gridMax / step) + 1 }, (_, i) => i * step);
   const px = (i: number) => padL + i * clusterW + clusterW / 2;
   const py = (v: number) => padT + plotH - (v / gridMax) * plotH;
 
   /**
-   * The compared window laid over the same axis. It is always exactly one year
-   * back — the chart only draws for a year period, since a single month is one
-   * dot and all time has nothing before it — so a month number is enough to
-   * line the two up, and January sits above January whichever year is in view.
+   * The compared window laid over the same axis, matched on where in the
+   * calendar a point sits rather than on how far into the array it is: the
+   * compared window is always exactly one period back, so the same month — and
+   * for a daily series the same month and day — is the pairing that means
+   * something. Matching by index instead would drift by a day through a leap
+   * year, and by a month through a series that starts on one.
    *
-   * The month is derived from the slot rather than read off it, because a slot
-   * can be a gap: the current year missing June must not stop last June being
-   * drawn.
+   * A monthly slot can be a hole, so its key is derived from the position
+   * rather than read off the point: the current year missing June must not
+   * stop last June being drawn.
    */
-  const cmpAt = new Map(compare.map((m) => [m.month.slice(5), m]));
-  const firstNum = Number(dense[0]?.month.slice(5) ?? '1');
-  const monthAt = (i: number) => String(((firstNum - 1 + i) % 12) + 1).padStart(2, '0');
-  const cmp = dense.map((_, i) => cmpAt.get(monthAt(i)) ?? null);
+  const cmpBy = new Map(compare.map((p) => [bucket === 'day' ? p.at.slice(5) : p.at.slice(5, 7), p]));
+  const firstMonth = Number(dense[0]?.at.slice(5, 7) ?? '1');
+  const cmpKey = (i: number) =>
+    bucket === 'day'
+      ? (dense[i]?.at.slice(5) ?? null)
+      : String(((firstMonth - 1 + i) % 12) + 1).padStart(2, '0');
+  const cmp = dense.map((_, i) => {
+    const key = cmpKey(i);
+    return key === null ? null : (cmpBy.get(key) ?? null);
+  });
 
   /**
-   * A year or two fits every month; past that the labels run into each other.
-   * Thin them on a calendar-anchored stride, never on the array index, so the
-   * kept labels land on the same months in every year.
+   * Which slots get a label under them, and what it says.
+   *
+   * Three axes share one row. A monthly series names months, thinned on a
+   * calendar-anchored stride so the kept labels land on the same months in
+   * every year. A daily series inside a single month names days — that is the
+   * whole point of looking at one month. A daily series longer than that has
+   * far too many days to name any of them, so it names months again, at the
+   * slot where each one starts.
+   *
+   * Every stride is chosen against `clusterW`, never fixed: the same year is
+   * twelve labels on a full-width card and four on a third of one.
    */
-  const every = [1, 2, 3, 4, 6, 12].find((n) => n * clusterW >= 30) ?? 12;
-  const axisLabel = (month: string) =>
-    (Number(month.slice(5)) - 1) % every === 0 ? monthLabel(month) : null;
+  const labels: { i: number; text: string }[] = (() => {
+    if (bucket === 'month') {
+      const every = [1, 2, 3, 4, 6, 12].find((n) => n * clusterW >= 30) ?? 12;
+      return dense.flatMap((p, i) =>
+        p && (Number(p.at.slice(5)) - 1) % every === 0 ? [{ i, text: monthLabel(p.at) }] : [],
+      );
+    }
+    if (new Set(series.map((p) => p.at.slice(0, 7))).size === 1) {
+      const every = [1, 2, 5, 10].find((n) => n * clusterW >= 26) ?? 10;
+      return series.flatMap((p, i) =>
+        (Number(p.at.slice(8)) - 1) % every === 0 ? [{ i, text: String(Number(p.at.slice(8))) }] : [],
+      );
+    }
+    // The slot each month starts on, which is not always its 1st: the archive
+    // opens partway through a month, and that month still wants naming.
+    const starts = series.flatMap((p, i) =>
+      i === 0 || p.at.slice(0, 7) !== series[i - 1]!.at.slice(0, 7) ? [{ i, at: p.at }] : [],
+    );
+    const every = [1, 2, 3, 4, 6, 12].find((n) => n * clusterW * 30 >= 34) ?? 12;
+    return starts.flatMap(({ i, at }) =>
+      (Number(at.slice(5, 7)) - 1) % every === 0 ? [{ i, text: monthLabel(at) }] : [],
+    );
+  })();
 
   /**
-   * The year is named once, under the stretch of months it covers, rather than
-   * on one of them — the month row repeats `jan..des` and says nothing about
-   * which pass through the calendar it is on. Centred on the months actually
-   * present, so a part year sits under its own half.
+   * The year is named once, under the stretch it covers, rather than on one
+   * point of it — the row above repeats `jan..des`, or `1..28`, and says
+   * nothing about which pass through the calendar it is on. Centred on what is
+   * actually present, so a part year sits under its own half.
    */
   const years = !multiYear
     ? []
-    : [...new Set(dense.filter((m) => m !== null).map((m) => m.month.slice(0, 4)))].map((y) => {
-        const at = dense.flatMap((m, i) => (m?.month.startsWith(y) ? [i] : []));
+    : [...new Set(dense.filter((p) => p !== null).map((p) => p.at.slice(0, 4)))].map((y) => {
+        const at = dense.flatMap((p, i) => (p?.at.startsWith(y) ? [i] : []));
         return { y, x: (px(at[0]!) + px(at.at(-1)!)) / 2 };
       });
 
+  /**
+   * A dot per point stops being a mark and starts being the line once they
+   * touch, and a year of days is four thousand SVG nodes redrawn on every
+   * pointer move. Past that density the polyline carries the shape and the
+   * hover marker carries the reading.
+   */
+  const dots = clusterW >= 8;
+
   const runs = runsOf(dense);
 
-  const pts = (run: { m: MonthSummary; i: number }[], pick: (m: MonthSummary) => number) =>
+  const pts = (run: { m: SeriesPoint; i: number }[], pick: (p: SeriesPoint) => number) =>
     run.map(({ m, i }) => `${px(i)},${py(pick(m))}`);
 
   const clip = useId();
 
-  const tipFor = (m: MonthSummary, was: MonthSummary | null) => (
-    <>
-      <div className="text-ink-soft">{m.month}</div>
-      <div className="font-semibold">out {fmtNOK(m.totalOut)}</div>
-      {hasIncome && <div className="font-semibold">in {fmtNOK(m.totalIn)}</div>}
-      {/* The compared month, named rather than left as an unlabelled dashed
-          line the reader has to date by counting slots. */}
-      {was && (
-        <div className="text-ink-muted">
-          {compareLabel}: out {fmtNOK(was.totalOut)}
-          {hasIncome && `, in ${fmtNOK(was.totalIn)}`}
-        </div>
+  /**
+   * A small table rather than a list of sentences: two years side by side under
+   * their own headings costs one row of chrome and puts each number directly
+   * above the one it is to be read against. Spelling them out instead —
+   * "this time last year: out …, in …" — is the same four numbers as prose,
+   * which is what it looked like before.
+   *
+   * The years are the headings, because the legend already says which line is
+   * dashed and the compared window's full name is longer than the tooltip.
+   */
+  const tipFor = (p: SeriesPoint, was: SeriesPoint | null) => (
+    <div
+      className={`grid gap-x-3 tabular-nums ${was ? 'grid-cols-[auto_1fr_1fr]' : 'grid-cols-[auto_1fr]'}`}
+    >
+      {/* The corner of the table names the point, so the heading row carries
+          it rather than a title line above repeating what the first column
+          already says. Its year comes from the columns; with no columns to
+          take it, it goes here. */}
+      <span className="font-semibold">
+        {was ? pointLabel(p.at) : `${pointLabel(p.at)} ${p.at.slice(0, 4)}`}
+      </span>
+      {was ? (
+        <>
+          <span className="text-right text-ink-muted">{p.at.slice(0, 4)}</span>
+          <span className="text-right text-ink-muted">{was.at.slice(0, 4)}</span>
+        </>
+      ) : (
+        <span />
       )}
-      {/* No card spend in the month means no card line — a `card 0%` is the
-          absence of a thing, dressed up as a measurement of it. Net is the
-          same: with no income it is the spend again with a minus sign. */}
-      {(hasIncome || m.cardShare > 0) && (
-        <div className="text-ink-soft">
-          {hasIncome && `net ${fmtNOK(m.net)}`}
-          {hasIncome && m.cardShare > 0 && ' · '}
-          {m.cardShare > 0 && `card ${fmtPct(m.cardShare)}`}
-        </div>
+      <span className="text-ink-soft">Spent</span>
+      <span className="text-right">{fmtNOK(p.totalOut)}</span>
+      {was && <span className="text-right text-ink-muted">{fmtNOK(was.totalOut)}</span>}
+      {hasIncome && (
+        <>
+          <span className="text-ink-soft">Income</span>
+          <span className="text-right">{fmtNOK(p.totalIn)}</span>
+          {was && <span className="text-right text-ink-muted">{fmtNOK(was.totalIn)}</span>}
+        </>
       )}
-    </>
+    </div>
   );
 
   /**
    * The whole plot is the target, not the dots: a 3px circle is a hard thing to
-   * hit, and on a chart with one point per month the nearest x is unambiguous.
+   * hit, and the nearest x is unambiguous whatever the bucket — which is what
+   * keeps this working at a point per day, where there may be no dot to aim at
+   * at all.
    */
   const track = (e: React.PointerEvent<SVGRectElement>) => {
     const box = e.currentTarget.getBoundingClientRect();
     const i = Math.round((e.clientX - box.left - clusterW / 2) / clusterW);
     const at = Math.max(0, Math.min(dense.length - 1, i));
-    const m = dense[at];
+    const p = dense[at];
     // Over a gap there is nothing to report, and the nearest month is a guess
     // in two directions — so the tooltip goes rather than naming a month the
     // pointer is not on.
-    if (!m) return leave();
+    if (!p) return leave();
     setNear(at);
-    show(e, tipFor(m, cmp[at] ?? null));
+    show(e, tipFor(p, cmp[at] ?? null));
   };
 
   const leave = () => {
@@ -391,10 +473,14 @@ export const MonthlyLines = ({
       {/* One series needs no key telling it apart from the others — but a
           dashed twin of it does, even with no income to name. */}
       {(hasIncome || compare.length > 0) && series.length > 0 && (
-        <ChartLegend income={hasIncome} compareLabel={compare.length > 0 ? compareLabel : undefined} />
+        <ChartLegend
+          income={hasIncome}
+          band={hasBand}
+          compareLabel={compare.length > 0 ? compareLabel : undefined}
+        />
       )}
       {series.length === 0 ? (
-        <Empty>No months in range.</Empty>
+        <Empty>Nothing in range.</Empty>
       ) : (
         <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
           {ticks.map((v) => {
@@ -409,12 +495,13 @@ export const MonthlyLines = ({
             );
           })}
           {/* A soft rule on the des|jan seam. The axis is a run of repeating
-              month names, so the year break is the one landmark on it. Drawn
-              before the bands, so it reads as ground rather than data. */}
-          {dense.map((m, i) =>
-            m && i > 0 && m.month.endsWith('-01') ? (
+              month names, or of day numbers that start over even more often, so
+              the year break is the one landmark on it. Drawn before the bands,
+              so it reads as ground rather than data. */}
+          {dense.map((p, i) =>
+            p && i > 0 && p.at.slice(4) === (bucket === 'day' ? '-01-01' : '-01') ? (
               <line
-                key={`year-${m.month}`}
+                key={`year-${p.at}`}
                 x1={px(i) - clusterW / 2}
                 x2={px(i) - clusterW / 2}
                 y1={padT}
@@ -430,14 +517,14 @@ export const MonthlyLines = ({
           {runsOf(cmp).map((run) => (
             <g key={`cmp-${run[0]!.i}`} className="opacity-40">
               <polyline
-                points={pts(run, (m) => m.totalOut).join(' ')}
+                points={pts(run, (p) => p.totalOut).join(' ')}
                 strokeWidth={1.5}
                 strokeDasharray="4 3"
                 className="fill-none stroke-critical-strong"
               />
               {hasIncome && (
                 <polyline
-                  points={pts(run, (m) => m.totalIn).join(' ')}
+                  points={pts(run, (p) => p.totalIn).join(' ')}
                   strokeWidth={1.5}
                   strokeDasharray="4 3"
                   className="fill-none stroke-good-strong"
@@ -449,13 +536,13 @@ export const MonthlyLines = ({
               carry the stretch's index, or every stretch would be clipped to
               the first one's income edge. */}
           {runs.map((run, r) => {
-            const income = pts(run, (m) => m.totalIn);
-            const band = [...income, ...pts(run, (m) => m.totalOut).reverse()].join(' ');
+            const income = pts(run, (p) => p.totalIn);
+            const band = [...income, ...pts(run, (p) => p.totalOut).reverse()].join(' ');
             const edge = (y: number) =>
               [`${px(run[0]!.i)},${y}`, ...income, `${px(run.at(-1)!.i)},${y}`].join(' ');
             return (
-              <g key={run[0]!.m.month}>
-                {hasIncome && (
+              <g key={run[0]!.m.at}>
+                {hasBand && (
                   <>
                     <defs>
                       <clipPath id={`${clip}-over-${r}`}>
@@ -469,7 +556,7 @@ export const MonthlyLines = ({
                     <polygon points={band} clipPath={`url(#${clip}-under-${r})`} className="fill-good-strong opacity-20" />
                   </>
                 )}
-                <polyline points={pts(run, (m) => m.totalOut).join(' ')} strokeWidth={2} className="fill-none stroke-critical-strong" />
+                <polyline points={pts(run, (p) => p.totalOut).join(' ')} strokeWidth={2} className="fill-none stroke-critical-strong" />
                 {hasIncome && (
                   <polyline points={income.join(' ')} strokeWidth={2} className="fill-none stroke-good-strong" />
                 )}
@@ -479,27 +566,40 @@ export const MonthlyLines = ({
           {near !== null && (
             <line x1={px(near)} x2={px(near)} y1={padT} y2={padT + plotH} strokeDasharray="3 3" className="stroke-ink-muted" />
           )}
-          {dense.map((m, i) =>
-            m === null ? null : (
-              <g key={m.month}>
-                {/* A stretch of one month draws no polyline, so the dots are what carries it. */}
-                <circle cx={px(i)} cy={py(m.totalOut)} r={near === i ? 5 : 3} className="fill-critical-strong" />
-                {hasIncome && (
-                  <circle cx={px(i)} cy={py(m.totalIn)} r={near === i ? 5 : 3} className="fill-good-strong" />
-                )}
-                {axisLabel(m.month) && (
-                  <text
-                    x={px(i)}
-                    y={padT + plotH + 18}
-                    textAnchor="middle"
-                    className={near === i ? 'fill-ink text-[11px] font-semibold' : 'fill-ink-muted text-[11px]'}
-                  >
-                    {axisLabel(m.month)}
-                  </text>
-                )}
-              </g>
-            ),
+          {dots &&
+            dense.map((p, i) =>
+              p === null ? null : (
+                <g key={p.at}>
+                  {/* A stretch of one point draws no polyline, so the dots are what carries it. */}
+                  <circle cx={px(i)} cy={py(p.totalOut)} r={near === i ? 5 : 3} className="fill-critical-strong" />
+                  {hasIncome && (
+                    <circle cx={px(i)} cy={py(p.totalIn)} r={near === i ? 5 : 3} className="fill-good-strong" />
+                  )}
+                </g>
+              ),
+            )}
+          {/* Too dense for dots, so the hovered point gets the only one there
+              is — otherwise the rule marks a spot on the line with nothing on
+              it to say which point it landed on. */}
+          {!dots && near !== null && dense[near] && (
+            <g>
+              <circle cx={px(near)} cy={py(dense[near].totalOut)} r={4} className="fill-critical-strong" />
+              {hasIncome && (
+                <circle cx={px(near)} cy={py(dense[near].totalIn)} r={4} className="fill-good-strong" />
+              )}
+            </g>
           )}
+          {labels.map(({ i, text }) => (
+            <text
+              key={i}
+              x={px(i)}
+              y={padT + plotH + 18}
+              textAnchor="middle"
+              className={near === i ? 'fill-ink text-[11px] font-semibold' : 'fill-ink-muted text-[11px]'}
+            >
+              {text}
+            </text>
+          ))}
           {years.map(({ y, x }) => (
             <text key={y} x={x} y={height - 5} textAnchor="middle" className="fill-ink-soft text-[11px] font-semibold">
               {y}
@@ -518,24 +618,29 @@ export const MonthlyLines = ({
 
 interface ChartLegendProps {
   income: boolean;
+  /** Whether the shading is drawn — it is keyed only where it exists. */
+  band: boolean;
   /** Named when a compared period is drawn; the dashes are the same for both its lines. */
   compareLabel?: string;
 }
 
-/** Drawn by `MonthlyLines` itself — it is the only chart with more than one series. */
-const ChartLegend = ({ income, compareLabel }: ChartLegendProps) => (
+/** Drawn by `SpendLines` itself — it is the only chart with more than one series. */
+const ChartLegend = ({ income, band, compareLabel }: ChartLegendProps) => (
   <div className="mb-2 flex flex-wrap gap-3.5 text-xs text-ink-soft">
     <span className="inline-flex items-center gap-1.5">
       <span className="inline-block h-[3px] w-3 rounded-sm bg-critical-strong" />
       Spent
     </span>
     {income && (
+      <span className="inline-flex items-center gap-1.5">
+        <span className="inline-block h-[3px] w-3 rounded-sm bg-good-strong" />
+        Income
+      </span>
+    )}
+    {band && (
       <>
-        <span className="inline-flex items-center gap-1.5">
-          <span className="inline-block h-[3px] w-3 rounded-sm bg-good-strong" />
-          Income
-        </span>
-        {/* The band is the point of the chart, so it gets a key of its own. */}
+        {/* The band is the point of the chart where it is drawn, so it gets keys
+            of its own — and none at all where it is not. */}
         <span className="inline-flex items-center gap-1.5">
           <span className="inline-block h-2.5 w-3 rounded-sm bg-good-strong opacity-20" />
           Left over
@@ -546,11 +651,22 @@ const ChartLegend = ({ income, compareLabel }: ChartLegendProps) => (
         </span>
       </>
     )}
-    {/* One key for both dashed lines: the dashes are what mark the period, and
-        the colours already mean spent and income two keys up. */}
+    {/* One key for both dashed lines — the dashes are what mark the period, and
+        the colours mean the same here as they do above.
+
+        Drawn as SVG rather than as a dashed CSS border, which is the swatch
+        this had first: a 12px border draws one dash and reads as a solid grey
+        rule, which is neither dashed nor either of the two colours it stands
+        for. Same stroke and same gap as the chart, so the key and the line it
+        explains are the same mark. */}
     {compareLabel && (
       <span className="inline-flex items-center gap-1.5">
-        <span className="inline-block w-3 border-t-[3px] border-dashed border-ink-muted" />
+        <svg aria-hidden width={16} height={income ? 9 : 3} className="shrink-0 opacity-40">
+          <line x1={0} x2={16} y1={1.5} y2={1.5} strokeWidth={3} strokeDasharray="4 3" className="stroke-critical-strong" />
+          {income && (
+            <line x1={0} x2={16} y1={7.5} y2={7.5} strokeWidth={3} strokeDasharray="4 3" className="stroke-good-strong" />
+          )}
+        </svg>
         {compareLabel}
       </span>
     )}

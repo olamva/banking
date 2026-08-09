@@ -36,6 +36,18 @@ export const monthLabel = (month: string): string => {
   });
 };
 
+/**
+ * What one point on the spending chart is called: `2026-08-14` reads `14. aug`,
+ * `2026-08` reads `aug`. The bucket is the string's own length, so nothing has
+ * to tell it which it is holding.
+ *
+ * No year. The tooltip compares two of them side by side under their own year
+ * headings, and a point that repeated the year would say it twice; where there
+ * is no heading to carry it, the caller appends it.
+ */
+export const pointLabel = (at: string): string =>
+  at.length > 7 ? `${Number(at.slice(8))}. ${monthLabel(at)}` : monthLabel(at);
+
 /** Rounded axis step, so gridlines land on 500 / 1000 / 5000 rather than 4713.6. */
 export const niceStep = (maxVal: number): number => {
   if (maxVal <= 0) return 1;

@@ -72,20 +72,6 @@ export type MonthSummary = {
   excluded: ExcludedSummary;
 };
 
-export type YearStats = {
-  year: string;
-  /** One entry per input month, sorted ascending — a series ready for charting. */
-  months: MonthSummary[];
-  categories: CategoryTotal[];
-  averageMonth: {
-    totalIn: number;
-    totalOut: number;
-    net: number;
-  };
-  excluded: ExcludedSummary;
-  cardShare: number;
-};
-
 const toCents = (amount: number) => Math.round(amount * 100);
 const fromCents = (cents: number) => cents / 100;
 const round4 = (n: number) => Math.round(n * 10000) / 10000;
@@ -260,6 +246,122 @@ export function byMonth(txns: Categorized[]): { month: string; txns: Categorized
   return [...buckets.entries()].sort().map(([month, txns]) => ({ month, txns }));
 }
 
+/**
+ * One point on the spending chart. The bucket is whatever the caller grouped
+ * by — a day or a month — so `at` is `YYYY-MM-DD` or `YYYY-MM` and the series
+ * is the only thing that knows which.
+ *
+ * Card spend rides along as kroner rather than the share `MonthSummary`
+ * carries, because a share is a ratio and ratios do not add up: cumulating a
+ * series of them gives a number that is not any period's card share. Kroner
+ * cumulate, and the share divides back out at the point of use.
+ */
+export type SeriesPoint = {
+  at: string;
+  totalIn: number;
+  totalOut: number;
+  cardOut: number;
+};
+
+const point = (at: string, txns: Categorized[]): SeriesPoint => {
+  const agg = aggregateCents(txns);
+  return {
+    at,
+    totalIn: fromCents(agg.inCents),
+    totalOut: fromCents(agg.outCents),
+    cardOut: fromCents(agg.cardCents),
+  };
+};
+
+/**
+ * Every date from `from` to `to`, both ends inclusive.
+ *
+ * The bound is compared as a string, exactly as `inRange` does, and for the
+ * same reason: `period()` hands out `YYYY-MM-31` as a month's upper bound, and
+ * no calendar has a 31st of February. Lexically every March date sorts above
+ * it, so the walk stops on the real last day of the month without anyone
+ * having to know which day that is.
+ */
+const eachDay = (from: string, to: string): string[] => {
+  const out: string[] = [];
+  const cursor = new Date(`${from}T00:00:00Z`);
+  for (let at = from; at <= to; ) {
+    out.push(at);
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+    at = cursor.toISOString().slice(0, 10);
+  }
+  return out;
+};
+
+/**
+ * One point per calendar day across the whole range, spending or not.
+ *
+ * Unlike the monthly series this one is **dense, and its holes are zeros**. A
+ * month missing from `data/raw/` is an absence — nothing was ever synced for
+ * it — but a day inside a synced month with no transactions on it is a real
+ * day on which nothing was spent, and drawing that as a gap would claim the
+ * record stops every weekend. The range comes from the period rather than from
+ * the rows, so a filter narrows the lines without shortening the axis.
+ */
+export function dailySeries(txns: Categorized[], from: string, to: string): SeriesPoint[] {
+  const buckets = new Map<string, Categorized[]>();
+  for (const t of txns) {
+    const bucket = buckets.get(t.date);
+    if (bucket) bucket.push(t);
+    else buckets.set(t.date, [t]);
+  }
+  return eachDay(from, to).map((at) => point(at, buckets.get(at) ?? []));
+}
+
+/** One point per month that has rows; `withGaps` puts the missing ones back as holes. */
+export function monthlySeries(txns: Categorized[]): SeriesPoint[] {
+  return byMonth(txns).map(({ month, txns }) => point(month, txns));
+}
+
+/**
+ * The series as running totals from its own start.
+ *
+ * Daily spending is spiky and two thirds of days carry no income at all, so
+ * drawn raw the income line sits on the axis most of the week and the band
+ * between the two reads as overspending on nearly every day of every month —
+ * the band is a statement about a whole period and does not survive being cut
+ * into days. Accumulated, both lines are monotonic, the gap between them is
+ * the running surplus, and where they cross is the day the period went under.
+ *
+ * Summed in cents, so a year of additions cannot drift the way repeated
+ * float addition of kroner would.
+ */
+export function cumulative(series: SeriesPoint[]): SeriesPoint[] {
+  let inCents = 0;
+  let outCents = 0;
+  let cardCents = 0;
+  return series.map((p) => {
+    inCents += toCents(p.totalIn);
+    outCents += toCents(p.totalOut);
+    cardCents += toCents(p.cardOut);
+    return {
+      at: p.at,
+      totalIn: fromCents(inCents),
+      totalOut: fromCents(outCents),
+      cardOut: fromCents(cardCents),
+    };
+  });
+}
+
+export type YearStats = {
+  year: string;
+  /** One entry per input month, sorted ascending — a series ready for charting. */
+  months: MonthSummary[];
+  categories: CategoryTotal[];
+  averageMonth: {
+    totalIn: number;
+    totalOut: number;
+    net: number;
+  };
+  excluded: ExcludedSummary;
+  cardShare: number;
+};
+
 /** `2026-08` -> a single sortable number, so month arithmetic needs no Date and no year wrap. */
 const monthIndex = (month: string): number => {
   const [y, m] = month.split('-').map(Number);
@@ -270,22 +372,25 @@ const monthIndex = (month: string): number => {
  * The series with every calendar month from the first to the last, and `null`
  * where there is no month.
  *
- * `byMonth` only emits months that have rows, so a chart drawing that array
- * straight joins May to August as though nothing sat between them — the line
- * slopes across the hole and reads as a real trend. A gap in the record is not
- * a value, and it is not zero either: filling it with 0 would claim a month of
- * no spending. It has to be a hole the chart can see and break across.
+ * `monthlySeries` only emits months that have rows, so a chart drawing that
+ * array straight joins May to August as though nothing sat between them — the
+ * line slopes across the hole and reads as a real trend. A gap in the record is
+ * not a value, and it is not zero either: filling it with 0 would claim a month
+ * of no spending. It has to be a hole the chart can see and break across.
+ *
+ * Months only. The daily series is dense to begin with and its empty days are
+ * genuine zeros — see `dailySeries`.
  *
  * Order-independent and Date-free: months are keyed by index and the span is
  * read off the extremes, so an unsorted series cannot spin this.
  */
-export function withGaps(series: MonthSummary[]): (MonthSummary | null)[] {
+export function withGaps(series: SeriesPoint[]): (SeriesPoint | null)[] {
   if (series.length === 0) return [];
-  const byIndex = new Map(series.map((m) => [monthIndex(m.month), m]));
+  const byIndex = new Map(series.map((m) => [monthIndex(m.at), m]));
   const bounds = [...byIndex.keys()];
   const from = Math.min(...bounds);
   const to = Math.max(...bounds);
-  const out: (MonthSummary | null)[] = [];
+  const out: (SeriesPoint | null)[] = [];
   for (let i = from; i <= to; i++) out.push(byIndex.get(i) ?? null);
   return out;
 }

@@ -103,7 +103,7 @@ Node's built-in TS execution, `fetch`, `node:http`/`node:https`, `node:sqlite`
 and the macOS `security` keychain. No ORM, no query builder, no migration tool,
 no chart library, no component library, no state manager, no router, no date
 library — the charts are hand-written SVG in `src/web/app/Charts.tsx` and the
-state is four `useState`s. Check with me first if you think another package is
+state is five `useState`s. Check with me first if you think another package is
 genuinely warranted.
 
 **There is no build step.** Vite runs in middleware mode inside `src/web/

@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  axisBounds,
   matchesFilters,
   inRange,
   period,
-  prevMonth,
   distinctMonths,
   distinctCategories,
   distinctMerchants,
@@ -34,6 +34,59 @@ function txn(partial: Partial<Categorized> & { id: string; amount: number }): Ca
     ...partial,
   };
 }
+
+test('axisBounds stops a running period at the record, not at its last calendar day', () => {
+  const now = '2026-08-09';
+  const rows = [txn({ id: '1', amount: -10, date: '2026-08-03' })];
+
+  // Still running: the axis would otherwise draw three flat weeks to the 31st.
+  assert.deepEqual(axisBounds(rows, period('2026-08', now), now), {
+    from: '2026-08-01',
+    to: '2026-08-09',
+  });
+
+  // Finished: the whole month, `-31` bound and all — `dailySeries` walks it as a string.
+  assert.deepEqual(axisBounds(rows, period('2026-02', now), now), {
+    from: '2026-02-01',
+    to: '2026-02-31',
+  });
+
+  // The same for a year, either side of today.
+  assert.equal(axisBounds(rows, period('2026', now), now).to, '2026-08-09');
+  assert.equal(axisBounds(rows, period('2025', now), now).to, '2025-12-31');
+});
+
+/**
+ * The bank books card rows a day or two ahead, so `data/raw/` holds dates later
+ * than today as a matter of course. An axis cut at today drops them, and the
+ * chart then ends on a smaller number than the tile above it.
+ */
+test('axisBounds never stops short of a row dated past today', () => {
+  const now = '2026-08-09';
+  const rows = [
+    txn({ id: '1', amount: -10, date: '2026-08-03' }),
+    txn({ id: '2', amount: -20, date: '2026-08-11' }),
+  ];
+  assert.equal(axisBounds(rows, period('2026-08', now), now).to, '2026-08-11');
+  assert.equal(axisBounds(rows, period('2026', now), now).to, '2026-08-11');
+});
+
+test('axisBounds falls back to the rows themselves when the period is open at both ends', () => {
+  const now = '2026-08-09';
+  const rows = [
+    txn({ id: '1', amount: -10, date: '2024-03-02' }),
+    txn({ id: '2', amount: -10, date: '2022-01-03' }),
+  ];
+  assert.deepEqual(axisBounds(rows, period('all', now), now), {
+    from: '2022-01-03',
+    to: '2026-08-09',
+  });
+
+  // No rows at all is a single day, never an inverted range `dailySeries` would
+  // walk backwards forever on.
+  const empty = axisBounds([], period('all', now), now);
+  assert.deepEqual(empty, { from: now, to: now });
+});
 
 test('matchesFilters: category and search', () => {
   const t = txn({ id: '1', amount: -123.45, description: 'Rema 1000', counterparty: 'Rema', category: 'dagligvarer' });
@@ -108,7 +161,8 @@ test('period: a month covers its own days and nothing either side of it', () => 
   assert.equal(inside('2026-02-28'), true);
   assert.equal(inside('2026-01-31'), false);
   assert.equal(inside('2026-03-01'), false);
-  assert.deepEqual(p.prev, { from: '2026-01-01', to: '2026-01-31', label: 'last month' });
+  // A month is judged against the same month a year back — see `period`.
+  assert.deepEqual(p.prev, { from: '2025-02-01', to: '2025-02-31', label: 'last year' });
 });
 
 test('period: a year, and its previous window is the year before', () => {
@@ -124,9 +178,9 @@ test('period: a year, and its previous window is the year before', () => {
  */
 test('period: a period still running is compared against the same slice of the previous one', () => {
   assert.deepEqual(period('2026-08', '2026-08-09').prev, {
-    from: '2026-07-01',
-    to: '2026-07-09',
-    label: 'this time last month',
+    from: '2025-08-01',
+    to: '2025-08-09',
+    label: 'this time last year',
   });
   assert.deepEqual(period('2026', '2026-08-09').prev, {
     from: '2025-01-01',
@@ -135,13 +189,14 @@ test('period: a period still running is compared against the same slice of the p
   });
 
   // A day the previous window has not got needs no special case: the bound is a
-  // string, and every February date sorts under it.
-  assert.equal(period('2026-03', '2026-03-30').prev!.to, '2026-02-30');
-  assert.equal(inRange(txn({ id: '1', amount: -1, date: '2026-02-28' }), '2026-02-01', '2026-02-30'), true);
-  assert.equal(inRange(txn({ id: '2', amount: -1, date: '2026-03-01' }), '2026-02-01', '2026-02-30'), false);
+  // string. The 29th of a leap February cuts against a year that has no 29th of
+  // February at all, and every date it does have still sorts under it.
+  assert.equal(period('2024-02', '2024-02-29').prev!.to, '2023-02-29');
+  assert.equal(inRange(txn({ id: '1', amount: -1, date: '2023-02-28' }), '2023-02-01', '2023-02-29'), true);
+  assert.equal(inRange(txn({ id: '2', amount: -1, date: '2023-03-01' }), '2023-02-01', '2023-02-29'), false);
 
-  // The month and the year before this one are both over, so both compare whole.
-  assert.equal(period('2026-07', '2026-08-09').prev!.label, 'last month');
+  // Both windows before these are over, so both compare whole.
+  assert.equal(period('2026-07', '2026-08-09').prev!.label, 'last year');
   assert.equal(period('2025', '2026-08-09').prev!.label, 'last year');
 });
 
@@ -162,9 +217,12 @@ test('inRange is inclusive at both ends, and an open end bounds nothing', () => 
   assert.equal(inRange(t, '2025-12-31', '2026-12-31'), true);
 });
 
-test('prevMonth handles the year boundary', () => {
-  assert.equal(prevMonth('2026-07'), '2026-06');
-  assert.equal(prevMonth('2026-01'), '2025-12');
+test('a month in January compares against January the year before', () => {
+  assert.deepEqual(period('2026-01', '2026-08-09').prev, {
+    from: '2025-01-01',
+    to: '2025-01-31',
+    label: 'last year',
+  });
 });
 
 test('distinctMonths is sorted and deduplicated', () => {

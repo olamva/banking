@@ -1,7 +1,8 @@
 /**
  * The page. Two views, dashboard and transactions, over one shared period.
- * State is three things — view, period, filters — and everything else is
- * derived on render from the full transaction list.
+ * State is four things — view, period, chart grain, filters — all of them in
+ * the query string, and everything else is derived on render from the full
+ * transaction list.
  *
  * No aggregation lives here. `src/core/stats.ts` does all of it and is imported
  * directly, so the browser runs the exact code `node --test` pins; `src/core/
@@ -16,6 +17,7 @@ import {
   type SetStateAction,
 } from "react";
 import {
+  axisBounds,
   distinctCategories,
   distinctMerchants,
   distinctMonths,
@@ -31,7 +33,10 @@ import type { ExcludedSummary } from "../../core/stats.ts";
 import {
   blindSpot,
   byMonth,
+  cumulative,
+  dailySeries,
   monthStats,
+  monthlySeries,
   subscriptionGroups,
   totals,
   yearStats,
@@ -48,8 +53,9 @@ import {
 import {
   DivergingBars,
   HorizontalBars,
-  MonthlyLines,
+  SpendLines,
   visibleDeltas,
+  type Bucket,
 } from "./Charts.tsx";
 import { FilterBar, type View } from "./FilterBar.tsx";
 import {
@@ -73,7 +79,7 @@ import {
   MonthlyIcon,
   SystemThemeIcon,
 } from "./icons.ts";
-import { readUrl, writeUrl } from "./url.ts";
+import { GRAINS, readUrl, writeUrl, type Grain } from "./url.ts";
 
 /**
  * Two columns at this page width, and the last card takes the whole row when it
@@ -179,11 +185,48 @@ const pick =
 const slugsByLabel = (slugs: string[]) =>
   new Map(slugs.map((s) => [categoryLabel(s), s]));
 
+const GRAIN_LABEL: Record<Grain, string> = {
+  running: "Running total",
+  day: "Per day",
+  month: "Per month",
+};
+
+interface GrainToggleProps {
+  grain: Grain;
+  offered: Grain[];
+  onGrain: (grain: Grain) => void;
+}
+
+/**
+ * On the chart it belongs to rather than in the filter bar: it changes what one
+ * card draws and nothing else on the page.
+ */
+const GrainToggle = ({ grain, offered, onGrain }: GrainToggleProps) =>
+  offered.length < 2 ? null : (
+    <span className="inline-flex overflow-hidden rounded-md border border-line">
+      {offered.map((g) => (
+        <button
+          key={g}
+          type="button"
+          aria-pressed={grain === g}
+          onClick={() => onGrain(g)}
+          className={`px-2 py-1 text-[11px] ${grain === g ? "bg-series-1 text-white" : "bg-page text-ink-soft"}`}
+        >
+          {GRAIN_LABEL[g]}
+        </button>
+      ))}
+    </span>
+  );
+
 interface DashboardProps {
   txns: Categorized[];
   filters: Filters;
   onFilters: SetFilters;
   period: Period;
+  /** Already narrowed to something this window offers — see `GRAINS`. */
+  grain: Grain;
+  offered: Grain[];
+  onGrain: (grain: Grain) => void;
 }
 
 /**
@@ -196,7 +239,15 @@ interface DashboardProps {
  * what makes "biggest changes" and the counterparty list — both month-only
  * before — work over a year for free.
  */
-const Dashboard = ({ txns, filters, onFilters, period: p }: DashboardProps) => {
+const Dashboard = ({
+  txns,
+  filters,
+  onFilters,
+  period: p,
+  grain,
+  offered,
+  onGrain,
+}: DashboardProps) => {
   const all = txns.filter((t) => inRange(t, p.from, p.to));
   const shown = all.filter((t) => matchesFilters(t, filters));
 
@@ -224,14 +275,26 @@ const Dashboard = ({ txns, filters, onFilters, period: p }: DashboardProps) => {
   const stats = monthStats(p.label, shown, vs ? previous : undefined);
   const prev = monthStats("previous", previous);
 
-  // A single month plots as one dot, and its "average month" is the total again.
+  // A single month has no "average month" — that is the total again.
   const months = byMonth(shown);
   const yearly = months.length > 1 ? yearStats(p.label, months) : null;
 
+  const running = grain === "running";
+  const bucket: Bucket = grain === "month" ? "month" : "day";
+
+  // From the whole period, never from `shown` — a filter thins the line, it
+  // does not shorten the axis. See `axisBounds`.
+  const { from, to } = axisBounds(all, p);
+
+  const build = (rows: Categorized[], a: string, b: string) => {
+    const raw = bucket === "day" ? dailySeries(rows, a, b) : monthlySeries(rows);
+    return running ? cumulative(raw) : raw;
+  };
+
+  const series = build(shown, from, to);
   // The same filters as `shown`, so the faint line behind the chart and the
   // deltas beside it are measuring the same thing.
-  const compare =
-    yearly && vs ? yearStats("previous", byMonth(previous)).months : [];
+  const compare = vs ? build(previous, vs.from, vs.to) : [];
 
   const cats = stats.categories.map((c) => ({
     label: categoryLabel(c.category),
@@ -274,9 +337,18 @@ const Dashboard = ({ txns, filters, onFilters, period: p }: DashboardProps) => {
     (cps.length > 0 ? 1 : 0) +
     (subscriptionGroups(shown).length > 0 ? 1 : 0);
 
-  // Filtered to a spending category every month's income is zero, and a line
+  // Filtered to a spending category every point's income is zero, and a line
   // along the axis is not a finding. The chart drops it; the title follows.
-  const anyIncome = !!yearly && yearly.months.some((m) => m.totalIn > 0);
+  const anyIncome = series.some((s) => s.totalIn > 0);
+
+  /**
+   * The shading, which is a narrower question than the line above it. It reads
+   * the vertical gap between the two as a surplus, and that is only true of a
+   * whole window: income lands on about a third of days, so day by day it would
+   * call almost every one of them an overspend. Accumulated, or by month, the
+   * gap is a surplus again and the band comes back.
+   */
+  const band = anyIncome && (running || bucket === "month");
 
   // Nothing renders a box it has no rows for. Filtered to rent, "income" is a
   // zero and "net" is the spend again with a minus sign; both are noise.
@@ -324,15 +396,22 @@ const Dashboard = ({ txns, filters, onFilters, period: p }: DashboardProps) => {
           one sitting in the grid shifts what "odd" means for everything after
           it, and the last card is left alone in half a row exactly when the
           rule below exists to prevent that. */}
-      {yearly && (
+      {series.length > 1 && (
         <div className="mb-4">
           <Card
-            title={anyIncome ? "Income & spend by month" : "Spending by month"}
+            title={`${anyIncome ? "Income & spend" : "Spending"}${
+              running ? ", running total" : grain === "day" ? " by day" : " by month"
+            }`}
             icon={MonthlyIcon}
+            action={
+              <GrainToggle grain={grain} offered={offered} onGrain={onGrain} />
+            }
           >
-            <MonthlyLines
-              series={yearly.months}
+            <SpendLines
+              series={series}
+              bucket={bucket}
               income={anyIncome}
+              band={band}
               compare={compare}
               compareLabel={vs?.label}
             />
@@ -435,14 +514,8 @@ export const App = () => {
   const [view, setView] = useState<View>(initial.view);
   const [chosen, setChosen] = useState<string | null>(initial.period);
   const [filters, setFilters] = useState<Filters>(initial.filters);
+  const [chosenGrain, setChosenGrain] = useState<Grain>(initial.grain);
   const [theme, onTheme] = useState<Theme>(readTheme);
-
-  // The raw choice, never the derived one below: null in the URL is what keeps
-  // "latest month" meaning latest, rather than freezing today's answer.
-  useEffect(
-    () => writeUrl({ view, period: chosen, filters }),
-    [view, chosen, filters],
-  );
 
   const txns = load.status === "ready" ? load.txns : [];
   const months = useMemo(() => distinctMonths(txns), [txns]);
@@ -458,6 +531,32 @@ export const App = () => {
       ? chosen
       : (months[months.length - 1] ?? "all");
   const p = useMemo(() => period(active), [active]);
+
+  /**
+   * The same narrowing one line down, and for the same reason: a window draws
+   * only the grains it can carry, so a choice it does not offer — held over
+   * from another window, or typed into the URL — falls back to that window's
+   * default. Derived rather than stored, so the choice itself survives a trip
+   * through a window that cannot show it.
+   */
+  const grains = GRAINS[p.kind];
+  const grain = grains.includes(chosenGrain) ? chosenGrain : grains[0]!;
+
+  /**
+   * The period goes in raw and the grain goes in derived, which looks
+   * inconsistent and is not: a null period means "the latest month", so storing
+   * the answer would freeze today's into the URL. A grain has no such
+   * placeholder — every value is literal — so writing a raw one leaves the URL
+   * claiming a mode the window in view does not draw. Switching a month on
+   * `g=day` to a year left `?g=day` on a chart plotting a running total.
+   *
+   * The choice itself is still kept, so stepping through a year and back to a
+   * month returns to per day rather than to the default.
+   */
+  useEffect(
+    () => writeUrl({ view, period: chosen, grain, filters }),
+    [view, chosen, grain, filters],
+  );
 
   /**
    * A search belongs to the table it was typed on. Carrying it into the
@@ -569,6 +668,9 @@ export const App = () => {
           filters={filters}
           onFilters={setFilters}
           period={p}
+          grain={grain}
+          offered={grains}
+          onGrain={setChosenGrain}
         />
       )}
       {load.status === "ready" && txns.length > 0 && view === "transactions" && (

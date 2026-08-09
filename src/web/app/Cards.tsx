@@ -30,10 +30,12 @@ import {
 interface CardProps {
   title: string;
   icon?: IconSvgElement;
+  /** A control belonging to this card, parked at the far end of its heading. */
+  action?: ReactNode;
   children: ReactNode;
 }
 
-export const Card = ({ title, icon, children }: CardProps) => (
+export const Card = ({ title, icon, action, children }: CardProps) => (
   <div className="min-w-0 rounded-[10px] border border-line bg-surface p-4">
     <h2 className="mb-2.5 flex items-center gap-1.5 text-sm font-semibold">
       {icon && (
@@ -45,6 +47,7 @@ export const Card = ({ title, icon, children }: CardProps) => (
         />
       )}
       {title}
+      {action && <span className="ml-auto font-normal">{action}</span>}
     </h2>
     {children}
   </div>

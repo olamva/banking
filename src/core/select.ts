@@ -72,13 +72,6 @@ export function matchesFilters(t: Categorized, f: Filters): boolean {
   return true;
 }
 
-export function prevMonth(month: string): string {
-  const [y, m] = month.split('-').map(Number);
-  const d = new Date(Date.UTC(y!, m! - 1, 1));
-  d.setUTCMonth(d.getUTCMonth() - 1);
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
-}
-
 export type PeriodKind = 'month' | 'year' | 'all';
 
 export type Period = {
@@ -112,6 +105,11 @@ export const todayOslo = (): string => new Date().toLocaleDateString('en-CA', { 
  * step — and what makes "vs the previous period" mean the same thing for a
  * month and for a year.
  *
+ * **A month compares against the same month a year back, not against the month
+ * before it.** Spending has a shape over a year that the month before cannot
+ * see: December is not a verdict on November, and January against December says
+ * only that Christmas happened. Against last December it says something.
+ *
  * The period still running is only part-full, so its previous window is cut to
  * the same point: nine days of August against a whole August would read as a
  * 70% fall every time, which is the calendar talking and not the spending. Any
@@ -123,11 +121,11 @@ export const todayOslo = (): string => new Date().toLocaleDateString('en-CA', { 
  */
 export function period(p: string, now = todayOslo()): Period {
   if (/^\d{4}-\d{2}$/.test(p)) {
-    const pm = prevMonth(p);
+    const back = `${Number(p.slice(0, 4)) - 1}-${p.slice(5)}`;
     const prev =
       now.slice(0, 7) === p
-        ? { from: `${pm}-01`, to: `${pm}-${now.slice(8)}`, label: 'this time last month' }
-        : { ...monthBounds(pm), label: 'last month' };
+        ? { from: `${back}-01`, to: `${back}-${now.slice(8)}`, label: 'this time last year' }
+        : { ...monthBounds(back), label: 'last year' };
     return { kind: 'month', ...monthBounds(p), label: p, prev };
   }
   if (/^\d{4}$/.test(p)) {
@@ -139,6 +137,36 @@ export function period(p: string, now = todayOslo()): Period {
     return { kind: 'year', ...yearBounds(y), label: p, prev };
   }
   return { kind: 'all', from: null, to: null, label: 'All time', prev: null };
+}
+
+/**
+ * The dates a chart's x axis has to span for a period — both ends inclusive,
+ * as `YYYY-MM-DD`.
+ *
+ * Taken from the period rather than from the rows, so filtering to one merchant
+ * thins the line instead of shortening the axis to the days that merchant
+ * happens to appear on. Two things pull the far end back in:
+ *
+ * - A period still running would otherwise stretch to its last calendar day and
+ *   draw a fortnight of flat line, which reads as having stopped spending
+ *   rather than as not having got there yet.
+ * - But it must never stop short of the rows themselves. The bank books card
+ *   rows a day or two ahead, so `data/raw/` routinely holds dates later than
+ *   today, and an axis cut at today drops spending the totals beside it count.
+ *
+ * So the far end is the period's own, or where the record reaches — today, or
+ * the latest row if that is later still — whichever comes first.
+ */
+export function axisBounds(
+  rows: Categorized[],
+  p: Period,
+  now = todayOslo(),
+): { from: string; to: string } {
+  const edge = rows.reduce((latest, t) => (t.date > latest ? t.date : latest), now);
+  return {
+    from: p.from ?? rows.reduce((first, t) => (t.date < first ? t.date : first), edge),
+    to: p.to && p.to < edge ? p.to : edge,
+  };
 }
 
 export function distinctMonths(txns: Categorized[]): string[] {

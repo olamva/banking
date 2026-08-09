@@ -88,15 +88,34 @@ computed in the browser by importing `src/core/stats.ts` directly.
 both are looking at: a year, then a month inside it or the whole of it. All time
 sits above the years and drops the month picker, having no year to be inside.
 Month and year were never two layouts — the same tiles over two window lengths —
-so what the dashboard shows follows the window. Deltas compare against the
-window before, the previous month or the previous year, and disappear for all
-time, which has nothing before it; the month-by-month chart and the "per month"
-averages appear once the window spans more than one month.
+so what the dashboard shows follows the window. Deltas compare against **a year
+back** — this February against last February, this year against last year —
+because spending has a shape over a year that the month before it cannot see:
+January against December says only that Christmas happened, while January
+against last January says something. They disappear when there is nothing to
+compare against: all time has nothing before it, and neither does the first
+period in the archive. The "per month" averages appear once the window spans
+more than one month.
 
-The window still running compares against **the same slice** of the one before —
-nine days of August against nine days of July, not against the whole of it, or
-every delta on the page would read as a collapse drawn by the calendar. Finished
-windows still compare whole, and the tile says which it did.
+**The spending chart runs on days.** *Running total* accumulates from the start
+of the window, so the two lines climb to the window's own totals and the gap
+between them is the running surplus — where they cross is the day it went under.
+Accumulated the line is monotonic, which is what lets a point per day stay
+readable across a whole year. *Per day* plots the days raw, for "what happened
+on the 14th"; *per month* plots the months. Each window offers the raw bucket it
+can carry and no other — a month has no months in it to plot, and a year has 365
+days to fit across a thousand pixels — so a month offers per day, a year offers
+per month, and all time offers only that.
+
+The shading between the lines is the only thing the raw daily view drops. It
+reads the vertical gap as a surplus, and that is only true of a whole window:
+income lands on about a third of days, so day by day it would call almost every
+one of them an overspend. Both lines are still drawn.
+
+The window still running compares against **the same slice** a year back — nine
+days of August against the first nine days of last August, not against the whole
+month, or every delta on the page would read as a collapse drawn by the
+calendar. Finished windows compare whole, and the tile says which it did.
 
 **Subscriptions are listed per subscription**, not per charge: one line for what
 it is, what it costs a month, what it has taken across the window, how many
