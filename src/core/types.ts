@@ -23,6 +23,16 @@ export type Txn = {
   /** The bank's own category. Null on card rows. */
   bankCategory: string | null;
   /**
+   * The other party's account number, as the bank reports it. Null on card rows
+   * and on anything the bank does not name an account for.
+   *
+   * It is the only thing that separates two services billed by one payee under
+   * one name: SiT's rent and SiT's gym both arrive as `Sit`, with the same
+   * type and the same bank category, and differ *only* here. Matched as part of
+   * the override haystack for exactly that reason.
+   */
+  remoteAccountNumber: string | null;
+  /**
    * What the bank calls this *kind* of row — `VISA Varekjøp`, `Kreditrente`,
    * `Overførsel mellom egne kontoer`. Generic by design and never a merchant,
    * which is what makes it the one field that says whether a row is a transfer

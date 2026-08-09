@@ -14,6 +14,7 @@ function txn(overrides: Partial<Txn>): Txn {
     counterparty: 'Rema 1000',
     bankCategory: 'dagligvarer',
     typeText: 'VISA Varekjøp',
+    remoteAccountNumber: null,
     isRecurring: false,
     isSubscription: false,
     isPending: false,

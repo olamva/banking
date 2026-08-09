@@ -121,6 +121,40 @@ export const loadGiro = (path = 'giro.json') => loadJson<Overrides>(path, {});
 
 export const loadSubscriptions = (path = 'subscriptions.json') => loadJson<Subscriptions>(path, []);
 
+/**
+ * payees.json: `{ "<pattern>": "<name>" }`, the same pattern language — the one
+ * name a payee should go by.
+ *
+ * A landlord who writes the month into every payment is eleven payees as far as
+ * anything counting by name is concerned: `SIMEN LEIE Februar Husleie` and
+ * `SIMEN LEIE Mars Husleie` share nothing a grouping can see, so the
+ * subscriptions card listed the same standing rent eleven times over.
+ *
+ * Renaming beats grouping at the point of use, because `merchantOf` is what the
+ * table, the bars, the filter chips and the subscriptions card all agree on — a
+ * name synthesised in one of them would filter to nothing in the others.
+ *
+ * It rewrites `counterparty` only, and runs *after* `categorize`, so no rule is
+ * matched against a name it did not see. The month is still in `description`,
+ * which is what the search box reads, so nothing is actually lost.
+ */
+export const loadPayees = (path = 'payees.json') => loadJson<Overrides>(path, {});
+
+export function renamePayees<T extends { description: string; counterparty: string | null }>(
+  txns: T[],
+  payees: Overrides,
+): T[] {
+  const rules = Object.entries(payees).map(([pattern, name]) => ({
+    matches: compile(pattern, 'payees.json'),
+    name,
+  }));
+  if (rules.length === 0) return txns;
+  return txns.map((t) => {
+    const hit = rules.find((r) => r.matches(`${t.description} ${t.counterparty ?? ''}`.toLowerCase()));
+    return hit ? { ...t, counterparty: hit.name } : t;
+  });
+}
+
 type Matcher = (haystack: string) => boolean;
 type Rule = { matches: Matcher; category: string };
 
@@ -158,7 +192,10 @@ export function categorize(
   }));
   const subs = subscriptions.map((pattern) => compile(pattern, 'subscriptions.json'));
   return txns.map((t) => {
-    const haystack = `${t.description} ${t.counterparty ?? ''}`.toLowerCase();
+    // The account number is in here so a payee that bills two different things
+    // under one name can still be told apart — it is the only field that differs
+    // between SiT's rent and SiT's gym. See `Txn.remoteAccountNumber`.
+    const haystack = `${t.description} ${t.counterparty ?? ''} ${t.remoteAccountNumber ?? ''}`.toLowerCase();
     return {
       ...t,
       category: categoryFor(t, rules, peerRules, giroRules, haystack),

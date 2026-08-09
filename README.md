@@ -199,6 +199,12 @@ A pattern wrapped in slashes is a **regex**, which is how you match a word as a
 word: `\bleie\b` catches `Leie Juni & Juli` but not `utleie` or `leiebil`. Note
 the doubled backslash — it is JSON.
 
+Patterns also see the **payee's account number**, which is how one name can bill
+two different things: SiT sends the rent and the gym both as `Sit`, same row
+type and same bank category, and the account behind them is the only field that
+differs. Put the account number ahead of the name pattern and the specific one
+wins.
+
 Keep plain patterns specific. A bare street name catches every shop on that
 street, which is how `Munkegata` first swallowed a supermarket.
 
@@ -244,6 +250,22 @@ Person-to-person payments are the one category with a name per payee rather than
 a pattern per merchant, so they outgrew `overrides.json` and got their own file.
 It is folded into the overrides on load, after them, so an explicit entry in
 `overrides.json` still wins a collision.
+
+`payees.json` maps a pattern to the one name a payee should go by:
+
+```json
+{ "simen leie": "Simen leie" }
+```
+
+A landlord who writes the month into every payment is eleven payees to anything
+counting by name — `SIMEN LEIE Februar Husleie` and `SIMEN LEIE Mars Husleie`
+share nothing a grouping can see — so the subscriptions card listed one standing
+rent eleven times over. Renaming beats grouping at the point of use, because
+`merchantOf` is what the table, the bars, the chips and the subscriptions card
+all agree on; a name synthesised inside one of them would filter to nothing in
+the others. It rewrites `counterparty` only and runs after every other rule, so
+nothing is matched against a name it did not see, and the month stays in
+`description`, which is what the search box reads.
 
 `subscriptions.json` is a list of the same patterns, and it is a second axis
 rather than a category:

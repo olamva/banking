@@ -24,6 +24,7 @@ function txn(partial: Partial<Categorized> & { id: string; amount: number }): Ca
     counterparty: 'Kiwi',
     bankCategory: null,
     typeText: null,
+    remoteAccountNumber: null,
     isRecurring: false,
     isSubscription: false,
     isPending: false,

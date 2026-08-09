@@ -45,6 +45,7 @@ accounts.json     which accounts are mine (hand-edited), gitignored
 overrides.json    substring or /regex/ -> category, gitignored
 vipps.json        names of payees, as a list; its own rule, gitignored
 giro.json         name -> what that person's lump transfers are, gitignored
+payees.json       pattern -> the one name a payee goes by, gitignored
 subscriptions.json  the same patterns, as a list; sets isSubscription, gitignored
 ```
 
@@ -161,6 +162,11 @@ Notes from the real data, not the plan:
   a share of a trip from a friend, and those two are identical on the row.
   A name absent from it keeps the peer reading; `Overførsel mellom egne kontoer`
   is excluded outright as a family transfer.
+- One payee can bill two unrelated things under one name, with the same row type
+  and the same bank category. SiT's rent and SiT's gym differ *only* in
+  `remoteAccountNumber`, which is why that field is on `Txn` and in the override
+  haystack — an account number ahead of the name pattern is the only way to
+  split them.
 - SB1 categories are always exactly one entry at confidence 100. `diverse` is
   the bank's catch-all and carries no more signal than no category at all, so
   `categorize` collapses it into `ukategorisert` — as it does the bank's own

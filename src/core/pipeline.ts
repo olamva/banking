@@ -10,7 +10,15 @@ import { readdirSync, rmSync } from 'node:fs';
 import { normalizeMonth } from './normalize.ts';
 import { enrich, readStatements } from './statement.ts';
 import { exclude, type Accounts } from './exclude.ts';
-import { categorize, loadOverrides, loadGiro, loadPeers, loadSubscriptions } from './categorize.ts';
+import {
+  categorize,
+  loadGiro,
+  loadOverrides,
+  loadPayees,
+  loadPeers,
+  loadSubscriptions,
+  renamePayees,
+} from './categorize.ts';
 import { openDb, rebuild as rebuildDb } from './db.ts';
 import type { Categorized } from './types.ts';
 
@@ -36,13 +44,15 @@ export function monthsOnDisk(): string[] {
 export async function pipeline(month: string): Promise<Categorized[]> {
   const accounts: Accounts = JSON.parse(await readFile('accounts.json', 'utf8'));
   const txns = enrich(normalizeMonth(`${RAW}/${month}`), readStatements());
-  return categorize(
+  const rows = categorize(
     exclude(txns, accounts),
     await loadOverrides(),
     await loadSubscriptions(),
     await loadPeers(),
     await loadGiro(),
   );
+  // Last, so every rule above matched the name the bank actually sent.
+  return renamePayees(rows, await loadPayees());
 }
 
 /**

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { categorize, loadOverrides, loadPeers, loadSubscriptions } from './categorize.ts';
+import { categorize, loadOverrides, loadPayees, loadPeers, loadSubscriptions, renamePayees } from './categorize.ts';
 import type { Classified } from './types.ts';
 
 function classified(overrides: Partial<Classified>): Classified {
@@ -17,6 +17,7 @@ function classified(overrides: Partial<Classified>): Classified {
     counterparty: 'Rema 1000',
     bankCategory: 'dagligvarer',
     typeText: 'VISA Varekjøp',
+    remoteAccountNumber: null,
     isRecurring: false,
     isSubscription: false,
     isPending: false,
@@ -277,4 +278,51 @@ test("the bank's faste_boutgifter is renamed, and an override still wins over it
     [],
   );
   assert.equal(overridden.category, 'medier_og_underholdning');
+});
+
+/**
+ * One payee, two things billed under one name. SiT sends rent and the gym as
+ * `Sit` with the same type and the same bank category — the account number they
+ * are billed from is the only field that differs, so it is in the haystack.
+ */
+test('the payee account number is matchable, so one name can bill two things', () => {
+  const sit = (remoteAccountNumber: string, amount: number) =>
+    classified({ description: 'Sit', counterparty: 'Sit', bankCategory: null, remoteAccountNumber, amount });
+  const rules = { '42121144527': 'helse_og_velvaere', '/\\bsit\\b/': 'husleie' };
+
+  assert.equal(categorize([sit('42121144527', -185)], rules)[0]!.category, 'helse_og_velvaere');
+  assert.equal(categorize([sit('42004151326', -10416)], rules)[0]!.category, 'husleie');
+  // No account number at all still falls through to the name.
+  assert.equal(categorize([sit('', -3819)], rules)[0]!.category, 'husleie');
+});
+
+/**
+ * A landlord who writes the month into every payment is eleven payees to
+ * anything counting by name, which listed one standing rent eleven times.
+ */
+test('renamePayees collapses a payee that writes the month into every payment', () => {
+  const rows = [
+    { description: 'SIMEN LEIE Februar Husleie', counterparty: 'SIMEN LEIE Februar Husleie' },
+    { description: 'SIMEN LEIE Mars Husleie', counterparty: 'SIMEN LEIE Mars Husleie' },
+    { description: 'Theo leie', counterparty: 'Theo leie' },
+    { description: 'Theo leie Husleie Juli', counterparty: 'Theo leie Husleie Juli' },
+    { description: 'Rema 1000', counterparty: 'Rema 1000' },
+  ];
+  const renamed = renamePayees(rows, { 'simen leie': 'Simen leie', 'theo leie': 'Theo leie' });
+
+  assert.deepEqual(renamed.map((r) => r.counterparty), [
+    'Simen leie',
+    'Simen leie',
+    'Theo leie',
+    'Theo leie',
+    'Rema 1000',
+  ]);
+  // The month is still in the description, which is what the search box reads.
+  assert.equal(renamed[0]!.description, 'SIMEN LEIE Februar Husleie');
+  // No file, no work: the array comes back as it went in.
+  assert.equal(renamePayees(rows, {}), rows);
+});
+
+test('loadPayees returns {} when the file is absent', async () => {
+  assert.deepEqual(await loadPayees('does-not-exist.json'), {});
 });

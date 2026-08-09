@@ -25,6 +25,8 @@ type Sb1File = {
        * counterparty fallback below.
        */
       remoteAccountName?: string;
+      /** The other party's account number — see `Txn.remoteAccountNumber`. */
+      remoteAccountNumber?: string;
       /**
        * The bank's own name for the row type — `VISA Varekjøp`, `Kreditrente`,
        * `Overførsel mellom egne kontoer`. Present on all 4043 rows so far, and
@@ -76,6 +78,7 @@ function normalizeSb1(file: Sb1File): Txn[] {
     counterparty: t.cleanedDescription ?? t.remoteAccountName ?? null,
     bankCategory: categories[0]?.main ?? null,
     typeText: t.typeText ?? null,
+    remoteAccountNumber: t.remoteAccountNumber ?? null,
     isRecurring: recurring,
     isSubscription: subscription,
     isPending: false,
@@ -95,6 +98,7 @@ function normalizeCard(file: EbFile): Txn[] {
       counterparty: null,
       bankCategory: null,
       typeText: null,
+      remoteAccountNumber: null,
       isRecurring: false,
       isSubscription: false,
       isPending: t.status === 'PDNG',

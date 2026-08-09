@@ -12,6 +12,7 @@ function card(partial: Partial<Txn> & { id: string; amount: number }): Txn {
     counterparty: null,
     bankCategory: null,
     typeText: null,
+    remoteAccountNumber: null,
     isRecurring: false,
     isSubscription: false,
     isPending: false,
