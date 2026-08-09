@@ -43,6 +43,27 @@ test('SB1 date formats at Oslo midnight, not UTC', () => {
   });
 });
 
+test('SB1 falls back to remoteAccountName when cleanedDescription is absent', () => {
+  withMonthDir({
+    'acct.json': {
+      transactions: [{
+        transaction: {
+          id: 'sb1-1', accountKey: 'acct', amount: -6100, date: Date.UTC(2026, 5, 30, 22, 0, 0),
+          typeText: 'Betaling med melding', remoteAccountName: 'Theo leie',
+        },
+        categories: [{ main: 'ukategorisert' }],
+        recurring: false,
+        subscription: false,
+      }],
+    },
+  }, (dir) => {
+    const [txn] = normalizeMonth(dir);
+    // description stays the bank's own type text — the exclusion rules match on it.
+    assert.equal(txn.description, 'Betaling med melding');
+    assert.equal(txn.counterparty, 'Theo leie');
+  });
+});
+
 test('card DBIT/CRDT sign and pending status', () => {
   withMonthDir({
     'eb-account.json': {

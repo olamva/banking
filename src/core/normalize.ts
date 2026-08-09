@@ -12,12 +12,19 @@ type Sb1File = {
       /** Epoch millis at Oslo midnight — never format as UTC. */
       date: number;
       /**
-       * Both description fields are *absent* on some rows — 31 of 3149 so far,
+       * Both description fields are *absent* on some rows — 101 of 4043 so far,
        * all of them plain transfers and payments-with-message. The key is
        * missing, not null, so nothing downstream can rely on it being a string.
        */
       description?: string;
       cleanedDescription?: string;
+      /**
+       * The other side of a transfer or payment-with-message, as the payer
+       * typed it. Present on 391 of 4043 rows, and the *only* name on the 10
+       * that carry no cleanedDescription — which is exactly why it is the
+       * counterparty fallback below.
+       */
+      remoteAccountName?: string;
       /** The bank's own name for the row type. Always present, always generic. */
       typeText?: string;
     };
@@ -58,7 +65,10 @@ function normalizeSb1(file: Sb1File): Txn[] {
     // so it has to stay a string. typeText is the honest fallback: generic, but
     // it is what the bank itself calls the row.
     description: t.description ?? t.typeText ?? '',
-    counterparty: t.cleanedDescription ?? null,
+    // cleanedDescription first: where both exist they disagree on 117 rows, and
+    // the bank's cleaned string is the merchant, while remoteAccountName is
+    // whatever the payer typed into the payment.
+    counterparty: t.cleanedDescription ?? t.remoteAccountName ?? null,
     bankCategory: categories[0]?.main ?? null,
     isRecurring: recurring,
     isSubscription: subscription,

@@ -133,13 +133,22 @@ Two sources normalize into it and they do not agree on much:
 
 Notes from the real data, not the plan:
 
-- SB1's list endpoint has no counterparty field. Use `cleanedDescription`;
-  structured counterparty exists only on `/transactions/{id}/details`, one call
-  per transaction, and is not worth it.
+- SB1's list endpoint has no *merchant* field — use `cleanedDescription`. It
+  does carry `remoteAccountName`, the other party of a transfer or a
+  payment-with-message as the payer typed it, on 391 of 4043 rows. It is the
+  counterparty fallback, never the first choice: where both exist they disagree
+  on 117 rows and `cleanedDescription` is the better string. It earns its place
+  on the 10 rows that have no `cleanedDescription` at all, where it is the only
+  name on the row. A structured merchant still exists only on
+  `/transactions/{id}/details`, one call per transaction, and is not worth it.
 - `recurring` and `subscription` have been identical on every SB1 row so far.
-  Keep both, expect one bit of signal. The bank sets them only on standing bank
-  payments, and a card row can never carry them at all, so anything you pay by
-  card is invisible to the flag until `subscriptions.json` names it.
+  Keep both, expect one bit of signal. The bank sets them on standing payments
+  (AvtaleGiro, KID) and also guesses them from the merchant on its own
+  `VISA Varekjøp` rows, where it is wrong as often as right — a one-off bag, a
+  bar and a membership fee are flagged, next to HelloFresh which really is a
+  subscription. An Enable Banking card row can never carry them at all, so
+  anything on the credit card is invisible to the flag until
+  `subscriptions.json` names it.
 - SB1 categories are always exactly one entry at confidence 100. `diverse` is
   the bank's catch-all and carries no more signal than no category at all, so
   `categorize` collapses it into `ukategorisert`. Together they are ~40% of
