@@ -242,9 +242,15 @@ export const MonthlyLines = ({ series }: MonthlyLinesProps) => {
   const { show, hide, node } = useTooltip();
   const [near, setNear] = useState<number | null>(null);
 
-  const height = 220;
+  /**
+   * The caption row only earns its 14px when the axis crosses a year boundary.
+   * A single year is already named by the filter that selected it, so there it
+   * is dead space, and the gutter goes back to one row.
+   */
+  const multiYear = new Set(series.map((m) => m.month.slice(0, 4))).size > 1;
+  const height = multiYear ? 234 : 220;
   const padL = 50;
-  const padB = 24;
+  const padB = multiYear ? 38 : 24;
   const padT = 10;
   const plotW = Math.max(width - padL - 16, 20);
   const plotH = height - padB - padT;
@@ -262,6 +268,28 @@ export const MonthlyLines = ({ series }: MonthlyLinesProps) => {
   const ticks = Array.from({ length: Math.floor(gridMax / step) + 1 }, (_, i) => i * step);
   const px = (i: number) => padL + i * clusterW + clusterW / 2;
   const py = (v: number) => padT + plotH - (v / gridMax) * plotH;
+
+  /**
+   * A year or two fits every month; past that the labels run into each other.
+   * Thin them on a calendar-anchored stride, never on the array index, so the
+   * kept labels land on the same months in every year.
+   */
+  const every = [1, 2, 3, 4, 6, 12].find((n) => n * clusterW >= 30) ?? 12;
+  const axisLabel = (month: string) =>
+    (Number(month.slice(5)) - 1) % every === 0 ? monthLabel(month) : null;
+
+  /**
+   * The year is named once, under the stretch of months it covers, rather than
+   * on one of them — the month row repeats `jan..des` and says nothing about
+   * which pass through the calendar it is on. Centred on the months actually
+   * present, so a part year sits under its own half.
+   */
+  const years = !multiYear
+    ? []
+    : [...new Set(dense.filter((m) => m !== null).map((m) => m.month.slice(0, 4)))].map((y) => {
+        const at = dense.flatMap((m, i) => (m?.month.startsWith(y) ? [i] : []));
+        return { y, x: (px(at[0]!) + px(at.at(-1)!)) / 2 };
+      });
 
   /**
    * The months either side of a gap are not neighbours, so nothing may be drawn
@@ -334,6 +362,21 @@ export const MonthlyLines = ({ series }: MonthlyLinesProps) => {
               </g>
             );
           })}
+          {/* A soft rule on the des|jan seam. The axis is a run of repeating
+              month names, so the year break is the one landmark on it. Drawn
+              before the bands, so it reads as ground rather than data. */}
+          {dense.map((m, i) =>
+            m && i > 0 && m.month.endsWith('-01') ? (
+              <line
+                key={`year-${m.month}`}
+                x1={px(i) - clusterW / 2}
+                x2={px(i) - clusterW / 2}
+                y1={padT}
+                y2={padT + plotH}
+                className="stroke-grid"
+              />
+            ) : null,
+          )}
           {/* One band and one pair of lines per unbroken stretch. The clip ids
               carry the stretch's index, or every stretch would be clipped to
               the first one's income edge. */}
@@ -368,17 +411,24 @@ export const MonthlyLines = ({ series }: MonthlyLinesProps) => {
                 {/* A stretch of one month draws no polyline, so the dots are what carries it. */}
                 <circle cx={px(i)} cy={py(m.totalOut)} r={near === i ? 5 : 3} className="fill-critical-strong" />
                 <circle cx={px(i)} cy={py(m.totalIn)} r={near === i ? 5 : 3} className="fill-good-strong" />
-                <text
-                  x={px(i)}
-                  y={height - 6}
-                  textAnchor="middle"
-                  className={near === i ? 'fill-ink text-[11px] font-semibold' : 'fill-ink-muted text-[11px]'}
-                >
-                  {monthLabel(m.month)}
-                </text>
+                {axisLabel(m.month) && (
+                  <text
+                    x={px(i)}
+                    y={padT + plotH + 18}
+                    textAnchor="middle"
+                    className={near === i ? 'fill-ink text-[11px] font-semibold' : 'fill-ink-muted text-[11px]'}
+                  >
+                    {axisLabel(m.month)}
+                  </text>
+                )}
               </g>
             ),
           )}
+          {years.map(({ y, x }) => (
+            <text key={y} x={x} y={height - 5} textAnchor="middle" className="fill-ink-soft text-[11px] font-semibold">
+              {y}
+            </text>
+          ))}
           <line x1={padL} x2={padL} y1={padT} y2={padT + plotH} className="stroke-axis" />
           <line x1={padL} x2={width - 8} y1={padT + plotH} y2={padT + plotH} className="stroke-axis" />
           {/* Last, so it sits over everything it is meant to catch pointers for. */}
