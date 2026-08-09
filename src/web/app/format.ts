@@ -1,9 +1,17 @@
 /** Presentation only — nothing here decides what a number is, just how it reads. */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from "react";
 
-export const fmtNOK = (n: number): string => `${Math.round(n).toLocaleString('nb-NO')} kr`;
+/**
+ * Built once. `toLocaleString` builds its formatter per call, which is invisible
+ * on a stat tile and is not on a two-thousand-row table — it was most of what
+ * one of those cost to render.
+ */
+const NOK = new Intl.NumberFormat("nb-NO");
 
-export const fmtPct = (share: number): string => `${Math.round(share * 1000) / 10}%`;
+export const fmtNOK = (n: number): string => `${NOK.format(Math.round(n))} kr`;
+
+export const fmtPct = (share: number): string =>
+  `${Math.round(share * 1000) / 10}%`;
 
 /**
  * Slugs come from the bank and from overrides.json, so a generic rule beats a
@@ -11,17 +19,20 @@ export const fmtPct = (share: number): string => `${Math.round(share * 1000) / 1
  * a Norwegian letter out need naming.
  */
 const ODD: Record<string, string> = {
-  stroem: 'Strøm',
-  helse_og_velvaere: 'Helse og velvære',
-  klaer_og_utstyr: 'Klær og utstyr',
+  stroem: "Strøm",
+  helse_og_velvaere: "Helse og velvære",
+  klaer_og_utstyr: "Klær og utstyr",
 };
 
 export const categoryLabel = (slug: string): string =>
-  ODD[slug] ?? slug.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
+  ODD[slug] ?? slug.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
 
 export const monthLabel = (month: string): string => {
-  const [y, m] = month.split('-').map(Number);
-  return new Date(Date.UTC(y!, m! - 1, 1)).toLocaleDateString('nb-NO', { month: 'short', timeZone: 'UTC' });
+  const [y, m] = month.split("-").map(Number);
+  return new Date(Date.UTC(y!, m! - 1, 1)).toLocaleDateString("nb-NO", {
+    month: "short",
+    timeZone: "UTC",
+  });
 };
 
 /** Rounded axis step, so gridlines land on 500 / 1000 / 5000 rather than 4713.6. */
@@ -38,7 +49,9 @@ export const niceStep = (maxVal: number): number => {
  * width of their box. A ResizeObserver keeps that honest when the window
  * changes or a card appears and reflows the grid.
  */
-export const useWidth = (fallback = 340): [(el: HTMLDivElement | null) => void, number] => {
+export const useWidth = (
+  fallback = 340,
+): [(el: HTMLDivElement | null) => void, number] => {
   const [width, setWidth] = useState(fallback);
   const observer = useRef<ResizeObserver | null>(null);
 
