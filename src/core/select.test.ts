@@ -97,7 +97,7 @@ test('matchesFilters: exclude hides exactly what include would have kept', () =>
 
 /** One period for both views, so a wrong bound here is wrong on every number the page shows. */
 test('period: a month covers its own days and nothing either side of it', () => {
-  const p = period('2026-02');
+  const p = period('2026-02', '2026-08-09');
   assert.deepEqual([p.kind, p.from, p.to], ['month', '2026-02-01', '2026-02-31']);
   // The bound is a string comparison, so a short month needs no special case:
   // the 28th is in, and no March date sorts under it.
@@ -110,9 +110,37 @@ test('period: a month covers its own days and nothing either side of it', () => 
 });
 
 test('period: a year, and its previous window is the year before', () => {
-  const p = period('2026');
+  const p = period('2026', '2027-03-04');
   assert.deepEqual([p.kind, p.from, p.to], ['year', '2026-01-01', '2026-12-31']);
   assert.deepEqual(p.prev, { from: '2025-01-01', to: '2025-12-31', label: 'last year' });
+});
+
+/**
+ * Nine days of August against a whole August is a 70% fall drawn by the
+ * calendar. The period still running compares against the same slice of the one
+ * before it, and only that one — every finished period is still a full compare.
+ */
+test('period: a period still running is compared against the same slice of the previous one', () => {
+  assert.deepEqual(period('2026-08', '2026-08-09').prev, {
+    from: '2026-07-01',
+    to: '2026-07-09',
+    label: 'this time last month',
+  });
+  assert.deepEqual(period('2026', '2026-08-09').prev, {
+    from: '2025-01-01',
+    to: '2025-08-09',
+    label: 'this time last year',
+  });
+
+  // A day the previous window has not got needs no special case: the bound is a
+  // string, and every February date sorts under it.
+  assert.equal(period('2026-03', '2026-03-30').prev!.to, '2026-02-30');
+  assert.equal(inRange(txn({ id: '1', amount: -1, date: '2026-02-28' }), '2026-02-01', '2026-02-30'), true);
+  assert.equal(inRange(txn({ id: '2', amount: -1, date: '2026-03-01' }), '2026-02-01', '2026-02-30'), false);
+
+  // The month and the year before this one are both over, so both compare whole.
+  assert.equal(period('2026-07', '2026-08-09').prev!.label, 'last month');
+  assert.equal(period('2025', '2026-08-09').prev!.label, 'last year');
 });
 
 /** All time bounds nothing and has nothing before it — no deltas to draw. */

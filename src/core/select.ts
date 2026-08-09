@@ -101,6 +101,9 @@ export type Period = {
 const monthBounds = (m: string) => ({ from: `${m}-01`, to: `${m}-31` });
 const yearBounds = (y: number) => ({ from: `${y}-01-01`, to: `${y}-12-31` });
 
+/** Today in Oslo, in the same shape and zone as `Txn.date`. */
+export const todayOslo = (): string => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Oslo' });
+
 /**
  * The one period the whole page runs on: a month `2026-07`, a year `2026`, or
  * anything else meaning all time.
@@ -108,14 +111,32 @@ const yearBounds = (y: number) => ({ from: `${y}-01-01`, to: `${y}-12-31` });
  * Both views read this, which is what lets the dashboard and the table stay in
  * step — and what makes "vs the previous period" mean the same thing for a
  * month and for a year.
+ *
+ * The period still running is only part-full, so its previous window is cut to
+ * the same point: nine days of August against a whole August would read as a
+ * 70% fall every time, which is the calendar talking and not the spending. Any
+ * other period is complete and compares against a complete one.
+ *
+ * The cut is a string bound, so a day the previous window does not have needs
+ * no special case — `2025-02-30` sorts after every February date and before
+ * every March one, which is exactly "all of February".
  */
-export function period(p: string): Period {
+export function period(p: string, now = todayOslo()): Period {
   if (/^\d{4}-\d{2}$/.test(p)) {
-    return { kind: 'month', ...monthBounds(p), label: p, prev: { ...monthBounds(prevMonth(p)), label: 'last month' } };
+    const pm = prevMonth(p);
+    const prev =
+      now.slice(0, 7) === p
+        ? { from: `${pm}-01`, to: `${pm}-${now.slice(8)}`, label: 'this time last month' }
+        : { ...monthBounds(pm), label: 'last month' };
+    return { kind: 'month', ...monthBounds(p), label: p, prev };
   }
   if (/^\d{4}$/.test(p)) {
     const y = Number(p);
-    return { kind: 'year', ...yearBounds(y), label: p, prev: { ...yearBounds(y - 1), label: 'last year' } };
+    const prev =
+      now.slice(0, 4) === p
+        ? { from: `${y - 1}-01-01`, to: `${y - 1}-${now.slice(5)}`, label: 'this time last year' }
+        : { ...yearBounds(y - 1), label: 'last year' };
+    return { kind: 'year', ...yearBounds(y), label: p, prev };
   }
   return { kind: 'all', from: null, to: null, label: 'All time', prev: null };
 }
