@@ -147,3 +147,19 @@ test("a subscription pattern only adds to the bank's flag, never clears it", () 
 test('a subscription pattern names its own file when the regex is broken', () => {
   assert.throws(() => categorize([classified({})], {}, ['/[unclosed/']), /subscriptions\.json/);
 });
+
+test("the bank's faste_boutgifter is renamed, and an override still wins over it", () => {
+  const [renamed] = categorize([classified({ bankCategory: 'faste_boutgifter' })], {}, []);
+  assert.equal(renamed.category, 'faste_utgifter');
+
+  // Every other bank slug still passes through untouched.
+  const [kept] = categorize([classified({ bankCategory: 'dagligvarer' })], {}, []);
+  assert.equal(kept.category, 'dagligvarer');
+
+  const [overridden] = categorize(
+    [classified({ description: 'Telenor', bankCategory: 'faste_boutgifter' })],
+    { telenor: 'medier_og_underholdning' },
+    [],
+  );
+  assert.equal(overridden.category, 'medier_og_underholdning');
+});

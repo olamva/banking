@@ -39,6 +39,16 @@ const FOREIGN_MERCHANT = /,\s*(?!NOR$)[A-Z]{3}$/;
 const BANK_CATCH_ALL = 'diverse';
 
 /**
+ * The bank calls its fixed-cost bucket `faste_boutgifter`, but it is not only
+ * housing — tuition and union dues book there too. Renamed on the way out so
+ * one slug does not misname half its own rows. Rename here rather than in
+ * `overrides.json`, because these rows carry no override at all: the slug
+ * arrives on `bankCategory` and would otherwise reach the page unchanged.
+ */
+const BANK_FIXED_COSTS = 'faste_boutgifter';
+const FIXED_COSTS = 'faste_utgifter';
+
+/**
  * subscriptions.json: `["<pattern>", ...]`, the same pattern language.
  *
  * A separate axis from the category, not a category of its own — Telenor is a
@@ -101,6 +111,8 @@ function categoryFor(t: Classified, rules: Rule[], haystack: string): string {
   const override = rules.find((r) => r.matches(haystack));
   if (override) return override.category;
   if (t.source === 'card' && FOREIGN_MERCHANT.test(t.counterparty ?? '')) return TRAVEL;
-  if (t.bankCategory && t.bankCategory !== BANK_CATCH_ALL) return t.bankCategory;
+  if (t.bankCategory && t.bankCategory !== BANK_CATCH_ALL) {
+    return t.bankCategory === BANK_FIXED_COSTS ? FIXED_COSTS : t.bankCategory;
+  }
   return UNCATEGORIZED;
 }
