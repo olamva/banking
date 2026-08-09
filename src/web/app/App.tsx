@@ -97,8 +97,11 @@ const CARD_GRID =
  * than it looks: `HorizontalBars` gives every label the card's full width and
  * truncates against whatever is left, so it shrinks rather than breaks.
  *
- * The last child is always the one that takes the full row, because in this
- * layout it is the transaction table — the card that actually wants the width.
+ * The last child always takes the full row. That is the subscriptions card,
+ * which is a table and wants the width — so the three chart cards sit across
+ * the top and it runs underneath them. It is also why this grid needs four
+ * cards rather than three: with three, one of them is the last child and the
+ * wide row is left a column short.
  */
 const CARD_GRID_3 =
   "grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] gap-4 [&>*:last-child]:col-span-full";
@@ -326,10 +329,15 @@ const Dashboard = ({
     filters.categories.length === 1 && filters.categoryMode === "include";
 
   /**
-   * Three across only once there are three cards to fill the row. Below that
-   * the grid strands the first card at a third of the width with the rest of
-   * the row empty beside it, which is exactly the case a single category
-   * produces — two of the four cards hide themselves.
+   * Three across only once there are **four** cards, not three: the last one
+   * always takes a full row of its own in that grid, so three cards fill the
+   * wide row with two and leave the third column empty. Four is three across
+   * and one under them.
+   *
+   * A year can have three. 2022 is the first in the archive, so it has no year
+   * before it to change against and the deltas card hides itself, which is what
+   * this got wrong — the same shape a single category produces from the other
+   * direction, where two of the four hide at once.
    */
   const cards =
     (!single && cats.length > 0 ? 1 : 0) +
@@ -419,7 +427,7 @@ const Dashboard = ({
         </div>
       )}
 
-      <div className={p.kind === "year" && cards >= 3 ? CARD_GRID_3 : CARD_GRID}>
+      <div className={p.kind === "year" && cards >= 4 ? CARD_GRID_3 : CARD_GRID}>
         {!single && cats.length > 0 && (
           <Card title="Spending by category" icon={CategoryIcon}>
             <HorizontalBars items={cats} onPick={onCategory} />
