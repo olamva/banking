@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { monthStats, yearStats, blindSpot, subsAndRecurring, totals } from './stats.ts';
+import { monthStats, yearStats, blindSpot, subsAndRecurring, subscriptionGroups, totals } from './stats.ts';
 import type { Categorized } from './types.ts';
 
 function txn(partial: Partial<Categorized> & { id: string; amount: number }): Categorized {
@@ -119,6 +119,40 @@ test('subsAndRecurring keys on source and id together', () => {
   const bank = txn({ id: 'x', amount: -99, isSubscription: true });
   const card = txn({ id: 'x', source: 'card', amount: -99, isRecurring: true });
   assert.equal(subsAndRecurring(monthStats('2026-07', [bank, card])).length, 2);
+});
+
+/** One line per thing subscribed to, biggest first — not one per charge. */
+test('subscriptionGroups sums the charges per name, newest category, latest date', () => {
+  const groups = subscriptionGroups([
+    txn({ id: '1', amount: -99, counterparty: 'Spotify', category: 'diverse', date: '2026-06-01' }),
+    txn({ id: '2', amount: -99, counterparty: 'Spotify', category: 'underholdning', date: '2026-07-01' }),
+    txn({ id: '3', amount: -499, counterparty: 'Telenor', category: 'faste_utgifter', date: '2026-07-04' }),
+    // No counterparty, so the name is the description — the same fallback the table shows.
+    txn({
+      id: '4',
+      source: 'card',
+      amount: -50,
+      counterparty: null,
+      description: 'Varekjøp',
+      category: 'ukategorisert',
+      date: '2026-07-09',
+    }),
+  ]);
+
+  assert.deepEqual(groups, [
+    { name: 'Telenor', category: 'faste_utgifter', count: 1, total: 499, last: '2026-07-04' },
+    { name: 'Spotify', category: 'underholdning', count: 2, total: 198, last: '2026-07-01' },
+    { name: 'Varekjøp', category: 'ukategorisert', count: 1, total: 50, last: '2026-07-09' },
+  ]);
+});
+
+/** A refund is money back off the same subscription, not a separate line of income. */
+test('subscriptionGroups nets a refund off its own group', () => {
+  const groups = subscriptionGroups([
+    txn({ id: '1', amount: -300, counterparty: 'HelloFresh', date: '2026-07-01' }),
+    txn({ id: '2', amount: 100, counterparty: 'HelloFresh', date: '2026-07-05' }),
+  ]);
+  assert.deepEqual(groups, [{ name: 'HelloFresh', category: 'dagligvarer', count: 2, total: 200, last: '2026-07-05' }]);
 });
 
 test('blindSpot counts only spending that still has no merchant', () => {

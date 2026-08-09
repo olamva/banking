@@ -8,6 +8,7 @@
  * exact code `node --test` pins rather than a hand-synced copy that drifts the
  * first time a rule changes. Keep it free of `node:` imports for that reason.
  */
+import { merchantOf } from './select.ts';
 import type { Categorized } from './types.ts';
 
 export type CategoryTotal = {
@@ -289,6 +290,43 @@ export function yearStats(year: string, monthsTxns: { month: string; txns: Categ
  * The dashboard shows subscriptions and recurring rows as one list, and the two
  * overlap. Deduplicated on `(source, id)`, the database's own key.
  */
+export type SubscriptionGroup = {
+  /** `merchantOf` — the same string the tables and the bars offer as a filter. */
+  name: string;
+  category: string;
+  count: number;
+  /** NOK, magnitude spent across the group. A refund inside it nets off. */
+  total: number;
+  /** Latest booking date in the group — how long since it last took anything. */
+  last: string;
+};
+
+/**
+ * A subscription is one thing charging monthly, not eleven unrelated rows that
+ * happen to share a name — so the card lists what is subscribed to, and the
+ * charges are what each line adds up from.
+ *
+ * The category is the latest row's, because a recategorised subscription is
+ * that category now; the old rows are history, not a second opinion.
+ */
+export function subscriptionGroups(txns: Categorized[]): SubscriptionGroup[] {
+  const byName = new Map<string, { cents: number; count: number; last: string; category: string }>();
+  for (const t of txns) {
+    const name = merchantOf(t);
+    const group = byName.get(name) ?? { cents: 0, count: 0, last: t.date, category: t.category };
+    group.cents += -toCents(t.amount);
+    group.count++;
+    if (t.date >= group.last) {
+      group.last = t.date;
+      group.category = t.category;
+    }
+    byName.set(name, group);
+  }
+  return [...byName.entries()]
+    .map(([name, g]) => ({ name, category: g.category, count: g.count, total: fromCents(g.cents), last: g.last }))
+    .sort((a, b) => b.total - a.total);
+}
+
 export function subsAndRecurring(stats: MonthStats): Categorized[] {
   const seen = new Set<string>();
   return [...stats.subscriptions, ...stats.recurring]

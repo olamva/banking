@@ -22,7 +22,6 @@ import {
   distinctYears,
   inRange,
   matchesFilters,
-  merchantOf,
   period,
   type Filters,
   type Mode,
@@ -39,15 +38,12 @@ import {
 } from "../../core/stats.ts";
 import type { Categorized } from "../../core/types.ts";
 import {
-  AMOUNT_SIZE,
   Card,
-  DataTable,
   MeterTile,
-  PickCell,
   StatTile,
+  SubscriptionsCard,
   TransactionsCard,
   deltaInfo,
-  useTxnSort,
 } from "./Cards.tsx";
 import {
   ChartLegend,
@@ -76,7 +72,6 @@ import {
   LightThemeIcon,
   LoadingIcon,
   MonthlyIcon,
-  RecurringIcon,
   SystemThemeIcon,
 } from "./icons.ts";
 import { readUrl, writeUrl } from "./url.ts";
@@ -230,7 +225,6 @@ const Dashboard = ({ txns, filters, onFilters, period: p }: DashboardProps) => {
     count: c.count,
   }));
   const subs = subsAndRecurring(stats);
-  const { sorted: sortedSubs, head: subsHead } = useTxnSort(subs);
   const deltas = visibleDeltas(stats.categoryDeltas).map((d) => ({
     ...d,
     category: categoryLabel(d.category),
@@ -327,32 +321,11 @@ const Dashboard = ({ txns, filters, onFilters, period: p }: DashboardProps) => {
         )}
 
         {subs.length > 0 && (
-          <Card title="Subscriptions & recurring" icon={RecurringIcon}>
-            <DataTable
-              /* Same widths as the full table: everything but the description
-                 is content-width, so sorting cannot slide the columns about. */
-              columns={[
-                subsHead("Date", "date", { min: true }),
-                subsHead("Description", "merchant"),
-                subsHead("Category", "category", { min: true }),
-                subsHead("Amount", "amount", {
-                  num: true,
-                  min: true,
-                  sizer: AMOUNT_SIZE,
-                }),
-              ]}
-              rows={sortedSubs.map((t) => [
-                t.date,
-                <PickCell label={merchantOf(t)} onPick={onMerchant} />,
-                <PickCell
-                  label={categoryLabel(t.category)}
-                  value={t.category}
-                  onPick={pick(onFilters, "categories")}
-                />,
-                fmtNOK(t.amount),
-              ])}
-            />
-          </Card>
+          <SubscriptionsCard
+            txns={subs}
+            onMerchant={onMerchant}
+            onCategory={pick(onFilters, "categories")}
+          />
         )}
       </div>
 

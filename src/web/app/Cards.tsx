@@ -10,12 +10,14 @@ import {
   type ReactNode,
 } from "react";
 import { merchantOf } from "../../core/select.ts";
+import { subscriptionGroups, type SubscriptionGroup } from "../../core/stats.ts";
 import type { Categorized } from "../../core/types.ts";
 import { categoryLabel, fmtNOK, fmtPct } from "./format.ts";
 import {
   DownIcon,
   FlatIcon,
   Icon,
+  RecurringIcon,
   SearchIcon,
   SortAscIcon,
   SortDescIcon,
@@ -340,38 +342,31 @@ export const DataTable = ({ columns, rows, scroll }: DataTableProps) => {
   );
 };
 
-const SORTS = {
-  date: (a: Categorized, b: Categorized) => a.date.localeCompare(b.date),
-  merchant: (a: Categorized, b: Categorized) =>
-    merchantOf(a).localeCompare(merchantOf(b)),
-  // On the label, not the slug, so the order matches the column: `Strøm` belongs
-  // under S, where it reads, and not under the `stroem` nobody sees.
-  category: (a: Categorized, b: Categorized) =>
-    categoryLabel(a.category).localeCompare(categoryLabel(b.category)),
-  amount: (a: Categorized, b: Categorized) => a.amount - b.amount,
-};
-
-type SortKey = keyof typeof SORTS;
-
 /**
- * Sort state, and the headers that drive it. Shared, so the subscriptions list
- * sorts by the same rules and the same clicks as the full table — one of them
- * having its own would be two behaviours for one gesture.
+ * Sort state, and the headers that drive it. One hook over any row shape, so
+ * every table on the page sorts by the same clicks — each having its own would
+ * be several behaviours for one gesture.
  *
- * Names A-Z on first click, everything else biggest/newest first. A third click
- * drops the sort and the rows fall back to the order they arrived in.
+ * `ascFirst` names the columns that read A-Z on the first click; everything else
+ * starts biggest/newest first. A third click drops the sort and the rows fall
+ * back to the order they arrived in.
  */
-export const useTxnSort = (txns: Categorized[]) => {
-  const [by, setBy] = useState<SortKey | null>("date");
-  const [asc, setAsc] = useState(false);
-
-  const firstAsc = (key: SortKey) => key === "merchant" || key === "category";
+const useSort = <T, S extends Record<string, (a: T, b: T) => number>>(
+  items: T[],
+  sorts: S,
+  initial: keyof S & string,
+  ascFirst: (keyof S & string)[] = [],
+) => {
+  type K = keyof S & string;
+  const firstAsc = (key: K) => ascFirst.includes(key);
+  const [by, setBy] = useState<K | null>(initial);
+  const [asc, setAsc] = useState(firstAsc(initial));
 
   return {
     sorted: by
-      ? [...txns].sort((a, b) => (asc ? 1 : -1) * SORTS[by](a, b))
-      : txns,
-    head: (label: string, key: SortKey, extra?: Partial<Column>): Column => ({
+      ? [...items].sort((a, b) => (asc ? 1 : -1) * sorts[by](a, b))
+      : items,
+    head: (label: string, key: K, extra?: Partial<Column>): Column => ({
       label,
       ...extra,
       sort: by === key ? (asc ? "asc" : "desc") : null,
@@ -383,6 +378,170 @@ export const useTxnSort = (txns: Categorized[]) => {
             : setBy(null),
     }),
   };
+};
+
+const TXN_SORTS = {
+  date: (a: Categorized, b: Categorized) => a.date.localeCompare(b.date),
+  merchant: (a: Categorized, b: Categorized) =>
+    merchantOf(a).localeCompare(merchantOf(b)),
+  // On the label, not the slug, so the order matches the column: `Strøm` belongs
+  // under S, where it reads, and not under the `stroem` nobody sees.
+  category: (a: Categorized, b: Categorized) =>
+    categoryLabel(a.category).localeCompare(categoryLabel(b.category)),
+  amount: (a: Categorized, b: Categorized) => a.amount - b.amount,
+};
+
+export const useTxnSort = (txns: Categorized[]) =>
+  useSort(txns, TXN_SORTS, "date", ["merchant", "category"]);
+
+interface SearchBoxProps {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  /**
+   * Take ⌘F over while mounted. Windowing hides the unrendered rows from the
+   * browser's own find, and this box searches all of them rather than the
+   * on-screen ones — the better answer anyway. One box per page may claim it.
+   */
+  hotkey?: boolean;
+}
+
+const SearchBox = ({ value, onChange, placeholder, hotkey }: SearchBoxProps) => {
+  const box = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!hotkey) return;
+    const find = (e: KeyboardEvent) => {
+      if (e.key !== "f" || !(e.metaKey || e.ctrlKey) || e.altKey) return;
+      e.preventDefault();
+      // `select`, not `focus`: ⌘F on a box that already has a search in it means
+      // a new search, so the old one goes as soon as you type.
+      box.current?.select();
+    };
+    document.addEventListener("keydown", find);
+    return () => document.removeEventListener("keydown", find);
+  }, [hotkey]);
+
+  return (
+    <div className="relative">
+      <Icon
+        aria-hidden
+        icon={SearchIcon}
+        size={17}
+        className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-muted"
+      />
+      <input
+        ref={box}
+        type="search"
+        className={`w-full rounded-md border border-line bg-page py-2.5 pl-10 text-sm text-ink ${hotkey ? "pr-14" : "pr-3"}`}
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-label={placeholder}
+      />
+      {/* A shortcut that took over a browser one has to say so somewhere. */}
+      {hotkey && (
+        <kbd className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 rounded border border-line px-1.5 py-0.5 text-[11px] text-ink-muted">
+          ⌘F
+        </kbd>
+      )}
+    </div>
+  );
+};
+
+const GROUP_SORTS = {
+  name: (a: SubscriptionGroup, b: SubscriptionGroup) =>
+    a.name.localeCompare(b.name),
+  category: (a: SubscriptionGroup, b: SubscriptionGroup) =>
+    categoryLabel(a.category).localeCompare(categoryLabel(b.category)),
+  count: (a: SubscriptionGroup, b: SubscriptionGroup) => a.count - b.count,
+  total: (a: SubscriptionGroup, b: SubscriptionGroup) => a.total - b.total,
+  last: (a: SubscriptionGroup, b: SubscriptionGroup) =>
+    a.last.localeCompare(b.last),
+};
+
+interface SubscriptionsCardProps {
+  /** The rows behind the list — grouped in here, so the card owns its own shape. */
+  txns: Categorized[];
+  onMerchant: (merchant: string, meta: boolean) => void;
+  onCategory: (category: string, meta: boolean) => void;
+}
+
+/**
+ * What is subscribed to, not every charge it ever made: eleven Spotify rows are
+ * one subscription that took 99 kr eleven times, and reading that off a list of
+ * eleven identical lines was the reader doing the summing.
+ *
+ * The same table as the transactions one underneath — sortable, searchable and
+ * windowed by `DataTable` — because a year of these is a list long enough to
+ * need all three.
+ */
+export const SubscriptionsCard = ({
+  txns,
+  onMerchant,
+  onCategory,
+}: SubscriptionsCardProps) => {
+  const [search, setSearch] = useState("");
+  const groups = useMemo(() => subscriptionGroups(txns), [txns]);
+  const shown = useMemo(() => {
+    const q = search.toLowerCase();
+    return q
+      ? groups.filter(
+          (g) =>
+            g.name.toLowerCase().includes(q) ||
+            categoryLabel(g.category).toLowerCase().includes(q),
+        )
+      : groups;
+  }, [groups, search]);
+  const { sorted, head } = useSort(shown, GROUP_SORTS, "total", [
+    "name",
+    "category",
+  ]);
+  const categorySizes = useMemo(
+    () => [...new Set(groups.map((g) => categoryLabel(g.category)))],
+    [groups],
+  );
+
+  return (
+    <Card title={`Subscriptions & recurring (${groups.length})`} icon={RecurringIcon}>
+      <SearchBox
+        value={search}
+        onChange={setSearch}
+        placeholder="Search subscriptions…"
+      />
+      {sorted.length === 0 ? (
+        <div className="py-10 text-center text-ink-muted">
+          {groups.length === 0
+            ? "Nothing recurring in this period."
+            : "No subscriptions match the search."}
+        </div>
+      ) : (
+        <DataTable
+          scroll
+          /* Only the name is flexible, so sorting and searching cannot slide
+             the other columns about — the same rule as the full table. */
+          columns={[
+            head("Subscription", "name"),
+            head("Category", "category", { min: true, sizer: categorySizes }),
+            head("Charges", "count", { num: true, min: true }),
+            head("Total", "total", { num: true, min: true, sizer: AMOUNT_SIZE }),
+            head("Last", "last", { min: true }),
+          ]}
+          rows={sorted.map((g) => [
+            <PickCell label={g.name} onPick={onMerchant} />,
+            <PickCell
+              label={categoryLabel(g.category)}
+              value={g.category}
+              onPick={onCategory}
+            />,
+            g.count,
+            fmtNOK(g.total),
+            g.last,
+          ])}
+        />
+      )}
+    </Card>
+  );
 };
 
 interface TransactionsCardProps {
@@ -417,7 +576,6 @@ export const TransactionsCard = ({
   onCategory,
 }: TransactionsCardProps) => {
   const { sorted, head } = useTxnSort(txns);
-  const box = useRef<HTMLInputElement>(null);
   /**
    * Every category the table can show, not the ones a screenful happens to
    * hold. Over `txns` rather than over every category there is, so a filtered
@@ -428,41 +586,14 @@ export const TransactionsCard = ({
     [txns],
   );
 
-  useEffect(() => {
-    const find = (e: KeyboardEvent) => {
-      if (e.key !== "f" || !(e.metaKey || e.ctrlKey) || e.altKey) return;
-      e.preventDefault();
-      // `select`, not `focus`: ⌘F on a box that already has a search in it means
-      // a new search, so the old one goes as soon as you type.
-      box.current?.select();
-    };
-    document.addEventListener("keydown", find);
-    return () => document.removeEventListener("keydown", find);
-  }, []);
-
   return (
     <Card title={`Transactions (${txns.length})`} icon={TransactionsIcon}>
-      <div className="relative">
-        <Icon
-          aria-hidden
-          icon={SearchIcon}
-          size={17}
-          className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-muted"
-        />
-        <input
-          ref={box}
-          type="search"
-          className="w-full rounded-md border border-line bg-page py-2.5 pr-14 pl-10 text-sm text-ink"
-          placeholder="Search merchant or description…"
-          value={search}
-          onChange={(e) => onSearch(e.target.value)}
-          aria-label="Search merchant or description"
-        />
-        {/* A shortcut that took over a browser one has to say so somewhere. */}
-        <kbd className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 rounded border border-line px-1.5 py-0.5 text-[11px] text-ink-muted">
-          ⌘F
-        </kbd>
-      </div>
+      <SearchBox
+        hotkey
+        value={search}
+        onChange={onSearch}
+        placeholder="Search merchant or description…"
+      />
       {sorted.length === 0 ? (
         <div className="py-10 text-center text-ink-muted">
           No transactions match the current filters.
