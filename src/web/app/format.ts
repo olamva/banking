@@ -22,6 +22,7 @@ const ODD: Record<string, string> = {
   stroem: "Strøm",
   helse_og_velvaere: "Helse og velvære",
   klaer_og_utstyr: "Klær og utstyr",
+  overfoering: "Overføring",
 };
 
 export const categoryLabel = (slug: string): string =>

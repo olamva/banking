@@ -23,6 +23,16 @@ const UNCATEGORIZED = 'ukategorisert';
 const TRAVEL = 'reise';
 
 /**
+ * What an excluded row falls back to instead of `ukategorisert`. Both legs of a
+ * transfer and both legs of a card bill are exactly that — a transfer — so the
+ * one view that lists them says so rather than filing the lot under "no idea".
+ *
+ * No money path can see this: `stats.ts` skips excluded rows before it sums, and
+ * the toggle in `select.ts` is the only thing that lists them at all.
+ */
+const TRANSFER = 'overfoering';
+
+/**
  * The statement export ends a card merchant with the terminal's ISO country,
  * `NAME, CITY, XXX`. Anything but NOR was bought abroad, which for this account
  * always means a trip — so those rows are travel rather than an opaque bucket.
@@ -33,10 +43,11 @@ const TRAVEL = 'reise';
 const FOREIGN_MERCHANT = /,\s*(?!NOR$)[A-Z]{3}$/;
 
 /**
- * The bank's own catch-all carries no more information than having no category
- * at all, so it collapses into one bucket rather than looking like a real one.
+ * The bank's own catch-alls carry no more information than having no category
+ * at all, so they collapse into one bucket rather than looking like real ones.
+ * It sends both — `diverse`, and `ukategorisert` spelled out on the row.
  */
-const BANK_CATCH_ALL = 'diverse';
+const BANK_CATCH_ALL = new Set(['diverse', UNCATEGORIZED]);
 
 /**
  * The bank calls its fixed-cost bucket `faste_boutgifter`, but it is not only
@@ -129,8 +140,8 @@ function categoryFor(t: Classified, rules: Rule[], haystack: string): string {
   const override = rules.find((r) => r.matches(haystack));
   if (override) return override.category;
   if (t.source === 'card' && FOREIGN_MERCHANT.test(t.counterparty ?? '')) return TRAVEL;
-  if (t.bankCategory && t.bankCategory !== BANK_CATCH_ALL) {
+  if (t.bankCategory && !BANK_CATCH_ALL.has(t.bankCategory)) {
     return t.bankCategory === BANK_FIXED_COSTS ? FIXED_COSTS : t.bankCategory;
   }
-  return UNCATEGORIZED;
+  return t.excluded ? TRANSFER : UNCATEGORIZED;
 }
