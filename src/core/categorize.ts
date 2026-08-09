@@ -65,7 +65,7 @@ async function loadJson<T>(path: string, fallback: T): Promise<T> {
 }
 
 /**
- * vennebetaling.json: `["<name>", ...]`, the same pattern language.
+ * vipps.json: `["<name>", ...]`, the same pattern language.
  *
  * Person-to-person payments were half the lines of `overrides.json` and every
  * one of them mapped to the same category, so they live as a bare list of names
@@ -75,9 +75,9 @@ async function loadJson<T>(path: string, fallback: T): Promise<T> {
  * Appended after `overrides.json`, and an explicit entry there wins, so a person
  * who shares a string with a merchant can still be overridden by hand.
  */
-const PEER_PAYMENT = 'vennebetaling';
+const PEER_PAYMENT = 'vipps';
 
-export async function loadOverrides(path = 'overrides.json', peerPath = 'vennebetaling.json') {
+export async function loadOverrides(path = 'overrides.json', peerPath = 'vipps.json') {
   const overrides = await loadJson<Overrides>(path, {});
   for (const name of await loadJson<string[]>(peerPath, [])) overrides[name] ??= PEER_PAYMENT;
   return overrides;

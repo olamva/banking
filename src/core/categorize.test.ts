@@ -118,7 +118,7 @@ test('loadOverrides returns {} when both files are absent', async () => {
   assert.deepEqual(result, {});
 });
 
-test('loadOverrides folds vennebetaling.json in, and overrides.json wins', async () => {
+test('loadOverrides folds vipps.json in, and overrides.json wins', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'categorize-'));
   const overrides = join(dir, 'o.json');
   const peers = join(dir, 'p.json');
@@ -126,7 +126,7 @@ test('loadOverrides folds vennebetaling.json in, and overrides.json wins', async
   await writeFile(peers, JSON.stringify(['ola nordmann', 'sit kafe']));
   assert.deepEqual(await loadOverrides(overrides, peers), {
     'sit kafe': 'kafe_og_restaurant',
-    'ola nordmann': 'vennebetaling',
+    'ola nordmann': 'vipps',
   });
 });
 

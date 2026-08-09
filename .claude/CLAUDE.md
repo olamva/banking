@@ -43,7 +43,7 @@ data/raw/card-statements/  issuer CSV exports, the only merchant source
 data/banking.db   derived SQLite store, rebuildable from data/raw, gitignored
 accounts.json     which accounts are mine (hand-edited), gitignored
 overrides.json    substring or /regex/ -> category, gitignored
-vennebetaling.json  names of payees, as a list; folded into overrides, gitignored
+vipps.json        names of payees, as a list; folded into overrides, gitignored
 subscriptions.json  the same patterns, as a list; sets isSubscription, gitignored
 ```
 
@@ -84,9 +84,9 @@ the 1st of the month into the previous month.
 **Nothing personal enters git, or the network.** No account numbers, account
 keys, names, balances or descriptions in source, tests, fixtures, commit
 messages or docs. `.env.local`, `data/`, `accounts.json`, `overrides.json`,
-`vennebetaling.json` and `subscriptions.json`
-are gitignored; keep it that way. JSON and CSV output are unredacted — strip
-account numbers before anything leaves the machine.
+`vipps.json` and `subscriptions.json` are gitignored; keep it that way. JSON
+and CSV output are unredacted — strip account numbers before anything leaves
+the machine.
 
 The dashboard is **served on 127.0.0.1 and read locally**. Never publish it —
 not as a hosted artifact, not to a gist, not to any preview or sharing service.

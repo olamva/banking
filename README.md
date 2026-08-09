@@ -192,8 +192,8 @@ ISO country is not `NOR`, and to `ukategorisert` when it is. The bank's own
 `diverse` collapses into `ukategorisert` too, so there is one opaque bucket, not
 three.
 
-`vennebetaling.json` is a list of names, in the same pattern language, and every
-one of them means the `vennebetaling` category:
+`vipps.json` is a list of names, in the same pattern language, and every one of
+them means the `vipps` category:
 
 ```json
 ["ola nordmann", "kari nordmann"]
@@ -256,7 +256,7 @@ docs/              privacy policy and terms, required to register the
 exact code `node --test` pins.
 
 Everything holding personal data is gitignored: `data/`, `accounts.json`,
-`overrides.json`, `vennebetaling.json`, `subscriptions.json`, `secrets/`,
+`overrides.json`, `vipps.json`, `subscriptions.json`, `secrets/`,
 `.env.local`.
 
 ## Design rules

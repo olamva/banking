@@ -14,9 +14,9 @@ Current overrides:
 @overrides.json
 
 Payees paid person-to-person, appended to the overrides above as
-`vennebetaling`. A new name belongs in this file, never in `overrides.json`:
+`vipps`. A new name belongs in this file, never in `overrides.json`:
 
-@vennebetaling.json
+@vipps.json
 
 Every merchant with the category it currently gets (spending rows only,
 excluded rows dropped, amounts in NOK, biggest first):
