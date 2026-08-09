@@ -8,7 +8,7 @@
  * src/core/stats.ts.
  */
 import { useId, useState, type ReactNode } from 'react';
-import type { CategoryDelta, MonthSummary } from '../../core/stats.ts';
+import { withGaps, type CategoryDelta, type MonthSummary } from '../../core/stats.ts';
 import { fmtNOK, fmtPct, monthLabel, niceStep, useWidth } from './format.ts';
 
 interface TipState {
@@ -251,24 +251,35 @@ export const MonthlyLines = ({ series }: MonthlyLinesProps) => {
   const maxVal = Math.max(...series.map((m) => Math.max(m.totalIn, m.totalOut)), 1);
   const step = niceStep(maxVal);
   const gridMax = Math.ceil(maxVal / step) * step;
-  const clusterW = plotW / Math.max(series.length, 1);
+  /**
+   * The x axis is the calendar, not the array: a month with no data still takes
+   * up its own slot, so a hole in the record is a hole on the page. Without it
+   * the axis silently relabels itself and May sits next to August looking like
+   * June.
+   */
+  const dense = withGaps(series);
+  const clusterW = plotW / Math.max(dense.length, 1);
   const ticks = Array.from({ length: Math.floor(gridMax / step) + 1 }, (_, i) => i * step);
   const px = (i: number) => padL + i * clusterW + clusterW / 2;
   const py = (v: number) => padT + plotH - (v / gridMax) * plotH;
-  const pts = (pick: (m: MonthSummary) => number) => series.map((m, i) => `${px(i)},${py(pick(m))}`);
-  const path = (pick: (m: MonthSummary) => number) => pts(pick).join(' ');
 
   /**
-   * The gap between the two lines, coloured by which one is on top. Rather than
-   * solving for where they cross, the band is drawn twice and each copy is
-   * clipped to one side of the income line: above it the month overspent, below
-   * it there was something left. The two clips are disjoint, so the fills never
-   * stack and muddy each other.
+   * The months either side of a gap are not neighbours, so nothing may be drawn
+   * between them. Each unbroken stretch gets its own lines and its own band; a
+   * stretch of one month draws no line at all and is carried by its dot.
    */
+  const runs: { m: MonthSummary; i: number }[][] = [];
+  dense.forEach((m, i) => {
+    if (!m) return;
+    const open = runs.at(-1);
+    if (open && open.at(-1)!.i === i - 1) open.push({ m, i });
+    else runs.push([{ m, i }]);
+  });
+
+  const pts = (run: { m: MonthSummary; i: number }[], pick: (m: MonthSummary) => number) =>
+    run.map(({ m, i }) => `${px(i)},${py(pick(m))}`);
+
   const clip = useId();
-  const income = pts((m) => m.totalIn);
-  const band = [...income, ...pts((m) => m.totalOut).reverse()].join(' ');
-  const edge = (y: number) => [`${px(0)},${y}`, ...income, `${px(series.length - 1)},${y}`].join(' ');
 
   const tipFor = (m: MonthSummary) => (
     <>
@@ -291,9 +302,14 @@ export const MonthlyLines = ({ series }: MonthlyLinesProps) => {
   const track = (e: React.PointerEvent<SVGRectElement>) => {
     const box = e.currentTarget.getBoundingClientRect();
     const i = Math.round((e.clientX - box.left - clusterW / 2) / clusterW);
-    const at = Math.max(0, Math.min(series.length - 1, i));
+    const at = Math.max(0, Math.min(dense.length - 1, i));
+    const m = dense[at];
+    // Over a gap there is nothing to report, and the nearest month is a guess
+    // in two directions — so the tooltip goes rather than naming a month the
+    // pointer is not on.
+    if (!m) return leave();
     setNear(at);
-    show(e, tipFor(series[at]!));
+    show(e, tipFor(m));
   };
 
   const leave = () => {
@@ -318,36 +334,51 @@ export const MonthlyLines = ({ series }: MonthlyLinesProps) => {
               </g>
             );
           })}
-          <defs>
-            <clipPath id={`${clip}-over`}>
-              <polygon points={edge(padT)} />
-            </clipPath>
-            <clipPath id={`${clip}-under`}>
-              <polygon points={edge(padT + plotH)} />
-            </clipPath>
-          </defs>
-          <polygon points={band} clipPath={`url(#${clip}-over)`} className="fill-critical-strong opacity-20" />
-          <polygon points={band} clipPath={`url(#${clip}-under)`} className="fill-good-strong opacity-20" />
-          <polyline points={path((m) => m.totalOut)} strokeWidth={2} className="fill-none stroke-critical-strong" />
-          <polyline points={path((m) => m.totalIn)} strokeWidth={2} className="fill-none stroke-good-strong" />
+          {/* One band and one pair of lines per unbroken stretch. The clip ids
+              carry the stretch's index, or every stretch would be clipped to
+              the first one's income edge. */}
+          {runs.map((run, r) => {
+            const income = pts(run, (m) => m.totalIn);
+            const band = [...income, ...pts(run, (m) => m.totalOut).reverse()].join(' ');
+            const edge = (y: number) =>
+              [`${px(run[0]!.i)},${y}`, ...income, `${px(run.at(-1)!.i)},${y}`].join(' ');
+            return (
+              <g key={run[0]!.m.month}>
+                <defs>
+                  <clipPath id={`${clip}-over-${r}`}>
+                    <polygon points={edge(padT)} />
+                  </clipPath>
+                  <clipPath id={`${clip}-under-${r}`}>
+                    <polygon points={edge(padT + plotH)} />
+                  </clipPath>
+                </defs>
+                <polygon points={band} clipPath={`url(#${clip}-over-${r})`} className="fill-critical-strong opacity-20" />
+                <polygon points={band} clipPath={`url(#${clip}-under-${r})`} className="fill-good-strong opacity-20" />
+                <polyline points={pts(run, (m) => m.totalOut).join(' ')} strokeWidth={2} className="fill-none stroke-critical-strong" />
+                <polyline points={pts(run, (m) => m.totalIn).join(' ')} strokeWidth={2} className="fill-none stroke-good-strong" />
+              </g>
+            );
+          })}
           {near !== null && (
             <line x1={px(near)} x2={px(near)} y1={padT} y2={padT + plotH} strokeDasharray="3 3" className="stroke-ink-muted" />
           )}
-          {series.map((m, i) => (
-            <g key={m.month}>
-              {/* A one-month year draws no polyline, so the dots are what carries it. */}
-              <circle cx={px(i)} cy={py(m.totalOut)} r={near === i ? 5 : 3} className="fill-critical-strong" />
-              <circle cx={px(i)} cy={py(m.totalIn)} r={near === i ? 5 : 3} className="fill-good-strong" />
-              <text
-                x={px(i)}
-                y={height - 6}
-                textAnchor="middle"
-                className={near === i ? 'fill-ink text-[11px] font-semibold' : 'fill-ink-muted text-[11px]'}
-              >
-                {monthLabel(m.month)}
-              </text>
-            </g>
-          ))}
+          {dense.map((m, i) =>
+            m === null ? null : (
+              <g key={m.month}>
+                {/* A stretch of one month draws no polyline, so the dots are what carries it. */}
+                <circle cx={px(i)} cy={py(m.totalOut)} r={near === i ? 5 : 3} className="fill-critical-strong" />
+                <circle cx={px(i)} cy={py(m.totalIn)} r={near === i ? 5 : 3} className="fill-good-strong" />
+                <text
+                  x={px(i)}
+                  y={height - 6}
+                  textAnchor="middle"
+                  className={near === i ? 'fill-ink text-[11px] font-semibold' : 'fill-ink-muted text-[11px]'}
+                >
+                  {monthLabel(m.month)}
+                </text>
+              </g>
+            ),
+          )}
           <line x1={padL} x2={padL} y1={padT} y2={padT + plotH} className="stroke-axis" />
           <line x1={padL} x2={width - 8} y1={padT + plotH} y2={padT + plotH} className="stroke-axis" />
           {/* Last, so it sits over everything it is meant to catch pointers for. */}

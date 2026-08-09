@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { monthStats, yearStats, blindSpot, subsAndRecurring, subscriptionGroups, totals } from './stats.ts';
+import { monthStats, yearStats, blindSpot, subsAndRecurring, subscriptionGroups, totals, withGaps } from './stats.ts';
+import type { MonthSummary } from './stats.ts';
 import type { Categorized } from './types.ts';
 
 function txn(partial: Partial<Categorized> & { id: string; amount: number }): Categorized {
@@ -185,6 +186,42 @@ test('subscriptionGroups nets a refund off its own group', () => {
   assert.deepEqual(groups, [
     { name: 'HelloFresh', category: 'dagligvarer', count: 2, total: 200, latest: -100, last: '2026-07-05' },
   ]);
+});
+
+/**
+ * A month with no data is a hole, not a value and not a zero. Closing it draws
+ * a line from May straight to August that reads as a real trend across months
+ * nobody has any record of.
+ */
+test('withGaps keeps every calendar month between the first and the last', () => {
+  const m = (month: string): MonthSummary => ({
+    month,
+    totalIn: 0,
+    totalOut: 0,
+    net: 0,
+    cardShare: 0,
+    excluded: { count: 0, total: 0 },
+  });
+
+  const gapped = withGaps([m('2025-05'), m('2025-08')]);
+  assert.deepEqual(gapped.map((x) => x?.month ?? null), ['2025-05', null, null, '2025-08']);
+
+  // Across a year boundary, where naive month arithmetic goes wrong.
+  assert.deepEqual(
+    withGaps([m('2024-11'), m('2025-02')]).map((x) => x?.month ?? null),
+    ['2024-11', null, null, '2025-02'],
+  );
+
+  // No gaps means the series comes back untouched, and one month stays one month.
+  assert.deepEqual(withGaps([m('2026-01'), m('2026-02')]).map((x) => x?.month), ['2026-01', '2026-02']);
+  assert.equal(withGaps([m('2026-01')]).length, 1);
+  assert.deepEqual(withGaps([]), []);
+
+  // Order-independent: the span is read off the extremes, never walked from [0].
+  assert.deepEqual(
+    withGaps([m('2025-08'), m('2025-05')]).map((x) => x?.month ?? null),
+    ['2025-05', null, null, '2025-08'],
+  );
 });
 
 test('blindSpot counts only spending that still has no merchant', () => {

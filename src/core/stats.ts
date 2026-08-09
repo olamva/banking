@@ -254,6 +254,36 @@ export function byMonth(txns: Categorized[]): { month: string; txns: Categorized
   return [...buckets.entries()].sort().map(([month, txns]) => ({ month, txns }));
 }
 
+/** `2026-08` -> a single sortable number, so month arithmetic needs no Date and no year wrap. */
+const monthIndex = (month: string): number => {
+  const [y, m] = month.split('-').map(Number);
+  return y! * 12 + (m! - 1);
+};
+
+/**
+ * The series with every calendar month from the first to the last, and `null`
+ * where there is no month.
+ *
+ * `byMonth` only emits months that have rows, so a chart drawing that array
+ * straight joins May to August as though nothing sat between them — the line
+ * slopes across the hole and reads as a real trend. A gap in the record is not
+ * a value, and it is not zero either: filling it with 0 would claim a month of
+ * no spending. It has to be a hole the chart can see and break across.
+ *
+ * Order-independent and Date-free: months are keyed by index and the span is
+ * read off the extremes, so an unsorted series cannot spin this.
+ */
+export function withGaps(series: MonthSummary[]): (MonthSummary | null)[] {
+  if (series.length === 0) return [];
+  const byIndex = new Map(series.map((m) => [monthIndex(m.month), m]));
+  const bounds = [...byIndex.keys()];
+  const from = Math.min(...bounds);
+  const to = Math.max(...bounds);
+  const out: (MonthSummary | null)[] = [];
+  for (let i = from; i <= to; i++) out.push(byIndex.get(i) ?? null);
+  return out;
+}
+
 export function yearStats(year: string, monthsTxns: { month: string; txns: Categorized[] }[]): YearStats {
   const sorted = [...monthsTxns].sort((a, b) => a.month.localeCompare(b.month));
 
