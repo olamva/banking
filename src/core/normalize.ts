@@ -34,6 +34,8 @@ type Sb1File = {
        * description to say whether a row is a transfer.
        */
       typeText?: string;
+      /** `BOOKED` or `PENDING` — see the filter in `normalizeSb1`. */
+      bookingStatus?: string;
     };
     categories: Array<{ main: string }>;
     recurring: boolean;
@@ -41,31 +43,29 @@ type Sb1File = {
   }>;
 };
 
-type EbFile = {
-  account: { uid: string };
-  transactions: Array<{
-    transaction_id: string;
-    transaction_amount: { amount: string };
-    credit_debit_indicator: 'DBIT' | 'CRDT';
-    /** Null while still pending — the same open pending rows reappear in every
-     *  month's file regardless of the query range, so these can't be
-     *  attributed to a month. Skip rather than fall back to transaction_date:
-     *  the booking date is the only date Txn commits to. */
-    booking_date: string | null;
-    remittance_information: string[];
-    status: string;
-  }>;
-};
-
 function osloDate(epochMs: number): string {
   return new Date(epochMs).toLocaleDateString('en-CA', { timeZone: 'Europe/Oslo' });
 }
 
-function normalizeSb1(file: Sb1File): Txn[] {
-  return file.transactions.map(({ transaction: t, categories, recurring, subscription }) => ({
+/**
+ * The card sends `-1` where it has no counterparty account, which is every row
+ * but the bill payment. It is a placeholder, not a number, and it must not reach
+ * the override haystack or the `mine`-account match as if it were one.
+ */
+const NO_ACCOUNT = '-1';
+
+function normalizeSb1(file: Sb1File, names: Record<string, string>): Txn[] {
+  return file.transactions
+    // A pending row is a reservation: SB1 reissues it under a *new* id once it
+    // books, its amount can still change, and it is dated by the purchase and
+    // so carries no booking date to commit to. Rows in the store are booked
+    // rows only — that is what makes a re-synced month idempotent. Pending rows
+    // land on the deposit accounts too, so this is not a card rule.
+    .filter(({ transaction: t }) => t.bookingStatus !== 'PENDING')
+    .map(({ transaction: t, categories, recurring, subscription }) => ({
     id: t.id,
-    source: 'sb1',
     accountKey: t.accountKey,
+    account: names[t.accountKey] ?? t.accountKey,
     date: osloDate(t.date),
     amount: t.amount,
     // `description` is the string every exclusion rule and override matches on,
@@ -78,40 +78,28 @@ function normalizeSb1(file: Sb1File): Txn[] {
     counterparty: t.cleanedDescription ?? t.remoteAccountName ?? null,
     bankCategory: categories[0]?.main ?? null,
     typeText: t.typeText ?? null,
-    remoteAccountNumber: t.remoteAccountNumber ?? null,
+    remoteAccountNumber:
+      t.remoteAccountNumber && t.remoteAccountNumber !== NO_ACCOUNT ? t.remoteAccountNumber : null,
     isRecurring: recurring,
     isSubscription: subscription,
-    isPending: false,
   }));
 }
 
-function normalizeCard(file: EbFile): Txn[] {
-  return file.transactions
-    .filter((t): t is typeof t & { booking_date: string } => t.booking_date != null)
-    .map((t) => ({
-      id: t.transaction_id,
-      source: 'card',
-      accountKey: file.account.uid,
-      date: t.booking_date,
-      amount: (t.credit_debit_indicator === 'DBIT' ? -1 : 1) * Number(t.transaction_amount.amount),
-      description: t.remittance_information.join(' '),
-      counterparty: null,
-      bankCategory: null,
-      typeText: null,
-      remoteAccountNumber: null,
-      isRecurring: false,
-      isSubscription: false,
-      isPending: t.status === 'PDNG',
-    }));
-}
-
-/** Flattens every JSON file in a data/raw/<month> directory into Txn[]. */
-export function normalizeMonth(dir: string): Txn[] {
+/**
+ * Flattens every JSON file in a data/raw/<month> directory into Txn[]. One file
+ * per account, named by its key, and the credit card is one of them — the card
+ * came from Enable Banking until SB1's own `/transactions/classified` turned out
+ * to answer for it with a merchant, a category and an MCC on every row.
+ *
+ * `names` is account key -> what to call it, from `rules/accounts.json`. A key
+ * missing from it keeps the key as its name, so an account added to the bank
+ * but not yet to the rules file still reads as something.
+ */
+export function normalizeMonth(dir: string, names: Record<string, string> = {}): Txn[] {
   const out: Txn[] = [];
-  for (const name of readdirSync(dir)) {
-    if (!name.endsWith('.json')) continue;
-    const data = JSON.parse(readFileSync(join(dir, name), 'utf8'));
-    out.push(...(name.startsWith('eb-') ? normalizeCard(data) : normalizeSb1(data)));
+  for (const file of readdirSync(dir)) {
+    if (!file.endsWith('.json')) continue;
+    out.push(...normalizeSb1(JSON.parse(readFileSync(join(dir, file), 'utf8')), names));
   }
   return out;
 }

@@ -6,9 +6,9 @@
  * accounting holds no matter who calls these.
  */
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
-import { get, monthRange } from './sb1.ts';
-import * as eb from './eb.ts';
+import { existsSync, statSync } from 'node:fs';
+import { get, monthRange, RateLimited } from './sb1.ts';
+import { BudgetExhausted, remaining } from './budget.ts';
 import { RAW } from '../core/pipeline.ts';
 import type { Accounts } from '../core/exclude.ts';
 
@@ -33,12 +33,12 @@ export async function accountKeys(): Promise<string[]> {
 }
 
 /**
- * Booking-date bounds, never reaching past today.
+ * Date bounds, never reaching past today.
  *
  * `monthRange` ends the current month on its last calendar day, which is a
- * future date until the month is over. SB1 tolerates that; Enable Banking
- * answers `400 ASPSP_ERROR`, so refreshing the month you are standing in fails
- * outright without this.
+ * future date until the month is over. SB1 tolerates that, but a range it
+ * cannot answer for is a request spent on nothing, and `fromDate`..`toDate`
+ * may not span more than five years either way.
  */
 export function rangeToDate(month: string, today = new Date()): { from: string; to: string } {
   const { from, to } = monthRange(month);
@@ -46,41 +46,135 @@ export function rangeToDate(month: string, today = new Date()): { from: string; 
   return { from, to: to > iso ? iso : to };
 }
 
+/** Where one account's month lands. The one place that path is spelled out. */
+const fileFor = (month: string, key: string) => `${RAW}/${month}/${key}.json`;
+
+/**
+ * How hard to refetch: `false` leaves anything on disk alone, `true` refetches
+ * all of it, a **number** is minutes — refetch, but leave whatever was written
+ * that recently. That last one is how a forced sync resumes: the bank answers
+ * 429 part way through, and re-running spends requests only on the accounts the
+ * first run never reached.
+ */
+export type Force = boolean | number;
+
+/** Whether this file is already as fresh as `force` asks for. */
+const fresh = (file: string, force: Force): boolean => {
+  if (!existsSync(file)) return false;
+  if (typeof force === 'number') return Date.now() - statSync(file).mtimeMs < force * 60_000;
+  return !force;
+};
+
 /** How many SB1 requests a `syncMonth` will cost, for a budget check beforehand. */
 export async function syncCost(): Promise<number> {
   return (await accountKeys()).length;
 }
 
-/** One file per account per month. Skips files already on disk unless forced. */
-export async function syncMonth(month: string, force = false): Promise<number> {
+/**
+ * What a span will actually cost, counted from disk rather than assumed.
+ *
+ * A month whose files are all present costs nothing without `--force`, so the
+ * honest number for a resumed sweep is the missing files and not the months.
+ */
+export async function rangeCost(months: string[], force: Force): Promise<number> {
+  const keys = await accountKeys();
+  return months.reduce(
+    (n, month) => n + keys.filter((key) => !fresh(fileFor(month, key), force)).length,
+    0,
+  );
+}
+
+/**
+ * Every month from `from` to `to`, both ends inclusive and either end allowed to
+ * be a bare year — `2021` opens at January and `2026` closes at December.
+ *
+ * Never past the current month: there is nothing to fetch in a month that has
+ * not happened, and asking costs a request per account to be told so.
+ */
+export function monthsBetween(from: string, to: string, today = new Date()): string[] {
+  const bound = (v: string, end: boolean) => {
+    if (/^\d{4}$/.test(v)) return `${v}-${end ? '12' : '01'}`;
+    if (/^\d{4}-\d{2}$/.test(v)) return v;
+    throw new Error(`--from/--to want YYYY or YYYY-MM, got "${v}"`);
+  };
+  const index = (m: string) => Number(m.slice(0, 4)) * 12 + Number(m.slice(5)) - 1;
+  const now = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+  const start = index(bound(from, false));
+  const stop = Math.min(index(bound(to, true)), index(now));
+
+  const out: string[] = [];
+  for (let i = start; i <= stop; i++) {
+    out.push(`${Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, '0')}`);
+  }
+  return out;
+}
+
+/**
+ * A whole span of months, oldest first.
+ *
+ * A sweep of the record costs far more than an hour's budget — 56 months times
+ * one request per account — so running out is the normal ending and not a
+ * failure. **It says so before spending anything**, because the alternative is
+ * finding out 33 requests in, with no idea how much further it had to go.
+ *
+ * Two different things can stop it and both are handled the same way: our own
+ * ledger refusing first, or the bank answering 429. The local cap is a guess
+ * and the 429 is the truth, so a run that reaches the second one has found the
+ * real ceiling — see `RateLimited`.
+ *
+ * The ledger is a rolling hour over every process, not over this run, so what
+ * is left already counts whatever else has been fetched since. Months on disk
+ * cost nothing without `--force`, which is what makes re-running it a resume.
+ */
+export async function syncRange(from: string, to: string, force: Force = false): Promise<void> {
+  const months = monthsBetween(from, to);
+  const cost = await rangeCost(months, force);
+  const left = remaining();
+  console.error(`${months.length} months, ${months[0]} to ${months.at(-1)}: ${cost} requests`);
+  if (cost > left) {
+    const perMonth = Math.max(1, Math.round(cost / months.length));
+    console.error(
+      `only ${left} left in this rolling hour — expect to stop after about ` +
+        `${Math.floor(left / perMonth)} of them, then re-run to carry on.`,
+    );
+  }
+
+  let fetched = 0;
+  for (const month of months) {
+    try {
+      // Counted as they land, not per month: a month that dies half way through
+      // still fetched what it fetched, and reporting the whole month as nothing
+      // is how 32 files got announced as 28.
+      await syncMonth(month, force, () => fetched++);
+    } catch (e) {
+      if (!(e instanceof BudgetExhausted) && !(e instanceof RateLimited)) throw e;
+      console.error(`\n${e.message}`);
+      console.error(`stopped part way through ${month}. ${fetched} files fetched — re-run to carry on.`);
+      return;
+    }
+  }
+  console.error(`\n${fetched} files fetched across ${months.length} months.`);
+}
+
+/**
+ * One file per account per month. Skips files already on disk unless forced.
+ *
+ * `onFile` fires as each one lands, so a caller can count what a run got
+ * through even when the next request is the one that runs out of budget.
+ */
+export async function syncMonth(month: string, force: Force = false, onFile?: () => void): Promise<number> {
   const { from, to } = rangeToDate(month);
   let fetched = 0;
   for (const key of await accountKeys()) {
-    const file = `${RAW}/${month}/${key}.json`;
-    if (existsSync(file) && !force) {
+    const file = fileFor(month, key);
+    if (fresh(file, force)) {
       console.error(`skip ${file}`);
       continue;
     }
     const q = `accountKey=${encodeURIComponent(key)}&fromDate=${from}&toDate=${to}`;
     await dump(file, await get(`/personal/banking/transactions/classified?${q}`));
     fetched++;
-  }
-  return fetched;
-}
-
-/** Card transactions, same layout as the SB1 sync so normalize sees one tree. */
-export async function ebSyncMonth(month: string, force = false): Promise<number> {
-  const { from, to } = rangeToDate(month);
-  let fetched = 0;
-  for (const a of eb.readSession().accounts) {
-    if (a.cash_account_type !== 'CARD') continue;
-    const file = `${RAW}/${month}/eb-${a.uid}.json`;
-    if (existsSync(file) && !force) {
-      console.error(`skip ${file}`);
-      continue;
-    }
-    await dump(file, { account: a, transactions: await eb.transactions(a.uid, from, to) });
-    fetched++;
+    onFile?.();
   }
   return fetched;
 }

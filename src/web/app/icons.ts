@@ -36,6 +36,7 @@ export { default as DarkThemeIcon } from '@hugeicons/core-free-icons/Moon02Icon'
 export { default as CategoryIcon } from '@hugeicons/core-free-icons/PieChartIcon';
 export { default as ChangesIcon } from '@hugeicons/core-free-icons/ChartIncreaseIcon';
 export { default as CounterpartyIcon } from '@hugeicons/core-free-icons/Store01Icon';
+export { default as AccountIcon } from '@hugeicons/core-free-icons/Wallet01Icon';
 export { default as RecurringIcon } from '@hugeicons/core-free-icons/RepeatIcon';
 export { default as MonthlyIcon } from '@hugeicons/core-free-icons/ChartColumnIcon';
 export { default as TransactionsIcon } from '@hugeicons/core-free-icons/Invoice01Icon';

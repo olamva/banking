@@ -9,7 +9,7 @@
  * a filter you cannot see is a filter you cannot turn off.
  */
 import { useEffect, useRef, useState } from "react";
-import type { Filters, Mode, PeriodKind } from "../../core/select.ts";
+import type { Axis, Filters, Mode, PeriodKind } from "../../core/select.ts";
 import { NO_FILTERS } from "../../core/select.ts";
 import { categoryLabel } from "./format.ts";
 import {
@@ -36,6 +36,7 @@ interface FilterBarProps {
   /** Every value the two dropdowns offer, already narrowed to the period. */
   categories: string[];
   merchants: string[];
+  accounts: string[];
   filters: Filters;
   onFilters: (filters: Filters) => void;
 }
@@ -339,6 +340,7 @@ export const FilterBar = ({
   onPeriod,
   categories,
   merchants,
+  accounts,
   filters,
   onFilters,
 }: FilterBarProps) => {
@@ -359,35 +361,34 @@ export const FilterBar = ({
     onPeriod(mm && months.includes(`${next}-${mm}`) ? `${next}-${mm}` : next);
   };
 
-  const toggleCategory = (cat: string) =>
+  /** Ticking a box in any of the three menus is the same edit over a different pair of fields. */
+  const toggle = (key: Axis) => (value: string) =>
     onFilters({
       ...filters,
-      categories: filters.categories.includes(cat)
-        ? filters.categories.filter((c) => c !== cat)
-        : [...filters.categories, cat],
+      [key]: filters[key].includes(value)
+        ? filters[key].filter((x) => x !== value)
+        : [...filters[key], value],
     });
-
-  const toggleMerchant = (m: string) =>
-    onFilters({
-      ...filters,
-      merchants: filters.merchants.includes(m)
-        ? filters.merchants.filter((x) => x !== m)
-        : [...filters.merchants, m],
-    });
+  const toggleCategory = toggle("categories");
+  const toggleMerchant = toggle("merchants");
+  const toggleAccount = toggle("accounts");
 
   const excluding = filters.categoryMode === "exclude";
   const excludingMerchants = filters.merchantMode === "exclude";
+  const excludingAccounts = filters.accountMode === "exclude";
 
   // The search box is on the transactions table, in plain sight — a chip for it
   // there would only be a second copy that shoves the page down as you type.
   const searchChip = filters.search !== "" && view !== "transactions";
-  const picked = filters.categories.length + filters.merchants.length;
+  const picked =
+    filters.categories.length + filters.merchants.length + filters.accounts.length;
   const chips = picked > 0 || searchChip;
   const dirty =
     picked > 0 ||
     filters.search !== "" ||
     excluding ||
     excludingMerchants ||
+    excludingAccounts ||
     filters.showExcluded;
 
   return (
@@ -468,6 +469,16 @@ export const FilterBar = ({
         onMode={(merchantMode) => onFilters({ ...filters, merchantMode })}
       />
 
+      {/* A handful of accounts, so it needs no search box either. */}
+      <Picker
+        title="Accounts"
+        options={accounts}
+        picked={filters.accounts}
+        mode={filters.accountMode}
+        onToggle={toggleAccount}
+        onMode={(accountMode) => onFilters({ ...filters, accountMode })}
+      />
+
       {/* Not a Picker: there is nothing to pick, only whether the flagged rows
           are listed at all. No number moves either way — `stats.ts` has already
           left them out of every sum — so this shows the audit trail, and never
@@ -515,6 +526,14 @@ export const FilterBar = ({
               label={excludingMerchants ? `Not ${m}` : m}
               tone={excludingMerchants ? "exclude" : "include"}
               onRemove={() => toggleMerchant(m)}
+            />
+          ))}
+          {filters.accounts.map((a) => (
+            <Chip
+              key={a}
+              label={excludingAccounts ? `Not ${a}` : a}
+              tone={excludingAccounts ? "exclude" : "include"}
+              onRemove={() => toggleAccount(a)}
             />
           ))}
           {/* On the dashboards there is no search box, so without this a search

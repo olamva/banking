@@ -19,6 +19,14 @@ export type CategoryTotal = {
   share: number;
 };
 
+/** The same split, by the account the money left rather than what it was for. */
+export type AccountTotal = {
+  /** `Txn.account` — what `rules/accounts.json` calls it. */
+  account: string;
+  total: number;
+  share: number;
+};
+
 export type CounterpartyTotal = {
   counterparty: string;
   /** NOK, magnitude spent. */
@@ -51,7 +59,7 @@ export type MonthStats = {
   totalOut: number;
   net: number;
   categories: CategoryTotal[];
-  /** Top 10 by spend. Card rows have no counterparty and are never in this list. */
+  /** Top 10 by spend. */
   topCounterparties: CounterpartyTotal[];
   subscriptions: Categorized[];
   recurring: Categorized[];
@@ -59,8 +67,8 @@ export type MonthStats = {
   /** null when no previous month was supplied. */
   delta: MonthDelta | null;
   excluded: ExcludedSummary;
-  /** 0-1 share of totalOut that came from card rows — the blind spot, surfaced rather than buried in `categories`. */
-  cardShare: number;
+  /** Spending per account, biggest first. Shares sum to 1, like `categories`. */
+  accounts: AccountTotal[];
 };
 
 export type MonthSummary = {
@@ -68,13 +76,11 @@ export type MonthSummary = {
   totalIn: number;
   totalOut: number;
   net: number;
-  cardShare: number;
   excluded: ExcludedSummary;
 };
 
 const toCents = (amount: number) => Math.round(amount * 100);
 const fromCents = (cents: number) => cents / 100;
-const round4 = (n: number) => Math.round(n * 10000) / 10000;
 const byDate = (a: Categorized, b: Categorized) => a.date.localeCompare(b.date);
 
 /** Largest-remainder rounding: integer basis points that always sum to 10000, so shares always sum to 1. */
@@ -92,20 +98,27 @@ function allocateShares(parts: number[]): number[] {
   return bp.map((b) => b / scale);
 }
 
-function categoriesFromCents(byCategory: Map<string, number>): CategoryTotal[] {
-  const categories = [...byCategory.keys()];
-  const cents = categories.map((c) => byCategory.get(c)!);
+/** Totals and shares for one grouping, biggest first. The label is the caller's to name. */
+function slices(byKey: Map<string, number>): { key: string; total: number; share: number }[] {
+  const keys = [...byKey.keys()];
+  const cents = keys.map((k) => byKey.get(k)!);
   const shares = allocateShares(cents);
-  return categories
-    .map((category, i) => ({ category, total: fromCents(cents[i]), share: shares[i] }))
+  return keys
+    .map((key, i) => ({ key, total: fromCents(cents[i]), share: shares[i] }))
     .sort((a, b) => b.total - a.total);
 }
+
+const categoriesFromCents = (byCategory: Map<string, number>): CategoryTotal[] =>
+  slices(byCategory).map(({ key, total, share }) => ({ category: key, total, share }));
+
+const accountsFromCents = (byAccount: Map<string, number>): AccountTotal[] =>
+  slices(byAccount).map(({ key, total, share }) => ({ account: key, total, share }));
 
 type CentsAgg = {
   inCents: number;
   outCents: number;
-  cardCents: number;
   categoryCents: Map<string, number>;
+  accountCents: Map<string, number>;
   excludedCount: number;
   excludedCents: number;
 };
@@ -114,8 +127,8 @@ function aggregateCents(txns: Categorized[]): CentsAgg {
   const agg: CentsAgg = {
     inCents: 0,
     outCents: 0,
-    cardCents: 0,
     categoryCents: new Map(),
+    accountCents: new Map(),
     excludedCount: 0,
     excludedCents: 0,
   };
@@ -131,7 +144,7 @@ function aggregateCents(txns: Categorized[]): CentsAgg {
       const spend = -cents;
       agg.outCents += spend;
       agg.categoryCents.set(t.category, (agg.categoryCents.get(t.category) ?? 0) + spend);
-      if (t.source === 'card') agg.cardCents += spend;
+      agg.accountCents.set(t.account, (agg.accountCents.get(t.account) ?? 0) + spend);
     }
   }
   return agg;
@@ -207,34 +220,11 @@ export function monthStats(month: string, txns: Categorized[], previous?: Catego
         }
       : null,
     excluded: { count: agg.excludedCount, total: fromCents(agg.excludedCents) },
-    cardShare: agg.outCents > 0 ? round4(agg.cardCents / agg.outCents) : 0,
+    accounts: accountsFromCents(agg.accountCents),
   };
 }
 
-/**
- * Spending that still has no merchant — card rows from a month no statement
- * export covers. Reported rather than assumed: the card bucket stopped being
- * wholly opaque when the export landed, so "amount and date only" is now a
- * claim that has to be checked against the rows in hand.
- *
- * Card rows only. SB1 sends a handful of rows with no `cleanedDescription` and
- * no `remoteAccountName` — a bare `Overføring` with an account number and
- * nothing else — and those are nameless for a different reason, which no
- * statement export can fix. Counting them here made the note say two rows were
- * waiting on an export that already covered every card row there is.
- */
-export function blindSpot(txns: Categorized[]): ExcludedSummary {
-  let count = 0;
-  let cents = 0;
-  for (const t of txns) {
-    if (t.source !== 'card' || t.excluded || t.amount >= 0 || t.counterparty !== null) continue;
-    count++;
-    cents += -toCents(t.amount);
-  }
-  return { count, total: fromCents(cents) };
-}
-
-/** Groups by booking month, ready for `yearStats`. */
+/** Groups by month, ready for `yearStats`. */
 export function byMonth(txns: Categorized[]): { month: string; txns: Categorized[] }[] {
   const buckets = new Map<string, Categorized[]>();
   for (const t of txns) {
@@ -250,27 +240,16 @@ export function byMonth(txns: Categorized[]): { month: string; txns: Categorized
  * One point on the spending chart. The bucket is whatever the caller grouped
  * by — a day or a month — so `at` is `YYYY-MM-DD` or `YYYY-MM` and the series
  * is the only thing that knows which.
- *
- * Card spend rides along as kroner rather than the share `MonthSummary`
- * carries, because a share is a ratio and ratios do not add up: cumulating a
- * series of them gives a number that is not any period's card share. Kroner
- * cumulate, and the share divides back out at the point of use.
  */
 export type SeriesPoint = {
   at: string;
   totalIn: number;
   totalOut: number;
-  cardOut: number;
 };
 
 const point = (at: string, txns: Categorized[]): SeriesPoint => {
   const agg = aggregateCents(txns);
-  return {
-    at,
-    totalIn: fromCents(agg.inCents),
-    totalOut: fromCents(agg.outCents),
-    cardOut: fromCents(agg.cardCents),
-  };
+  return { at, totalIn: fromCents(agg.inCents), totalOut: fromCents(agg.outCents) };
 };
 
 /**
@@ -334,17 +313,10 @@ export function monthlySeries(txns: Categorized[]): SeriesPoint[] {
 export function cumulative(series: SeriesPoint[]): SeriesPoint[] {
   let inCents = 0;
   let outCents = 0;
-  let cardCents = 0;
   return series.map((p) => {
     inCents += toCents(p.totalIn);
     outCents += toCents(p.totalOut);
-    cardCents += toCents(p.cardOut);
-    return {
-      at: p.at,
-      totalIn: fromCents(inCents),
-      totalOut: fromCents(outCents),
-      cardOut: fromCents(cardCents),
-    };
+    return { at: p.at, totalIn: fromCents(inCents), totalOut: fromCents(outCents) };
   });
 }
 
@@ -359,7 +331,6 @@ export type YearStats = {
     net: number;
   };
   excluded: ExcludedSummary;
-  cardShare: number;
 };
 
 /** `2026-08` -> a single sortable number, so month arithmetic needs no Date and no year wrap. */
@@ -405,7 +376,6 @@ export function yearStats(year: string, monthsTxns: { month: string; txns: Categ
       totalIn: fromCents(agg.inCents),
       totalOut: fromCents(agg.outCents),
       net: fromCents(agg.inCents - agg.outCents),
-      cardShare: agg.outCents > 0 ? round4(agg.cardCents / agg.outCents) : 0,
       excluded: { count: agg.excludedCount, total: fromCents(agg.excludedCents) },
     };
   });
@@ -423,13 +393,12 @@ export function yearStats(year: string, monthsTxns: { month: string; txns: Categ
       net: fromCents(Math.round((agg.inCents - agg.outCents) / n)),
     },
     excluded: { count: agg.excludedCount, total: fromCents(agg.excludedCents) },
-    cardShare: agg.outCents > 0 ? round4(agg.cardCents / agg.outCents) : 0,
   };
 }
 
 /**
  * The dashboard shows subscriptions and recurring rows as one list, and the two
- * overlap. Deduplicated on `(source, id)`, the database's own key.
+ * overlap. Deduplicated on `id`, the database's own key.
  */
 export type SubscriptionGroup = {
   /** `merchantOf` — the same string the tables and the bars offer as a filter. */
@@ -526,9 +495,8 @@ export function subsAndRecurring(stats: MonthStats): Categorized[] {
   const seen = new Set<string>();
   return [...stats.subscriptions, ...stats.recurring]
     .filter((t) => {
-      const key = `${t.source}:${t.id}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
+      if (seen.has(t.id)) return false;
+      seen.add(t.id);
       return true;
     })
     .sort(byDate);

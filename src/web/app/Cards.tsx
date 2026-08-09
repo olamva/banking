@@ -410,11 +410,12 @@ const TXN_SORTS = {
   // under S, where it reads, and not under the `stroem` nobody sees.
   category: (a: Categorized, b: Categorized) =>
     categoryLabel(a.category).localeCompare(categoryLabel(b.category)),
+  account: (a: Categorized, b: Categorized) => a.account.localeCompare(b.account),
   amount: (a: Categorized, b: Categorized) => a.amount - b.amount,
 };
 
 export const useTxnSort = (txns: Categorized[]) =>
-  useSort(txns, TXN_SORTS, "date", ["merchant", "category"]);
+  useSort(txns, TXN_SORTS, "date", ["merchant", "category", "account"]);
 
 interface SearchBoxProps {
   value: string;
@@ -583,9 +584,10 @@ interface TransactionsCardProps {
   /** The search box sits on the table it filters, rather than off in the filter bar. */
   search: string;
   onSearch: (search: string) => void;
-  /** The merchant and category cells filter to themselves; see `PickCell`. */
+  /** The merchant, category and account cells filter to themselves; see `PickCell`. */
   onMerchant: (merchant: string, meta: boolean) => void;
   onCategory: (category: string, meta: boolean) => void;
+  onAccount: (account: string, meta: boolean) => void;
 }
 
 /**
@@ -608,6 +610,7 @@ export const TransactionsCard = ({
   onSearch,
   onMerchant,
   onCategory,
+  onAccount,
 }: TransactionsCardProps) => {
   const { sorted, head } = useTxnSort(txns);
   /**
@@ -642,7 +645,7 @@ export const TransactionsCard = ({
             head("Date", "date", { min: true }),
             head("Merchant / description", "merchant"),
             head("Category", "category", { min: true, sizer: categorySizes }),
-            { label: "Source", min: true },
+            head("Account", "account", { min: true }),
             head("Amount", "amount", {
               num: true,
               min: true,
@@ -657,7 +660,7 @@ export const TransactionsCard = ({
               value={t.category}
               onPick={onCategory}
             />,
-            t.source === "card" ? "card" : "bank",
+            <PickCell label={t.account} onPick={onAccount} />,
             fmtNOK(t.amount),
           ])}
         />

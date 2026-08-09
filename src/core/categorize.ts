@@ -9,10 +9,10 @@ import type { Classified, Categorized } from './types.ts';
  * `/.../ ` — `"/\\bleie\\b/"` matches the word *leie* but not *utleie* or
  * *leiebil*, which a substring cannot express.
  *
- * Matched against `description` and `counterparty` both, because the two
- * sources put the useful string in different places: SB1's description carries
- * the merchant, while a card row's description is a generic `Varekjøp` and the
- * merchant only arrives in `counterparty`, from the statement export.
+ * Matched against `description` and `counterparty` both. They usually say the
+ * same thing — `counterparty` is the bank's cleaned form of the description —
+ * but not always: the card's raw description carries a terminal number the
+ * cleaned one drops, and a payment with a message keeps the message.
  *
  * Not committed — hand-edited locally, applied on top of bankCategory. A
  * missing file means no overrides, not an error.
@@ -33,14 +33,29 @@ const TRAVEL = 'reise';
 const TRANSFER = 'overfoering';
 
 /**
- * The statement export ends a card merchant with the terminal's ISO country,
- * `NAME, CITY, XXX`. Anything but NOR was bought abroad, which for this account
- * always means a trip — so those rows are travel rather than an opaque bucket.
+ * A card merchant ends with the terminal's country, `NAME, CITY, COUNTRY` —
+ * spelled out (`JAPAN`, `UNITED KINGDOM`, `SLOVAKIA (Slovak Republic)`) and
+ * occasionally as a three-letter code (`GRC`). Anything but Norway was bought
+ * abroad, which for this account always means a trip.
  *
- * It misreads a foreign *biller* as a trip (Apple bills from IRL, Fortnite from
- * CHE). An override wins over this, which is where those belong anyway.
+ * The comma is the whole guard: a Norwegian payee with no country on it at all
+ * (`ELETRA ENERGY AS`, `DUTY-FREE GARDERMOEN`) has no comma before its last
+ * word and cannot match, and neither can the card's own `Innbetaling` or
+ * `Omkostninger minibankuttak` rows. Checked against every card row of the
+ * record: it flags the foreign ones, the Greek town names on a Greek trip, and
+ * one `Mobil`.
+ *
+ * It is a **fallback below the bank's own category**, not above it. Every card
+ * row now arrives classified, and a supermarket in Vienna is groceries that
+ * happened abroad; only a row the bank shrugged at falls through to here. That
+ * also contains the old misread of a foreign *biller* as a trip — Apple bills
+ * from IRELAND — since those rows carry a category of their own.
+ *
+ * Card rows only, and that guard is load-bearing: 23 deposit rows in the record
+ * match this shape without being anywhere near a trip, `MOBILGIRO M/KID, FORF.
+ * I DAG TRANS(ER) TYPE` chief among them.
  */
-const FOREIGN_MERCHANT = /,\s*(?!NOR$)[A-Z]{3}$/;
+const FOREIGN_MERCHANT = /,\s*(?!NOR(WAY)?$)[A-Z][A-Za-z .()]*$/;
 
 /**
  * The bank's own catch-alls carry no more information than having no category
@@ -64,9 +79,9 @@ const FIXED_COSTS = 'faste_utgifter';
  *
  * A separate axis from the category, not a category of its own — Telenor is a
  * fixed housing cost *and* a subscription, and forcing a choice between the two
- * loses one of them. SB1 sets `subscription` itself on standing bank payments;
- * a card row can never carry it, because Enable Banking has no such field, so
- * every subscription paid by card needs a pattern here to be seen at all.
+ * loses one of them. SB1 sets `subscription` itself, on the card as well as on
+ * the deposit accounts, but it guesses it from the merchant and is wrong about
+ * as often as right — so a pattern here is what makes a subscription certain.
  */
 export type Subscriptions = string[];
 
@@ -184,6 +199,8 @@ export function categorize(
   subscriptions: Subscriptions = [],
   peers: string[] = [],
   giro: Overrides = {},
+  /** Account keys of the credit cards — the only rows the travel guess may see. */
+  cards: Set<string> = new Set(),
 ): Categorized[] {
   const rules: Rule[] = Object.entries(overrides).map(([pattern, category]) => ({
     matches: compile(pattern, 'rules/overrides.json'),
@@ -202,7 +219,7 @@ export function categorize(
     const haystack = `${t.description} ${t.counterparty ?? ''} ${t.remoteAccountNumber ?? ''}`.toLowerCase();
     return {
       ...t,
-      category: categoryFor(t, rules, peerRules, giroRules, haystack),
+      category: categoryFor(t, rules, peerRules, giroRules, haystack, cards),
       // The bank's own flag stands; a pattern only ever adds to it.
       isSubscription: t.isSubscription || subs.some((m) => m(haystack)),
     };
@@ -215,6 +232,7 @@ function categoryFor(
   peerRules: Matcher[],
   giroRules: Rule[],
   haystack: string,
+  cards: Set<string>,
 ): string {
   const override = rules.find((r) => r.matches(haystack));
   if (override) return override.category;
@@ -225,9 +243,9 @@ function categoryFor(
     if (named) return named.category;
   }
   if (peerRules.some((m) => m(haystack))) return PEER_PAYMENT;
-  if (t.source === 'card' && FOREIGN_MERCHANT.test(t.counterparty ?? '')) return TRAVEL;
   if (t.bankCategory && !BANK_CATCH_ALL.has(t.bankCategory)) {
     return t.bankCategory === BANK_FIXED_COSTS ? FIXED_COSTS : t.bankCategory;
   }
+  if (cards.has(t.accountKey) && FOREIGN_MERCHANT.test(t.counterparty ?? '')) return TRAVEL;
   return t.excluded ? TRANSFER : UNCATEGORIZED;
 }

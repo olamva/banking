@@ -1,15 +1,16 @@
 # No trailing slashes: a pattern ending in `/` matches a directory only, and a
-# symlink is not one. A worktree that links `secrets` or `node_modules` back to
-# the main checkout — which is the only way to work in one — then has those
-# links staged by `git add -A`. Without the slash both the directory and a link
-# to it are ignored.
+# symlink is not one. A worktree that links `node_modules`, `data` or `rules`
+# back to the main checkout — which is the only way to work in one — then has
+# those links staged by `git add -A`. Without the slash both the directory and
+# a link to it are ignored.
 
 # build / tooling
 node_modules
 .claude/worktrees
 
-# credentials — the RSA key Enable Banking signs with, and the loopback TLS pair
-secrets
+# credentials. Nothing in the repo carries key material any more — SB1 signs
+# nothing and the refresh token lives in the macOS keychain — so these globs
+# guard against one ever landing loose rather than covering a directory of them.
 *.pem
 *.key
 .env.local

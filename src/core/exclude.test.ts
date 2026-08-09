@@ -6,7 +6,7 @@ import type { Txn } from './types.ts';
 function txn(overrides: Partial<Txn>): Txn {
   return {
     id: '1',
-    source: 'sb1',
+    account: 'Brukskonto',
     accountKey: 'a',
     date: '2026-07-01',
     amount: -100,
@@ -17,12 +17,16 @@ function txn(overrides: Partial<Txn>): Txn {
     remoteAccountNumber: null,
     isRecurring: false,
     isSubscription: false,
-    isPending: false,
     ...overrides,
   };
 }
 
-const accounts = { a: { mine: true }, b: { mine: true }, c: { mine: false } };
+const accounts = {
+  a: { mine: true },
+  b: { mine: true },
+  c: { mine: false },
+  card: { mine: false, card: true },
+};
 
 /** A transfer leg, as the bank types it. All four of SB1's spellings share the stem. */
 const leg = (over: Partial<Txn>) => txn({ typeText: 'Overføring', ...over });
@@ -115,7 +119,7 @@ test('both legs of a bill payment are flagged, so the pair nets to zero', () => 
   const out = exclude(
     [
       txn({ id: '1', accountKey: 'a', amount: -1629.11, date: '2026-03-31', description: 'Kredittbanken ASA' }),
-      txn({ id: '2', source: 'card', accountKey: 'card', amount: 1629.11, date: '2026-04-01', description: 'Innbetalinger', counterparty: null, bankCategory: null }),
+      txn({ id: '2', account: 'Kredittkort', accountKey: 'card', amount: 1629.11, date: '2026-04-01', description: 'Innbetaling', counterparty: 'Innbetaling', typeText: 'Transaksjon' }),
     ],
     accounts,
   );
@@ -124,13 +128,29 @@ test('both legs of a bill payment are flagged, so the pair nets to zero', () => 
   assert.equal(out.reduce((sum, t) => sum + (t.excluded ? t.amount : 0), 0), 0);
 });
 
-test('a card refund is spending returned, not a bill payment, so it stays in', () => {
+test('a card credit that is not a payment stays in — a refund, or cashback', () => {
   const out = exclude(
-    [txn({ id: '1', source: 'card', accountKey: 'card', amount: 2395, description: 'Varekjøp', counterparty: null, bankCategory: null })],
+    [
+      txn({ id: '1', account: 'Kredittkort', accountKey: 'card', amount: 2395, description: 'KAFFEBAR, Oslo, NORWAY', typeText: 'Transaksjon' }),
+      txn({ id: '2', account: 'Kredittkort', accountKey: 'card', amount: 39, description: 'Rabatt strømmetjenester', typeText: 'Transaksjon' }),
+    ],
     accounts,
   );
-  assert.equal(out[0].excluded, false);
-  assert.equal(out[0].reason, null);
+  assert.deepEqual(out.map((t) => t.excluded), [false, false]);
+});
+
+test('a card row is never a transfer leg, however well its amount lines up', () => {
+  // It used to be `typeText` being null that guaranteed this. The card carries
+  // one of its own now, so the guarantee has to rest on the value.
+  const out = exclude(
+    [
+      txn({ id: '1', accountKey: 'a', amount: -500, date: '2026-07-01', typeText: 'Overførsel mellom egne kontoer' }),
+      txn({ id: '2', account: 'Kredittkort', accountKey: 'card', amount: 500, date: '2026-07-01', description: 'KAFFEBAR, Oslo, NORWAY', typeText: 'Transaksjon' }),
+      txn({ id: '3', account: 'Kredittkort', accountKey: 'card', amount: 500, date: '2026-07-01', description: 'SHOP, Oslo, NORWAY', typeText: 'Kredittkort' }),
+    ],
+    accounts,
+  );
+  assert.deepEqual(out.map((t) => t.excluded), [false, false, false]);
 });
 
 const numbered = {

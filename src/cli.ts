@@ -1,11 +1,9 @@
-import { mkdir, writeFile, readFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { get, login } from './net/sb1.ts';
-import * as eb from './net/eb.ts';
-import { parseStatement, statementRange } from './core/statement.ts';
+import { bankRemaining, get, login } from './net/sb1.ts';
 import { rebuildAll, RAW } from './core/pipeline.ts';
-import { syncMonth, ebSyncMonth } from './net/sync.ts';
+import { syncMonth, syncRange } from './net/sync.ts';
 import { loadPeers } from './core/categorize.ts';
 import { newPeers } from './core/peers.ts';
 import { serve, DEFAULT_MAX_AGE_MIN } from './web/serve.ts';
@@ -46,67 +44,41 @@ async function accounts(): Promise<void> {
   const raw = await get(`/personal/banking/accounts?${include}`);
   await dump(ACCOUNTS_RAW, raw);
 
-  const list = (raw as { accounts?: { key?: string; accountNumber?: string }[] }).accounts;
-  const mine = list?.filter((a): a is { key: string; accountNumber?: string } => !!a.key) ?? [];
-  if (!mine.length) {
+  type Account = { key?: string; accountNumber?: string; name?: string; description?: string; type?: string };
+  const list = (raw as { accounts?: Account[] }).accounts;
+  const found = list?.filter((a): a is Account & { key: string } => !!a.key) ?? [];
+  if (!found.length) {
     console.error(`No accounts[].key found — inspect ${ACCOUNTS_RAW} and adjust before syncing.`);
     return;
   }
   if (!existsSync('rules/accounts.json')) {
-    // mine defaults true; hand-edit before trusting internal-transfer detection.
-    // The number rides along because `exclude` reads it: a row whose
-    // remoteAccountNumber is one of these is a self-transfer whatever the bank
-    // types it as, which is the only way a giro between my own accounts is seen.
+    // `mine` defaults true for everything but the card; hand-edit before
+    // trusting internal-transfer detection. The number rides along because
+    // `exclude` reads it: a row whose remoteAccountNumber is one of these is a
+    // self-transfer whatever the bank types it as, which is the only way a giro
+    // between my own accounts is seen.
+    //
+    // `name` is the label the dashboard shows — see `Txn.account`. The card's
+    // own `name` is its masked number, so its `description` is the better one,
+    // and every name here is worth rewriting into something you would say out
+    // loud. Nothing downstream cares what they are.
+    const card = (a: Account) => a.type === 'CREDITCARD';
     await dump(
       'rules/accounts.json',
-      Object.fromEntries(mine.map((a) => [a.key, { mine: true, number: a.accountNumber }])),
+      Object.fromEntries(
+        found.map((a) => [
+          a.key,
+          {
+            mine: !card(a),
+            ...(card(a) ? { card: true } : {}),
+            name: (card(a) ? a.description : a.name) ?? a.name ?? a.key,
+            number: a.accountNumber,
+          },
+        ]),
+      ),
     );
   }
-  console.error(`${mine.length} account keys.`);
-}
-
-/** Enable Banking: authorise once, then the card is readable for 90 days. */
-async function ebLogin(): Promise<void> {
-  const session = await eb.login();
-  await dump(eb.sessionFile, session);
-  for (const a of session.accounts) {
-    console.error(`  ${a.uid} | ${a.cash_account_type} | ${a.product ?? ''} ${a.currency ?? ''}`);
-  }
-}
-
-/**
- * Ingest a statement export and rebuild. There is no API behind this — the
- * issuer publishes the merchant only in the CSV you download from the portal,
- * which is the whole reason src/statement.ts exists — so it stays a manual
- * export, and this command is the manual step made repeatable.
- *
- * Stored under its own booking-date range, and never over an existing file:
- * data/raw/ is immutable. Re-running with the same export is a no-op.
- */
-async function statement(): Promise<void> {
-  const src = args[1];
-  if (!src) throw new Error('statement needs a path: pnpm sb1 statement ~/Downloads/transactions.csv');
-
-  const csv = await readFile(src.replace(/^~/, process.env.HOME ?? '~'), 'utf8');
-  const rows = parseStatement(csv);
-  if (!rows.length) throw new Error(`${src} parsed to no rows — is it the issuer's CSV export?`);
-
-  const { from, to } = statementRange(rows);
-  const dir = `${RAW}/card-statements`;
-  const dest = `${dir}/${from}_${to}.csv`;
-  await mkdir(dir, { recursive: true });
-
-  if (existsSync(dest)) {
-    if ((await readFile(dest, 'utf8')) === csv) {
-      console.error(`${dest} already holds this export — nothing to do`);
-    } else {
-      throw new Error(`${dest} exists with different content. data/raw/ is immutable: rename or remove it first.`);
-    }
-  } else {
-    await writeFile(dest, csv);
-    console.error(`wrote ${dest} — ${rows.length} rows, ${from} to ${to}`);
-  }
-  await rebuildAll();
+  console.error(`${found.length} account keys.`);
 }
 
 /**
@@ -126,22 +98,40 @@ async function peers(): Promise<void> {
 try {
   if (cmd === 'login') await login();
   else if (cmd === 'accounts') await accounts();
-  else if (cmd === 'sync') await syncMonth(needMonth('sync'), has('force'));
-  else if (cmd === 'eb-login') await ebLogin();
-  else if (cmd === 'eb-sync') await ebSyncMonth(needMonth('eb-sync'), has('force'));
-  else if (cmd === 'statement') await statement();
+  else if (cmd === 'sync') {
+    const from = flag('from');
+    const to = flag('to');
+    // `--stale N` is a force that stops short of what it just fetched: re-run it
+    // after a 429 and only the accounts the first run never reached cost a
+    // request. Plain `--force` refetches the lot, every time.
+    const stale = flag('stale');
+    if (stale !== undefined && !(Number(stale) > 0)) raise('--stale wants minutes, e.g. --stale 60');
+    const force = stale === undefined ? has('force') : Number(stale);
+    if (from || to) {
+      if (!from || !to) raise('sync needs both --from and --to, as YYYY or YYYY-MM');
+      await syncRange(from!, to!, force);
+    } else {
+      await syncMonth(needMonth('sync'), force);
+    }
+  }
   else if (cmd === 'rebuild') await rebuildAll();
   else if (cmd === 'peers') await peers();
-  else if (cmd === 'budget') console.error(`${used()}/${HOURLY_CAP} SB1 requests used this hour, ${remaining()} left`);
+  else if (cmd === 'budget') {
+    // Ours is a guess kept on disk; the bank's is fact, but only known once
+    // something has called it in this process — so it is usually absent here.
+    const bank = bankRemaining();
+    console.error(`${used()}/${HOURLY_CAP} SB1 requests used this hour, ${remaining()} left`);
+    if (bank !== null) console.error(`the bank last said ${bank} left of its own limit`);
+  }
   else if (cmd === 'dev') {
     await serve(Number(flag('port') ?? 4000), {
       pull: has('pull'),
       maxAgeMin: Number(flag('max-age') ?? DEFAULT_MAX_AGE_MIN),
     });
   } else {
-    console.error('usage: pnpm sb1 <login | accounts | sync --month YYYY-MM [--force]');
-    console.error('                | eb-login | eb-sync --month YYYY-MM [--force]');
-    console.error('                | statement <file.csv> | rebuild');
+    console.error('usage: pnpm sb1 <login | accounts | rebuild');
+    console.error('                | sync --month YYYY-MM [--force | --stale MINUTES]');
+    console.error('                | sync --from YYYY[-MM] --to YYYY[-MM] [--force | --stale MINUTES]');
     console.error('                | peers  (clipboard rows -> names for rules/vipps.json)');
     console.error('                | dev [--port 4000] [--pull [--max-age 360]] | budget>');
     process.exit(1);

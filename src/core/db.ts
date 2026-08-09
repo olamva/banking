@@ -4,13 +4,13 @@
  * reconstruct it from whatever the caller re-derives from data/raw/ alone.
  */
 import { DatabaseSync } from 'node:sqlite';
-import type { Categorized, Source } from './types.ts';
+import type { Categorized } from './types.ts';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS transactions (
-  source TEXT NOT NULL,
   id TEXT NOT NULL,
   accountKey TEXT NOT NULL,
+  account TEXT NOT NULL,
   date TEXT NOT NULL,
   month TEXT NOT NULL,
   amount REAL NOT NULL,
@@ -21,11 +21,10 @@ CREATE TABLE IF NOT EXISTS transactions (
   remoteAccountNumber TEXT,
   isRecurring INTEGER NOT NULL,
   isSubscription INTEGER NOT NULL,
-  isPending INTEGER NOT NULL,
   excluded INTEGER NOT NULL,
   reason TEXT,
   category TEXT NOT NULL,
-  PRIMARY KEY (source, id)
+  PRIMARY KEY (id)
 );
 CREATE INDEX IF NOT EXISTS idx_transactions_month ON transactions(month);
 CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions(category);
@@ -44,11 +43,12 @@ export function openDb(path = 'data/banking.db'): DatabaseSync {
 
 const UPSERT = `
 INSERT INTO transactions
-  (source, id, accountKey, date, month, amount, description, counterparty,
-   bankCategory, typeText, remoteAccountNumber, isRecurring, isSubscription, isPending, excluded, reason, category)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT (source, id) DO UPDATE SET
+  (id, accountKey, account, date, month, amount, description, counterparty,
+   bankCategory, typeText, remoteAccountNumber, isRecurring, isSubscription, excluded, reason, category)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (id) DO UPDATE SET
   accountKey = excluded.accountKey,
+  account = excluded.account,
   date = excluded.date,
   month = excluded.month,
   amount = excluded.amount,
@@ -59,7 +59,6 @@ ON CONFLICT (source, id) DO UPDATE SET
   remoteAccountNumber = excluded.remoteAccountNumber,
   isRecurring = excluded.isRecurring,
   isSubscription = excluded.isSubscription,
-  isPending = excluded.isPending,
   excluded = excluded.excluded,
   reason = excluded.reason,
   category = excluded.category
@@ -67,9 +66,9 @@ ON CONFLICT (source, id) DO UPDATE SET
 
 function bindParams(row: Categorized) {
   return [
-    row.source,
     row.id,
     row.accountKey,
+    row.account,
     row.date,
     monthOf(row.date),
     row.amount,
@@ -80,7 +79,6 @@ function bindParams(row: Categorized) {
     row.remoteAccountNumber,
     row.isRecurring ? 1 : 0,
     row.isSubscription ? 1 : 0,
-    row.isPending ? 1 : 0,
     row.excluded ? 1 : 0,
     row.reason,
     row.category,
@@ -100,9 +98,9 @@ export function upsertMany(db: DatabaseSync, rows: Categorized[]): void {
 }
 
 type Row = {
-  source: Source;
   id: string;
   accountKey: string;
+  account: string;
   date: string;
   amount: number;
   description: string;
@@ -112,7 +110,6 @@ type Row = {
   remoteAccountNumber: string | null;
   isRecurring: number;
   isSubscription: number;
-  isPending: number;
   excluded: number;
   reason: string | null;
   category: string;
@@ -120,9 +117,9 @@ type Row = {
 
 function toCategorized(row: Row): Categorized {
   return {
-    source: row.source,
     id: row.id,
     accountKey: row.accountKey,
+    account: row.account,
     date: row.date,
     amount: row.amount,
     description: row.description,
@@ -132,7 +129,6 @@ function toCategorized(row: Row): Categorized {
     remoteAccountNumber: row.remoteAccountNumber,
     isRecurring: !!row.isRecurring,
     isSubscription: !!row.isSubscription,
-    isPending: !!row.isPending,
     excluded: !!row.excluded,
     reason: row.reason,
     category: row.category,

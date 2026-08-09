@@ -1,10 +1,17 @@
 /**
  * A rolling-hour ledger of SpareBank 1 API calls.
  *
- * SB1 allows 60 requests an hour. That is plenty for the way `sync` is used by
- * hand, and easy to burn through once a server refreshes on its own — a reload
- * loop, two browser tabs, or a watcher restarting the process can each turn one
- * intended refresh into several.
+ * **This cap is ours, not the bank's.** The 60-an-hour this once claimed is not
+ * a figure the API states anywhere; what SB1 actually does is send
+ * `x-ratelimit-remaining` on every response and answer 429 at zero, which
+ * `sb1.noteLimits` reads. So treat this as a self-imposed brake — it exists to
+ * stop a reload loop, two browser tabs or a restarting watcher turning one
+ * intended refresh into several, and it is deliberately set below whatever the
+ * real ceiling turns out to be.
+ *
+ * Raising `SB1_HOURLY_CAP` past that ceiling does not buy requests, it only
+ * moves who refuses: the bank starts answering 429, and each one still costs a
+ * slot here because `spend` is called before the request goes out.
  *
  * The ledger lives on disk precisely so it survives a restart. An in-memory
  * counter would reset exactly when the risk is highest.
@@ -15,7 +22,7 @@ import { dirname } from 'node:path';
 const LEDGER = 'data/api-budget.json';
 const WINDOW_MS = 3600_000;
 
-/** Well under the real 60, so a hand-run `sync` still works after the app refreshes. */
+/** Low enough that a hand-run `sync` still works after the app has refreshed. */
 export const HOURLY_CAP = Number(process.env.SB1_HOURLY_CAP ?? 40);
 
 function read(path: string, now: number): number[] {
@@ -46,8 +53,9 @@ export function canAfford(cost: number, path = LEDGER, now = Date.now()): boolea
 export class BudgetExhausted extends Error {
   constructor(used: number) {
     super(
-      `SpareBank 1 request budget spent: ${used}/${HOURLY_CAP} in the last hour. ` +
-        `Wait, or raise SB1_HOURLY_CAP (the bank's own limit is 60).`,
+      `Local request budget spent: ${used}/${HOURLY_CAP} in the last hour. ` +
+        `This is our own brake, not the bank's — wait, or raise SB1_HOURLY_CAP, ` +
+        `and expect the bank's own 429 somewhere past it.`,
     );
   }
 }

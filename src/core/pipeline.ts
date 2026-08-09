@@ -1,14 +1,13 @@
 /**
  * The offline half, in one place so the CLI and the dev server run identically.
  *
- * Nothing here imports sb1.ts or eb.ts, and nothing here may: analysis never
+ * Nothing here imports anything under src/net/, and nothing here may: analysis never
  * calls the API. That rule is enforced by this file's import list — keep it
  * that way.
  */
 import { mkdir, readFile } from 'node:fs/promises';
 import { readdirSync, rmSync } from 'node:fs';
 import { normalizeMonth } from './normalize.ts';
-import { enrich, readStatements } from './statement.ts';
 import { exclude, type Accounts } from './exclude.ts';
 import {
   categorize,
@@ -34,22 +33,28 @@ export function monthsOnDisk(): string[] {
 }
 
 /**
- * One month's raw files, from normalize to categorize, plus the merchant lookup.
+ * One month's raw files, from normalize to categorize.
  *
  * Exclusion runs per month because both legs of an internal transfer share a
- * date and so can never land in different months. Enrichment goes first, so the
- * merchant is available to overrides, and it writes only `counterparty`, so the
- * exclusion rules still match the source's own description.
+ * date and so can never land in different months.
  */
 export async function pipeline(month: string): Promise<Categorized[]> {
   const accounts: Accounts = JSON.parse(await readFile('rules/accounts.json', 'utf8'));
-  const txns = enrich(normalizeMonth(`${RAW}/${month}`), readStatements());
+  const names = Object.fromEntries(
+    Object.entries(accounts).flatMap(([key, a]) => (a.name ? [[key, a.name] as const] : [])),
+  );
+  const cards = new Set(
+    Object.entries(accounts)
+      .filter(([, a]) => a.card)
+      .map(([key]) => key),
+  );
   const rows = categorize(
-    exclude(txns, accounts),
+    exclude(normalizeMonth(`${RAW}/${month}`, names), accounts),
     await loadOverrides(),
     await loadSubscriptions(),
     await loadPeers(),
     await loadGiro(),
+    cards,
   );
   // Last, so every rule above matched the name the bank actually sent.
   return renamePayees(rows, await loadPayees());

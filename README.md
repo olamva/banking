@@ -7,27 +7,30 @@ Private repo, single user, personal use. Not a product, not accepting issues.
 
 ## What it does
 
-Three sources go in and one picture comes out:
+One source goes in and one picture comes out:
 
-| Source | Reached by | Gives |
-|---|---|---|
-| 5 bank accounts | SpareBank 1 API | amount, date, description, the bank's own category |
-| 1 credit card | Enable Banking (PSD2) | amount, date — and nothing else |
-| Card statement | manual CSV export | the merchant, which no API returns |
+| Account | Gives |
+|---|---|
+| 6 bank accounts | amount, date, description, the bank's own category |
+| 1 credit card | the same, plus the merchant's MCC and the original currency |
 
-The card is invisible to SpareBank 1's own API, so it comes through Enable
-Banking, who hold the AISP licence. That gets the transactions but not the
-merchant, so the issuer's CSV export fills that in by matching on booking date
-and amount.
+All of it comes from the SpareBank 1 API. The card used to need Enable Banking
+and a manual statement export for the merchant; `GET /accounts` turned out to
+hide it behind an `includeCreditCardAccounts` flag that defaults to false, and
+the ordinary transactions endpoint answers for it with more on every row than
+Enable Banking ever returned. The one thing lost is the booking date: SB1 dates
+a card row by the purchase, one to three days earlier. See `Txn.date`.
 
-Everything is then normalised to one record shape, internal transfers and card
-bill payments are flagged so they don't double-count, categories are applied,
-and the result lands in SQLite. The dashboard reads from there.
+Everything is normalised to one record shape, internal transfers and card bill
+payments are flagged so they don't double-count, categories are applied, and the
+result lands in SQLite. Every row carries the name of the account it is on, from
+`rules/accounts.json`, which is what the dashboard splits spending by. The
+dashboard reads from there.
 
 ```
-data/raw/  ──normalize──►  Txn  ──enrich──►  ──exclude──►  ──categorize──►  SQLite
-                                (merchant)   (transfers)    (overrides)        │
-                                                               pnpm dev ◄──────┘
+data/raw/  ──normalize──►  Txn  ──exclude──►  ──categorize──►  SQLite
+                                (transfers)    (overrides)        │
+                                                  pnpm dev ◄──────┘
 ```
 
 ## Setup
@@ -39,8 +42,7 @@ pnpm install
 pnpm dev                            # http://localhost:4000
 ```
 
-You also need `.env.local` with the SpareBank 1 and Enable Banking credentials,
-and the signing key under `secrets/`. Neither is in git.
+You also need `.env.local` with the SpareBank 1 credentials. It is not in git.
 
 ## Commands
 
@@ -50,11 +52,10 @@ pnpm sb1 login                      # BankID in the browser, refresh token to th
 pnpm sb1 accounts                   # writes data/raw/accounts.json + rules/accounts.json
 pnpm sb1 sync --month YYYY-MM       # one file per account, skips existing
 pnpm sb1 sync --month YYYY-MM --force
-pnpm sb1 eb-login                   # Enable Banking consent, 90 days, card only
-pnpm sb1 eb-sync --month YYYY-MM    # card transactions
+pnpm sb1 sync --month YYYY-MM --stale 60  # a force that resumes: keeps files < 60 min old
+pnpm sb1 sync --from 2022 --to 2026  # a whole span; either end may be YYYY-MM
 
 # offline — reads data/raw/ or the database
-pnpm sb1 statement <file.csv>       # ingest a card statement export, then rebuild
 pnpm sb1 rebuild                    # rebuild data/banking.db from data/raw/
 pnpm sb1 peers | pbcopy             # clipboard rows -> the names rules/vipps.json lacks
 
@@ -117,6 +118,12 @@ days of August against the first nine days of last August, not against the whole
 month, or every delta on the page would read as a collapse drawn by the
 calendar. Finished windows compare whole, and the tile says which it did.
 
+**Spending splits by account too**, not only by category — one bar per account,
+named by `rules/accounts.json`. The card is just another account there; it is
+only a bar of its own because a credit card is where a third of the money goes.
+The card once had a meter to itself, back when its rows arrived with no merchant
+and no category and the number was really a measure of how much was unreadable.
+
 **Subscriptions are listed per subscription**, not per charge: one line for what
 it is, what it costs a month, what it has taken across the window, how many
 times, and when it last went out. Sortable, searchable and windowed, like the
@@ -127,9 +134,11 @@ says what a subscription has cost, and the question here is what it costs now.
 A yearly bill therefore reads as its yearly amount, since nothing on a row says
 how often it recurs.
 
-Categories filter as **chips: click any number of them**, none means all. Pick
-exactly one and the category breakdown drops out — a bar chart of a single
-category is a bar chart of itself. Meta-click a bar to exclude it instead.
+Categories, merchants and accounts each filter as **chips: click any number of
+them**, none means all — one control repeated three times, and the same gesture
+everywhere. A bar, a table cell or a menu entry filters to itself; meta-click
+excludes it instead, and accumulates. Pick exactly one category and the category
+breakdown drops out — a bar chart of a single category is a bar chart of itself.
 
 **Never share it.** It embeds every transaction you have, and so does a
 screenshot. The server binds to `127.0.0.1`; keep it that way.
@@ -140,8 +149,8 @@ screenshot. The server binds to `127.0.0.1`; keep it that way.
 current month first if the data is more than six hours old — plus the previous
 month during its first week, while card transactions are still posting.
 
-SpareBank 1 allows **60 requests an hour** and one refresh costs one per
-account, so the obvious ways to burn that are all defended:
+One refresh costs one request per account, so the obvious ways to burn through
+the bank's limit are all defended:
 
 | Risk | Defence |
 |---|---|
@@ -151,9 +160,19 @@ account, so the obvious ways to burn that are all defended:
 | A dead token retrying forever | a failed attempt still counts as an attempt |
 | Just wanting to look at the data | the network is opt-in; no `--pull`, no calls |
 
-The cap is 40, leaving headroom so a hand-run `sync` still works afterwards.
-Raise it with `SB1_HOURLY_CAP` if you really mean to. `pnpm sb1 budget` shows
-where you are.
+The cap is 40 and it is **ours, not the bank's** — a self-imposed brake, set low
+so a hand-run `sync` still works after the app has refreshed. SB1 publishes its
+own budget as `x-ratelimit-remaining` on every response and answers 429 at zero;
+it names neither the ceiling nor the window, so ours is a guess by construction.
+Raising `SB1_HOURLY_CAP` past the real limit buys nothing — it only changes who
+refuses, and a 429 still costs a slot, since the ledger spends before the
+request goes out. `pnpm sb1 budget` shows where you are.
+
+**The hour is a rolling window over every process, not over one command.** A
+backfill started soon after anything else has that much less to spend, which is
+why `sync --from … --to …` prices the whole span up front and says how far it
+expects to get. It stops on the cap rather than failing, and re-running it is a
+resume: a month already on disk costs nothing without `--force`.
 
 ```bash
 pnpm dev                      # never touches the network
@@ -168,34 +187,14 @@ Mostly, nothing: leave `pnpm dev --pull` running and it keeps the current month
 current. By hand:
 
 ```bash
-pnpm sb1 sync --month 2026-08 && pnpm sb1 eb-sync --month 2026-08
+pnpm sb1 sync --month 2026-08
 pnpm sb1 rebuild
 ```
 
-Card transactions post late and can arrive pending, so a month is only really
-final a few days after it ends. Re-run with `--force` to pick up the tail.
-
-## Card merchants
-
-Card rows arrive from the API with an amount and a date and nothing else. The
-merchant only exists in the statement CSV you download from the issuer's portal
-— there is no API for it, so this step stays manual:
-
-```bash
-pnpm sb1 statement ~/Downloads/transactions.csv
-```
-
-That files the export under its own booking-date range in
-`data/raw/card-statements/` and rebuilds the database. Re-running with an export
-you have already ingested is a no-op, and it will refuse to write over an
-existing file, because `data/raw/` is immutable.
-
-Each export covers everything since the card was opened, so they overlap; the
-duplicate lines are collapsed on read. Just ingest the newest one — the older
-files can stay where they are.
-
-Any month not covered by an export keeps `counterparty: null` on its card rows,
-and the dashboard says how many and how much rather than pretending otherwise.
+Card transactions post late and arrive pending first, so a month is only really
+final a few days after it ends. Pending rows are dropped rather than counted —
+the bank reissues them under a new id once they book — so re-run with `--force`
+to pick up the tail.
 
 ## Categories
 
@@ -224,10 +223,13 @@ wins.
 Keep plain patterns specific. A bare street name catches every shop on that
 street, which is how `Munkegata` first swallowed a supermarket.
 
-A card row that no pattern matches falls to `reise` when the merchant's trailing
-ISO country is not `NOR`, and to `ukategorisert` when it is. The bank's own
-catch-alls — `diverse`, and `ukategorisert` spelled out on the row — collapse
-into `ukategorisert` too, so there is one opaque bucket, not three.
+A card merchant ends with the terminal's country — `LAWSON, TOKYO, JAPAN` — so a
+card row that neither a pattern nor the bank has placed falls to `reise` when
+that country is not Norway, and to `ukategorisert` when it is. It sits *below*
+the bank's own category on purpose: a supermarket in Vienna is groceries that
+happened abroad. The bank's catch-alls — `diverse`, and `ukategorisert` spelled
+out on the row — collapse into `ukategorisert` too, so there is one opaque
+bucket, not three.
 
 An **excluded** row with nothing else to go on lands in `overfoering` rather
 than that bucket: both legs of a transfer and both legs of a card bill are a
@@ -292,8 +294,9 @@ rather than a category:
 
 A match sets `isSubscription`, so YouTube Premium stays
 `medier_og_underholdning` and is still counted as a subscription. SB1 sets the
-flag itself on standing bank payments, and a pattern only ever adds to it. Card
-rows need a pattern to be seen at all, because Enable Banking has no such field.
+flag itself, on the card as well as the bank accounts, and a pattern only ever
+adds to it. The bank guesses it from the merchant and is wrong about as often as
+right, so a pattern here is what makes a subscription certain.
 
 `/overrides` in Claude Code reads the database and `rules/overrides.json` and suggests
 patterns worth adding — only where a merchant with real money behind it is
@@ -308,13 +311,11 @@ requests, `core/` may not, `web/` composes them.
 
 ```
 src/net/sb1.ts       SpareBank 1 auth, keychain, get(), monthRange()
-src/net/eb.ts        Enable Banking auth and card transactions
-src/net/sync.ts      the network half: SB1 and card fetching
+src/net/sync.ts      the network half — one file per account per month
 src/net/budget.ts    rolling-hour ledger of SB1 requests
 
 src/core/types.ts     Txn / Classified / Categorized — the shared contract
 src/core/normalize.ts data/raw/<month>/*.json -> Txn[]
-src/core/statement.ts the issuer CSV -> the merchant on card rows
 src/core/exclude.ts   flags internal transfers and card bill payments
 src/core/categorize.ts bank category + overrides, peers and subscriptions
 src/core/db.ts        node:sqlite store, rebuilt wholesale
@@ -328,16 +329,12 @@ src/cli.ts           command dispatch
 
 rules/             the hand-edited JSON rules — accounts, overrides, vipps,
                    giro, payees, subscriptions; gitignored, see Categories
-
-docs/              privacy policy and terms, required to register the
-                   Enable Banking application — also published as a gist,
-                   see docs/README.md before editing either
 ```
 
 `src/core/` runs in both Node and the browser, so the page aggregates with the
 exact code `node --test` pins.
 
-Everything holding personal data is gitignored: `data/`, `rules/`, `secrets/`,
+Everything holding personal data is gitignored: `data/`, `rules/` and
 `.env.local`.
 
 ## Design rules

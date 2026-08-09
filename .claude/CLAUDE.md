@@ -19,18 +19,17 @@ never calls the API" it sits on and the answer follows.
 
 ```
 src/net/sb1.ts        SpareBank 1 auth, keychain, get(), monthRange()
-src/net/eb.ts         Enable Banking auth and card transactions
 src/net/sync.ts       the network half — nothing in core/ may import this
 src/net/budget.ts     rolling-hour ledger of SB1 requests, persisted to disk
 
 src/core/types.ts     Txn / Classified / Categorized — the shared contract
 src/core/normalize.ts data/raw/<month>/*.json -> Txn[]
-src/core/statement.ts issuer CSV -> the merchant on card rows
 src/core/exclude.ts   Txn[] -> Classified[]; flags transfers and bill payments
 src/core/categorize.ts Classified[] -> Categorized[]; bank category + overrides
 src/core/db.ts        node:sqlite store, rebuilt wholesale
 src/core/stats.ts     the only money aggregation — monthStats() and yearStats()
-src/core/select.ts    which rows are in view; no money logic, ever
+src/core/select.ts    which rows are in view; no money logic, ever — `AXES` is
+                      the three list filters, one control repeated
 src/core/pipeline.ts  the offline chain, importable by the CLI and the server
 
 src/web/serve.ts      pnpm dev — /api/txns, Vite middleware, the refresh policy
@@ -39,9 +38,11 @@ src/cli.ts            command dispatch
 
 vite.config.ts    root is src/web/app; middleware mode only, there is no build
 data/raw/         API responses, verbatim, gitignored
-data/raw/card-statements/  issuer CSV exports, the only merchant source
+data/eb-archive/  the retired Enable Banking files and statement CSVs, kept
+                  out of data/raw/ so rebuild cannot double-count them
 data/banking.db   derived SQLite store, rebuildable from data/raw, gitignored
-rules/accounts.json     which accounts are mine (hand-edited), gitignored
+rules/accounts.json     which accounts are mine, and which is the card
+                        (hand-edited), gitignored
 rules/overrides.json    substring or /regex/ -> category, gitignored
 rules/vipps.json        names of payees, as a list; its own rule, gitignored
 rules/giro.json         name -> what that person's lump transfers are, gitignored
@@ -85,8 +86,8 @@ the 1st of the month into the previous month.
 
 **Nothing personal enters git, or the network.** No account numbers, account
 keys, names, balances or descriptions in source, tests, fixtures, commit
-messages or docs. `.env.local`, `data/`, `secrets/` and the whole of `rules/`
-are gitignored; keep it that way. JSON
+messages or docs. `.env.local`, `data/` and the whole of `rules/` are
+gitignored; keep it that way. JSON
 and CSV output are unredacted — strip account numbers before anything leaves
 the machine.
 
@@ -125,20 +126,50 @@ where Node can reach it without a DOM.
 
 ## Data model
 
-`src/core/types.ts` defines `Txn`, the canonical record, committed to **booking
-date**. It is shared by every step — read it before writing anything downstream,
-and treat widening it as a cross-cutting change to announce, not to slip in.
+`src/core/types.ts` defines `Txn`, the canonical record. It is shared by every
+step — read it before writing anything downstream, and treat widening it as a
+cross-cutting change to announce, not to slip in.
 
-Two sources normalize into it and they do not agree on much:
+**One source now**, `data/raw/<month>/<accountKey>.json`, the credit card
+included. The card came through Enable Banking until `GET /accounts` turned out
+to hide it behind `includeCreditCardAccounts`, which — like all five `include*`
+flags — defaults to false. `/transactions/classified` answers for its key like
+any other and returns *more* per row than Enable Banking ever did: the merchant
+on 541/541, a category on 541/541, `mcc`/`mccGroup` on 534, the original
+currency on 533. That retired the EB client, the 90-day consent and the manual
+statement CSV in one go. The old files are in `data/eb-archive/`.
 
-| | SB1 (`data/raw/<month>/<accountKey>.json`) | Card (`.../eb-<uid>.json`) |
+`Txn.date` is the field that paid for it. SB1 dates a card row by the
+**purchase**, one to three days before the booking, and no list endpoint carries
+a booking date — only `/transactions/{id}/details`, one request per row. So card
+rows are purchase-dated, deliberately; about a dozen a month land the other side
+of a month boundary from where Enable Banking put them, and the largest month
+moved 5 700 kr. Deposit rows are booking-dated as before.
+
+`Txn.account` is **the account's name**, from `rules/accounts.json`, and it is
+what the page groups and labels by — there was a `source` of `bank | card`
+while there were two APIs, and one source needs no such field. The key stays on
+the row as `accountKey`; the name rides along because `stats.ts` runs in the
+browser, where there is no rules file to look one up in, and because a key is a
+local secret that must never be a label on the page.
+
+Two rules still need to know *which* account is the credit card, and both read
+`card: true` from `rules/accounts.json` rather than guessing: `billReason`,
+because a bill is worded one way on the card and another on the account paying
+it, and the travel guess in `categorize`, which must never see a deposit row.
+
+Two things every account sends that the card sends differently:
+
+| | deposit accounts | the card |
 |---|---|---|
-| date | epoch millis at Oslo midnight | `YYYY-MM-DD` string |
-| amount | signed number | positive string + `credit_debit_indicator` |
-| counterparty | `cleanedDescription` | null until the statement CSV fills it |
-| category | the bank's own | none — null |
-| typeText | the bank's own row kind | none — null |
-| pending | never seen | `status: PDNG` happens |
+| typeText | `VISA Varekjøp`, `Overførsel`, … | `Transaksjon`, `Kredittkort` |
+| remoteAccountNumber | the other party's, when there is one | `-1` on all but the bill |
+| pending | 2 rows in 2026 | 7 rows in the current month alone |
+
+`bookingStatus: PENDING` rows are **dropped in `normalize`**, on every account.
+A reservation is reissued under a new id when it books and its amount can still
+move, so keeping it is how one purchase becomes two rows. There is no
+`isPending` on `Txn`: everything in the store is booked.
 
 Notes from the real data, not the plan:
 
@@ -155,9 +186,9 @@ Notes from the real data, not the plan:
   (AvtaleGiro, KID) and also guesses them from the merchant on its own
   `VISA Varekjøp` rows, where it is wrong as often as right — a one-off bag, a
   bar and a membership fee are flagged, next to HelloFresh which really is a
-  subscription. An Enable Banking card row can never carry them at all, so
-  anything on the credit card is invisible to the flag until
-  `rules/subscriptions.json` names it.
+  subscription. The card carries them too, and guessed the same way — 2 of 71
+  rows in a month — so `rules/subscriptions.json` is still what makes a
+  subscription certain.
 - A name in `rules/vipps.json` does **not** on its own mean `vipps`. A flatmate is two
   relationships at once — dozens of small instant payments, and a standing
   monthly transfer for rent — and the description is the bare name in both, so
@@ -179,13 +210,20 @@ Notes from the real data, not the plan:
   literal `ukategorisert`, which it sends on ~500 rows and which is the same
   shrug by another name. Together they are ~40% of rows, which is why
   `rules/overrides.json` does real work.
-- Card rows carry no category at all and are roughly 40% of monthly spending.
-  The merchant now arrives from the statement export, so overrides can reach
-  them. Without one, a card row is `reise` if the merchant's trailing ISO
-  country is not `NOR`, and `ukategorisert` otherwise — there is no separate
-  card bucket. The country rule reads a foreign *biller* as a trip (Apple bills
-  from IRL, Fortnite from CHE); an override wins over it, which is where those
-  belong anyway.
+- Card rows are roughly 40% of monthly spending and arrive fully classified —
+  merchant, category and MCC on every one — so there is no separate card bucket
+  and no card-shaped hole. `diverse` and `ukategorisert` are still ~17% of them.
+- A card merchant ends with the terminal's country, and inconsistently: spelled
+  out (`LAWSON, TOKYO, JAPAN`, `SLOVAKIA (Slovak Republic)`), sometimes as a
+  three-letter code (`GRC`), and on six Greek rows only the town. So the travel
+  guess is "the last comma-separated word is not Norway", and the comma is the
+  whole guard — a Norwegian payee with no country on it (`ELETRA ENERGY AS`,
+  `DUTY-FREE GARDERMOEN`) has no comma to match against.
+  It sits **below the bank's category**, not above it, which is the difference
+  between the old rule and this one: a supermarket in Vienna is groceries that
+  happened abroad, and `Telenor Norge AS, Mobil` only looks foreign. Only a row
+  the bank shrugged at reaches the guess. `mccGroup` is the honest version of
+  the same signal and needs `Txn` widened first.
 
 ## Exclusions
 
@@ -220,24 +258,36 @@ income and spending, 5 572 kr of it in one pair. An account with no `number` fal
 back to amount + date + type, exactly as before.
 
 Credit card bill payments are **excluded**, like any internal transfer. The
-card's own transactions come from Enable Banking, so counting the bills as well
-would double-count. Bill amounts and card spend diverge wildly within a month —
+card's own transactions are synced, so counting the bills as well would
+double-count. Bill amounts and card spend diverge wildly within a month —
 April 2026 paid 35k against 22k of spending — so the bills are worthless as a
 spending proxy anyway.
+
+The card account is in `rules/accounts.json` as `card: true` and deliberately
+**not** `mine`: `mine` means "a deposit account both legs of an internal
+transfer can sit in", which the card is not, and `transferReason` returns early
+for anything not `mine`. Both bill legs are caught by description regardless.
 
 A bill payment has **two legs and both must be excluded**, which the first real
 run got wrong in two ways:
 
 - Match the bank leg on `Kredittbanken`, not `Kredittbanken ASA`. The issuer
   also books these as `Kredittbanken - del av SpareBank 1`, and the narrower
-  string silently missed one.
-- The card leg is the `Innbetalinger` credit on the card account. It cannot ride
-  on the amount+date transfer rule, because the card posts the credit 0–3 days
-  after the bank debits it, and the card account is not in `rules/accounts.json` at
-  all. Excluding only the bank leg leaves the credit counted as **income**.
+  string silently missed one. Not on the account number either: the number on
+  that row is the issuer's *collection* account, not the card's own, so neither
+  leg names an account of mine and the number rule can never see this pair.
+- The card leg is the `Innbetaling` credit on the card account — singular, as
+  SB1 words it; Enable Banking said `Innbetalinger`. It cannot ride on the
+  amount+date transfer rule: the card is not a `mine` account, and the credit
+  posts 0–3 days after the bank debits it anyway. Excluding only the bank leg
+  leaves the credit counted as **income**.
 
-Card credits that are *not* `Innbetalinger` stay in: `Varekjøp` credits are
-merchant refunds and `Rabatt strømmetjenester` is cashback. Both are real.
+Card credits that are *not* a payment stay in: a `Varekjøp` credit is a merchant
+refund and `Rabatt strømmetjenester` is cashback. Both are real.
+
+The two legs land in different months about once a quarter — a bank debit on the
+28th against a card credit on the 1st — so the reason nets to zero **across the
+record, not within every month**. 22 pairs, 109 903.82 kr, netting exactly.
 
 Buying and selling funds is **excluded as `investment movement`**, in both
 directions. Money crossing the fund manager's settlement account is capital
@@ -270,55 +320,40 @@ An excluded row with no category of its own is `overfoering`, not
 and every sum in `stats.ts` skips them before it adds anything up, so the slug
 is a label for the audit view and never a bucket money lands in.
 
-## The card's merchant
+## The card's own fields
 
-The Enable Banking API returns `creditor`, `merchant_category_code` and
-`bank_transaction_code` as null on every card row, and almost every row carries
-only `Varekjøp` as remittance information. The API is correct on amount and date
-and silent on everything else.
+Everything the statement CSV used to supply now arrives on the row, and more:
 
-The merchant comes from the issuer's own **statement CSV export**, ingested with
-`pnpm sb1 statement <file.csv>` into `data/raw/card-statements/`.
-`src/core/statement.ts` joins it to the card rows on booking date and amount, which
-matched all 498 rows of Feb–Jul exactly.
+| field | what it is |
+|---|---|
+| `cleanedDescription` | the merchant, `NAME, CITY, COUNTRY`, on every row |
+| `description` | the same with the terminal number still on the front |
+| `categories` | the bank's own, on every row |
+| `mcc` / `mccGroup` | the merchant category, `-2` on the issuer's own rows |
+| `currencyAmount` + `currencyCode` | what it cost in the currency it was paid in |
+| `remoteAccountNumber` | `-1` except on the bill, where it names the paying account |
 
-There is no API behind this and there will not be — the export is downloaded
-from the issuer's portal by hand. The command exists to make the manual step
-repeatable: it files the CSV under its own booking-date range, refuses to write
-over an existing one, and rebuilds. Exports overlap by design, each covering
-everything since the card was opened, so duplicate lines are collapsed on read.
+`mcc`, `mccGroup` and `currencyAmount` are worth putting on `Txn` and are not
+there yet — widening `Txn` is its own change, not a rider on the source swap.
 
-It is a **lookup, not a source**. Card rows still come from Enable Banking,
-which has stable ids and is what `rebuild` reconstructs from; the CSV has no
-transaction id, so it could never be keyed on. Enrichment writes `counterparty`
-and nothing else — in particular it must never rewrite `description`, which the
-exclusion rules match on.
-
-Where several rows share a booking date and an amount, which line goes to which
-row is arbitrary. That is harmless: they are equal in amount by definition, so
-any permutation gives identical per-merchant totals.
-
-Without a statement covering a month, those rows keep `counterparty: null` and
-the dashboard says how many and how much, rather than claiming those rows are
-wholly opaque. A null counterparty also has no country, so such a row is never
-guessed as travel.
+The `-1` and `-2` are placeholders, not values. `normalize` maps
+`remoteAccountNumber: '-1'` to null; anything that starts reading `mcc` has to
+do the same for `-2`, or the override haystack fills with sentinels.
 
 ## Operational gotchas
 
-**Consent expiry.** The Enable Banking consent runs 90 days from 8 Aug 2026, so
-`eb-sync` starts failing around **6 Nov 2026**. `eb-login` renews it. Only the
-`CARD` account is linked; the deposit accounts were unlinked deliberately, since
-the SB1 API serves those directly.
+**A five-year ceiling on the range.** `fromDate`..`toDate` may not span more
+than five years — longer is a `400 BadRequest`, `Date interval cannot exceed 5
+years`. It is not a row limit and says nothing about pagination.
 
-**Card posting lag.** Card transactions post late and can be `PDNG`, so a July
-report run on 1 Aug misses the tail of July. Run a few days into the following
-month, or re-run with `--force`.
+**Card posting lag.** Card transactions post late and arrive `PENDING` first, so
+a July report run on 1 Aug misses the tail of July. Run a few days into the
+following month, or re-run with `--force`.
 
-**Pending card rows have no booking date** and come back in *every* month's
-response regardless of the range queried. `normalize` drops them. Anything that
-keeps them, or dates them from `transaction_date`, counts the same transaction
-once per month synced — that is exactly how a naive read of six months of files
-reports 528 card rows instead of 498.
+**Pending rows are dropped in `normalize`**, on the deposit accounts as well as
+the card. They carry a date, so this is not the missing-date rule Enable Banking
+needed: SB1 reissues a reservation under a *new* id once it books, and its
+amount can still move, so a kept pending row is how one purchase becomes two.
 
 **Re-syncing rewrites the file even when nothing changed**, because
 `classificationInput.id` is a fresh UUID per response. Compare row counts and
@@ -327,23 +362,23 @@ transaction ids, never file hashes.
 **Pagination.** `rowLimit` exists on the SB1 transactions endpoints and we have
 never set it. Nothing has come back truncated so far and every response carries
 an empty `errors` array, but that is luck, not proof. A suspiciously round row
-count is the tell. The Enable Banking side follows `continuation_key` and has a
-test.
+count is the tell.
 
 ## Rows only enter the database by rebuild
 
 `rebuild` wipes the table and reconstructs from `data/raw/`. There is no
 incremental path, and adding one back needs more thought than it looks.
 
-An upsert keyed on `(source, id)` used to exist and was wrong: **SB1 reissues a
+An upsert keyed on the id used to run incrementally and was wrong: **SB1 reissues a
 transaction under a new id when a reservation becomes booked**, so re-syncing a
 month still in flight left the old id behind as a second row. A rent payment
 appeared twice, 18 000 kr counted as 36 000, and re-importing could never clear
 it — an upsert has no way to notice a row it did not produce.
 
-Deleting just the affected month would not fix it either: a card row from the
-July directory can book into June, so a directory does not own a month. Only a
-full reconstruct is safe without tracking which file produced which row.
+Deleting just the affected month would not fix it either. Every account is now
+queried on the same date field `Txn` is keyed on, so a directory does happen to
+own its month — but that is a property of today's endpoints, not an invariant,
+and a full reconstruct is safe without tracking which file produced which row.
 
 At a thousand rows this takes a few hundred milliseconds. Revisit when that
 stops being true, not before.

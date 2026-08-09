@@ -29,7 +29,7 @@ import { createServer } from 'node:http';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { openDb, queryRange } from '../core/db.ts';
 import { rebuildAll, DB_FILE } from '../core/pipeline.ts';
-import { syncMonth, ebSyncMonth, syncCost } from '../net/sync.ts';
+import { syncMonth, syncCost } from '../net/sync.ts';
 import { canAfford, remaining, used, HOURLY_CAP } from '../net/budget.ts';
 
 const STATE = 'data/sync-state.json';
@@ -100,16 +100,13 @@ async function refresh(months: string[], age: number | null): Promise<void> {
   // as an attempt, or a dead token turns every page load into another retry.
   markAttempt();
 
-  // One source failing must not discard what the other fetched. The card leg in
-  // particular fails on its own schedule — an expired consent, an ASPSP error —
-  // and the bank rows that already landed are still worth importing.
+  // One month failing must not discard what the others fetched — and whatever
+  // did land is still worth importing, so the rebuild below runs either way.
   for (const month of months) {
-    for (const leg of [syncMonth, ebSyncMonth]) {
-      try {
-        await leg(month, true);
-      } catch (e) {
-        console.error(`${leg.name} ${month} failed: ${e instanceof Error ? e.message : e}`);
-      }
+    try {
+      await syncMonth(month, true);
+    } catch (e) {
+      console.error(`sync ${month} failed: ${e instanceof Error ? e.message : e}`);
     }
   }
   // A full reconstruct, not an upsert of just these months: SB1 reissues ids

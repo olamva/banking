@@ -22,6 +22,8 @@ test('a populated state round-trips, nulls included', () => {
       categoryMode: 'exclude',
       merchants: ['Rema 1000', 'Kiwi'],
       merchantMode: 'include',
+      accounts: ['Mastercard Ung'],
+      accountMode: 'exclude',
       search: 'rema',
       showExcluded: true,
     },
@@ -83,6 +85,13 @@ test('the category mode rides along, and only when it is not the default', () =>
 });
 
 /** A merchant name can hold a comma, so each gets its own param rather than one joined list. */
+test('accounts ride along as their own repeated param', () => {
+  const f = { ...NO_FILTERS, accounts: ['Sparekonto, felles'], accountMode: 'exclude' as const };
+  const q = toParams({ ...DEFAULT, filters: f });
+  assert.equal(q, 'acct=Sparekonto%2C+felles&acct_mode=exclude');
+  assert.deepEqual(fromParams(new URLSearchParams(q)).filters, f);
+});
+
 test('merchants survive a comma in the name', () => {
   const state: UrlState = {
     ...DEFAULT,

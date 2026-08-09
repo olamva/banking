@@ -36,14 +36,13 @@ test('SB1 date formats at Oslo midnight, not UTC', () => {
   }, (dir) => {
     const [txn] = normalizeMonth(dir);
     assert.equal(txn.date, '2026-07-01');
-    assert.equal(txn.source, 'sb1');
+    assert.equal(txn.account, 'acct');
     assert.equal(txn.counterparty, 'Clean Desc');
     assert.equal(txn.bankCategory, 'dagligvarer');
     // Carried through verbatim: `exclude` reads it to tell a transfer from a
     // purchase that merely matches one, so dropping it here would silently
     // turn every coincidence back into an internal transfer.
     assert.equal(txn.typeText, 'VISA Varekjøp');
-    assert.equal(txn.isPending, false);
   });
 });
 
@@ -68,59 +67,71 @@ test('SB1 falls back to remoteAccountName when cleanedDescription is absent', ()
   });
 });
 
-test('card DBIT/CRDT sign and pending status', () => {
+test('an account is named by rules/accounts.json, and by its key when it is not', () => {
+  // Same file shape as any other account — the card is an SB1 account like the
+  // rest, and the rules file is the only thing that gives any of them a name.
   withMonthDir({
-    'eb-account.json': {
-      account: { uid: 'card-uid' },
+    'card-key.json': {
+      transactions: [{
+        transaction: {
+          id: 'card-1', accountKey: 'card-key', amount: -250,
+          date: Date.UTC(2026, 6, 14, 22, 0, 0),
+          description: '227 SHOP, Oslo, NORWAY', cleanedDescription: 'SHOP, Oslo, NORWAY',
+          typeText: 'Transaksjon', bookingStatus: 'BOOKED',
+          // The card sends this placeholder where there is no other party. It
+          // must not reach the override haystack looking like an account.
+          remoteAccountNumber: '-1',
+        },
+        categories: [{ main: 'dagligvarer' }],
+        recurring: false,
+        subscription: false,
+      }],
+    },
+  }, (dir) => {
+    const [txn] = normalizeMonth(dir, { 'card-key': 'Kredittkort' });
+    assert.equal(txn.account, 'Kredittkort');
+    assert.equal(txn.accountKey, 'card-key');
+    assert.equal(txn.date, '2026-07-15');
+    assert.equal(txn.amount, -250);
+    assert.equal(txn.counterparty, 'SHOP, Oslo, NORWAY');
+    assert.equal(txn.bankCategory, 'dagligvarer');
+    assert.equal(txn.typeText, 'Transaksjon');
+    assert.equal(txn.remoteAccountNumber, null);
+    // An account the rules file has not named falls back to its key, so a row
+    // is never nameless on the page.
+    assert.equal(normalizeMonth(dir)[0].account, 'card-key');
+  });
+});
+
+test('pending rows are dropped, whichever account they are on', () => {
+  // A reservation is reissued under a new id once it books, and its amount can
+  // still move. Only booked rows go in the store, which is what makes a
+  // re-synced month idempotent.
+  withMonthDir({
+    'acct.json': {
       transactions: [
         {
-          transaction_id: 'card-1', transaction_amount: { amount: '250.00' },
-          credit_debit_indicator: 'DBIT', booking_date: '2026-07-15',
-          remittance_information: ['Varekjøp'], status: 'BOOK',
+          transaction: {
+            id: 'booked', accountKey: 'acct', amount: -66,
+            date: Date.UTC(2026, 7, 6, 22, 0, 0), description: 'd', bookingStatus: 'BOOKED',
+          },
+          categories: [], recurring: false, subscription: false,
         },
         {
-          transaction_id: 'card-2', transaction_amount: { amount: '50.00' },
-          credit_debit_indicator: 'CRDT', booking_date: '2026-07-16',
-          remittance_information: [], status: 'PDNG',
+          transaction: {
+            id: 'pending', accountKey: 'acct', amount: -119,
+            date: Date.UTC(2026, 7, 8, 22, 0, 0), description: 'd', bookingStatus: 'PENDING',
+          },
+          categories: [], recurring: false, subscription: false,
         },
       ],
     },
   }, (dir) => {
-    const txns = normalizeMonth(dir);
-    assert.equal(txns.length, 2);
-    assert.equal(txns[0].source, 'card');
-    assert.equal(txns[0].accountKey, 'card-uid');
-    assert.equal(txns[0].date, '2026-07-15');
-    assert.equal(txns[0].amount, -250);
-    assert.equal(txns[0].counterparty, null);
-    assert.equal(txns[0].bankCategory, null);
-    // Enable Banking has no equivalent, so a card row can never be a transfer leg.
-    assert.equal(txns[0].typeText, null);
-    assert.equal(txns[0].isPending, false);
-    assert.equal(txns[1].amount, 50);
-    assert.equal(txns[1].isPending, true);
+    assert.deepEqual(normalizeMonth(dir).map((t) => t.id), ['booked']);
   });
 });
 
-test('card rows with no booking_date yet are skipped, not dated by transaction_date', () => {
-  // Enable Banking returns the same open-pending rows in every month's
-  // query regardless of range; without a booking_date they can't be
-  // attributed to any month, and transaction_date is explicitly off-limits.
-  withMonthDir({
-    'eb-account.json': {
-      account: { uid: 'card-uid' },
-      transactions: [{
-        transaction_id: 'pending-1', transaction_amount: { amount: '99.00' },
-        credit_debit_indicator: 'DBIT', booking_date: null, transaction_date: '2026-08-08',
-        remittance_information: [], status: 'PDNG',
-      }],
-    },
-  }, (dir) => {
-    assert.deepEqual(normalizeMonth(dir), []);
-  });
-});
-
-test('mixed month directory flattens both shapes together', () => {
+test('a month directory flattens every account file it holds', () => {
   withMonthDir({
     'acct.json': {
       transactions: [{
@@ -133,20 +144,24 @@ test('mixed month directory flattens both shapes together', () => {
         subscription: true,
       }],
     },
-    'eb-card.json': {
-      account: { uid: 'card-uid' },
+    'card-key.json': {
       transactions: [{
-        transaction_id: 'card-1', transaction_amount: { amount: '10.00' },
-        credit_debit_indicator: 'DBIT', booking_date: '2026-07-11',
-        remittance_information: ['Varekjøp'], status: 'BOOK',
+        transaction: {
+          id: 'card-1', accountKey: 'card-key', amount: -10,
+          date: Date.UTC(2026, 6, 10, 22, 0, 0), description: 'SHOP, Oslo, NORWAY',
+        },
+        categories: [{ main: 'dagligvarer' }],
+        recurring: false,
+        subscription: false,
       }],
     },
   }, (dir) => {
-    const txns = normalizeMonth(dir).sort((a, b) => a.source.localeCompare(b.source));
-    assert.deepEqual(txns.map((t) => t.source), ['card', 'sb1']);
-    const sb1 = txns.find((t) => t.source === 'sb1')!;
-    assert.equal(sb1.isRecurring, true);
-    assert.equal(sb1.isSubscription, true);
+    const names = { acct: 'Brukskonto', 'card-key': 'Kredittkort' };
+    const txns = normalizeMonth(dir, names).sort((a, b) => a.account.localeCompare(b.account));
+    assert.deepEqual(txns.map((t) => t.account), ['Brukskonto', 'Kredittkort']);
+    const bank = txns.find((t) => t.account === 'Brukskonto')!;
+    assert.equal(bank.isRecurring, true);
+    assert.equal(bank.isSubscription, true);
   });
 });
 

@@ -68,8 +68,11 @@ interface HorizontalBarsProps {
    * Every row is a filter button for its own label. The second argument is
    * whether the meta key was held — the chart does not know what that means,
    * only that it happened.
+   *
+   * Omit it and the rows are plain text: a breakdown nothing can filter on has
+   * no business looking clickable.
    */
-  onPick: (label: string, meta: boolean) => void;
+  onPick?: (label: string, meta: boolean) => void;
 }
 
 /**
@@ -92,35 +95,48 @@ export const HorizontalBars = ({ items, onPick }: HorizontalBarsProps) => {
   return (
     <>
       <div className="flex flex-col">
-        {items.map((item) => (
-          <button
-            key={item.label}
-            type="button"
-            onClick={(e) => onPick(item.label, e.metaKey)}
-            className="flex h-[26px] items-center gap-2 rounded-md text-[11px] hover:bg-hover"
-            {...bind(
-              <>
-                <div className="text-ink-soft">{item.label}</div>
-                <div className="font-semibold">
-                  {fmtNOK(item.total)}
-                  {item.count ? ` · ${item.count} txns` : ''}
-                </div>
-              </>,
-            )}
-          >
-            <span className="w-[122px] shrink-0 truncate text-right text-ink-soft">{item.label}</span>
-            <span className="flex min-w-0 flex-1 items-center gap-2">
-              {/* The bar area keeps 78px back for the value, as the SVG did — a
-                  full-width bar would otherwise push the number off the edge.
-                  `min-w-px` keeps the smallest total visible as a sliver. */}
-              <span
-                className="h-4 min-w-px rounded bg-series-1"
-                style={{ width: `calc((100% - 78px) * ${item.total / maxVal})` }}
-              />
-              <span className="shrink-0 font-semibold">{fmtNOK(item.total)}</span>
-            </span>
-          </button>
-        ))}
+        {items.map((item) => {
+          const row = (
+            <>
+              <span className="w-[122px] shrink-0 truncate text-right text-ink-soft">{item.label}</span>
+              <span className="flex min-w-0 flex-1 items-center gap-2">
+                {/* The bar area keeps 78px back for the value, as the SVG did — a
+                    full-width bar would otherwise push the number off the edge.
+                    `min-w-px` keeps the smallest total visible as a sliver. */}
+                <span
+                  className="h-4 min-w-px rounded bg-series-1"
+                  style={{ width: `calc((100% - 78px) * ${item.total / maxVal})` }}
+                />
+                <span className="shrink-0 font-semibold">{fmtNOK(item.total)}</span>
+              </span>
+            </>
+          );
+          const tip = bind(
+            <>
+              <div className="text-ink-soft">{item.label}</div>
+              <div className="font-semibold">
+                {fmtNOK(item.total)}
+                {item.count ? ` · ${item.count} txns` : ''}
+              </div>
+            </>,
+          );
+          const shared = 'flex h-[26px] items-center gap-2 rounded-md text-[11px]';
+          return onPick ? (
+            <button
+              key={item.label}
+              type="button"
+              onClick={(e) => onPick(item.label, e.metaKey)}
+              className={`${shared} hover:bg-hover`}
+              {...tip}
+            >
+              {row}
+            </button>
+          ) : (
+            <div key={item.label} className={shared} {...tip}>
+              {row}
+            </div>
+          );
+        })}
       </div>
       {node}
     </>

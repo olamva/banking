@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  AXES,
   axisBounds,
   matchesFilters,
   inRange,
@@ -11,13 +12,14 @@ import {
   NO_FILTERS,
 } from './select.ts';
 import type { Categorized } from './types.ts';
+import type { Filters } from './select.ts';
 
 // Selection only. Aggregation is stats.ts, pinned by src/core/stats.test.ts —
 // the React app imports both directly, so what runs here is what runs there.
 
 function txn(partial: Partial<Categorized> & { id: string; amount: number }): Categorized {
   return {
-    source: 'sb1',
+    account: 'Brukskonto',
     accountKey: 'acc',
     date: '2026-07-15',
     description: 'test',
@@ -27,7 +29,6 @@ function txn(partial: Partial<Categorized> & { id: string; amount: number }): Ca
     remoteAccountNumber: null,
     isRecurring: false,
     isSubscription: false,
-    isPending: false,
     excluded: false,
     reason: null,
     category: 'dagligvarer',
@@ -259,4 +260,29 @@ test('distinctMerchants falls back to the description and is sorted and deduplic
 test('distinctCategories drives the filter chips, so it is sorted and deduplicated', () => {
   const txns = [txn({ id: '1', amount: -1, category: 'transport' }), txn({ id: '2', amount: -1, category: 'dagligvarer' }), txn({ id: '3', amount: -1, category: 'transport' })];
   assert.deepEqual(distinctCategories(txns), ['dagligvarer', 'transport']);
+});
+
+test('the account filter is the third axis, and works either way round', () => {
+  const rows = [
+    txn({ id: '1', amount: -100, account: 'Brukskonto' }),
+    txn({ id: '2', amount: -100, account: 'Mastercard Ung' }),
+  ];
+  const shown = (f: Partial<Filters>) =>
+    rows.filter((t) => matchesFilters(t, { ...NO_FILTERS, ...f })).map((t) => t.id);
+
+  assert.deepEqual(shown({ accounts: ['Mastercard Ung'] }), ['2']);
+  assert.deepEqual(shown({ accounts: ['Mastercard Ung'], accountMode: 'exclude' }), ['1']);
+  // A filter nobody set must never empty the page, whichever mode it is in.
+  assert.deepEqual(shown({ accountMode: 'exclude' }), ['1', '2']);
+  // The axes are ANDed, like the other two already are.
+  assert.deepEqual(shown({ accounts: ['Brukskonto'], categories: ['reise'] }), []);
+});
+
+test('AXES names every list filter with the field holding its mode', () => {
+  // The UI toggles all three through this map, so a filter missing from it is a
+  // filter with no menu and no chip.
+  for (const [list, mode] of Object.entries(AXES)) {
+    assert.ok(Array.isArray(NO_FILTERS[list as keyof typeof AXES]), `${list} is a list`);
+    assert.equal(NO_FILTERS[mode], 'include');
+  }
 });

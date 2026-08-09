@@ -59,11 +59,23 @@ in the catalog is not the media type version, and v5 is not accepted.
 | `GET /transactions/classified` | same params, different envelope — see below |
 | `GET /transactions/{id}/details` | also `/details/classified` |
 | `GET /transactions/export` | CSV, needs the CSV Accept header |
-| `GET /common/helloworld` | cheapest way to verify a token end to end |
+| `GET /common/helloworld` | **404s** under `/personal/banking` — path unconfirmed, do not reach for it |
 
 `accountKey` being repeatable means all accounts can be fetched in one request.
 `rowLimit` exists, so there is an unverified pagination ceiling — if a month ever
 returns a suspiciously round number of rows, that is why.
+
+**`fromDate`..`toDate` may not exceed five years.** Longer is a
+`400 BadRequest`, `Date interval cannot exceed 5 years`. It is a range check,
+not a row limit, and it is the reason a full-history sweep is done a month at a
+time rather than in one call.
+
+**The credit card answers on the ordinary transactions endpoints.** Its key
+comes back only when `includeCreditCardAccounts=true`, it is short and numeric
+where a deposit key is a 20-character opaque string, and its `productType` is
+`UNKNOWN` and `type` `CREDITCARD`. None of that stops `/transactions/classified`
+taking it like any other key. There is no separate credit API to find — the
+`/credit/*` paths 403 — and none is needed.
 
 **A customer client gets four APIs, and that is all:** Hello World, Accounts,
 Transactions, Transfer. Anything else 403s with an empty body —
@@ -80,8 +92,9 @@ partner and internal ones a customer client can never call. The filtered
 
 `GET /accounts` → `{accounts: [{key, name, accountNumber, iban, balance,
 availableBalance, currencyCode, type, productType, productId, description,
-owner, accountProperties}]}`. `type` is `USER` | `SAVING`; `productType` seen
-only as `LOCDEPOSIT`.
+owner, accountProperties}]}`. `type` is `USER` | `SAVING` | `STOCKSAVING` |
+`CREDITCARD`; `productType` is `LOCDEPOSIT` on everything but the card, which
+is `UNKNOWN`.
 
 `GET /transactions` → `{transactions: [...], errors: []}`.
 
@@ -105,9 +118,25 @@ not merged into it:
 }]}
 ```
 
-`amount` is signed, negative for money out. `id` is opaque and long; `nonUniqueId`
-is not an identifier. There is no merchant or remote account number on this
-endpoint — only on `/details`.
+`amount` is signed, negative for money out. `id` is opaque and long;
+`nonUniqueId` is not an identifier. A structured merchant exists only on
+`/details`, but `cleanedDescription` is the bank's own cleaned merchant string
+and is what the row is worth reading for.
+
+Card rows carry more, not less: `mcc`, `mccGroup`, `currencyAmount` +
+`currencyCode` for the original currency, and a `creditCardIdentifiers` object.
+`-1` (`remoteAccountNumber`) and `-2` (`mcc`, `mccGroup`) are **placeholders for
+absent**, not values.
+
+`bookingStatus` is `BOOKED` or `PENDING`, on every account and not only the
+card. A pending row has a date like any other, but its `id` is reissued when it
+books.
+
+**Only `/details` carries a booking date.** The list endpoints have the single
+`date` field, which on a card row is the *purchase* date; `/details` adds
+`bookedDate`, `postingDate` and `valueDate` alongside it, one request per
+transaction. `canShowDetails: false` on a card row does not stop `/details`
+answering for it.
 
 ## The date field
 
@@ -122,5 +151,15 @@ new Date(ms).toLocaleDateString('en-CA', { timeZone: 'Europe/Oslo' })  // YYYY-M
 ## Terms
 
 Personal use only. Rate limits are enforced — one request per call, no retry
-loops, surface 429 with its `Retry-After` rather than working around it.
+loops, surface 429 rather than working around it.
+
+**The limit is published, not documented.** Every response carries
+`x-ratelimit-remaining`, and at zero the next call is a `429` — verified, with
+the counter on the refusal too. There is no `x-ratelimit-limit` and no
+`x-ratelimit-reset`, and SB1 sends **no `Retry-After`**, so the ceiling and the
+window can only be observed, never read off. Do not assert a number for either;
+`60/hour` was this repo's guess and the API states nothing of the kind.
+
+A 429 costs a request like any other: the local ledger spends before the call
+goes out, so a run that pushes past the bank's limit burns budget on refusals.
 Credentials are confidential.

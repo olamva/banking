@@ -9,7 +9,7 @@ import type { Categorized } from './types.ts';
 function row(overrides: Partial<Categorized> = {}): Categorized {
   return {
     id: 'a1',
-    source: 'sb1',
+    account: 'Brukskonto',
     accountKey: 'acc1',
     date: '2026-07-15',
     amount: -100,
@@ -20,7 +20,6 @@ function row(overrides: Partial<Categorized> = {}): Categorized {
     remoteAccountNumber: null,
     isRecurring: false,
     isSubscription: false,
-    isPending: false,
     excluded: false,
     reason: null,
     category: 'dagligvarer',
@@ -28,15 +27,14 @@ function row(overrides: Partial<Categorized> = {}): Categorized {
   };
 }
 
-test('upsertMany inserts, then updates in place on re-import (card rows flip PDNG)', () => {
+test('upsertMany inserts, then updates in place on re-import', () => {
   const db = openDb(':memory:');
-  upsertMany(db, [row({ isPending: true, amount: -50 })]);
-  assert.deepEqual(queryRange(db, '2026-07', '2026-07'), [row({ isPending: true, amount: -50 })]);
+  upsertMany(db, [row({ amount: -50 })]);
+  assert.deepEqual(queryRange(db, '2026-07', '2026-07'), [row({ amount: -50 })]);
 
-  upsertMany(db, [row({ isPending: false, amount: -55 })]);
+  upsertMany(db, [row({ amount: -55 })]);
   const rows = queryRange(db, '2026-07', '2026-07');
   assert.equal(rows.length, 1);
-  assert.equal(rows[0]?.isPending, false);
   assert.equal(rows[0]?.amount, -55);
   db.close();
 });
@@ -51,10 +49,12 @@ test('the "excluded" column survives an update despite colliding with the ON CON
   db.close();
 });
 
-test('(source, id) is the key — same id on both sources coexists', () => {
+test('the id is the whole key — SB1 does not reuse one across accounts', () => {
   const db = openDb(':memory:');
-  upsertMany(db, [row({ source: 'sb1', id: 'x' }), row({ source: 'card', id: 'x' })]);
-  assert.equal(queryRange(db, '2026-07', '2026-07').length, 2);
+  upsertMany(db, [row({ account: 'Brukskonto', id: 'x' }), row({ account: 'Kredittkort', id: 'x' })]);
+  const rows = queryRange(db, '2026-07', '2026-07');
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0]?.account, 'Kredittkort', 'the later row wins, as any re-import does');
   db.close();
 });
 

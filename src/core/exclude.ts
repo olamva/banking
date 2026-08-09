@@ -14,10 +14,20 @@ import type { Txn, Classified } from './types.ts';
  * `investment: true` is the fund manager's settlement account, which is not
  * mine and never will be. Money crossing it is my own capital changing form,
  * not spending and not income — see `investmentReason`.
+ *
+ * `name` is what the account is called on the page — see `Txn.account`. It is
+ * the only field here that is not about money, and the only one the browser
+ * ever sees.
+ *
+ * `card: true` is the credit card, and it is deliberately **not** `mine`:
+ * `mine` means "a deposit account both legs of an internal transfer can sit
+ * in", and the card is not one. `billReason` is the one reader — a bill payment
+ * is worded one way on the card and another on the account that pays it, so
+ * something has to say which side a row is on.
  */
 export type Accounts = Record<
   string,
-  { mine: boolean; number?: string; sync?: boolean; investment?: boolean }
+  { mine: boolean; name?: string; number?: string; sync?: boolean; investment?: boolean; card?: boolean }
 >;
 
 /**
@@ -25,6 +35,11 @@ export type Accounts = Record<
  * `Kredittbanken ASA`: the issuer also books these as
  * `Kredittbanken - del av SpareBank 1`, and the narrower string silently
  * missed those.
+ *
+ * Still matched on the name and not on the account number, because the number
+ * on that row is the *issuer's* collection account, not the card's own — so
+ * neither leg names an account of mine and the number rule below can never see
+ * this pair.
  */
 const BANK_BILL = 'Kredittbanken';
 
@@ -33,14 +48,17 @@ const BANK_BILL = 'Kredittbanken';
  * one transfer seen from both ends, so both have to go — excluding only the
  * bank side leaves the credit counted as income.
  *
- * This can't ride on the amount+date transfer rule: the card posts the credit
- * 0-3 days after the bank debits, so the dates disagree. Matching on the
- * card's own wording is what actually pairs them, and every `Innbetalinger`
- * row observed so far reconciles 1:1 by amount with a bank-side bill.
- * Merchant refunds arrive as `Varekjøp` credits and are genuine negative
- * spending, so they stay in.
+ * This can't ride on the amount+date transfer rule: the card is not a `mine`
+ * account, and the credit posts 0-3 days after the bank debits it anyway.
+ * Matching on the card's own wording is what actually pairs them, and every
+ * such row observed so far reconciles 1:1 by amount with a bank-side bill.
+ *
+ * `Innbetaling` singular is SB1's wording; Enable Banking said `Innbetalinger`,
+ * which this still matches as a prefix. Card credits that are *not* a payment
+ * stay in: a merchant refund is a real negative spend, and
+ * `Rabatt strømmetjenester` is cashback.
  */
-const CARD_BILL = 'Innbetalinger';
+const CARD_BILL = 'Innbetaling';
 
 /**
  * The bank's own word for a row that moves money rather than spends it:
@@ -59,7 +77,13 @@ const CARD_BILL = 'Innbetalinger';
  */
 const TRANSFER_TYPE = /overf(ø|o)r/i;
 
-/** Card rows have no `typeText` at all, so they can never be a transfer leg — which is correct. */
+/**
+ * Card rows carry a `typeText` of their own — `Transaksjon` on a booked
+ * purchase, `Kredittkort` on the rest — and neither is a transfer, which is
+ * correct: nothing on the card is a leg of a move between my own accounts. That
+ * used to hold because the field was null on every card row, so it rests on the
+ * value now and not on the absence.
+ */
 const isTransferType = (t: Txn): boolean => TRANSFER_TYPE.test(t.typeText ?? '');
 
 /**
@@ -91,10 +115,15 @@ export function exclude(txns: Txn[], accounts: Accounts): Classified[] {
     );
   const myNumbers = numbers((a) => a.mine);
   const fundNumbers = numbers((a) => !!a.investment);
+  const cards = new Set(
+    Object.entries(accounts)
+      .filter(([, a]) => a.card)
+      .map(([key]) => key),
+  );
 
   return txns.map((t) => {
     const reason =
-      billReason(t) ??
+      billReason(t, cards) ??
       investmentReason(t, fundNumbers) ??
       transferReason(t, txns, mine, myNumbers, accounts[t.accountKey]?.number);
     return { ...t, excluded: reason !== null, reason };
@@ -122,8 +151,8 @@ function investmentReason(t: Txn, fundNumbers: Set<string>): string | null {
     : null;
 }
 
-function billReason(t: Txn): string | null {
-  if (t.source === 'card') {
+function billReason(t: Txn, cards: Set<string>): string | null {
+  if (cards.has(t.accountKey)) {
     return t.description.includes(CARD_BILL) ? 'credit card bill payment (card side)' : null;
   }
   return t.description.includes(BANK_BILL) ? 'credit card bill payment' : null;

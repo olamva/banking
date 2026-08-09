@@ -1,7 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  blindSpot,
   cumulative,
   dailySeries,
   monthStats,
@@ -17,7 +16,7 @@ import type { Categorized } from './types.ts';
 
 function txn(partial: Partial<Categorized> & { id: string; amount: number }): Categorized {
   return {
-    source: 'sb1',
+    account: 'Brukskonto',
     accountKey: 'acc',
     date: '2026-07-15',
     description: 'test',
@@ -27,7 +26,6 @@ function txn(partial: Partial<Categorized> & { id: string; amount: number }): Ca
     remoteAccountNumber: null,
     isRecurring: false,
     isSubscription: false,
-    isPending: false,
     excluded: false,
     reason: null,
     category: 'dagligvarer',
@@ -64,13 +62,19 @@ test('excluded rows are kept out of totals but reported', () => {
   assert.deepEqual([t.totalIn, t.totalOut, t.net], [stats.totalIn, stats.totalOut, stats.net]);
 });
 
-test('card rows have no counterparty, are excluded from topCounterparties, and their share is surfaced', () => {
+test('spending splits by account, and a nameless row is still out of topCounterparties', () => {
   const txns = [
     txn({ id: '1', amount: -100, category: 'dagligvarer', counterparty: 'Kiwi' }),
-    txn({ id: '2', source: 'card', amount: -300, category: 'kort', counterparty: null }),
+    txn({ id: '2', account: 'Kredittkort', amount: -300, category: 'kort', counterparty: null }),
+    // Income and excluded rows are not spending, so neither reaches the split.
+    txn({ id: '3', account: 'Kredittkort', amount: 5000, counterparty: null }),
+    txn({ id: '4', amount: -9000, excluded: true, reason: 'internal transfer' }),
   ];
   const stats = monthStats('2026-07', txns);
-  assert.equal(stats.cardShare, 0.75);
+  assert.deepEqual(stats.accounts, [
+    { account: 'Kredittkort', total: 300, share: 0.75 },
+    { account: 'Brukskonto', total: 100, share: 0.25 },
+  ]);
   assert.equal(stats.topCounterparties.length, 1);
   assert.equal(stats.topCounterparties[0].counterparty, 'Kiwi');
 });
@@ -128,11 +132,10 @@ test('subsAndRecurring merges the two lists without repeating a row', () => {
   assert.deepEqual(merged.map((t) => t.id), ['2', '3', '1'], 'deduplicated and sorted by date');
 });
 
-/** Same id on two sources is two transactions — the key is the pair, as in the database. */
-test('subsAndRecurring keys on source and id together', () => {
-  const bank = txn({ id: 'x', amount: -99, isSubscription: true });
-  const card = txn({ id: 'x', source: 'card', amount: -99, isRecurring: true });
-  assert.equal(subsAndRecurring(monthStats('2026-07', [bank, card])).length, 2);
+/** One id is one transaction, as in the database — the same row in both lists is still one row. */
+test('subsAndRecurring keys on the id alone', () => {
+  const row = txn({ id: 'x', amount: -99, isSubscription: true, isRecurring: true });
+  assert.equal(subsAndRecurring(monthStats('2026-07', [row])).length, 1);
 });
 
 /**
@@ -176,7 +179,7 @@ test('subscriptionGroups sums the charges per name, newest category, latest date
     // No counterparty, so the name is the description — the same fallback the table shows.
     txn({
       id: '4',
-      source: 'card',
+      account: 'Kredittkort',
       amount: -50,
       counterparty: null,
       description: 'Varekjøp',
@@ -239,7 +242,7 @@ test('subscriptionGroups nets a refund off its own group', () => {
  * nobody has any record of.
  */
 test('withGaps keeps every calendar month between the first and the last', () => {
-  const m = (at: string): SeriesPoint => ({ at, totalIn: 0, totalOut: 0, cardOut: 0 });
+  const m = (at: string): SeriesPoint => ({ at, totalIn: 0, totalOut: 0 });
 
   const gapped = withGaps([m('2025-05'), m('2025-08')]);
   assert.deepEqual(gapped.map((x) => x?.at ?? null), ['2025-05', null, null, '2025-08']);
@@ -304,10 +307,10 @@ test('dailySeries stops on the real last day of a month, not the -31 bound', () 
   assert.deepEqual(dailySeries([], '2026-07-02', '2026-07-01'), []);
 });
 
-test('dailySeries skips excluded rows and counts card spend separately', () => {
+test('dailySeries skips excluded rows', () => {
   const [day] = dailySeries(
     [
-      txn({ id: '1', amount: -100, date: '2026-07-01', source: 'card' }),
+      txn({ id: '1', amount: -100, date: '2026-07-01', account: 'Kredittkort' }),
       txn({ id: '2', amount: -50, date: '2026-07-01' }),
       txn({ id: '3', amount: -9000, date: '2026-07-01', excluded: true, reason: 'internal transfer' }),
     ],
@@ -315,21 +318,20 @@ test('dailySeries skips excluded rows and counts card spend separately', () => {
     '2026-07-01',
   );
   assert.equal(day?.totalOut, 150);
-  assert.equal(day?.cardOut, 100);
 });
 
 test('cumulative runs the totals forward and never loses a øre over a long series', () => {
   const running = cumulative([
-    { at: '2026-07-01', totalIn: 0, totalOut: 100.1, cardOut: 100.1 },
-    { at: '2026-07-02', totalIn: 2000, totalOut: 0, cardOut: 0 },
-    { at: '2026-07-03', totalIn: 0, totalOut: 50.2, cardOut: 0 },
+    { at: '2026-07-01', totalIn: 0, totalOut: 100.1 },
+    { at: '2026-07-02', totalIn: 2000, totalOut: 0 },
+    { at: '2026-07-03', totalIn: 0, totalOut: 50.2 },
   ]);
   assert.deepEqual(
-    running.map((p) => [p.at, p.totalOut, p.totalIn, p.cardOut]),
+    running.map((p) => [p.at, p.totalOut, p.totalIn]),
     [
-      ['2026-07-01', 100.1, 0, 100.1],
-      ['2026-07-02', 100.1, 2000, 100.1],
-      ['2026-07-03', 150.3, 2000, 100.1],
+      ['2026-07-01', 100.1, 0],
+      ['2026-07-02', 100.1, 2000],
+      ['2026-07-03', 150.3, 2000],
     ],
   );
 
@@ -363,25 +365,6 @@ test('a cumulative series ends on the same numbers as totals()', () => {
   assert.equal(cumulative(monthlySeries(txns)).at(-1)?.totalOut, sums.totalOut);
 });
 
-test('blindSpot counts only spending that still has no merchant', () => {
-  const txns = [
-    txn({ id: '1', source: 'card', amount: -300, counterparty: null }),
-    txn({ id: '2', source: 'card', amount: -100, counterparty: 'KAFFEBAR' }),
-    txn({ id: '3', amount: -50, counterparty: 'Rema' }),
-    // income and excluded rows are not spending, merchant or not
-    txn({ id: '4', source: 'card', amount: 900, counterparty: null }),
-    txn({ id: '5', source: 'card', amount: -500, counterparty: null, excluded: true, reason: 'transfer' }),
-    // a nameless SB1 row waits on no statement export, so it is not this note's business
-    txn({ id: '6', source: 'sb1', amount: -7000, counterparty: null }),
-  ];
-  assert.deepEqual(blindSpot(txns), { count: 1, total: 300 });
-});
-
-test('blindSpot is empty once a statement covers every card row', () => {
-  const txns = [txn({ id: '1', source: 'card', amount: -300, counterparty: 'KAFFEBAR' })];
-  assert.deepEqual(blindSpot(txns), { count: 0, total: 0 });
-});
-
 test('yearStats builds a monthly series and per-category totals across the year', () => {
   const months = [
     {
@@ -392,7 +375,7 @@ test('yearStats builds a monthly series and per-category totals across the year'
       month: '2026-07',
       txns: [
         txn({ id: '2', amount: -200, category: 'dagligvarer', date: '2026-07-10' }),
-        txn({ id: '3', source: 'card', amount: -100, category: 'kort', counterparty: null, date: '2026-07-11' }),
+        txn({ id: '3', account: 'Kredittkort', amount: -100, category: 'kort', counterparty: null, date: '2026-07-11' }),
       ],
     },
   ];
@@ -401,7 +384,6 @@ test('yearStats builds a monthly series and per-category totals across the year'
     stats.months.map((m) => m.month),
     ['2026-06', '2026-07'],
   );
-  assert.equal(stats.months[1].cardShare, 0.3333);
   const dagligvarer = stats.categories.find((c) => c.category === 'dagligvarer');
   assert.equal(dagligvarer?.total, 300);
   assert.equal(stats.averageMonth.totalOut, 200);

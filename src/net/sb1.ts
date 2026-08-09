@@ -13,6 +13,54 @@ export class ReauthRequired extends Error {
   }
 }
 
+/**
+ * The bank refusing, as opposed to our own ledger refusing first.
+ *
+ * SB1 publishes `x-ratelimit-remaining` on **every** response and answers 429
+ * once it reaches zero, so the real ceiling never has to be guessed at — which
+ * is just as well, because the 60/hour this repo assumed is not a number the
+ * API ever states. A sweep treats this exactly like a spent local budget: stop,
+ * say where it got to, and let a re-run carry on.
+ */
+export class RateLimited extends Error {
+  // A plain field, not a parameter property: Node strips types rather than
+  // compiling them, so `erasableSyntaxOnly` rules that shorthand out.
+  retryAfter: string | null;
+
+  constructor(retryAfter: string | null) {
+    super(
+      `SpareBank 1 refused: 429, its own rate limit. ` +
+        (retryAfter ? `Retry after ${retryAfter}s.` : `It does not say for how long — wait, then re-run.`),
+    );
+    this.retryAfter = retryAfter;
+  }
+}
+
+/**
+ * What the bank last said was left, or null before the first call of the
+ * process. Informational: the 429 is what actually stops anything.
+ */
+let lastRemaining: number | null = null;
+
+export const bankRemaining = (): number | null => lastRemaining;
+
+/**
+ * What a response says about the bank's budget, and whether it refused.
+ *
+ * Split out of `get` so it can be tested at all: everything around it is the
+ * keychain and the token exchange, and a test that reached those would either
+ * need the real refresh token or would overwrite it with a fake one.
+ *
+ * The header is read before either throw, because a 429 carries it too — that
+ * is the response that most wants recording.
+ */
+export function noteLimits(status: number, headers: Headers): void {
+  const remaining = headers.get('x-ratelimit-remaining');
+  if (remaining !== null && remaining !== '') lastRemaining = Number(remaining);
+  if (status === 401) throw new ReauthRequired('API returned 401');
+  if (status === 429) throw new RateLimited(headers.get('retry-after'));
+}
+
 function env(key: string): string {
   const v = process.env[key];
   if (!v) throw new Error(`Missing ${key} — is .env.local present?`);
@@ -125,8 +173,8 @@ export async function get(path: string): Promise<unknown> {
       Accept: 'application/vnd.sparebank1.v1+json; charset=utf-8',
     },
   });
+  noteLimits(res.status, res.headers);
   const body = await res.text();
-  if (res.status === 401) throw new ReauthRequired('API returned 401');
   if (!res.ok) throw new Error(`GET ${path} -> ${res.status}: ${body.slice(0, 500)}`);
   return JSON.parse(body);
 }

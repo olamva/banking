@@ -74,6 +74,10 @@ export const toParams = (s: UrlState): string => {
   // comma, and a category slug cannot.
   for (const m of s.filters.merchants) p.append('m', m);
   if (s.filters.merchantMode !== 'include') p.set('m_mode', s.filters.merchantMode);
+  // Repeated for the same reason as merchants: an account is named by hand and
+  // may hold a comma.
+  for (const a of s.filters.accounts) p.append('acct', a);
+  if (s.filters.accountMode !== 'include') p.set('acct_mode', s.filters.accountMode);
   if (s.filters.search) p.set('q', s.filters.search);
   if (s.filters.showExcluded) p.set('excl', '1');
   return p.toString();
@@ -94,6 +98,8 @@ export const fromParams = (p: URLSearchParams): UrlState => ({
     categoryMode: p.get('cat_mode') === 'exclude' ? 'exclude' : 'include',
     merchants: p.getAll('m').filter(Boolean),
     merchantMode: p.get('m_mode') === 'exclude' ? 'exclude' : 'include',
+    accounts: p.getAll('acct').filter(Boolean),
+    accountMode: p.get('acct_mode') === 'exclude' ? 'exclude' : 'include',
     search: p.get('q') ?? '',
     showExcluded: p.get('excl') === '1',
   },

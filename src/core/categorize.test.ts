@@ -6,10 +6,13 @@ import { join } from 'node:path';
 import { categorize, loadOverrides, loadPayees, loadPeers, loadSubscriptions, renamePayees } from './categorize.ts';
 import type { Classified } from './types.ts';
 
+/** The card, as `rules/accounts.json` names it — the travel guess sees these rows and no others. */
+const CARDS = new Set(['card']);
+
 function classified(overrides: Partial<Classified>): Classified {
   return {
     id: '1',
-    source: 'sb1',
+    account: 'Brukskonto',
     accountKey: 'a',
     date: '2026-07-01',
     amount: -100,
@@ -20,7 +23,6 @@ function classified(overrides: Partial<Classified>): Classified {
     remoteAccountNumber: null,
     isRecurring: false,
     isSubscription: false,
-    isPending: false,
     excluded: false,
     reason: null,
     ...overrides,
@@ -62,30 +64,62 @@ test('override beats bankCategory, matched case-insensitively', () => {
   assert.equal(out.category, 'groceries');
 });
 
-test('a domestic card row without an override is uncategorized, like an sb1 one', () => {
+test('a domestic card row the bank did not classify is uncategorized', () => {
   const [out] = categorize(
-    [classified({ source: 'card', description: 'Varekjøp', counterparty: 'KAFFEBAR, OSLO, NOR', bankCategory: null })],
+    [classified({ account: 'Kredittkort', description: 'KAFFEBAR, Oslo, NORWAY', counterparty: 'KAFFEBAR, Oslo, NORWAY', bankCategory: null })],
     {},
   );
   assert.equal(out.category, 'ukategorisert');
 });
 
 test('a card row bought abroad is travel, by the merchant country', () => {
-  const cat = (counterparty: string | null) =>
-    categorize([classified({ source: 'card', description: 'Varekjøp', counterparty, bankCategory: null })], {})[0]!
-      .category;
+  const cat = (counterparty: string | null, bankCategory: string | null = null) =>
+    categorize(
+      [classified({ accountKey: 'card', description: counterparty ?? '', counterparty, bankCategory })],
+      {}, [], [], {}, CARDS,
+    )[0]!.category;
+  assert.equal(cat('LAWSON, TOKYO, JAPAN'), 'reise');
+  // The old Enable Banking wording, a three-letter code, reads the same way.
   assert.equal(cat('LAWSON, TOKYO, JPN'), 'reise');
+  assert.equal(cat('KAFFEBAR, Oslo, NORWAY'), 'ukategorisert');
   assert.equal(cat('KAFFEBAR, OSLO, NOR'), 'ukategorisert');
-  // no country at all: the issuer's own rows, which are never a trip
+  // A foreign terminal sometimes sends only the town. The bank writes NORWAY on
+  // every domestic one, so a bare town at the end still means abroad.
+  assert.equal(cat('ANISEED, MYTILINI'), 'reise');
+  // No comma, so nothing that could be a place: the issuer's own rows, and
+  // Norwegian payees that carry no country at all.
   assert.equal(cat('Omkostninger regningsbetaling'), 'ukategorisert');
+  assert.equal(cat('DUTY-FREE GARDERMOEN'), 'ukategorisert');
   assert.equal(cat(null), 'ukategorisert');
-  // a city that ends in three letters is not a country code
-  assert.equal(cat('BAKERIET, OSLO'), 'ukategorisert');
+});
+
+test('the travel guess is card rows only — a deposit row of the same shape is not a trip', () => {
+  // 23 rows of the record match this pattern without being near a trip.
+  const [out] = categorize(
+    [classified({ accountKey: 'a', counterparty: 'MOBILGIRO M/KID, FORF. I DAG TRANS(ER) TYPE', bankCategory: null })],
+    {}, [], [], {}, CARDS,
+  );
+  assert.equal(out.category, 'ukategorisert');
+});
+
+test("the bank's own category beats the travel guess", () => {
+  // The guess is a fallback for rows the bank shrugged at. A supermarket in
+  // Vienna is groceries that happened abroad, and `Telenor Norge AS, Mobil`
+  // only looks foreign — the category is what stops both being read as a trip.
+  const cat = (counterparty: string, bankCategory: string) =>
+    categorize(
+      [classified({ accountKey: 'card', description: counterparty, counterparty, bankCategory })],
+      {}, [], [], {}, CARDS,
+    )[0]!.category;
+  assert.equal(cat('Interspar Dankt Wien, AUSTRIA', 'dagligvarer'), 'dagligvarer');
+  assert.equal(cat('Telenor Norge AS, Mobil', 'faste_boutgifter'), 'faste_utgifter');
+  // …but a catch-all is no category, so those still fall through to it.
+  assert.equal(cat('Centimeter am Spittel, WIEN, AUSTRIA', 'diverse'), 'reise');
 });
 
 test('an override beats the travel rule, so a foreign biller can be placed', () => {
   const [out] = categorize(
-    [classified({ source: 'card', description: 'Varekjøp', counterparty: 'APPLE.COM/BILL, CORK, IRL', bankCategory: null })],
+    [classified({ account: 'Kredittkort', description: 'APPLE.COM/BILL, CORK, IRELAND', counterparty: 'APPLE.COM/BILL, CORK, IRELAND', bankCategory: null })],
     { 'apple.com/bill': 'medier_og_underholdning' },
   );
   assert.equal(out.category, 'medier_og_underholdning');
@@ -98,17 +132,17 @@ test("the bank's catch-all collapses into ukategorisert", () => {
 
 test('an override still applies to a card row', () => {
   const [out] = categorize(
-    [classified({ source: 'card', description: 'Netflix', bankCategory: null })],
+    [classified({ account: 'Kredittkort', description: 'Netflix', bankCategory: null })],
     { netflix: 'subscriptions' },
   );
   assert.equal(out.category, 'subscriptions');
 });
 
-test('an override matches the merchant, which is where a card row carries it', () => {
-  // The card's own description is a generic Varekjøp; the merchant only exists
-  // in counterparty, filled from the issuer's statement export.
+test('an override matches the merchant, not only the raw description', () => {
+  // The card's raw description carries a terminal number the cleaned one drops,
+  // so a pattern written for the merchant has to reach `counterparty`.
   const [out] = categorize(
-    [classified({ source: 'card', description: 'Varekjøp', counterparty: 'KAFFEBAR, OSLO', bankCategory: null })],
+    [classified({ account: 'Kredittkort', description: '227 KAFFEBAR, Oslo, NORWAY', counterparty: 'KAFFEBAR, Oslo, NORWAY', bankCategory: null })],
     { kaffebar: 'kafe_og_restaurant' },
   );
   assert.equal(out.category, 'kafe_og_restaurant');
@@ -239,7 +273,7 @@ test('a subscription pattern flags a card row the bank could never flag', () => 
   const [out] = categorize(
     [
       classified({
-        source: 'card',
+        account: 'Kredittkort',
         description: 'Varekjøp',
         counterparty: 'GOOGLE *YouTubePremium, LONDON, GBR',
         bankCategory: null,

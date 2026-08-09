@@ -17,7 +17,9 @@ import {
   type SetStateAction,
 } from "react";
 import {
+  AXES,
   axisBounds,
+  distinctAccounts,
   distinctCategories,
   distinctMerchants,
   distinctMonths,
@@ -25,26 +27,24 @@ import {
   inRange,
   matchesFilters,
   period,
+  type Axis,
   type Filters,
   type Mode,
   type Period,
 } from "../../core/select.ts";
 import type { ExcludedSummary } from "../../core/stats.ts";
 import {
-  blindSpot,
   byMonth,
   cumulative,
   dailySeries,
   monthStats,
   monthlySeries,
-  subscriptionGroups,
   totals,
   yearStats,
 } from "../../core/stats.ts";
 import type { Categorized } from "../../core/types.ts";
 import {
   Card,
-  MeterTile,
   StatTile,
   SubscriptionsCard,
   TransactionsCard,
@@ -55,6 +55,7 @@ import {
   HorizontalBars,
   SpendLines,
   visibleDeltas,
+  type BarItem,
   type Bucket,
 } from "./Charts.tsx";
 import { FilterBar, type View } from "./FilterBar.tsx";
@@ -67,6 +68,7 @@ import {
 } from "./data.ts";
 import { categoryLabel, fmtNOK } from "./format.ts";
 import {
+  AccountIcon,
   CategoryIcon,
   ChangesIcon,
   CounterpartyIcon,
@@ -82,26 +84,32 @@ import {
 import { GRAINS, readUrl, writeUrl, type Grain } from "./url.ts";
 
 /**
- * Two columns at this page width, and the last card takes the whole row when it
- * would otherwise be the odd one out sitting alone in half of one.
+ * Two columns at this page width, and the last card takes the whole row **only
+ * when it would otherwise be the odd one out** sitting alone in half of one.
+ *
+ * That `nth-child(odd)` is doing real work, and both ways round. A month or a
+ * year normally shows five — category, changes, merchants, accounts, and the
+ * subscriptions table — so the table is the fifth, lands full width, and the
+ * four charts pair off two and two above it. Drop one card (a year with nothing
+ * before it to change against, a period with no subscriptions) and four cards
+ * fill both rows exactly, which is why the span must not be unconditional.
  */
 const CARD_GRID =
   "grid grid-cols-[repeat(auto-fit,minmax(460px,1fr))] gap-4 [&>*:last-child:nth-child(odd)]:col-span-full";
 
 /**
- * The year layout: three charts across, and the table under them.
+ * All time: three charts across, and the table under them.
  *
- * Year is the only period with all four cards *and* the month chart above them,
- * which is what makes 2×2 read badly there — the table ends up beside a chart
- * at half the width it wants. Three across is narrower per card but costs less
- * than it looks: `HorizontalBars` gives every label the card's full width and
- * truncates against whatever is left, so it shrinks rather than breaks.
+ * All time is the one period with **no** changes card — nothing precedes it to
+ * compare against — so it has three charts rather than four, and two columns
+ * would leave the third sitting alone. Three across is narrower per card but
+ * costs less than it looks: `HorizontalBars` gives every label the card's full
+ * width and truncates against whatever is left, so it shrinks rather than
+ * breaks.
  *
- * The last child always takes the full row. That is the subscriptions card,
- * which is a table and wants the width — so the three chart cards sit across
- * the top and it runs underneath them. It is also why this grid needs four
- * cards rather than three: with three, one of them is the last child and the
- * wide row is left a column short.
+ * The last child always takes the full row here, because the last child is
+ * always the subscriptions table: a table wants the width, and over all time
+ * there is always something recurring for it to hold.
  */
 const CARD_GRID_3 =
   "grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] gap-4 [&>*:last-child]:col-span-full";
@@ -110,14 +118,6 @@ const THEME_ICONS = {
   system: SystemThemeIcon,
   light: LightThemeIcon,
   dark: DarkThemeIcon,
-};
-
-/** What the card meter says underneath — only when the statement export has not reached every row. */
-const cardNote = (rows: Categorized[]): string => {
-  const blind = blindSpot(rows);
-  return blind.count === 0
-    ? ""
-    : `${blind.count} rows still have no merchant (${fmtNOK(blind.total)}) — no statement export covers them.`;
 };
 
 interface ExcludedNoteProps {
@@ -150,17 +150,17 @@ type SetFilters = Dispatch<SetStateAction<Filters>>;
  * at a time, hiding is naturally several, so each meta-click adds to the list
  * rather than replacing it. An include list means something else, so it goes.
  *
- * Categories and merchants are the same gesture over two lists, so they are one
- * function; only the pair of fields it writes back differs.
+ * Categories, merchants and accounts are the same gesture over three lists, so
+ * they are one function; only the pair of fields it writes back differs, and
+ * `AXES` is that pairing.
  */
 const pick =
-  (onFilters: SetFilters, key: "categories" | "merchants") =>
+  (onFilters: SetFilters, key: Axis) =>
   (value: string, exclude = false) =>
     onFilters((f) => {
-      const [values, mode]: [string[], Mode] =
-        key === "categories"
-          ? [f.categories, f.categoryMode]
-          : [f.merchants, f.merchantMode];
+      const modeKey = AXES[key];
+      const values: string[] = f[key];
+      const mode: Mode = f[modeKey];
 
       let next: string[];
       if (exclude) {
@@ -174,10 +174,7 @@ const pick =
         next = only ? [] : [value];
       }
 
-      const to: Mode = exclude ? "exclude" : "include";
-      return key === "categories"
-        ? { ...f, categories: next, categoryMode: to }
-        : { ...f, merchants: next, merchantMode: to };
+      return { ...f, [key]: next, [modeKey]: exclude ? "exclude" : "include" };
     });
 
 /**
@@ -320,6 +317,13 @@ const Dashboard = ({
   const onCategory = (label: string, meta: boolean) =>
     pick(onFilters, "categories")(slugOf.get(label) ?? label, meta);
   const onMerchant = pick(onFilters, "merchants");
+  const onAccount = pick(onFilters, "accounts");
+
+  // One account is not a breakdown, it is the total again with a bar under it.
+  const accounts: BarItem[] = stats.accounts.map((a) => ({
+    label: a.account,
+    total: a.total,
+  }));
 
   // A breakdown of one category is a bar chart of itself, so it goes — and so
   // does the change chart, which can only hold that same category's one bar,
@@ -327,23 +331,6 @@ const Dashboard = ({
   // opposite: everything else is still in, and still worth breaking down.
   const single =
     filters.categories.length === 1 && filters.categoryMode === "include";
-
-  /**
-   * Three across only once there are **four** cards, not three: the last one
-   * always takes a full row of its own in that grid, so three cards fill the
-   * wide row with two and leave the third column empty. Four is three across
-   * and one under them.
-   *
-   * A year can have three. 2022 is the first in the archive, so it has no year
-   * before it to change against and the deltas card hides itself, which is what
-   * this got wrong — the same shape a single category produces from the other
-   * direction, where two of the four hide at once.
-   */
-  const cards =
-    (!single && cats.length > 0 ? 1 : 0) +
-    (!single && deltas.length > 0 ? 1 : 0) +
-    (cps.length > 0 ? 1 : 0) +
-    (subscriptionGroups(shown).length > 0 ? 1 : 0);
 
   // Filtered to a spending category every point's income is zero, and a line
   // along the axis is not a finding. The chart drops it; the title follows.
@@ -390,13 +377,6 @@ const Dashboard = ({
             delta={vs ? deltaInfo(stats.net, prev.net, true) : undefined}
           />
         )}
-        {stats.cardShare > 0 && (
-          <MeterTile
-            label="Card spend"
-            share={stats.cardShare}
-            note={cardNote(shown)}
-          />
-        )}
       </div>
 
       {/* Outside the grid, not a `col-span-full` inside it. `nth-child` counts
@@ -427,7 +407,7 @@ const Dashboard = ({
         </div>
       )}
 
-      <div className={p.kind === "year" && cards >= 4 ? CARD_GRID_3 : CARD_GRID}>
+      <div className={p.kind === "all" ? CARD_GRID_3 : CARD_GRID}>
         {!single && cats.length > 0 && (
           <Card title="Spending by category" icon={CategoryIcon}>
             <HorizontalBars items={cats} onPick={onCategory} />
@@ -446,6 +426,12 @@ const Dashboard = ({
         {cps.length > 0 && (
           <Card title="Where the money went" icon={CounterpartyIcon}>
             <HorizontalBars items={cps} onPick={onMerchant} />
+          </Card>
+        )}
+
+        {accounts.length > 1 && (
+          <Card title="Spend by account" icon={AccountIcon}>
+            <HorizontalBars items={accounts} onPick={onAccount} />
           </Card>
         )}
 
@@ -506,6 +492,7 @@ const TransactionsView = ({
           onSearch={(search) => onFilters((f) => ({ ...f, search }))}
           onMerchant={pick(onFilters, "merchants")}
           onCategory={pick(onFilters, "categories")}
+          onAccount={pick(onFilters, "accounts")}
         />
       </div>
 
@@ -599,6 +586,13 @@ export const App = () => {
       ].sort((a, b) => a.localeCompare(b)),
     [inPeriod, filters.merchants],
   );
+  const accounts = useMemo(
+    () =>
+      [...new Set([...distinctAccounts(inPeriod), ...filters.accounts])].sort((a, b) =>
+        a.localeCompare(b),
+      ),
+    [inPeriod, filters.accounts],
+  );
 
   return (
     <div className="mx-auto max-w-295 p-6">
@@ -644,6 +638,7 @@ export const App = () => {
         onPeriod={setChosen}
         categories={categories}
         merchants={merchants}
+        accounts={accounts}
         filters={filters}
         onFilters={setFilters}
       />

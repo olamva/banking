@@ -17,6 +17,9 @@ export type Filters = {
   /** The same, over `merchantOf` — the name the tables and the bars show. */
   merchants: string[];
   merchantMode: Mode;
+  /** The same again, over `Txn.account` — what `rules/accounts.json` calls it. */
+  accounts: string[];
+  accountMode: Mode;
   search: string;
   /**
    * Whether internal transfers and card bill payments are listed. Off by
@@ -27,11 +30,28 @@ export type Filters = {
   showExcluded: boolean;
 };
 
+/**
+ * The three list filters, each paired with the field holding its mode.
+ *
+ * They are one control repeated, so the code that toggles them is one function
+ * over this map rather than three near-copies — and adding a fourth axis is
+ * this entry plus its two fields above.
+ */
+export const AXES = {
+  categories: 'categoryMode',
+  merchants: 'merchantMode',
+  accounts: 'accountMode',
+} as const;
+
+export type Axis = keyof typeof AXES;
+
 export const NO_FILTERS: Filters = {
   categories: [],
   categoryMode: 'include',
   merchants: [],
   merchantMode: 'include',
+  accounts: [],
+  accountMode: 'include',
   search: '',
   showExcluded: false,
 };
@@ -64,6 +84,7 @@ export function matchesFilters(t: Categorized, f: Filters): boolean {
   if (t.excluded && !f.showExcluded) return false;
   if (!listed(f.categories, f.categoryMode, t.category)) return false;
   if (!listed(f.merchants, f.merchantMode, merchantOf(t))) return false;
+  if (!listed(f.accounts, f.accountMode, t.account)) return false;
   if (f.search) {
     const q = f.search.toLowerCase();
     const hay = (t.description + ' ' + (t.counterparty ?? '')).toLowerCase();
@@ -184,4 +205,8 @@ export function distinctCategories(txns: Categorized[]): string[] {
 /** Hundreds of these, so the dropdown that shows them is searchable. */
 export function distinctMerchants(txns: Categorized[]): string[] {
   return [...new Set(txns.map(merchantOf))].sort((a, b) => a.localeCompare(b));
+}
+
+export function distinctAccounts(txns: Categorized[]): string[] {
+  return [...new Set(txns.map((t) => t.account))].sort((a, b) => a.localeCompare(b));
 }
