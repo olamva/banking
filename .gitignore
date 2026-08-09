@@ -1,15 +1,21 @@
+# No trailing slashes: a pattern ending in `/` matches a directory only, and a
+# symlink is not one. A worktree that links `secrets` or `node_modules` back to
+# the main checkout — which is the only way to work in one — then has those
+# links staged by `git add -A`. Without the slash both the directory and a link
+# to it are ignored.
+
 # build / tooling
-node_modules/
-.claude/worktrees/
+node_modules
+.claude/worktrees
 
 # credentials — the RSA key Enable Banking signs with, and the loopback TLS pair
-secrets/
+secrets
 *.pem
 *.key
 .env.local
 
 # personal data: raw API responses, the derived database, the dashboard
-data/
+data
 
 # hand-edited local rules — they carry account keys, names and descriptions
-rules/
+rules
