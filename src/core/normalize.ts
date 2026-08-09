@@ -11,8 +11,15 @@ type Sb1File = {
       amount: number;
       /** Epoch millis at Oslo midnight — never format as UTC. */
       date: number;
-      description: string;
-      cleanedDescription: string;
+      /**
+       * Both description fields are *absent* on some rows — 31 of 3149 so far,
+       * all of them plain transfers and payments-with-message. The key is
+       * missing, not null, so nothing downstream can rely on it being a string.
+       */
+      description?: string;
+      cleanedDescription?: string;
+      /** The bank's own name for the row type. Always present, always generic. */
+      typeText?: string;
     };
     categories: Array<{ main: string }>;
     recurring: boolean;
@@ -47,8 +54,11 @@ function normalizeSb1(file: Sb1File): Txn[] {
     accountKey: t.accountKey,
     date: osloDate(t.date),
     amount: t.amount,
-    description: t.description,
-    counterparty: t.cleanedDescription,
+    // `description` is the string every exclusion rule and override matches on,
+    // so it has to stay a string. typeText is the honest fallback: generic, but
+    // it is what the bank itself calls the row.
+    description: t.description ?? t.typeText ?? '',
+    counterparty: t.cleanedDescription ?? null,
     bankCategory: categories[0]?.main ?? null,
     isRecurring: recurring,
     isSubscription: subscription,

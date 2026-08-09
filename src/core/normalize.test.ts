@@ -122,3 +122,25 @@ test('mixed month directory flattens both shapes together', () => {
     assert.equal(sb1.isSubscription, true);
   });
 });
+
+test('an SB1 row with no description at all falls back to typeText', () => {
+  // Both description keys are simply absent on some rows. `description` must
+  // stay a string: exclude() calls .includes() on it for every transaction.
+  withMonthDir({
+    'acct.json': {
+      transactions: [{
+        transaction: {
+          id: 'sb1-nodesc', accountKey: 'acct', amount: -2000,
+          date: Date.UTC(2024, 7, 25, 22, 0, 0), typeText: 'Overføring',
+        },
+        categories: [],
+        recurring: false,
+        subscription: false,
+      }],
+    },
+  }, (dir) => {
+    const [txn] = normalizeMonth(dir);
+    assert.equal(txn.description, 'Overføring');
+    assert.equal(txn.counterparty, null);
+  });
+});
