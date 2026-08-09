@@ -176,6 +176,7 @@ test('a named person is a peer payment or rent, by the row type the bank gave it
       {},
       [],
       ['ola nordmann'],
+      { 'ola nordmann': 'husleie' },
     )[0]!.category;
 
   // Settled instantly, or on the card: a Vipps payment.
@@ -199,6 +200,34 @@ test('a named person is a peer payment or rent, by the row type the bank gave it
       .category,
     'dagligvarer',
   );
+});
+
+/**
+ * The row type says how the money moved and never why, so the category is per
+ * name: a lump from a flatmate is rent, and the identical lump from a friend
+ * was a share of a trip. Nothing on the row separates those two.
+ */
+test('a lump transfer takes the category its sender is named with, and only then', () => {
+  const row = classified({
+    description: 'Kari Nordmann',
+    counterparty: 'Kari Nordmann',
+    bankCategory: null,
+    typeText: 'Giro',
+    amount: 11850,
+  });
+  const cat = (giro: Record<string, string>, over = row) =>
+    categorize([over], {}, [], ['kari nordmann'], giro)[0]!.category;
+
+  // Unnamed, so it stays what it always was: money from a person.
+  assert.equal(cat({}), 'vipps');
+  assert.equal(cat({ 'kari nordmann': 'husleie' }), 'husleie');
+  assert.equal(cat({ 'kari nordmann': 'reise' }), 'reise');
+
+  // Named, but settled instantly: still the coffee, not the standing payment.
+  assert.equal(cat({ 'kari nordmann': 'husleie' }, { ...row, typeText: 'Straksbetaling' }), 'vipps');
+
+  // A name here reaches nobody else's rows.
+  assert.equal(cat({ 'ola nordmann': 'husleie' }), 'vipps');
 });
 
 test('loadSubscriptions returns [] when the file is absent', async () => {

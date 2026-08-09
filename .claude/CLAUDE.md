@@ -44,6 +44,7 @@ data/banking.db   derived SQLite store, rebuildable from data/raw, gitignored
 accounts.json     which accounts are mine (hand-edited), gitignored
 overrides.json    substring or /regex/ -> category, gitignored
 vipps.json        names of payees, as a list; its own rule, gitignored
+giro.json         name -> what that person's lump transfers are, gitignored
 subscriptions.json  the same patterns, as a list; sets isSubscription, gitignored
 ```
 
@@ -153,10 +154,13 @@ Notes from the real data, not the plan:
 - A name in `vipps.json` does **not** on its own mean `vipps`. A flatmate is two
   relationships at once — dozens of small instant payments, and a standing
   monthly transfer for rent — and the description is the bare name in both, so
-  no pattern can separate them. `typeText` does: instant or card is a peer
-  payment, a giro or a plain `Overførsel` is rent. Not separating them filed
-  293 000 kr of rent under `vipps` across seven people. `Overførsel mellom egne
-  kontoer` is deliberately excluded — that is a family transfer, not rent.
+  no pattern separates them. `typeText` does: instant or card is a peer payment,
+  a giro or a plain `Overførsel` is a lump. Not separating them filed 293 000 kr
+  of rent under `vipps`. But the type says how the money moved and never why, so
+  `giro.json` maps the name to what its lumps *are* — rent from a flatmate,
+  a share of a trip from a friend, and those two are identical on the row.
+  A name absent from it keeps the peer reading; `Overførsel mellom egne kontoer`
+  is excluded outright as a family transfer.
 - SB1 categories are always exactly one entry at confidence 100. `diverse` is
   the bank's catch-all and carries no more signal than no category at all, so
   `categorize` collapses it into `ukategorisert` — as it does the bank's own

@@ -219,17 +219,26 @@ No sum can see it — `stats.ts` skips excluded rows before it adds anything up.
 ```
 
 A name alone is not enough, because a flatmate is two relationships at once:
-forty small instant payments for a coffee or a taxi, and a standing monthly
-transfer for rent. The description is the bare name in both, so no pattern can
-separate them — **the bank's own `typeText` does**. A named person's row is
-`vipps` when it settled instantly (`Straksbetaling`) or on the card, and
-`husleie` when the bank booked it as a giro or a plain `Overførsel`. On the real
-data the two do not overlap in size at all: every giro row is 4 000 kr or more,
-every instant one is under it.
+dozens of small instant payments for a coffee or a taxi, and a standing monthly
+transfer for rent. The description is the bare name in both, so no pattern in
+`overrides.json` can separate them without swallowing both — **the bank's own
+`typeText` can**. A Vipps payment settles instantly (`Straksbetaling`) or rides
+the card; the other kind is a giro or a plain `Overførsel`, set up once and left
+running, or pushed across in one lump.
 
-`Overførsel mellom egne kontoer` is deliberately not rent — that is the bank's
-wording for a family transfer, and those stay peer payments. An explicit entry
-in `overrides.json` still beats the whole rule, since it is checked first.
+`giro.json` says what a given person's lump transfers are:
+
+```json
+{ "ola nordmann": "husleie", "kari nordmann": "reise" }
+```
+
+The category is per name rather than always rent, because the row type says how
+the money moved and never why — two of these turned out to be friends' shares of
+a trip, transferred in a lump exactly like a month's rent and identical to it on
+the row. A name absent from `giro.json` keeps its peer-payment reading, and
+`Overførsel mellom egne kontoer` is excluded outright as the bank's wording for
+a family transfer. An explicit entry in `overrides.json` beats all of it, being
+checked first.
 
 Person-to-person payments are the one category with a name per payee rather than
 a pattern per merchant, so they outgrew `overrides.json` and got their own file.

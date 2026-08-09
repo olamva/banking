@@ -10,7 +10,7 @@ import { readdirSync, rmSync } from 'node:fs';
 import { normalizeMonth } from './normalize.ts';
 import { enrich, readStatements } from './statement.ts';
 import { exclude, type Accounts } from './exclude.ts';
-import { categorize, loadOverrides, loadPeers, loadSubscriptions } from './categorize.ts';
+import { categorize, loadOverrides, loadGiro, loadPeers, loadSubscriptions } from './categorize.ts';
 import { openDb, rebuild as rebuildDb } from './db.ts';
 import type { Categorized } from './types.ts';
 
@@ -41,6 +41,7 @@ export async function pipeline(month: string): Promise<Categorized[]> {
     await loadOverrides(),
     await loadSubscriptions(),
     await loadPeers(),
+    await loadGiro(),
   );
 }
 
