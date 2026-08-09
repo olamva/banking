@@ -275,8 +275,11 @@ export const MonthlyLines = ({ series }: MonthlyLinesProps) => {
       <div className="text-ink-soft">{m.month}</div>
       <div className="font-semibold">out {fmtNOK(m.totalOut)}</div>
       <div className="font-semibold">in {fmtNOK(m.totalIn)}</div>
+      {/* No card spend in the month means no card line — a `card 0%` is the
+          absence of a thing, dressed up as a measurement of it. */}
       <div className="text-ink-soft">
-        net {fmtNOK(m.net)} · card {fmtPct(m.cardShare)}
+        net {fmtNOK(m.net)}
+        {m.cardShare > 0 && ` · card ${fmtPct(m.cardShare)}`}
       </div>
     </>
   );
