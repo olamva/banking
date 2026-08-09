@@ -41,12 +41,12 @@ vite.config.ts    root is src/web/app; middleware mode only, there is no build
 data/raw/         API responses, verbatim, gitignored
 data/raw/card-statements/  issuer CSV exports, the only merchant source
 data/banking.db   derived SQLite store, rebuildable from data/raw, gitignored
-accounts.json     which accounts are mine (hand-edited), gitignored
-overrides.json    substring or /regex/ -> category, gitignored
-vipps.json        names of payees, as a list; its own rule, gitignored
-giro.json         name -> what that person's lump transfers are, gitignored
-payees.json       pattern -> the one name a payee goes by, gitignored
-subscriptions.json  the same patterns, as a list; sets isSubscription, gitignored
+rules/accounts.json     which accounts are mine (hand-edited), gitignored
+rules/overrides.json    substring or /regex/ -> category, gitignored
+rules/vipps.json        names of payees, as a list; its own rule, gitignored
+rules/giro.json         name -> what that person's lump transfers are, gitignored
+rules/payees.json       pattern -> the one name a payee goes by, gitignored
+rules/subscriptions.json  the same patterns, as a list; sets isSubscription, gitignored
 ```
 
 `data/raw/` stays the source of truth: it is the only thing that costs an API
@@ -85,8 +85,8 @@ the 1st of the month into the previous month.
 
 **Nothing personal enters git, or the network.** No account numbers, account
 keys, names, balances or descriptions in source, tests, fixtures, commit
-messages or docs. `.env.local`, `data/`, `accounts.json`, `overrides.json`,
-`vipps.json` and `subscriptions.json` are gitignored; keep it that way. JSON
+messages or docs. `.env.local`, `data/`, `secrets/` and the whole of `rules/`
+are gitignored; keep it that way. JSON
 and CSV output are unredacted — strip account numbers before anything leaves
 the machine.
 
@@ -151,14 +151,14 @@ Notes from the real data, not the plan:
   bar and a membership fee are flagged, next to HelloFresh which really is a
   subscription. An Enable Banking card row can never carry them at all, so
   anything on the credit card is invisible to the flag until
-  `subscriptions.json` names it.
-- A name in `vipps.json` does **not** on its own mean `vipps`. A flatmate is two
+  `rules/subscriptions.json` names it.
+- A name in `rules/vipps.json` does **not** on its own mean `vipps`. A flatmate is two
   relationships at once — dozens of small instant payments, and a standing
   monthly transfer for rent — and the description is the bare name in both, so
   no pattern separates them. `typeText` does: instant or card is a peer payment,
   a giro or a plain `Overførsel` is a lump. Not separating them filed 293 000 kr
   of rent under `vipps`. But the type says how the money moved and never why, so
-  `giro.json` maps the name to what its lumps *are* — rent from a flatmate,
+  `rules/giro.json` maps the name to what its lumps *are* — rent from a flatmate,
   a share of a trip from a friend, and those two are identical on the row.
   A name absent from it keeps the peer reading; `Overførsel mellom egne kontoer`
   is excluded outright as a family transfer.
@@ -172,7 +172,7 @@ Notes from the real data, not the plan:
   `categorize` collapses it into `ukategorisert` — as it does the bank's own
   literal `ukategorisert`, which it sends on ~500 rows and which is the same
   shrug by another name. Together they are ~40% of rows, which is why
-  `overrides.json` does real work.
+  `rules/overrides.json` does real work.
 - Card rows carry no category at all and are roughly 40% of monthly spending.
   The merchant now arrives from the statement export, so overrides can reach
   them. Without one, a card row is `reise` if the merchant's trailing ISO
@@ -186,7 +186,7 @@ Notes from the real data, not the plan:
 Internal transfers are **flagged, never dropped** — the excluded set has to be
 auditable. Both sides of a transfer are present because we sync every account,
 so match on amount + date + opposite sign, restricted to accounts marked `mine`
-in `accounts.json`.
+in `rules/accounts.json`.
 
 **Amount + date + opposite sign is not enough on its own.** It is a weak signal
 at these volumes and it collided three times in two years: 22 kr of deposit
@@ -203,6 +203,16 @@ all, which correctly makes them ineligible.
 Check both legs, never one: a row excluded while its counterpart stays in breaks
 the netting invariant below, which is the only thing that catches this class.
 
+**A row that names one of my own accounts skips all of that.** `remoteAccountNumber`
+against the `number` field in `rules/accounts.json` is proof, not a coincidence,
+so it needs neither a transfer type nor a counterpart search — and it stays
+symmetric, since each leg carries the other account's number. It is the only rule
+that sees a self-transfer the bank did not type as one: a giro between my own
+accounts books as `NettGiro m/melding` against `Betaling med melding`, and
+`Småsparing` round-ups are the same shape. That was 240 rows counted as both
+income and spending, 5 572 kr of it in one pair. An account with no `number` falls
+back to amount + date + type, exactly as before.
+
 Credit card bill payments are **excluded**, like any internal transfer. The
 card's own transactions come from Enable Banking, so counting the bills as well
 would double-count. Bill amounts and card spend diverge wildly within a month —
@@ -217,7 +227,7 @@ run got wrong in two ways:
   string silently missed one.
 - The card leg is the `Innbetalinger` credit on the card account. It cannot ride
   on the amount+date transfer rule, because the card posts the credit 0–3 days
-  after the bank debits it, and the card account is not in `accounts.json` at
+  after the bank debits it, and the card account is not in `rules/accounts.json` at
   all. Excluding only the bank leg leaves the credit counted as **income**.
 
 Card credits that are *not* `Innbetalinger` stay in: `Varekjøp` credits are

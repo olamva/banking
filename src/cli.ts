@@ -1,5 +1,6 @@
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { get, login } from './net/sb1.ts';
 import * as eb from './net/eb.ts';
 import { parseStatement, statementRange } from './core/statement.ts';
@@ -7,6 +8,8 @@ import { openDb, queryMonth, queryRange } from './core/db.ts';
 import { monthStats, yearStats, byMonth, blindSpot } from './core/stats.ts';
 import { rebuildAll, DB_FILE, RAW } from './core/pipeline.ts';
 import { syncMonth, ebSyncMonth } from './net/sync.ts';
+import { loadPeers } from './core/categorize.ts';
+import { newPeers } from './core/peers.ts';
 import { serve, DEFAULT_MAX_AGE_MIN } from './web/serve.ts';
 import { used, remaining, HOURLY_CAP } from './net/budget.ts';
 import type { Categorized } from './core/types.ts';
@@ -41,17 +44,23 @@ async function accounts(): Promise<void> {
   const raw = await get(`/personal/banking/accounts?${include}`);
   await dump(ACCOUNTS_RAW, raw);
 
-  const list = (raw as { accounts?: { key?: string }[] }).accounts;
-  const keys = list?.map((a) => a.key).filter((k): k is string => !!k) ?? [];
-  if (!keys.length) {
+  const list = (raw as { accounts?: { key?: string; accountNumber?: string }[] }).accounts;
+  const mine = list?.filter((a): a is { key: string; accountNumber?: string } => !!a.key) ?? [];
+  if (!mine.length) {
     console.error(`No accounts[].key found — inspect ${ACCOUNTS_RAW} and adjust before syncing.`);
     return;
   }
-  if (!existsSync('accounts.json')) {
+  if (!existsSync('rules/accounts.json')) {
     // mine defaults true; hand-edit before trusting internal-transfer detection.
-    await dump('accounts.json', Object.fromEntries(keys.map((k) => [k, { mine: true }])));
+    // The number rides along because `exclude` reads it: a row whose
+    // remoteAccountNumber is one of these is a self-transfer whatever the bank
+    // types it as, which is the only way a giro between my own accounts is seen.
+    await dump(
+      'rules/accounts.json',
+      Object.fromEntries(mine.map((a) => [a.key, { mine: true, number: a.accountNumber }])),
+    );
   }
-  console.error(`${keys.length} account keys.`);
+  console.error(`${mine.length} account keys.`);
 }
 
 /** Enable Banking: authorise once, then the card is readable for 90 days. */
@@ -96,6 +105,20 @@ async function statement(): Promise<void> {
     console.error(`wrote ${dest} — ${rows.length} rows, ${from} to ${to}`);
   }
   await rebuildAll();
+}
+
+/**
+ * Copy transaction rows out of the dashboard, get the names back ready to paste
+ * into rules/vipps.json. Prints, never writes: nothing under rules/ is a tool's
+ * to rewrite. Names go to stdout alone, so `pnpm sb1 peers | pbcopy` is clean.
+ */
+async function peers(): Promise<void> {
+  const names = newPeers(execFileSync('pbpaste', { encoding: 'utf8' }), await loadPeers());
+  if (!names.length) {
+    console.error('no new names on the clipboard — copy the rows, columns and all');
+    return;
+  }
+  for (const name of names) console.log(name);
 }
 
 const nok = (n: number) => `${Math.round(n).toLocaleString('nb-NO')} kr`;
@@ -165,6 +188,7 @@ try {
   else if (cmd === 'statement') await statement();
   else if (cmd === 'rebuild') await rebuildAll();
   else if (cmd === 'report') report();
+  else if (cmd === 'peers') await peers();
   else if (cmd === 'budget') console.error(`${used()}/${HOURLY_CAP} SB1 requests used this hour, ${remaining()} left`);
   else if (cmd === 'dev') {
     await serve(Number(flag('port') ?? 4000), {
@@ -176,6 +200,7 @@ try {
     console.error('                | eb-login | eb-sync --month YYYY-MM [--force]');
     console.error('                | statement <file.csv> | rebuild');
     console.error('                | report --month YYYY-MM | report --year YYYY');
+    console.error('                | peers  (clipboard rows -> names for rules/vipps.json)');
     console.error('                | dev [--port 4000] [--pull [--max-age 360]] | budget>');
     process.exit(1);
   }

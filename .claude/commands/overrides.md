@@ -1,9 +1,9 @@
 ---
-description: Review merchants against overrides.json and suggest changes, only if needed
+description: Review merchants against rules/overrides.json and suggest changes, only if needed
 allowed-tools: Bash(sqlite3:*), Read, Edit
 ---
 
-Review how spending is categorised and suggest improvements to `overrides.json`
+Review how spending is categorised and suggest improvements to `rules/overrides.json`
 — **only where there is a real problem**. "No changes needed" is a valid and
 common answer; say it in one line and stop.
 
@@ -11,12 +11,12 @@ common answer; say it in one line and stop.
 
 Current overrides:
 
-@overrides.json
+@rules/overrides.json
 
 Payees paid person-to-person, appended to the overrides above as
-`vipps`. A new name belongs in this file, never in `overrides.json`:
+`vipps`. A new name belongs in this file, never in `rules/overrides.json`:
 
-@vipps.json
+@rules/vipps.json
 
 Every merchant with the category it currently gets (spending rows only,
 excluded rows dropped, amounts in NOK, biggest first):
@@ -56,4 +56,4 @@ Reuse the category names already in the data — do not invent a new vocabulary.
 
 For each suggestion, one line: the pattern, the category, why, and the kroner
 it moves. Then the exact JSON to add, in the order it should sit in the file.
-Ask before editing `overrides.json`; after an edit, run `pnpm sb1 rebuild`.
+Ask before editing `rules/overrides.json`; after an edit, run `pnpm sb1 rebuild`.

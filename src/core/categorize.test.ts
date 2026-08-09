@@ -144,7 +144,7 @@ test('loadOverrides returns {} when the file is absent', async () => {
 });
 
 /**
- * The peer list is checked after overrides.json, so a person who shares a
+ * The peer list is checked after rules/overrides.json, so a person who shares a
  * string with a merchant can still be placed by hand.
  */
 test('an explicit override beats a name in the peer list', async () => {
@@ -301,12 +301,17 @@ test('the payee account number is matchable, so one name can bill two things', (
  * anything counting by name, which listed one standing rent eleven times.
  */
 test('renamePayees collapses a payee that writes the month into every payment', () => {
+  const row = (description: string, remoteAccountNumber: string | null = null) => ({
+    description,
+    counterparty: description,
+    remoteAccountNumber,
+  });
   const rows = [
-    { description: 'SIMEN LEIE Februar Husleie', counterparty: 'SIMEN LEIE Februar Husleie' },
-    { description: 'SIMEN LEIE Mars Husleie', counterparty: 'SIMEN LEIE Mars Husleie' },
-    { description: 'Theo leie', counterparty: 'Theo leie' },
-    { description: 'Theo leie Husleie Juli', counterparty: 'Theo leie Husleie Juli' },
-    { description: 'Rema 1000', counterparty: 'Rema 1000' },
+    row('SIMEN LEIE Februar Husleie'),
+    row('SIMEN LEIE Mars Husleie'),
+    row('Theo leie'),
+    row('Theo leie Husleie Juli'),
+    row('Rema 1000'),
   ];
   const renamed = renamePayees(rows, { 'simen leie': 'Simen leie', 'theo leie': 'Theo leie' });
 
@@ -321,6 +326,21 @@ test('renamePayees collapses a payee that writes the month into every payment', 
   assert.equal(renamed[0]!.description, 'SIMEN LEIE Februar Husleie');
   // No file, no work: the array comes back as it went in.
   assert.equal(renamePayees(rows, {}), rows);
+});
+
+/**
+ * SB1 sends a few transfers with no name on them at all — a bare `Overføring`
+ * and an account number. The account is then the only thing that says who the
+ * other party was, so the payee patterns have to be able to see it.
+ */
+test('renamePayees names a row the bank left nameless, by account number', () => {
+  const rows = [
+    { description: 'Overføring', counterparty: null, remoteAccountNumber: '39910000001' },
+    { description: 'Overføring', counterparty: null, remoteAccountNumber: '39910000002' },
+  ];
+  const renamed = renamePayees(rows, { '39910000001': 'Ola Nordmann' });
+
+  assert.deepEqual(renamed.map((r) => r.counterparty), ['Ola Nordmann', null]);
 });
 
 test('loadPayees returns {} when the file is absent', async () => {

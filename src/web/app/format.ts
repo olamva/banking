@@ -14,7 +14,7 @@ export const fmtPct = (share: number): string =>
   `${Math.round(share * 1000) / 10}%`;
 
 /**
- * Slugs come from the bank and from overrides.json, so a generic rule beats a
+ * Slugs come from the bank and from rules/overrides.json, so a generic rule beats a
  * map that drifts every time the file is hand-edited. Only the slugs that spell
  * a Norwegian letter out need naming.
  */

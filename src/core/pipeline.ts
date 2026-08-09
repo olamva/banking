@@ -42,7 +42,7 @@ export function monthsOnDisk(): string[] {
  * exclusion rules still match the source's own description.
  */
 export async function pipeline(month: string): Promise<Categorized[]> {
-  const accounts: Accounts = JSON.parse(await readFile('accounts.json', 'utf8'));
+  const accounts: Accounts = JSON.parse(await readFile('rules/accounts.json', 'utf8'));
   const txns = enrich(normalizeMonth(`${RAW}/${month}`), readStatements());
   const rows = categorize(
     exclude(txns, accounts),

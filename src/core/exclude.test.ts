@@ -132,3 +132,46 @@ test('a card refund is spending returned, not a bill payment, so it stays in', (
   assert.equal(out[0].excluded, false);
   assert.equal(out[0].reason, null);
 });
+
+const numbered = {
+  a: { mine: true, number: '39910000001' },
+  b: { mine: true, number: '39910000002' },
+  c: { mine: false, number: '39910000003' },
+};
+
+/**
+ * The real one: 5 572 kr moved between two of my own accounts as a *giro*, which
+ * books as `NettGiro m/melding` against `Betaling med melding`. Neither says
+ * `overfør`, so the type gate refused both legs and the money counted twice —
+ * once as income, once as spending. The account number is what says it is mine.
+ */
+test('flags a self-transfer the bank did not type as a transfer', () => {
+  const out = exclude(
+    [
+      txn({ id: '1', accountKey: 'a', amount: -5572, typeText: 'Betaling med melding', remoteAccountNumber: '39910000002' }),
+      txn({ id: '2', accountKey: 'b', amount: 5572, typeText: 'NettGiro m/melding med forfall i dag', remoteAccountNumber: '39910000001' }),
+    ],
+    numbered,
+  );
+  assert.deepEqual(out.map((t) => t.reason), ['internal transfer', 'internal transfer']);
+  assert.equal(out.reduce((sum, t) => sum + (t.excluded ? t.amount : 0), 0), 0);
+});
+
+test('a payment to someone else stays in, however it is typed', () => {
+  const out = exclude(
+    [txn({ id: '1', accountKey: 'a', amount: -5572, typeText: 'Betaling med melding', remoteAccountNumber: '39910000003' })],
+    numbered,
+  );
+  assert.equal(out[0].excluded, false);
+});
+
+test('an account with no number falls back to the amount+date rule', () => {
+  const out = exclude(
+    [
+      leg({ id: '1', accountKey: 'a', amount: -500 }),
+      leg({ id: '2', accountKey: 'b', amount: 500 }),
+    ],
+    { a: { mine: true }, b: { mine: true } },
+  );
+  assert.deepEqual(out.map((t) => t.reason), ['internal transfer', 'internal transfer']);
+});

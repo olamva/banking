@@ -11,10 +11,5 @@ secrets/
 # personal data: raw API responses, the derived database, the dashboard
 data/
 
-# hand-edited local config, both contain account keys or descriptions
-accounts.json
-overrides.json
-subscriptions.json
-vipps.json
-giro.json
-payees.json
+# hand-edited local rules — they carry account keys, names and descriptions
+rules/

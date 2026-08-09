@@ -48,7 +48,7 @@ and the signing key under `secrets/`. Neither is in git.
 ```bash
 # online — the only commands that touch the network
 pnpm sb1 login                      # BankID in the browser, refresh token to the keychain
-pnpm sb1 accounts                   # writes data/raw/accounts.json + accounts.json
+pnpm sb1 accounts                   # writes data/raw/accounts.json + rules/accounts.json
 pnpm sb1 sync --month YYYY-MM       # one file per account, skips existing
 pnpm sb1 sync --month YYYY-MM --force
 pnpm sb1 eb-login                   # Enable Banking consent, 90 days, card only
@@ -59,6 +59,7 @@ pnpm sb1 statement <file.csv>       # ingest a card statement export, then rebui
 pnpm sb1 rebuild                    # rebuild data/banking.db from data/raw/
 pnpm sb1 report --month YYYY-MM     # totals, categories, counterparties, card share
 pnpm sb1 report --year YYYY         # per-month series and year categories
+pnpm sb1 peers | pbcopy             # clipboard rows -> the names rules/vipps.json lacks
 
 # the living app
 pnpm dev                            # serve the dashboard on :4000, offline
@@ -184,9 +185,9 @@ and `report` says how many and how much rather than pretending otherwise.
 ## Categories
 
 The bank labels its own transactions and is wrong or unhelpful often enough to
-matter. `overrides.json` in the repo root maps a case-insensitive substring to a
-category, checked against both the description and the merchant, and wins over
-the bank:
+matter. The hand-edited rules all live in `rules/`, none of them in git.
+`rules/overrides.json` maps a case-insensitive substring to a category, checked
+against both the description and the merchant, and wins over the bank:
 
 ```json
 {
@@ -218,7 +219,7 @@ than that bucket: both legs of a transfer and both legs of a card bill are a
 transfer, and the toggle that lists them is the only place they are ever seen.
 No sum can see it — `stats.ts` skips excluded rows before it adds anything up.
 
-`vipps.json` is a list of names, in the same pattern language:
+`rules/vipps.json` is a list of names, in the same pattern language:
 
 ```json
 ["ola nordmann", "kari nordmann"]
@@ -227,12 +228,12 @@ No sum can see it — `stats.ts` skips excluded rows before it adds anything up.
 A name alone is not enough, because a flatmate is two relationships at once:
 dozens of small instant payments for a coffee or a taxi, and a standing monthly
 transfer for rent. The description is the bare name in both, so no pattern in
-`overrides.json` can separate them without swallowing both — **the bank's own
+`rules/overrides.json` can separate them without swallowing both — **the bank's own
 `typeText` can**. A Vipps payment settles instantly (`Straksbetaling`) or rides
 the card; the other kind is a giro or a plain `Overførsel`, set up once and left
 running, or pushed across in one lump.
 
-`giro.json` says what a given person's lump transfers are:
+`rules/giro.json` says what a given person's lump transfers are:
 
 ```json
 { "ola nordmann": "husleie", "kari nordmann": "reise" }
@@ -241,17 +242,17 @@ running, or pushed across in one lump.
 The category is per name rather than always rent, because the row type says how
 the money moved and never why — two of these turned out to be friends' shares of
 a trip, transferred in a lump exactly like a month's rent and identical to it on
-the row. A name absent from `giro.json` keeps its peer-payment reading, and
+the row. A name absent from `rules/giro.json` keeps its peer-payment reading, and
 `Overførsel mellom egne kontoer` is excluded outright as the bank's wording for
-a family transfer. An explicit entry in `overrides.json` beats all of it, being
+a family transfer. An explicit entry in `rules/overrides.json` beats all of it, being
 checked first.
 
 Person-to-person payments are the one category with a name per payee rather than
-a pattern per merchant, so they outgrew `overrides.json` and got their own file.
+a pattern per merchant, so they outgrew `rules/overrides.json` and got their own file.
 It is folded into the overrides on load, after them, so an explicit entry in
-`overrides.json` still wins a collision.
+`rules/overrides.json` still wins a collision.
 
-`payees.json` maps a pattern to the one name a payee should go by:
+`rules/payees.json` maps a pattern to the one name a payee should go by:
 
 ```json
 { "simen leie": "Simen leie" }
@@ -267,7 +268,7 @@ the others. It rewrites `counterparty` only and runs after every other rule, so
 nothing is matched against a name it did not see, and the month stays in
 `description`, which is what the search box reads.
 
-`subscriptions.json` is a list of the same patterns, and it is a second axis
+`rules/subscriptions.json` is a list of the same patterns, and it is a second axis
 rather than a category:
 
 ```json
@@ -279,7 +280,7 @@ A match sets `isSubscription`, so YouTube Premium stays
 flag itself on standing bank payments, and a pattern only ever adds to it. Card
 rows need a pattern to be seen at all, because Enable Banking has no such field.
 
-`/overrides` in Claude Code reads the database and `overrides.json` and suggests
+`/overrides` in Claude Code reads the database and `rules/overrides.json` and suggests
 patterns worth adding — only where a merchant with real money behind it is
 landing in `ukategorisert`. It sends merchant
 names to the model, which is the one place this repo talks to the network on
@@ -310,6 +311,9 @@ src/web/serve.ts     pnpm dev: /api/txns, Vite middleware, when to auto-refresh
 src/web/app/         the React app — App, FilterBar, Charts, Cards
 src/cli.ts           command dispatch
 
+rules/             the hand-edited JSON rules — accounts, overrides, vipps,
+                   giro, payees, subscriptions; gitignored, see Categories
+
 docs/              privacy policy and terms, required to register the
                    Enable Banking application — also published as a gist,
                    see docs/README.md before editing either
@@ -318,8 +322,7 @@ docs/              privacy policy and terms, required to register the
 `src/core/` runs in both Node and the browser, so the page aggregates with the
 exact code `node --test` pins.
 
-Everything holding personal data is gitignored: `data/`, `accounts.json`,
-`overrides.json`, `vipps.json`, `subscriptions.json`, `secrets/`,
+Everything holding personal data is gitignored: `data/`, `rules/`, `secrets/`,
 `.env.local`.
 
 ## Design rules

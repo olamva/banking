@@ -1,7 +1,13 @@
 import type { Txn, Classified } from './types.ts';
 
-/** accounts.json: SB1 account key -> whether it's ours. */
-export type Accounts = Record<string, { mine: boolean }>;
+/**
+ * rules/accounts.json: SB1 account key -> whether it's ours, and its number.
+ *
+ * `number` is optional so an older hand-edited file still loads; without it an
+ * account simply falls back to the amount+date rule below, exactly as before.
+ * `pnpm sb1 accounts` writes it, from the same response the keys come from.
+ */
+export type Accounts = Record<string, { mine: boolean; number?: string }>;
 
 /**
  * The bank-account leg of a card bill payment. Deliberately not the full
@@ -63,10 +69,12 @@ const isTransferType = (t: Txn): boolean => TRANSFER_TYPE.test(t.typeText ?? '')
  * transfer ever collides with another genuine transfer of the same amount.
  */
 export function exclude(txns: Txn[], accounts: Accounts): Classified[] {
-  const mine = new Set(Object.entries(accounts).filter(([, a]) => a.mine).map(([key]) => key));
+  const ours = Object.entries(accounts).filter(([, a]) => a.mine);
+  const mine = new Set(ours.map(([key]) => key));
+  const myNumbers = new Set(ours.map(([, a]) => a.number).filter((n): n is string => !!n));
 
   return txns.map((t) => {
-    const reason = billReason(t) ?? transferReason(t, txns, mine);
+    const reason = billReason(t) ?? transferReason(t, txns, mine, myNumbers);
     return { ...t, excluded: reason !== null, reason };
   });
 }
@@ -78,8 +86,23 @@ function billReason(t: Txn): string | null {
   return t.description.includes(BANK_BILL) ? 'credit card bill payment' : null;
 }
 
-function transferReason(t: Txn, all: Txn[], mine: Set<string>): string | null {
-  if (!mine.has(t.accountKey) || !isTransferType(t)) return null;
+function transferReason(t: Txn, all: Txn[], mine: Set<string>, myNumbers: Set<string>): string | null {
+  if (!mine.has(t.accountKey)) return null;
+  // The other party *is* one of my accounts. That is not a coincidence the way
+  // amount+date is, so it needs neither a transfer type nor a counterpart
+  // search: the row names the account it moved to, and I own it.
+  //
+  // This is the only rule that catches a self-transfer the bank did not type as
+  // one. A giro to my own account books as `NettGiro m/melding` against
+  // `Betaling med melding` — neither says `overfør`, so the pair below never saw
+  // it, and 5 572 kr counted as both income and spending. `Småsparing` round-ups
+  // are the same shape, 238 rows of it.
+  //
+  // Netting still holds without a pair search, because it is symmetric: each leg
+  // carries the other account's number, so either both legs match or neither
+  // does.
+  if (t.remoteAccountNumber && myNumbers.has(t.remoteAccountNumber)) return 'internal transfer';
+  if (!isTransferType(t)) return null;
   const hasCounterpart = all.some(
     (o) =>
       mine.has(o.accountKey) &&

@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import type { Classified, Categorized } from './types.ts';
 
 /**
- * overrides.json: { "<pattern>": "<category>" }
+ * rules/overrides.json: { "<pattern>": "<category>" }
  *
  * A pattern is a case-insensitive substring, or a regex if written as
  * `/.../ ` — `"/\\bleie\\b/"` matches the word *leie* but not *utleie* or
@@ -53,14 +53,14 @@ const BANK_CATCH_ALL = new Set(['diverse', UNCATEGORIZED]);
  * The bank calls its fixed-cost bucket `faste_boutgifter`, but it is not only
  * housing — tuition and union dues book there too. Renamed on the way out so
  * one slug does not misname half its own rows. Rename here rather than in
- * `overrides.json`, because these rows carry no override at all: the slug
+ * `rules/overrides.json`, because these rows carry no override at all: the slug
  * arrives on `bankCategory` and would otherwise reach the page unchanged.
  */
 const BANK_FIXED_COSTS = 'faste_boutgifter';
 const FIXED_COSTS = 'faste_utgifter';
 
 /**
- * subscriptions.json: `["<pattern>", ...]`, the same pattern language.
+ * rules/subscriptions.json: `["<pattern>", ...]`, the same pattern language.
  *
  * A separate axis from the category, not a category of its own — Telenor is a
  * fixed housing cost *and* a subscription, and forcing a choice between the two
@@ -76,25 +76,25 @@ async function loadJson<T>(path: string, fallback: T): Promise<T> {
 }
 
 /**
- * vipps.json: `["<name>", ...]`, the same pattern language.
+ * rules/vipps.json: `["<name>", ...]`, the same pattern language.
  *
- * Person-to-person payments were half the lines of `overrides.json` and every
+ * Person-to-person payments were half the lines of `rules/overrides.json` and every
  * one of them mapped to the same category, so they live as a bare list of names
- * instead. Checked *after* `overrides.json`, so an explicit entry there still
+ * instead. Checked *after* `rules/overrides.json`, so an explicit entry there still
  * wins for a person who shares a string with a merchant.
  *
- * A name is not enough on its own, though — see `giro.json` below.
+ * A name is not enough on its own, though — see `rules/giro.json` below.
  */
 const PEER_PAYMENT = 'vipps';
 
 /**
- * giro.json: `{ "<name>": "<category>" }`, the same pattern language, applied
+ * rules/giro.json: `{ "<name>": "<category>" }`, the same pattern language, applied
  * only to a person's *lump* transfers.
  *
  * A flatmate shows up twice over: dozens of small instant payments for a coffee
  * or a taxi, and a standing monthly transfer for rent. The description is the
  * same string in both cases — just the name — so no pattern in
- * `overrides.json` can tell them apart without swallowing both, and that
+ * `rules/overrides.json` can tell them apart without swallowing both, and that
  * quietly filed 293 000 kr of rent under `vipps`.
  *
  * `typeText` is what splits them: a Vipps payment settles instantly
@@ -113,16 +113,16 @@ const PEER_PAYMENT = 'vipps';
  */
 const LUMP_TYPE = /^(giro|mobilgiro|overførsel)\b(?! mellom egne)/i;
 
-export const loadOverrides = (path = 'overrides.json') => loadJson<Overrides>(path, {});
+export const loadOverrides = (path = 'rules/overrides.json') => loadJson<Overrides>(path, {});
 
-export const loadPeers = (path = 'vipps.json') => loadJson<string[]>(path, []);
+export const loadPeers = (path = 'rules/vipps.json') => loadJson<string[]>(path, []);
 
-export const loadGiro = (path = 'giro.json') => loadJson<Overrides>(path, {});
+export const loadGiro = (path = 'rules/giro.json') => loadJson<Overrides>(path, {});
 
-export const loadSubscriptions = (path = 'subscriptions.json') => loadJson<Subscriptions>(path, []);
+export const loadSubscriptions = (path = 'rules/subscriptions.json') => loadJson<Subscriptions>(path, []);
 
 /**
- * payees.json: `{ "<pattern>": "<name>" }`, the same pattern language — the one
+ * rules/payees.json: `{ "<pattern>": "<name>" }`, the same pattern language — the one
  * name a payee should go by.
  *
  * A landlord who writes the month into every payment is eleven payees as far as
@@ -138,19 +138,23 @@ export const loadSubscriptions = (path = 'subscriptions.json') => loadJson<Subsc
  * matched against a name it did not see. The month is still in `description`,
  * which is what the search box reads, so nothing is actually lost.
  */
-export const loadPayees = (path = 'payees.json') => loadJson<Overrides>(path, {});
+export const loadPayees = (path = 'rules/payees.json') => loadJson<Overrides>(path, {});
 
-export function renamePayees<T extends { description: string; counterparty: string | null }>(
-  txns: T[],
-  payees: Overrides,
-): T[] {
+export function renamePayees<
+  T extends { description: string; counterparty: string | null; remoteAccountNumber: string | null },
+>(txns: T[], payees: Overrides): T[] {
   const rules = Object.entries(payees).map(([pattern, name]) => ({
-    matches: compile(pattern, 'payees.json'),
+    matches: compile(pattern, 'rules/payees.json'),
     name,
   }));
   if (rules.length === 0) return txns;
   return txns.map((t) => {
-    const hit = rules.find((r) => r.matches(`${t.description} ${t.counterparty ?? ''}`.toLowerCase()));
+    // Same haystack as `categorize`, account number included: SB1 sends a few
+    // rows as a bare `Overføring` with no name on them at all, and the account
+    // is then the only thing that says who the other party was.
+    const hit = rules.find((r) =>
+      r.matches(`${t.description} ${t.counterparty ?? ''} ${t.remoteAccountNumber ?? ''}`.toLowerCase()),
+    );
     return hit ? { ...t, counterparty: hit.name } : t;
   });
 }
@@ -159,7 +163,7 @@ type Matcher = (haystack: string) => boolean;
 type Rule = { matches: Matcher; category: string };
 
 /** Compiled once per run, not once per transaction. */
-function compile(pattern: string, source: string): Matcher {
+export function compile(pattern: string, source: string): Matcher {
   const asRegex = /^\/(.+)\/([a-z]*)$/.exec(pattern);
   if (!asRegex) {
     const needle = pattern.toLowerCase();
@@ -182,15 +186,15 @@ export function categorize(
   giro: Overrides = {},
 ): Categorized[] {
   const rules: Rule[] = Object.entries(overrides).map(([pattern, category]) => ({
-    matches: compile(pattern, 'overrides.json'),
+    matches: compile(pattern, 'rules/overrides.json'),
     category,
   }));
-  const peerRules = peers.map((pattern) => compile(pattern, 'vipps.json'));
+  const peerRules = peers.map((pattern) => compile(pattern, 'rules/vipps.json'));
   const giroRules: Rule[] = Object.entries(giro).map(([pattern, category]) => ({
-    matches: compile(pattern, 'giro.json'),
+    matches: compile(pattern, 'rules/giro.json'),
     category,
   }));
-  const subs = subscriptions.map((pattern) => compile(pattern, 'subscriptions.json'));
+  const subs = subscriptions.map((pattern) => compile(pattern, 'rules/subscriptions.json'));
   return txns.map((t) => {
     // The account number is in here so a payee that bills two different things
     // under one name can still be told apart — it is the only field that differs

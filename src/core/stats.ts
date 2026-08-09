@@ -230,12 +230,18 @@ export function monthStats(month: string, txns: Categorized[], previous?: Catego
  * export covers. Reported rather than assumed: the card bucket stopped being
  * wholly opaque when the export landed, so "amount and date only" is now a
  * claim that has to be checked against the rows in hand.
+ *
+ * Card rows only. SB1 sends a handful of rows with no `cleanedDescription` and
+ * no `remoteAccountName` — a bare `Overføring` with an account number and
+ * nothing else — and those are nameless for a different reason, which no
+ * statement export can fix. Counting them here made the note say two rows were
+ * waiting on an export that already covered every card row there is.
  */
 export function blindSpot(txns: Categorized[]): ExcludedSummary {
   let count = 0;
   let cents = 0;
   for (const t of txns) {
-    if (t.excluded || t.amount >= 0 || t.counterparty !== null) continue;
+    if (t.source !== 'card' || t.excluded || t.amount >= 0 || t.counterparty !== null) continue;
     count++;
     cents += -toCents(t.amount);
   }

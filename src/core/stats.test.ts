@@ -266,6 +266,8 @@ test('blindSpot counts only spending that still has no merchant', () => {
     // income and excluded rows are not spending, merchant or not
     txn({ id: '4', source: 'card', amount: 900, counterparty: null }),
     txn({ id: '5', source: 'card', amount: -500, counterparty: null, excluded: true, reason: 'transfer' }),
+    // a nameless SB1 row waits on no statement export, so it is not this note's business
+    txn({ id: '6', source: 'sb1', amount: -7000, counterparty: null }),
   ];
   assert.deepEqual(blindSpot(txns), { count: 1, total: 300 });
 });

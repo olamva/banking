@@ -18,7 +18,7 @@ async function dump(file: string, data: unknown): Promise<void> {
 }
 
 export async function accountKeys(): Promise<string[]> {
-  return Object.keys(JSON.parse(await readFile('accounts.json', 'utf8')));
+  return Object.keys(JSON.parse(await readFile('rules/accounts.json', 'utf8')));
 }
 
 /**
