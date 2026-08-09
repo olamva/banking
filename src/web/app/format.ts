@@ -10,7 +10,11 @@ export const fmtPct = (share: number): string => `${Math.round(share * 1000) / 1
  * map that drifts every time the file is hand-edited. Only the slugs that spell
  * a Norwegian letter out need naming.
  */
-const ODD: Record<string, string> = { stroem: 'Strøm', helse_og_velvaere: 'Helse og velvære' };
+const ODD: Record<string, string> = {
+  stroem: 'Strøm',
+  helse_og_velvaere: 'Helse og velvære',
+  klaer_og_utstyr: 'Klær og utstyr',
+};
 
 export const categoryLabel = (slug: string): string =>
   ODD[slug] ?? slug.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
