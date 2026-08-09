@@ -139,13 +139,6 @@ function toCategorized(row: Row): Categorized {
   };
 }
 
-export function queryMonth(db: DatabaseSync, month: string): Categorized[] {
-  const rows = db
-    .prepare('SELECT * FROM transactions WHERE month = ? ORDER BY date, id')
-    .all(month) as unknown as Row[];
-  return rows.map(toCategorized);
-}
-
 /** Inclusive on both ends. Months are YYYY-MM, so string comparison sorts correctly. */
 export function queryRange(db: DatabaseSync, fromMonth: string, toMonth: string): Categorized[] {
   const rows = db

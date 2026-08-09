@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { openDb, upsertMany, queryMonth, queryRange, rebuild } from './db.ts';
+import { openDb, upsertMany, queryRange, rebuild } from './db.ts';
 import type { Categorized } from './types.ts';
 
 function row(overrides: Partial<Categorized> = {}): Categorized {
@@ -31,10 +31,10 @@ function row(overrides: Partial<Categorized> = {}): Categorized {
 test('upsertMany inserts, then updates in place on re-import (card rows flip PDNG)', () => {
   const db = openDb(':memory:');
   upsertMany(db, [row({ isPending: true, amount: -50 })]);
-  assert.deepEqual(queryMonth(db, '2026-07'), [row({ isPending: true, amount: -50 })]);
+  assert.deepEqual(queryRange(db, '2026-07', '2026-07'), [row({ isPending: true, amount: -50 })]);
 
   upsertMany(db, [row({ isPending: false, amount: -55 })]);
-  const rows = queryMonth(db, '2026-07');
+  const rows = queryRange(db, '2026-07', '2026-07');
   assert.equal(rows.length, 1);
   assert.equal(rows[0]?.isPending, false);
   assert.equal(rows[0]?.amount, -55);
@@ -45,7 +45,7 @@ test('the "excluded" column survives an update despite colliding with the ON CON
   const db = openDb(':memory:');
   upsertMany(db, [row({ excluded: false, reason: null })]);
   upsertMany(db, [row({ excluded: true, reason: 'internal transfer' })]);
-  const [got] = queryMonth(db, '2026-07');
+  const [got] = queryRange(db, '2026-07', '2026-07');
   assert.equal(got?.excluded, true);
   assert.equal(got?.reason, 'internal transfer');
   db.close();
@@ -54,18 +54,18 @@ test('the "excluded" column survives an update despite colliding with the ON CON
 test('(source, id) is the key — same id on both sources coexists', () => {
   const db = openDb(':memory:');
   upsertMany(db, [row({ source: 'sb1', id: 'x' }), row({ source: 'card', id: 'x' })]);
-  assert.equal(queryMonth(db, '2026-07').length, 2);
+  assert.equal(queryRange(db, '2026-07', '2026-07').length, 2);
   db.close();
 });
 
-test('queryMonth filters strictly to that month', () => {
+test('queryRange over a single month filters strictly to it', () => {
   const db = openDb(':memory:');
   upsertMany(db, [
     row({ id: 'jul', date: '2026-07-31' }),
     row({ id: 'aug', date: '2026-08-01' }),
   ]);
   assert.deepEqual(
-    queryMonth(db, '2026-07').map((r) => r.id),
+    queryRange(db, '2026-07', '2026-07').map((r) => r.id),
     ['jul'],
   );
   db.close();
@@ -90,7 +90,7 @@ test('rebuild drops rows the new import no longer produces', () => {
   upsertMany(db, [row({ id: 'stale' })]);
   rebuild(db, [row({ id: 'fresh' })]);
   assert.deepEqual(
-    queryMonth(db, '2026-07').map((r) => r.id),
+    queryRange(db, '2026-07', '2026-07').map((r) => r.id),
     ['fresh'],
   );
   db.close();
@@ -106,7 +106,7 @@ test('openDb on an existing file is idempotent and keeps prior data', () => {
 
     const second = openDb(path); // schema already exists; must not throw or wipe rows
     assert.deepEqual(
-      queryMonth(second, '2026-07').map((r) => r.id),
+      queryRange(second, '2026-07', '2026-07').map((r) => r.id),
       ['a1'],
     );
     second.close();

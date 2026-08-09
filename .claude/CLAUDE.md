@@ -276,7 +276,7 @@ row is arbitrary. That is harmless: they are equal in amount by definition, so
 any permutation gives identical per-merchant totals.
 
 Without a statement covering a month, those rows keep `counterparty: null` and
-the report says how many and how much, rather than claiming those rows are
+the dashboard says how many and how much, rather than claiming those rows are
 wholly opaque. A null counterparty also has no country, so such a row is never
 guessed as travel.
 

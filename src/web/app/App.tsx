@@ -199,20 +199,39 @@ interface DashboardProps {
 const Dashboard = ({ txns, filters, onFilters, period: p }: DashboardProps) => {
   const all = txns.filter((t) => inRange(t, p.from, p.to));
   const shown = all.filter((t) => matchesFilters(t, filters));
-  const previous = p.prev
+
+  /**
+   * The window being compared against, once there is one. Nothing precedes all
+   * time, and nothing precedes the first period in the archive either — a
+   * comparison against a window with no rows in it reads as a 100% rise on
+   * every tile, against a zero that is an absence rather than a measurement.
+   *
+   * Measured before the filters, deliberately. A filter that empties the
+   * previous window is a real zero — money spent on something that did not
+   * exist then — and that delta is worth keeping.
+   */
+  const vs =
+    p.prev && txns.some((t) => inRange(t, p.prev!.from, p.prev!.to))
+      ? p.prev
+      : null;
+
+  const previous = vs
     ? txns
-        .filter((t) => inRange(t, p.prev!.from, p.prev!.to))
+        .filter((t) => inRange(t, vs.from, vs.to))
         .filter((t) => matchesFilters(t, filters))
     : [];
 
-  // Nothing precedes all time, so it draws no deltas — a comparison against
-  // nothing would read as a 100% rise on every tile.
-  const stats = monthStats(p.label, shown, p.prev ? previous : undefined);
+  const stats = monthStats(p.label, shown, vs ? previous : undefined);
   const prev = monthStats("previous", previous);
 
   // A single month plots as one dot, and its "average month" is the total again.
   const months = byMonth(shown);
   const yearly = months.length > 1 ? yearStats(p.label, months) : null;
+
+  // The same filters as `shown`, so the faint line behind the chart and the
+  // deltas beside it are measuring the same thing.
+  const compare =
+    yearly && vs ? yearStats("previous", byMonth(previous)).months : [];
 
   const cats = stats.categories.map((c) => ({
     label: categoryLabel(c.category),
@@ -269,8 +288,8 @@ const Dashboard = ({ txns, filters, onFilters, period: p }: DashboardProps) => {
             label="Spent"
             value={fmtNOK(stats.totalOut)}
             sub={yearly ? `${fmtNOK(yearly.averageMonth.totalOut)} / month` : undefined}
-            vs={p.prev?.label}
-            delta={p.prev ? deltaInfo(stats.totalOut, prev.totalOut, false) : undefined}
+            vs={vs?.label}
+            delta={vs ? deltaInfo(stats.totalOut, prev.totalOut, false) : undefined}
           />
         )}
         {stats.totalIn > 0 && (
@@ -278,8 +297,8 @@ const Dashboard = ({ txns, filters, onFilters, period: p }: DashboardProps) => {
             label="Income"
             value={fmtNOK(stats.totalIn)}
             sub={yearly ? `${fmtNOK(yearly.averageMonth.totalIn)} / month` : undefined}
-            vs={p.prev?.label}
-            delta={p.prev ? deltaInfo(stats.totalIn, prev.totalIn, true) : undefined}
+            vs={vs?.label}
+            delta={vs ? deltaInfo(stats.totalIn, prev.totalIn, true) : undefined}
           />
         )}
         {stats.totalIn > 0 && stats.totalOut > 0 && (
@@ -287,8 +306,8 @@ const Dashboard = ({ txns, filters, onFilters, period: p }: DashboardProps) => {
             label="Net"
             value={fmtNOK(stats.net)}
             sub={yearly ? `${fmtNOK(yearly.averageMonth.net)} / month` : undefined}
-            vs={p.prev?.label}
-            delta={p.prev ? deltaInfo(stats.net, prev.net, true) : undefined}
+            vs={vs?.label}
+            delta={vs ? deltaInfo(stats.net, prev.net, true) : undefined}
           />
         )}
         {stats.cardShare > 0 && (
@@ -311,7 +330,12 @@ const Dashboard = ({ txns, filters, onFilters, period: p }: DashboardProps) => {
             title={anyIncome ? "Income & spend by month" : "Spending by month"}
             icon={MonthlyIcon}
           >
-            <MonthlyLines series={yearly.months} income={anyIncome} />
+            <MonthlyLines
+              series={yearly.months}
+              income={anyIncome}
+              compare={compare}
+              compareLabel={vs?.label}
+            />
           </Card>
         </div>
       )}
@@ -325,7 +349,7 @@ const Dashboard = ({ txns, filters, onFilters, period: p }: DashboardProps) => {
 
         {!single && deltas.length > 0 && (
           <Card
-            title={`Biggest changes vs ${p.prev?.label}`}
+            title={`Biggest changes vs ${vs?.label}`}
             icon={ChangesIcon}
           >
             <DivergingBars deltas={deltas} onPick={onCategory} />

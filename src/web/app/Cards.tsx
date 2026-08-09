@@ -220,12 +220,30 @@ export const DataTable = ({ columns, rows, scroll }: DataTableProps) => {
    */
   const [rowH, setRowH] = useState(24);
   const probe = useRef<HTMLTableRowElement>(null);
+  const box = useRef<HTMLDivElement>(null);
 
   const windowed = !!scroll && rows.length > WINDOW_OVER;
 
   useLayoutEffect(() => {
     const h = probe.current?.getBoundingClientRect().height;
     if (h && Math.abs(h - rowH) > 0.5) setRowH(h);
+
+    /**
+     * The scroller is what the user is looking at; `win` is only this
+     * component's copy of where it is, and the two come apart. A filter that
+     * drops the list under `WINDOW_OVER` detaches `onScroll` below, and the
+     * browser then clamps its own `scrollTop` to the shorter content with
+     * nothing left listening — so widening the filter again would window the
+     * rows around a position abandoned several filters ago, and draw a table
+     * of blank space that no further scrolling is needed to correct.
+     *
+     * Read back rather than remembered, then. In a layout effect the value is
+     * the browser's own post-clamp one, and both comparisons are equalities,
+     * so a correction settles in one extra pass.
+     */
+    const el = box.current;
+    if (el && (el.scrollTop !== win.top || el.clientHeight !== win.height))
+      setWin({ top: el.scrollTop, height: el.clientHeight });
   });
 
   /**
@@ -254,6 +272,7 @@ export const DataTable = ({ columns, rows, scroll }: DataTableProps) => {
 
   return (
     <div
+      ref={box}
       onScroll={
         windowed
           ? (e) =>

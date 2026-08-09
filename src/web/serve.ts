@@ -149,7 +149,7 @@ function allTxns(): string {
 }
 
 export async function serve(port: number, opts: { pull: boolean; maxAgeMin: number }): Promise<void> {
-  // Imported here rather than at the top: `pnpm sb1 report` loads this module's
+  // Imported here rather than at the top: `pnpm sb1 rebuild` loads this module's
   // siblings and has no business paying for Vite's startup.
   const { createServer: createViteServer } = await import('vite');
   const vite = await createViteServer({

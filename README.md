@@ -22,12 +22,11 @@ and amount.
 
 Everything is then normalised to one record shape, internal transfers and card
 bill payments are flagged so they don't double-count, categories are applied,
-and the result lands in SQLite. Reports and the dashboard read from there.
+and the result lands in SQLite. The dashboard reads from there.
 
 ```
 data/raw/  ──normalize──►  Txn  ──enrich──►  ──exclude──►  ──categorize──►  SQLite
                                 (merchant)   (transfers)    (overrides)        │
-                                                                 report ◄──────┤
                                                                pnpm dev ◄──────┘
 ```
 
@@ -57,8 +56,6 @@ pnpm sb1 eb-sync --month YYYY-MM    # card transactions
 # offline — reads data/raw/ or the database
 pnpm sb1 statement <file.csv>       # ingest a card statement export, then rebuild
 pnpm sb1 rebuild                    # rebuild data/banking.db from data/raw/
-pnpm sb1 report --month YYYY-MM     # totals, categories, counterparties, card share
-pnpm sb1 report --year YYYY         # per-month series and year categories
 pnpm sb1 peers | pbcopy             # clipboard rows -> the names rules/vipps.json lacks
 
 # the living app
@@ -71,8 +68,8 @@ pnpm typecheck
 ```
 
 `rebuild` reconstructs the whole database from `data/raw/` — a few hundred
-milliseconds, and the only way rows get in. `report` and `pnpm dev` read the
-database, so it has to have run first.
+milliseconds, and the only way rows get in. `pnpm dev` reads the database, so it
+has to have run first.
 
 ## The dashboard
 
@@ -149,12 +146,11 @@ pnpm dev --port 5000
 ## A typical month
 
 Mostly, nothing: leave `pnpm dev --pull` running and it keeps the current month
-current. By hand, if you want a report in the terminal:
+current. By hand:
 
 ```bash
 pnpm sb1 sync --month 2026-08 && pnpm sb1 eb-sync --month 2026-08
 pnpm sb1 rebuild
-pnpm sb1 report --month 2026-08
 ```
 
 Card transactions post late and can arrive pending, so a month is only really
@@ -180,7 +176,7 @@ duplicate lines are collapsed on read. Just ingest the newest one — the older
 files can stay where they are.
 
 Any month not covered by an export keeps `counterparty: null` on its card rows,
-and `report` says how many and how much rather than pretending otherwise.
+and the dashboard says how many and how much rather than pretending otherwise.
 
 ## Categories
 

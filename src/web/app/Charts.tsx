@@ -148,13 +148,9 @@ export const DivergingBars = ({ deltas: shown, onPick }: DivergingBarsProps) => 
   const mid = width / 2;
   const halfW = Math.max(width / 2 - 90, 20);
   const height = shown.length * rowH + 8;
+  // The real maximum, not a rounded-up one: the gridlines that wanted round
+  // numbers are gone, so the biggest bar may as well reach the edge of its half.
   const maxAbs = Math.max(...shown.map((d) => Math.abs(d.delta)), 1);
-
-  // Doubled, because niceStep sizes for one axis and this one spends its range
-  // on both sides of zero — otherwise the gridlines come out twice as dense.
-  const step = niceStep(maxAbs * 2);
-  const gridMax = Math.ceil(maxAbs / step) * step;
-  const ticks = Array.from({ length: Math.floor(gridMax / step) }, (_, i) => (i + 1) * step);
 
   return (
     <div ref={ref}>
@@ -162,22 +158,16 @@ export const DivergingBars = ({ deltas: shown, onPick }: DivergingBarsProps) => 
         <Empty>No change from last month.</Empty>
       ) : (
         <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
-          {/* Gridlines only, no tick row: at card width the labels collided into
-              each other, and every bar carries its own number anyway. These are
-              for comparing bars against each other, not for reading a value off. */}
-          {ticks.map((v) => {
-            const dx = (v / gridMax) * halfW;
-            return (
-              <g key={v}>
-                <line x1={mid - dx} x2={mid - dx} y1={0} y2={height} className="stroke-grid" />
-                <line x1={mid + dx} x2={mid + dx} y1={0} y2={height} className="stroke-grid" />
-              </g>
-            );
-          })}
+          {/* Only the zero line. The gridlines that used to flank it were for
+              comparing bars against each other, back when the bar was the sole
+              encoding of its size — every bar now prints its own number at its
+              end, which answers that better than counting rules. This one stays:
+              it is the zero the chart diverges from, and without it nothing says
+              which side of it a bar is on. */}
           <line x1={mid} x2={mid} y1={0} y2={height} className="stroke-axis" />
           {shown.map((d, i) => {
             const y = i * rowH + 4;
-            const w = Math.max((Math.abs(d.delta) / gridMax) * halfW, 1);
+            const w = Math.max((Math.abs(d.delta) / maxAbs) * halfW, 1);
             const positive = d.delta > 0;
             return (
               <g key={d.category}>
@@ -229,6 +219,23 @@ export const DivergingBars = ({ deltas: shown, onPick }: DivergingBarsProps) => 
   );
 };
 
+/**
+ * The unbroken stretches of a gapped series. The months either side of a gap
+ * are not neighbours, so nothing may be drawn between them: each stretch gets
+ * its own lines and its own band, and a stretch of one month draws no line at
+ * all and is carried by its dot.
+ */
+const runsOf = <T,>(dense: (T | null)[]): { m: T; i: number }[][] => {
+  const runs: { m: T; i: number }[][] = [];
+  dense.forEach((m, i) => {
+    if (m === null) return;
+    const open = runs.at(-1);
+    if (open && open.at(-1)!.i === i - 1) open.push({ m, i });
+    else runs.push([{ m, i }]);
+  });
+  return runs;
+};
+
 interface MonthlyLinesProps {
   series: MonthSummary[];
   /**
@@ -238,10 +245,22 @@ interface MonthlyLinesProps {
    * that carries something. The caller derives it because it titles the card.
    */
   income: boolean;
+  /**
+   * The same months one period back, drawn faint behind. Empty when there is
+   * nothing to compare against — see `vs` in App.tsx.
+   */
+  compare?: MonthSummary[];
+  /** What that window is called, for the legend and the tooltip. */
+  compareLabel?: string;
 }
 
 /** Spent against income, month by month across a year. */
-export const MonthlyLines = ({ series, income: hasIncome }: MonthlyLinesProps) => {
+export const MonthlyLines = ({
+  series,
+  income: hasIncome,
+  compare = [],
+  compareLabel,
+}: MonthlyLinesProps) => {
   const [ref, width] = useWidth(500);
   const { show, hide, node } = useTooltip();
   const [near, setNear] = useState<number | null>(null);
@@ -258,7 +277,9 @@ export const MonthlyLines = ({ series, income: hasIncome }: MonthlyLinesProps) =
   const padT = 10;
   const plotW = Math.max(width - padL - 16, 20);
   const plotH = height - padB - padT;
-  const maxVal = Math.max(...series.map((m) => Math.max(m.totalIn, m.totalOut)), 1);
+  // Over both series: a compared month that outspent every current one would
+  // otherwise draw off the top of the plot.
+  const maxVal = Math.max(...[...series, ...compare].map((m) => Math.max(m.totalIn, m.totalOut)), 1);
   const step = niceStep(maxVal);
   const gridMax = Math.ceil(maxVal / step) * step;
   /**
@@ -272,6 +293,21 @@ export const MonthlyLines = ({ series, income: hasIncome }: MonthlyLinesProps) =
   const ticks = Array.from({ length: Math.floor(gridMax / step) + 1 }, (_, i) => i * step);
   const px = (i: number) => padL + i * clusterW + clusterW / 2;
   const py = (v: number) => padT + plotH - (v / gridMax) * plotH;
+
+  /**
+   * The compared window laid over the same axis. It is always exactly one year
+   * back — the chart only draws for a year period, since a single month is one
+   * dot and all time has nothing before it — so a month number is enough to
+   * line the two up, and January sits above January whichever year is in view.
+   *
+   * The month is derived from the slot rather than read off it, because a slot
+   * can be a gap: the current year missing June must not stop last June being
+   * drawn.
+   */
+  const cmpAt = new Map(compare.map((m) => [m.month.slice(5), m]));
+  const firstNum = Number(dense[0]?.month.slice(5) ?? '1');
+  const monthAt = (i: number) => String(((firstNum - 1 + i) % 12) + 1).padStart(2, '0');
+  const cmp = dense.map((_, i) => cmpAt.get(monthAt(i)) ?? null);
 
   /**
    * A year or two fits every month; past that the labels run into each other.
@@ -295,29 +331,26 @@ export const MonthlyLines = ({ series, income: hasIncome }: MonthlyLinesProps) =
         return { y, x: (px(at[0]!) + px(at.at(-1)!)) / 2 };
       });
 
-  /**
-   * The months either side of a gap are not neighbours, so nothing may be drawn
-   * between them. Each unbroken stretch gets its own lines and its own band; a
-   * stretch of one month draws no line at all and is carried by its dot.
-   */
-  const runs: { m: MonthSummary; i: number }[][] = [];
-  dense.forEach((m, i) => {
-    if (!m) return;
-    const open = runs.at(-1);
-    if (open && open.at(-1)!.i === i - 1) open.push({ m, i });
-    else runs.push([{ m, i }]);
-  });
+  const runs = runsOf(dense);
 
   const pts = (run: { m: MonthSummary; i: number }[], pick: (m: MonthSummary) => number) =>
     run.map(({ m, i }) => `${px(i)},${py(pick(m))}`);
 
   const clip = useId();
 
-  const tipFor = (m: MonthSummary) => (
+  const tipFor = (m: MonthSummary, was: MonthSummary | null) => (
     <>
       <div className="text-ink-soft">{m.month}</div>
       <div className="font-semibold">out {fmtNOK(m.totalOut)}</div>
       {hasIncome && <div className="font-semibold">in {fmtNOK(m.totalIn)}</div>}
+      {/* The compared month, named rather than left as an unlabelled dashed
+          line the reader has to date by counting slots. */}
+      {was && (
+        <div className="text-ink-muted">
+          {compareLabel}: out {fmtNOK(was.totalOut)}
+          {hasIncome && `, in ${fmtNOK(was.totalIn)}`}
+        </div>
+      )}
       {/* No card spend in the month means no card line — a `card 0%` is the
           absence of a thing, dressed up as a measurement of it. Net is the
           same: with no income it is the spend again with a minus sign. */}
@@ -345,7 +378,7 @@ export const MonthlyLines = ({ series, income: hasIncome }: MonthlyLinesProps) =
     // pointer is not on.
     if (!m) return leave();
     setNear(at);
-    show(e, tipFor(m));
+    show(e, tipFor(m, cmp[at] ?? null));
   };
 
   const leave = () => {
@@ -355,8 +388,11 @@ export const MonthlyLines = ({ series, income: hasIncome }: MonthlyLinesProps) =
 
   return (
     <div ref={ref}>
-      {/* One series needs no key telling it apart from the others. */}
-      {hasIncome && series.length > 0 && <ChartLegend />}
+      {/* One series needs no key telling it apart from the others — but a
+          dashed twin of it does, even with no income to name. */}
+      {(hasIncome || compare.length > 0) && series.length > 0 && (
+        <ChartLegend income={hasIncome} compareLabel={compare.length > 0 ? compareLabel : undefined} />
+      )}
       {series.length === 0 ? (
         <Empty>No months in range.</Empty>
       ) : (
@@ -387,6 +423,28 @@ export const MonthlyLines = ({ series, income: hasIncome }: MonthlyLinesProps) =
               />
             ) : null,
           )}
+          {/* The compared period, under the current one and out of its way: no
+              band and no dots. The band is this period's finding, and a second
+              set of dots is ink for a series that is there to be glanced at
+              rather than read off. */}
+          {runsOf(cmp).map((run) => (
+            <g key={`cmp-${run[0]!.i}`} className="opacity-40">
+              <polyline
+                points={pts(run, (m) => m.totalOut).join(' ')}
+                strokeWidth={1.5}
+                strokeDasharray="4 3"
+                className="fill-none stroke-critical-strong"
+              />
+              {hasIncome && (
+                <polyline
+                  points={pts(run, (m) => m.totalIn).join(' ')}
+                  strokeWidth={1.5}
+                  strokeDasharray="4 3"
+                  className="fill-none stroke-good-strong"
+                />
+              )}
+            </g>
+          ))}
           {/* One band and one pair of lines per unbroken stretch. The clip ids
               carry the stretch's index, or every stretch would be clipped to
               the first one's income edge. */}
@@ -458,25 +516,43 @@ export const MonthlyLines = ({ series, income: hasIncome }: MonthlyLinesProps) =
   );
 };
 
+interface ChartLegendProps {
+  income: boolean;
+  /** Named when a compared period is drawn; the dashes are the same for both its lines. */
+  compareLabel?: string;
+}
+
 /** Drawn by `MonthlyLines` itself — it is the only chart with more than one series. */
-const ChartLegend = () => (
-  <div className="mb-2 flex gap-3.5 text-xs text-ink-soft">
+const ChartLegend = ({ income, compareLabel }: ChartLegendProps) => (
+  <div className="mb-2 flex flex-wrap gap-3.5 text-xs text-ink-soft">
     <span className="inline-flex items-center gap-1.5">
       <span className="inline-block h-[3px] w-3 rounded-sm bg-critical-strong" />
       Spent
     </span>
-    <span className="inline-flex items-center gap-1.5">
-      <span className="inline-block h-[3px] w-3 rounded-sm bg-good-strong" />
-      Income
-    </span>
-    {/* The band is the point of the chart, so it gets a key of its own. */}
-    <span className="inline-flex items-center gap-1.5">
-      <span className="inline-block h-2.5 w-3 rounded-sm bg-good-strong opacity-20" />
-      Left over
-    </span>
-    <span className="inline-flex items-center gap-1.5">
-      <span className="inline-block h-2.5 w-3 rounded-sm bg-critical-strong opacity-20" />
-      Overspent
-    </span>
+    {income && (
+      <>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-block h-[3px] w-3 rounded-sm bg-good-strong" />
+          Income
+        </span>
+        {/* The band is the point of the chart, so it gets a key of its own. */}
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-block h-2.5 w-3 rounded-sm bg-good-strong opacity-20" />
+          Left over
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-block h-2.5 w-3 rounded-sm bg-critical-strong opacity-20" />
+          Overspent
+        </span>
+      </>
+    )}
+    {/* One key for both dashed lines: the dashes are what mark the period, and
+        the colours already mean spent and income two keys up. */}
+    {compareLabel && (
+      <span className="inline-flex items-center gap-1.5">
+        <span className="inline-block w-3 border-t-[3px] border-dashed border-ink-muted" />
+        {compareLabel}
+      </span>
+    )}
   </div>
 );
