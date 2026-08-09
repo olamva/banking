@@ -76,7 +76,17 @@ export async function rebuildAll(): Promise<number> {
   try {
     const months = monthsOnDisk();
     const rows: Categorized[] = [];
-    for (const month of months) rows.push(...(await pipeline(month)));
+    for (const month of months) {
+      // A row the pipeline chokes on throws from wherever it was read, which
+      // names neither the month nor the file — `rebuild` reported a bare
+      // "Cannot read properties of undefined" over 4000 rows. The month is the
+      // one piece of context this loop has and the stack does not.
+      try {
+        rows.push(...(await pipeline(month)));
+      } catch (e) {
+        throw new Error(`${RAW}/${month}: ${e instanceof Error ? e.message : e}`, { cause: e });
+      }
+    }
     rebuildDb(db, rows);
     console.error(`rebuilt ${DB_FILE} from ${months.length} months, ${rows.length} rows`);
     return rows.length;
