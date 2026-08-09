@@ -32,6 +32,7 @@ import {
   blindSpot,
   byMonth,
   monthStats,
+  subscriptionGroups,
   totals,
   yearStats,
 } from "../../core/stats.ts";
@@ -45,7 +46,6 @@ import {
   deltaInfo,
 } from "./Cards.tsx";
 import {
-  ChartLegend,
   DivergingBars,
   HorizontalBars,
   MonthlyLines,
@@ -88,8 +88,8 @@ const CARD_GRID =
  * Year is the only period with all four cards *and* the month chart above them,
  * which is what makes 2×2 read badly there — the table ends up beside a chart
  * at half the width it wants. Three across is narrower per card but costs less
- * than it looks: `HorizontalBars` reserves a fixed 130px for labels either way,
- * so nothing new truncates; only the bar area shrinks.
+ * than it looks: `HorizontalBars` gives every label the card's full width and
+ * truncates against whatever is left, so it shrinks rather than breaks.
  *
  * The last child is always the one that takes the full row, because in this
  * layout it is the transaction table — the card that actually wants the width.
@@ -236,10 +236,28 @@ const Dashboard = ({ txns, filters, onFilters, period: p }: DashboardProps) => {
     pick(onFilters, "categories")(slugOf.get(label) ?? label, meta);
   const onMerchant = pick(onFilters, "merchants");
 
-  // A breakdown of one category is a bar chart of itself, so it goes. Excluding
-  // one is the opposite: everything else is still in, and still worth breaking down.
+  // A breakdown of one category is a bar chart of itself, so it goes — and so
+  // does the change chart, which can only hold that same category's one bar,
+  // already spelled out on the tile above it. Excluding one category is the
+  // opposite: everything else is still in, and still worth breaking down.
   const single =
     filters.categories.length === 1 && filters.categoryMode === "include";
+
+  /**
+   * Three across only once there are three cards to fill the row. Below that
+   * the grid strands the first card at a third of the width with the rest of
+   * the row empty beside it, which is exactly the case a single category
+   * produces — two of the four cards hide themselves.
+   */
+  const cards =
+    (!single && cats.length > 0 ? 1 : 0) +
+    (!single && deltas.length > 0 ? 1 : 0) +
+    (cps.length > 0 ? 1 : 0) +
+    (subscriptionGroups(shown).length > 0 ? 1 : 0);
+
+  // Filtered to a spending category every month's income is zero, and a line
+  // along the axis is not a finding. The chart drops it; the title follows.
+  const anyIncome = !!yearly && yearly.months.some((m) => m.totalIn > 0);
 
   // Nothing renders a box it has no rows for. Filtered to rent, "income" is a
   // zero and "net" is the spend again with a minus sign; both are noise.
@@ -289,21 +307,23 @@ const Dashboard = ({ txns, filters, onFilters, period: p }: DashboardProps) => {
           rule below exists to prevent that. */}
       {yearly && (
         <div className="mb-4">
-          <Card title="Income & spend by month" icon={MonthlyIcon}>
-            <ChartLegend />
-            <MonthlyLines series={yearly.months} />
+          <Card
+            title={anyIncome ? "Income & spend by month" : "Spending by month"}
+            icon={MonthlyIcon}
+          >
+            <MonthlyLines series={yearly.months} income={anyIncome} />
           </Card>
         </div>
       )}
 
-      <div className={p.kind === "year" ? CARD_GRID_3 : CARD_GRID}>
+      <div className={p.kind === "year" && cards >= 3 ? CARD_GRID_3 : CARD_GRID}>
         {!single && cats.length > 0 && (
           <Card title="Spending by category" icon={CategoryIcon}>
             <HorizontalBars items={cats} onPick={onCategory} />
           </Card>
         )}
 
-        {deltas.length > 0 && (
+        {!single && deltas.length > 0 && (
           <Card
             title={`Biggest changes vs ${p.prev?.label}`}
             icon={ChangesIcon}

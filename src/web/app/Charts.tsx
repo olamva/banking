@@ -63,68 +63,65 @@ export interface BarItem {
 interface HorizontalBarsProps {
   items: BarItem[];
   /**
-   * Given, every bar becomes a filter button for its own label. The second
-   * argument is whether the meta key was held — the chart does not know what
-   * that means, only that it happened.
+   * Every row is a filter button for its own label. The second argument is
+   * whether the meta key was held — the chart does not know what that means,
+   * only that it happened.
    */
-  onPick?: (label: string, meta: boolean) => void;
+  onPick: (label: string, meta: boolean) => void;
 }
 
-/** Category totals or top counterparties. One hue — this encodes magnitude, not identity. */
+/**
+ * Category totals or top counterparties. One hue — this encodes magnitude, not
+ * identity.
+ *
+ * The same rows the SVG drew, in HTML, for a reason SVG cannot fix: it has no
+ * text-overflow, so a label in a fixed gutter had to be cut by counting
+ * characters against an assumed width per character. That guess is low for
+ * capitals, and a merchant billing as `RUTERAPPEN OSLO NO` measured as fitting
+ * and then ran off the left edge of the card. CSS truncates against the room
+ * actually there.
+ */
 export const HorizontalBars = ({ items, onPick }: HorizontalBarsProps) => {
-  const [ref, width] = useWidth();
   const { bind, node } = useTooltip();
-
-  const rowH = 26;
-  const labelW = 130;
-  // The 78 is the value label's own room: a full-width bar would push it off the right edge.
-  const barAreaW = Math.max(width - labelW - 78, 20);
-  const height = items.length * rowH + 8;
   const maxVal = Math.max(...items.map((i) => i.total), 1);
 
+  if (items.length === 0) return <Empty>Nothing in this range.</Empty>;
+
   return (
-    <div ref={ref}>
-      {items.length === 0 ? (
-        <Empty>Nothing in this range.</Empty>
-      ) : (
-        <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
-          {items.map((item, i) => {
-            const y = i * rowH + 4;
-            const w = Math.max((item.total / maxVal) * barAreaW, 1);
-            return (
-              <g key={item.label}>
-                <text x={labelW - 8} y={y + 16} textAnchor="end" className="fill-ink-soft text-[11px]">
-                  <title>{item.label}</title>
-                  {ellipsis(item.label, labelW - 8)}
-                </text>
-                <rect
-                  x={labelW}
-                  y={y + 3}
-                  width={w}
-                  height={16}
-                  rx={4}
-                  onClick={onPick && ((e) => onPick(item.label, e.metaKey))}
-                  className={`fill-series-1 hover:opacity-85 ${onPick ? 'cursor-pointer' : 'cursor-default'}`}
-                  {...bind(
-                    <>
-                      <div className="text-ink-soft">{item.label}</div>
-                      <div className="font-semibold">
-                        {fmtNOK(item.total)}
-                        {item.count ? ` · ${item.count} txns` : ''}
-                      </div>
-                    </>,
-                  )}
-                />
-                <text x={labelW + w + 8} y={y + 16} className="fill-ink text-[11px] font-semibold">
+    <>
+      <div className="flex flex-col">
+        {items.map((item) => (
+          <button
+            key={item.label}
+            type="button"
+            onClick={(e) => onPick(item.label, e.metaKey)}
+            className="flex h-[26px] items-center gap-2 rounded-md text-[11px] hover:bg-hover"
+            {...bind(
+              <>
+                <div className="text-ink-soft">{item.label}</div>
+                <div className="font-semibold">
                   {fmtNOK(item.total)}
-                </text>
-              </g>
-            );
-          })}
-        </svg>
-      )}
+                  {item.count ? ` · ${item.count} txns` : ''}
+                </div>
+              </>,
+            )}
+          >
+            <span className="w-[122px] shrink-0 truncate text-right text-ink-soft">{item.label}</span>
+            <span className="flex min-w-0 flex-1 items-center gap-2">
+              {/* The bar area keeps 78px back for the value, as the SVG did — a
+                  full-width bar would otherwise push the number off the edge.
+                  `min-w-px` keeps the smallest total visible as a sliver. */}
+              <span
+                className="h-4 min-w-px rounded bg-series-1"
+                style={{ width: `calc((100% - 78px) * ${item.total / maxVal})` }}
+              />
+              <span className="shrink-0 font-semibold">{fmtNOK(item.total)}</span>
+            </span>
+          </button>
+        ))}
+      </div>
       {node}
-    </div>
+    </>
   );
 };
 
@@ -234,10 +231,17 @@ export const DivergingBars = ({ deltas: shown, onPick }: DivergingBarsProps) => 
 
 interface MonthlyLinesProps {
   series: MonthSummary[];
+  /**
+   * Whether any month has income at all. Filtered to a spending category there
+   * is none, and the green line, the band and half the legend then describe a
+   * flat zero — three encodings of "not applicable" drawn over the one series
+   * that carries something. The caller derives it because it titles the card.
+   */
+  income: boolean;
 }
 
 /** Spent against income, month by month across a year. */
-export const MonthlyLines = ({ series }: MonthlyLinesProps) => {
+export const MonthlyLines = ({ series, income: hasIncome }: MonthlyLinesProps) => {
   const [ref, width] = useWidth(500);
   const { show, hide, node } = useTooltip();
   const [near, setNear] = useState<number | null>(null);
@@ -313,13 +317,17 @@ export const MonthlyLines = ({ series }: MonthlyLinesProps) => {
     <>
       <div className="text-ink-soft">{m.month}</div>
       <div className="font-semibold">out {fmtNOK(m.totalOut)}</div>
-      <div className="font-semibold">in {fmtNOK(m.totalIn)}</div>
+      {hasIncome && <div className="font-semibold">in {fmtNOK(m.totalIn)}</div>}
       {/* No card spend in the month means no card line — a `card 0%` is the
-          absence of a thing, dressed up as a measurement of it. */}
-      <div className="text-ink-soft">
-        net {fmtNOK(m.net)}
-        {m.cardShare > 0 && ` · card ${fmtPct(m.cardShare)}`}
-      </div>
+          absence of a thing, dressed up as a measurement of it. Net is the
+          same: with no income it is the spend again with a minus sign. */}
+      {(hasIncome || m.cardShare > 0) && (
+        <div className="text-ink-soft">
+          {hasIncome && `net ${fmtNOK(m.net)}`}
+          {hasIncome && m.cardShare > 0 && ' · '}
+          {m.cardShare > 0 && `card ${fmtPct(m.cardShare)}`}
+        </div>
+      )}
     </>
   );
 
@@ -347,6 +355,8 @@ export const MonthlyLines = ({ series }: MonthlyLinesProps) => {
 
   return (
     <div ref={ref}>
+      {/* One series needs no key telling it apart from the others. */}
+      {hasIncome && series.length > 0 && <ChartLegend />}
       {series.length === 0 ? (
         <Empty>No months in range.</Empty>
       ) : (
@@ -387,18 +397,24 @@ export const MonthlyLines = ({ series }: MonthlyLinesProps) => {
               [`${px(run[0]!.i)},${y}`, ...income, `${px(run.at(-1)!.i)},${y}`].join(' ');
             return (
               <g key={run[0]!.m.month}>
-                <defs>
-                  <clipPath id={`${clip}-over-${r}`}>
-                    <polygon points={edge(padT)} />
-                  </clipPath>
-                  <clipPath id={`${clip}-under-${r}`}>
-                    <polygon points={edge(padT + plotH)} />
-                  </clipPath>
-                </defs>
-                <polygon points={band} clipPath={`url(#${clip}-over-${r})`} className="fill-critical-strong opacity-20" />
-                <polygon points={band} clipPath={`url(#${clip}-under-${r})`} className="fill-good-strong opacity-20" />
+                {hasIncome && (
+                  <>
+                    <defs>
+                      <clipPath id={`${clip}-over-${r}`}>
+                        <polygon points={edge(padT)} />
+                      </clipPath>
+                      <clipPath id={`${clip}-under-${r}`}>
+                        <polygon points={edge(padT + plotH)} />
+                      </clipPath>
+                    </defs>
+                    <polygon points={band} clipPath={`url(#${clip}-over-${r})`} className="fill-critical-strong opacity-20" />
+                    <polygon points={band} clipPath={`url(#${clip}-under-${r})`} className="fill-good-strong opacity-20" />
+                  </>
+                )}
                 <polyline points={pts(run, (m) => m.totalOut).join(' ')} strokeWidth={2} className="fill-none stroke-critical-strong" />
-                <polyline points={pts(run, (m) => m.totalIn).join(' ')} strokeWidth={2} className="fill-none stroke-good-strong" />
+                {hasIncome && (
+                  <polyline points={income.join(' ')} strokeWidth={2} className="fill-none stroke-good-strong" />
+                )}
               </g>
             );
           })}
@@ -410,7 +426,9 @@ export const MonthlyLines = ({ series }: MonthlyLinesProps) => {
               <g key={m.month}>
                 {/* A stretch of one month draws no polyline, so the dots are what carries it. */}
                 <circle cx={px(i)} cy={py(m.totalOut)} r={near === i ? 5 : 3} className="fill-critical-strong" />
-                <circle cx={px(i)} cy={py(m.totalIn)} r={near === i ? 5 : 3} className="fill-good-strong" />
+                {hasIncome && (
+                  <circle cx={px(i)} cy={py(m.totalIn)} r={near === i ? 5 : 3} className="fill-good-strong" />
+                )}
                 {axisLabel(m.month) && (
                   <text
                     x={px(i)}
@@ -440,7 +458,8 @@ export const MonthlyLines = ({ series }: MonthlyLinesProps) => {
   );
 };
 
-export const ChartLegend = () => (
+/** Drawn by `MonthlyLines` itself — it is the only chart with more than one series. */
+const ChartLegend = () => (
   <div className="mb-2 flex gap-3.5 text-xs text-ink-soft">
     <span className="inline-flex items-center gap-1.5">
       <span className="inline-block h-[3px] w-3 rounded-sm bg-critical-strong" />
