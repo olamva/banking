@@ -1,0 +1,11 @@
+{
+  "id": "13493cf9",
+  "ts": "2026-08-09T08:03:32+00:00",
+  "text": "Fresh git worktree has no secrets/, so pnpm test fails on src/net/eb.test.ts (localhost-key.pem ENOENT) until you symlink it from the main checkout",
+  "tags": [
+    "tests",
+    "worktree"
+  ],
+  "who": "agent",
+  "where": "src/net/eb.test.ts"
+}

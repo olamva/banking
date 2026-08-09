@@ -1,0 +1,11 @@
+{
+  "id": "b01598f8",
+  "ts": "2026-08-09T08:29:56+00:00",
+  "text": "gitignore has 'secrets/' with a trailing slash, which does not match a 'secrets' symlink \u2014 a worktree that links to the real secrets dir gets it staged by git add -A",
+  "tags": [
+    "git",
+    "security"
+  ],
+  "who": "agent",
+  "where": ".gitignore"
+}
