@@ -151,8 +151,10 @@ Notes from the real data, not the plan:
   `subscriptions.json` names it.
 - SB1 categories are always exactly one entry at confidence 100. `diverse` is
   the bank's catch-all and carries no more signal than no category at all, so
-  `categorize` collapses it into `ukategorisert`. Together they are ~40% of
-  rows, which is why `overrides.json` does real work.
+  `categorize` collapses it into `ukategorisert` — as it does the bank's own
+  literal `ukategorisert`, which it sends on ~500 rows and which is the same
+  shrug by another name. Together they are ~40% of rows, which is why
+  `overrides.json` does real work.
 - Card rows carry no category at all and are roughly 40% of monthly spending.
   The merchant now arrives from the statement export, so overrides can reach
   them. Without one, a card row is `reise` if the merchant's trailing ISO
@@ -190,6 +192,11 @@ merchant refunds and `Rabatt strømmetjenester` is cashback. Both are real.
 
 The check that catches all of this: every excluded reason must net to zero
 across the pair. If it doesn't, one leg is being matched and the other isn't.
+
+An excluded row with no category of its own is `overfoering`, not
+`ukategorisert` — the toggle in `select.ts` is the only thing that lists these,
+and every sum in `stats.ts` skips them before it adds anything up, so the slug
+is a label for the audit view and never a bucket money lands in.
 
 ## The card's merchant
 

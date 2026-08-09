@@ -95,6 +95,15 @@ window before, the previous month or the previous year, and disappear for all
 time, which has nothing before it; the month-by-month chart and the "per month"
 averages appear once the window spans more than one month.
 
+The window still running compares against **the same slice** of the one before —
+nine days of August against nine days of July, not against the whole of it, or
+every delta on the page would read as a collapse drawn by the calendar. Finished
+windows still compare whole, and the tile says which it did.
+
+**Subscriptions are listed per subscription**, not per charge: one line for what
+it is, what it has taken across the window, how many times, and when it last
+went out. Sortable, searchable and windowed, like the transactions table.
+
 Categories filter as **chips: click any number of them**, none means all. Pick
 exactly one and the category breakdown drops out — a bar chart of a single
 category is a bar chart of itself. Meta-click a bar to exclude it instead.
@@ -189,8 +198,13 @@ street, which is how `Munkegata` first swallowed a supermarket.
 
 A card row that no pattern matches falls to `reise` when the merchant's trailing
 ISO country is not `NOR`, and to `ukategorisert` when it is. The bank's own
-`diverse` collapses into `ukategorisert` too, so there is one opaque bucket, not
-three.
+catch-alls — `diverse`, and `ukategorisert` spelled out on the row — collapse
+into `ukategorisert` too, so there is one opaque bucket, not three.
+
+An **excluded** row with nothing else to go on lands in `overfoering` rather
+than that bucket: both legs of a transfer and both legs of a card bill are a
+transfer, and the toggle that lists them is the only place they are ever seen.
+No sum can see it — `stats.ts` skips excluded rows before it adds anything up.
 
 `vipps.json` is a list of names, in the same pattern language, and every one of
 them means the `vipps` category:
