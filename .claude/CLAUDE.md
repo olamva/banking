@@ -111,6 +111,12 @@ serve.ts`, so `pnpm dev` is one process on one port, and `dist/` does not exist.
 The page is only ever served to localhost, which is what makes that safe. Don't
 add `vite build` to make it "production-ready" — there is no production.
 
+`pnpm dev` also runs without `node --watch`, and putting it back hangs the
+command: loading the Vite config writes
+`node_modules/.vite-temp/vite.config.ts.timestamp-*.mjs`, `--watch` sees a new
+file and restarts, and the restart loads the config again. The page hot-reloads
+through Vite anyway, so the flag buys nothing the server does not already do.
+
 **Money logic leaves a test behind.** Anything that signs, sums, excludes or
 categorises gets one `node --test` case in `src/*/*.test.ts`. No frameworks, no
 fixtures built from real transactions. The React components are deliberately
