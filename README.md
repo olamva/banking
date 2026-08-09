@@ -212,12 +212,24 @@ than that bucket: both legs of a transfer and both legs of a card bill are a
 transfer, and the toggle that lists them is the only place they are ever seen.
 No sum can see it — `stats.ts` skips excluded rows before it adds anything up.
 
-`vipps.json` is a list of names, in the same pattern language, and every one of
-them means the `vipps` category:
+`vipps.json` is a list of names, in the same pattern language:
 
 ```json
 ["ola nordmann", "kari nordmann"]
 ```
+
+A name alone is not enough, because a flatmate is two relationships at once:
+forty small instant payments for a coffee or a taxi, and a standing monthly
+transfer for rent. The description is the bare name in both, so no pattern can
+separate them — **the bank's own `typeText` does**. A named person's row is
+`vipps` when it settled instantly (`Straksbetaling`) or on the card, and
+`husleie` when the bank booked it as a giro or a plain `Overførsel`. On the real
+data the two do not overlap in size at all: every giro row is 4 000 kr or more,
+every instant one is under it.
+
+`Overførsel mellom egne kontoer` is deliberately not rent — that is the bank's
+wording for a family transfer, and those stay peer payments. An explicit entry
+in `overrides.json` still beats the whole rule, since it is checked first.
 
 Person-to-person payments are the one category with a name per payee rather than
 a pattern per merchant, so they outgrew `overrides.json` and got their own file.

@@ -43,7 +43,7 @@ data/raw/card-statements/  issuer CSV exports, the only merchant source
 data/banking.db   derived SQLite store, rebuildable from data/raw, gitignored
 accounts.json     which accounts are mine (hand-edited), gitignored
 overrides.json    substring or /regex/ -> category, gitignored
-vipps.json        names of payees, as a list; folded into overrides, gitignored
+vipps.json        names of payees, as a list; its own rule, gitignored
 subscriptions.json  the same patterns, as a list; sets isSubscription, gitignored
 ```
 
@@ -150,6 +150,13 @@ Notes from the real data, not the plan:
   subscription. An Enable Banking card row can never carry them at all, so
   anything on the credit card is invisible to the flag until
   `subscriptions.json` names it.
+- A name in `vipps.json` does **not** on its own mean `vipps`. A flatmate is two
+  relationships at once — dozens of small instant payments, and a standing
+  monthly transfer for rent — and the description is the bare name in both, so
+  no pattern can separate them. `typeText` does: instant or card is a peer
+  payment, a giro or a plain `Overførsel` is rent. Not separating them filed
+  293 000 kr of rent under `vipps` across seven people. `Overførsel mellom egne
+  kontoer` is deliberately excluded — that is a family transfer, not rent.
 - SB1 categories are always exactly one entry at confidence 100. `diverse` is
   the bank's catch-all and carries no more signal than no category at all, so
   `categorize` collapses it into `ukategorisert` — as it does the bank's own

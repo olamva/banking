@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { categorize, loadOverrides, loadSubscriptions } from './categorize.ts';
+import { categorize, loadOverrides, loadPeers, loadSubscriptions } from './categorize.ts';
 import type { Classified } from './types.ts';
 
 function classified(overrides: Partial<Classified>): Classified {
@@ -137,21 +137,68 @@ test('sb1 row with no bankCategory falls to ukategorisert', () => {
   assert.equal(out.category, 'ukategorisert');
 });
 
-test('loadOverrides returns {} when both files are absent', async () => {
-  const result = await loadOverrides('does-not-exist.json', 'nor-this-one.json');
-  assert.deepEqual(result, {});
+test('loadOverrides returns {} when the file is absent', async () => {
+  assert.deepEqual(await loadOverrides('does-not-exist.json'), {});
+  assert.deepEqual(await loadPeers('nor-this-one.json'), []);
 });
 
-test('loadOverrides folds vipps.json in, and overrides.json wins', async () => {
+/**
+ * The peer list is checked after overrides.json, so a person who shares a
+ * string with a merchant can still be placed by hand.
+ */
+test('an explicit override beats a name in the peer list', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'categorize-'));
   const overrides = join(dir, 'o.json');
   const peers = join(dir, 'p.json');
   await writeFile(overrides, JSON.stringify({ 'sit kafe': 'kafe_og_restaurant' }));
   await writeFile(peers, JSON.stringify(['ola nordmann', 'sit kafe']));
-  assert.deepEqual(await loadOverrides(overrides, peers), {
-    'sit kafe': 'kafe_og_restaurant',
-    'ola nordmann': 'vipps',
-  });
+
+  const cat = (description: string) =>
+    categorize([classified({ description, counterparty: null, bankCategory: null })], {
+      'sit kafe': 'kafe_og_restaurant',
+    }, [], ['ola nordmann', 'sit kafe'])[0]!.category;
+
+  assert.equal(cat('SIT KAFE REALFAG'), 'kafe_og_restaurant');
+  assert.equal(cat('Ola Nordmann'), 'vipps');
+  assert.deepEqual(await loadOverrides(overrides), { 'sit kafe': 'kafe_og_restaurant' });
+  assert.deepEqual(await loadPeers(peers), ['ola nordmann', 'sit kafe']);
+});
+
+/**
+ * A flatmate is two relationships at once, and the description is the bare name
+ * in both — so only the bank's own row type can tell forty coffees from the
+ * standing monthly rent, and 158 000 kr of it sat under `vipps` until it did.
+ */
+test('a named person is a peer payment or rent, by the row type the bank gave it', () => {
+  const cat = (typeText: string | null, amount = -100) =>
+    categorize(
+      [classified({ description: 'Ola Nordmann', counterparty: 'Ola Nordmann', bankCategory: null, typeText, amount })],
+      {},
+      [],
+      ['ola nordmann'],
+    )[0]!.category;
+
+  // Settled instantly, or on the card: a Vipps payment.
+  assert.equal(cat('Straksbetaling'), 'vipps');
+  assert.equal(cat('Straksbetaling - ekstern betalingstjeneste'), 'vipps');
+  assert.equal(cat('VISA Varekjøp'), 'vipps');
+  assert.equal(cat(null), 'vipps');
+
+  // Set up once and left running: rent.
+  assert.equal(cat('Overførsel', 6100), 'husleie');
+  assert.equal(cat('Giro', 6000), 'husleie');
+  assert.equal(cat('MobilGiro m/melding til forfall i dag', 5700), 'husleie');
+
+  // Between own accounts is the bank's wording for a family transfer, not rent.
+  assert.equal(cat('Overførsel mellom egne kontoer', 4000), 'vipps');
+  assert.equal(cat('Overførsel mellom egne kontoer i MobilBank, forfall i dag', 12200), 'vipps');
+
+  // The gate only applies to a name on the list; nobody else is touched.
+  assert.equal(
+    categorize([classified({ description: 'Rema 1000', typeText: 'Overførsel' })], {}, [], ['ola nordmann'])[0]!
+      .category,
+    'dagligvarer',
+  );
 });
 
 test('loadSubscriptions returns [] when the file is absent', async () => {

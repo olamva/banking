@@ -80,19 +80,36 @@ async function loadJson<T>(path: string, fallback: T): Promise<T> {
  *
  * Person-to-person payments were half the lines of `overrides.json` and every
  * one of them mapped to the same category, so they live as a bare list of names
- * instead. Folded into the overrides at load time — a name is an override like
- * any other, it just does not need its value repeated fifty times.
+ * instead. Checked *after* `overrides.json`, so an explicit entry there still
+ * wins for a person who shares a string with a merchant.
  *
- * Appended after `overrides.json`, and an explicit entry there wins, so a person
- * who shares a string with a merchant can still be overridden by hand.
+ * A name is not enough on its own, though — see `RENT_TYPE`.
  */
 const PEER_PAYMENT = 'vipps';
+const RENT = 'husleie';
 
-export async function loadOverrides(path = 'overrides.json', peerPath = 'vipps.json') {
-  const overrides = await loadJson<Overrides>(path, {});
-  for (const name of await loadJson<string[]>(peerPath, [])) overrides[name] ??= PEER_PAYMENT;
-  return overrides;
-}
+/**
+ * What the bank calls the row when a person's name is *not* a Vipps payment.
+ *
+ * A flatmate shows up twice over: forty small instant payments for a coffee or
+ * a taxi, and a standing monthly transfer for rent. The description is the same
+ * string in both cases — just the name — so no pattern can tell them apart, and
+ * for five people that quietly filed 158 000 kr of rent under `vipps`.
+ *
+ * `typeText` splits them exactly: a Vipps payment settles instantly
+ * (`Straksbetaling`) or rides the card, while rent is a giro or a plain
+ * `Overførsel` set up once and left running. On the real data the two sets do
+ * not even overlap in size — every giro row is 4 000 kr or more, every instant
+ * one is under it.
+ *
+ * `Overførsel mellom egne kontoer` is deliberately *not* rent: those are family
+ * transfers the bank labels that way, and they stay peer payments.
+ */
+const RENT_TYPE = /^(giro|mobilgiro|overførsel)\b(?! mellom egne)/i;
+
+export const loadOverrides = (path = 'overrides.json') => loadJson<Overrides>(path, {});
+
+export const loadPeers = (path = 'vipps.json') => loadJson<string[]>(path, []);
 
 export const loadSubscriptions = (path = 'subscriptions.json') => loadJson<Subscriptions>(path, []);
 
@@ -119,26 +136,30 @@ export function categorize(
   txns: Classified[],
   overrides: Overrides,
   subscriptions: Subscriptions = [],
+  peers: string[] = [],
 ): Categorized[] {
   const rules: Rule[] = Object.entries(overrides).map(([pattern, category]) => ({
     matches: compile(pattern, 'overrides.json'),
     category,
   }));
+  const peerRules = peers.map((pattern) => compile(pattern, 'vipps.json'));
   const subs = subscriptions.map((pattern) => compile(pattern, 'subscriptions.json'));
   return txns.map((t) => {
     const haystack = `${t.description} ${t.counterparty ?? ''}`.toLowerCase();
     return {
       ...t,
-      category: categoryFor(t, rules, haystack),
+      category: categoryFor(t, rules, peerRules, haystack),
       // The bank's own flag stands; a pattern only ever adds to it.
       isSubscription: t.isSubscription || subs.some((m) => m(haystack)),
     };
   });
 }
 
-function categoryFor(t: Classified, rules: Rule[], haystack: string): string {
+function categoryFor(t: Classified, rules: Rule[], peerRules: Matcher[], haystack: string): string {
   const override = rules.find((r) => r.matches(haystack));
   if (override) return override.category;
+  // A named person, then, and the bank's own row type says which kind.
+  if (peerRules.some((m) => m(haystack))) return RENT_TYPE.test(t.typeText ?? '') ? RENT : PEER_PAYMENT;
   if (t.source === 'card' && FOREIGN_MERCHANT.test(t.counterparty ?? '')) return TRAVEL;
   if (t.bankCategory && !BANK_CATCH_ALL.has(t.bankCategory)) {
     return t.bankCategory === BANK_FIXED_COSTS ? FIXED_COSTS : t.bankCategory;
