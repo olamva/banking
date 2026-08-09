@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import { execFile, execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { spend } from './budget.ts';
+import { note, spend } from './budget.ts';
 
 const API = 'https://api.sparebank1.no';
 const KEYCHAIN_SERVICE = 'sb1-banking';
@@ -14,12 +14,12 @@ export class ReauthRequired extends Error {
 }
 
 /**
- * The bank refusing, as opposed to our own ledger refusing first.
+ * The bank refusing outright, as opposed to the ledger refusing on its behalf.
  *
  * SB1 publishes `x-ratelimit-remaining` on **every** response and answers 429
  * once it reaches zero, so the real ceiling never has to be guessed at — which
- * is just as well, because the 60/hour this repo assumed is not a number the
- * API ever states. A sweep treats this exactly like a spent local budget: stop,
+ * is just as well, because the 60/hour this repo once assumed is not a number
+ * the API ever states. A sweep treats this exactly like an empty budget: stop,
  * say where it got to, and let a re-run carry on.
  */
 export class RateLimited extends Error {
@@ -37,26 +37,20 @@ export class RateLimited extends Error {
 }
 
 /**
- * What the bank last said was left, or null before the first call of the
- * process. Informational: the 429 is what actually stops anything.
- */
-let lastRemaining: number | null = null;
-
-export const bankRemaining = (): number | null => lastRemaining;
-
-/**
  * What a response says about the bank's budget, and whether it refused.
  *
  * Split out of `get` so it can be tested at all: everything around it is the
  * keychain and the token exchange, and a test that reached those would either
- * need the real refresh token or would overwrite it with a fake one.
+ * need the real refresh token or would overwrite it with a fake one. `path` is
+ * for those tests and nothing else — `get` writes the real ledger.
  *
  * The header is read before either throw, because a 429 carries it too — that
- * is the response that most wants recording.
+ * is the response that most wants recording. Recording the zero is what starts
+ * the ledger's refill clock, so the next run knows how long to leave it.
  */
-export function noteLimits(status: number, headers: Headers): void {
-  const remaining = headers.get('x-ratelimit-remaining');
-  if (remaining !== null && remaining !== '') lastRemaining = Number(remaining);
+export function noteLimits(status: number, headers: Headers, path?: string): void {
+  const left = headers.get('x-ratelimit-remaining');
+  if (left !== null && left !== '') note(Number(left), path);
   if (status === 401) throw new ReauthRequired('API returned 401');
   if (status === 429) throw new RateLimited(headers.get('retry-after'));
 }
@@ -100,6 +94,10 @@ async function postToken(params: Record<string, string>): Promise<TokenResponse>
       ...params,
     }),
   });
+  // Deliberately no `noteLimits`: the FAQ's quota is per API, so writing the
+  // token endpoint's counter into the ledger would overstate what
+  // `/transactions` has left. `spend` above still charges for it, which errs
+  // the safe way round.
   const body = await res.text();
   if (!res.ok) throw new ReauthRequired(`token endpoint ${res.status}: ${body}`);
   return JSON.parse(body) as TokenResponse;

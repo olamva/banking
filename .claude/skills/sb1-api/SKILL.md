@@ -153,13 +153,24 @@ new Date(ms).toLocaleDateString('en-CA', { timeZone: 'Europe/Oslo' })  // YYYY-M
 Personal use only. Rate limits are enforced — one request per call, no retry
 loops, surface 429 rather than working around it.
 
-**The limit is published, not documented.** Every response carries
-`x-ratelimit-remaining`, and at zero the next call is a `429` — verified, with
-the counter on the refusal too. There is no `x-ratelimit-limit` and no
-`x-ratelimit-reset`, and SB1 sends **no `Retry-After`**, so the ceiling and the
-window can only be observed, never read off. Do not assert a number for either;
-`60/hour` was this repo's guess and the API states nothing of the kind.
+**The quota is 60 requests an hour, and it is stated — in the FAQ, not the
+reference.** Verbatim: *"Each API you have access to has a quota for how many
+requests you can make. Normally this quota is 60 API requests each hour. If you
+make more requests than this limit you will get an HTTP 429 response."* Note
+**per API**: the quota is not shared between the token endpoint and
+`/transactions`.
 
-A 429 costs a request like any other: the local ledger spends before the call
-goes out, so a run that pushes past the bank's limit burns budget on refusals.
+Every response also carries `x-ratelimit-remaining`, and at zero the next call
+is a `429` — verified, with the counter on the refusal too. There is no
+`x-ratelimit-limit`, no `x-ratelimit-reset`, and **no `Retry-After`**.
+
+**It refills as it goes.** 60 an hour behaves as a bucket handing one request
+back a minute, not as an hour's quarantine on each call — which is what an
+"hourly limit" reads like and is the thing to get right. Anything counting our
+own requests over a fixed 60-minute window refuses long after SB1 would answer.
+`src/net/budget.ts` keeps the header plus a refill clock and nothing else; do
+not put a self-imposed cap in front of it.
+
+A 429 costs a request like any other: the ledger spends before the call goes
+out, so a run that pushes past the bank's limit burns budget on refusals.
 Credentials are confidential.

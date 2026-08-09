@@ -1,0 +1,11 @@
+{
+  "id": "663e939b",
+  "ts": "2026-08-09T21:37:28+00:00",
+  "text": "SB1 developer portal docs are a client-side SPA \u2014 WebFetch on developer.sparebank1.no/#/documentation/* returns only the page title, no content",
+  "tags": [
+    "docs",
+    "tools"
+  ],
+  "who": "agent",
+  "where": "https://developer.sparebank1.no/#/documentation/faq"
+}

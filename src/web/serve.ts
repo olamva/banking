@@ -30,7 +30,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { openDb, queryRange } from '../core/db.ts';
 import { rebuildAll, DB_FILE } from '../core/pipeline.ts';
 import { syncMonth, syncCost } from '../net/sync.ts';
-import { canAfford, remaining, used, HOURLY_CAP } from '../net/budget.ts';
+import { canAfford, remaining } from '../net/budget.ts';
 
 const STATE = 'data/sync-state.json';
 
@@ -91,7 +91,7 @@ const join = singleFlight();
 async function refresh(months: string[], age: number | null): Promise<void> {
   const cost = (await syncCost()) * months.length;
   if (!canAfford(cost)) {
-    console.error(`skipping refresh: needs ${cost} requests, ${remaining()} left this hour`);
+    console.error(`skipping refresh: needs ${cost} requests, SB1 last reported ${remaining()} left`);
     return;
   }
   console.error(`data is ${age === null ? 'unsynced' : `${Math.round(age)} min old`}, refreshing ${months.join(', ')}`);
@@ -180,7 +180,7 @@ export async function serve(port: number, opts: { pull: boolean; maxAgeMin: numb
     console.error(`http://localhost:${port}`);
     console.error(
       opts.pull
-        ? `auto-refresh when data is over ${opts.maxAgeMin} min old — ${used()}/${HOURLY_CAP} requests used this hour`
+        ? `auto-refresh when data is over ${opts.maxAgeMin} min old — SB1 last reported ${remaining() ?? 'an unknown number of'} requests left`
         : 'offline — pass --pull to auto-refresh stale data',
     );
     console.error('local only, and it holds every transaction — do not expose this port');

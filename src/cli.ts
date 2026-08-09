@@ -1,13 +1,13 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { bankRemaining, get, login } from './net/sb1.ts';
+import { get, login } from './net/sb1.ts';
 import { rebuildAll, RAW } from './core/pipeline.ts';
 import { syncMonth, syncRange } from './net/sync.ts';
 import { loadPeers } from './core/categorize.ts';
 import { newPeers } from './core/peers.ts';
 import { serve, DEFAULT_MAX_AGE_MIN } from './web/serve.ts';
-import { used, remaining, HOURLY_CAP } from './net/budget.ts';
+import { remaining } from './net/budget.ts';
 
 const args = process.argv.slice(2);
 const cmd = args[0];
@@ -117,11 +117,14 @@ try {
   else if (cmd === 'rebuild') await rebuildAll();
   else if (cmd === 'peers') await peers();
   else if (cmd === 'budget') {
-    // Ours is a guess kept on disk; the bank's is fact, but only known once
-    // something has called it in this process — so it is usually absent here.
-    const bank = bankRemaining();
-    console.error(`${used()}/${HOURLY_CAP} SB1 requests used this hour, ${remaining()} left`);
-    if (bank !== null) console.error(`the bank last said ${bank} left of its own limit`);
+    // The bank's own figure, cached from the last response. Nothing on disk
+    // means nothing has called it recently, not that there is nothing left.
+    const left = remaining();
+    console.error(
+      left === null
+        ? 'SB1 has not said what is left recently — the next request will ask.'
+        : `SB1 last reported ${left} requests left; it refills continuously.`,
+    );
   }
   else if (cmd === 'dev') {
     await serve(Number(flag('port') ?? 4000), {

@@ -62,7 +62,7 @@ pnpm sb1 peers | pbcopy             # clipboard rows -> the names rules/vipps.js
 # the living app
 pnpm dev                            # serve the dashboard on :4000, offline
 pnpm dev --pull                     # ...and refresh stale months from the API
-pnpm sb1 budget                     # SB1 requests used this hour
+pnpm sb1 budget                     # what SB1 last said was left of its limit
 
 pnpm test                           # node --test, no framework
 pnpm typecheck
@@ -156,23 +156,31 @@ the bank's limit are all defended:
 |---|---|
 | Restarting the server | staleness is recorded on disk, not in memory |
 | Two tabs, or a reload during a pull | one refresh at a time; the others join it |
-| Anything at all | every call is ledgered; `sb1.get` refuses past the cap |
+| Anything at all | every call is ledgered; `sb1.get` refuses at the bank's zero |
 | A dead token retrying forever | a failed attempt still counts as an attempt |
 | Just wanting to look at the data | the network is opt-in; no `--pull`, no calls |
 
-The cap is 40 and it is **ours, not the bank's** — a self-imposed brake, set low
-so a hand-run `sync` still works after the app has refreshed. SB1 publishes its
-own budget as `x-ratelimit-remaining` on every response and answers 429 at zero;
-it names neither the ceiling nor the window, so ours is a guess by construction.
-Raising `SB1_HOURLY_CAP` past the real limit buys nothing — it only changes who
-refuses, and a 429 still costs a slot, since the ledger spends before the
-request goes out. `pnpm sb1 budget` shows where you are.
+**The budget is the bank's, and there is no local cap.** SB1's quota is 60
+requests an hour per API — stated in its FAQ, not the reference — published as
+`x-ratelimit-remaining` on every response, with a 429 at zero. Crucially it
+refills *as it goes*, roughly a request a minute, rather than holding each call
+against you for a full 60 minutes the way "hourly limit" sounds.
 
-**The hour is a rolling window over every process, not over one command.** A
-backfill started soon after anything else has that much less to spend, which is
-why `sync --from … --to …` prices the whole span up front and says how far it
-expects to get. It stops on the cap rather than failing, and re-running it is a
-resume: a month already on disk costs nothing without `--force`.
+So `data/api-budget.json` keeps the last figure and its timestamp, and derives
+the rest: `spend` counts down for calls still in flight, the next response
+overwrites the estimate with fact, and elapsed time credits back at 1/minute up
+to 60. A `SB1_HOURLY_CAP` over a rolling hour of our own timestamps used to sit
+in front of all this and refused long after the bank would have said yes.
+
+Nothing expires, which is the point — a 0 seen an hour ago is a full bucket now,
+and a 429 clears itself at one probe a minute. The one gap is the first call
+ever: with no figure on disk, the 429 is the brake. `pnpm sb1 budget` prints
+what SB1 last said, or tells you it has not said recently.
+
+`sync --from … --to …` prices the whole span up front against that figure and
+says how far it expects to get. It stops rather than failing, and re-running is
+a resume: a month already on disk costs nothing without `--force`. It can also
+outlast its own estimate, since the bucket refills while the sweep runs.
 
 ```bash
 pnpm dev                      # never touches the network
@@ -312,7 +320,7 @@ requests, `core/` may not, `web/` composes them.
 ```
 src/net/sb1.ts       SpareBank 1 auth, keychain, get(), monthRange()
 src/net/sync.ts      the network half — one file per account per month
-src/net/budget.ts    rolling-hour ledger of SB1 requests
+src/net/budget.ts    the bank's own remaining-request count, cached to disk
 
 src/core/types.ts     Txn / Classified / Categorized — the shared contract
 src/core/normalize.ts data/raw/<month>/*.json -> Txn[]

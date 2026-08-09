@@ -20,7 +20,7 @@ never calls the API" it sits on and the answer follows.
 ```
 src/net/sb1.ts        SpareBank 1 auth, keychain, get(), monthRange()
 src/net/sync.ts       the network half — nothing in core/ may import this
-src/net/budget.ts     rolling-hour ledger of SB1 requests, persisted to disk
+src/net/budget.ts     the bank's own remaining-request count, cached to disk
 
 src/core/types.ts     Txn / Classified / Categorized — the shared contract
 src/core/normalize.ts data/raw/<month>/*.json -> Txn[]
@@ -72,9 +72,27 @@ for the network, and every guard around it is there to keep the request count
 sane — see the header of `src/web/serve.ts` before changing any of it. Without
 `--pull` the server never touches the network at all, which is the default.
 
-**Every SB1 request is ledgered.** `sb1.get` and the token exchange both call
-`budget.spend`, which refuses past the hourly cap. Anything that adds a new call
+**Every SB1 request is ledgered, against the bank's own count.** `sb1.get` and
+the token exchange both call `budget.spend` before the request and
+`sb1.noteLimits` after it: `spend` counts down from what the bank last reported
+in `x-ratelimit-remaining` and refuses at zero, `noteLimits` replaces that
+estimate with what the response actually said. Anything that adds a new call
 path gets this for free; anything that bypasses `sb1.get` does not, so don't.
+
+**There is no local cap, deliberately.** An `SB1_HOURLY_CAP` over a rolling hour
+of our own timestamps used to sit in front of this, and its window was wrong: it
+held each request against you for a full 60 minutes after firing it. SB1's quota
+is 60 an hour **per API** (its FAQ says so) and it behaves as a bucket refilling
+at one request a minute, so an hour of our own history refuses long after the
+bank would say yes. Do not reintroduce one.
+
+`budget.ts` therefore stores two numbers — the last figure reported and when —
+and credits elapsed time back at 1/minute up to 60. That needs no expiry, which
+is the point: a `0` seen an hour ago is a full bucket now, and a 429 clears
+itself at one probe a minute rather than waiting out a window nobody can see.
+The remaining rule is **unknown means yes**: nothing on disk, so the 429 is the
+brake. Because the quota is per API, the token exchange spends but does not
+`note` — writing its counter here would overstate what `/transactions` has left.
 
 **Raw is immutable.** Never rewrite a file under `data/raw/` in place. Re-sync
 with `--force` if the bank restates a month.

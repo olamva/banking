@@ -2,8 +2,8 @@
  * The network half. Everything that talks to a bank lives here or in the two
  * client modules it wraps — nothing downstream of `data/raw/` may import it.
  *
- * Every SB1 call is counted against the hourly budget inside `sb1.get`, so the
- * accounting holds no matter who calls these.
+ * Every SB1 call is counted against the bank's own budget inside `sb1.get`, so
+ * the accounting holds no matter who calls these.
  */
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { existsSync, statSync } from 'node:fs';
@@ -112,18 +112,19 @@ export function monthsBetween(from: string, to: string, today = new Date()): str
 /**
  * A whole span of months, oldest first.
  *
- * A sweep of the record costs far more than an hour's budget — 56 months times
- * one request per account — so running out is the normal ending and not a
+ * A sweep of the record costs far more than the bank allows at once — 56 months
+ * times one request per account — so running out is the normal ending and not a
  * failure. **It says so before spending anything**, because the alternative is
  * finding out 33 requests in, with no idea how much further it had to go.
  *
- * Two different things can stop it and both are handled the same way: our own
- * ledger refusing first, or the bank answering 429. The local cap is a guess
- * and the 429 is the truth, so a run that reaches the second one has found the
- * real ceiling — see `RateLimited`.
+ * Two different things can stop it and both are handled the same way: the
+ * ledger counting down to zero from what the bank last reported, or the bank
+ * answering 429 itself. The first is a cached figure and the second is the
+ * truth — see `RateLimited`.
  *
- * The ledger is a rolling hour over every process, not over this run, so what
- * is left already counts whatever else has been fetched since. Months on disk
+ * The ledger is the bank's counter, not this run's, so what is left already
+ * counts whatever else has been fetched since — and the bank refills it as the
+ * sweep goes, which is why a run can outlast its own estimate. Months on disk
  * cost nothing without `--force`, which is what makes re-running it a resume.
  */
 export async function syncRange(from: string, to: string, force: Force = false): Promise<void> {
@@ -131,10 +132,12 @@ export async function syncRange(from: string, to: string, force: Force = false):
   const cost = await rangeCost(months, force);
   const left = remaining();
   console.error(`${months.length} months, ${months[0]} to ${months.at(-1)}: ${cost} requests`);
-  if (cost > left) {
+  // `null` is "the bank has not said recently", not "nothing left" — in that
+  // case there is no estimate to give and the first response will supply one.
+  if (left !== null && cost > left) {
     const perMonth = Math.max(1, Math.round(cost / months.length));
     console.error(
-      `only ${left} left in this rolling hour — expect to stop after about ` +
+      `SB1 last reported only ${left} left — expect to stop after about ` +
         `${Math.floor(left / perMonth)} of them, then re-run to carry on.`,
     );
   }
