@@ -455,6 +455,7 @@ const GROUP_SORTS = {
   category: (a: SubscriptionGroup, b: SubscriptionGroup) =>
     categoryLabel(a.category).localeCompare(categoryLabel(b.category)),
   count: (a: SubscriptionGroup, b: SubscriptionGroup) => a.count - b.count,
+  latest: (a: SubscriptionGroup, b: SubscriptionGroup) => a.latest - b.latest,
   total: (a: SubscriptionGroup, b: SubscriptionGroup) => a.total - b.total,
   last: (a: SubscriptionGroup, b: SubscriptionGroup) =>
     a.last.localeCompare(b.last),
@@ -524,6 +525,11 @@ export const SubscriptionsCard = ({
             head("Subscription", "name"),
             head("Category", "category", { min: true, sizer: categorySizes }),
             head("Charges", "count", { num: true, min: true }),
+            head("Per month", "latest", {
+              num: true,
+              min: true,
+              sizer: AMOUNT_SIZE,
+            }),
             head("Total", "total", { num: true, min: true, sizer: AMOUNT_SIZE }),
             head("Last", "last", { min: true }),
           ]}
@@ -535,6 +541,7 @@ export const SubscriptionsCard = ({
               onPick={onCategory}
             />,
             g.count,
+            fmtNOK(g.latest),
             fmtNOK(g.total),
             g.last,
           ])}

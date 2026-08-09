@@ -140,10 +140,39 @@ test('subscriptionGroups sums the charges per name, newest category, latest date
   ]);
 
   assert.deepEqual(groups, [
-    { name: 'Telenor', category: 'faste_utgifter', count: 1, total: 499, last: '2026-07-04' },
-    { name: 'Spotify', category: 'underholdning', count: 2, total: 198, last: '2026-07-01' },
-    { name: 'Varekjøp', category: 'ukategorisert', count: 1, total: 50, last: '2026-07-09' },
+    { name: 'Telenor', category: 'faste_utgifter', count: 1, total: 499, latest: 499, last: '2026-07-04' },
+    { name: 'Spotify', category: 'underholdning', count: 2, total: 198, latest: 99, last: '2026-07-01' },
+    { name: 'Varekjøp', category: 'ukategorisert', count: 1, total: 50, latest: 50, last: '2026-07-09' },
   ]);
+});
+
+/**
+ * What it costs now, not what it has averaged: an old price is history, and the
+ * question a subscription list answers is what is still going out every month.
+ */
+test('subscriptionGroups prices a group at its last payment, not its average', () => {
+  const [risen] = subscriptionGroups([
+    txn({ id: '1', amount: -99, counterparty: 'Spotify', date: '2026-05-01' }),
+    txn({ id: '2', amount: -99, counterparty: 'Spotify', date: '2026-06-01' }),
+    txn({ id: '3', amount: -129, counterparty: 'Spotify', date: '2026-07-01' }),
+  ]);
+  assert.deepEqual([risen!.latest, risen!.total], [129, 327]);
+
+  // Everything on the last date is one payment: split over two rows it is one
+  // price, and a same-day refund comes off it.
+  const [split] = subscriptionGroups([
+    txn({ id: '1', amount: -60, counterparty: 'Storage', date: '2026-07-01' }),
+    txn({ id: '2', amount: -40, counterparty: 'Storage', date: '2026-07-01' }),
+    txn({ id: '3', amount: 10, counterparty: 'Storage', date: '2026-07-01' }),
+  ]);
+  assert.deepEqual([split!.latest, split!.total], [90, 90]);
+
+  // Rows do not arrive sorted, so the latest must win whichever way round they come.
+  const [reversed] = subscriptionGroups([
+    txn({ id: '1', amount: -129, counterparty: 'Spotify', date: '2026-07-01' }),
+    txn({ id: '2', amount: -99, counterparty: 'Spotify', date: '2026-05-01' }),
+  ]);
+  assert.equal(reversed!.latest, 129);
 });
 
 /** A refund is money back off the same subscription, not a separate line of income. */
@@ -152,7 +181,9 @@ test('subscriptionGroups nets a refund off its own group', () => {
     txn({ id: '1', amount: -300, counterparty: 'HelloFresh', date: '2026-07-01' }),
     txn({ id: '2', amount: 100, counterparty: 'HelloFresh', date: '2026-07-05' }),
   ]);
-  assert.deepEqual(groups, [{ name: 'HelloFresh', category: 'dagligvarer', count: 2, total: 200, last: '2026-07-05' }]);
+  assert.deepEqual(groups, [
+    { name: 'HelloFresh', category: 'dagligvarer', count: 2, total: 200, latest: -100, last: '2026-07-05' },
+  ]);
 });
 
 test('blindSpot counts only spending that still has no merchant', () => {

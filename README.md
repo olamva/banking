@@ -101,8 +101,14 @@ every delta on the page would read as a collapse drawn by the calendar. Finished
 windows still compare whole, and the tile says which it did.
 
 **Subscriptions are listed per subscription**, not per charge: one line for what
-it is, what it has taken across the window, how many times, and when it last
-went out. Sortable, searchable and windowed, like the transactions table.
+it is, what it costs a month, what it has taken across the window, how many
+times, and when it last went out. Sortable, searchable and windowed, like the
+transactions table.
+
+*Per month* is the **last payment**, not the average — an old price averaged in
+says what a subscription has cost, and the question here is what it costs now.
+A yearly bill therefore reads as its yearly amount, since nothing on a row says
+how often it recurs.
 
 Categories filter as **chips: click any number of them**, none means all. Pick
 exactly one and the category breakdown drops out — a bar chart of a single

@@ -297,6 +297,18 @@ export type SubscriptionGroup = {
   count: number;
   /** NOK, magnitude spent across the group. A refund inside it nets off. */
   total: number;
+  /**
+   * NOK charged on `last` — what it costs a month, on the assumption that the
+   * last payment is the current price and that the price is monthly.
+   *
+   * The first half is the point: an old price averaged in tells you what the
+   * subscription *has* cost, and the question a subscription list answers is
+   * what it costs now. The second half is where it can be wrong — a yearly bill
+   * reads as its yearly amount, and nothing on the row says otherwise. Dividing
+   * by an inferred cadence needs more than one charge to infer from, which the
+   * new subscriptions that most want checking are exactly the ones without.
+   */
+  latest: number;
   /** Latest booking date in the group — how long since it last took anything. */
   last: string;
 };
@@ -307,23 +319,37 @@ export type SubscriptionGroup = {
  * charges are what each line adds up from.
  *
  * The category is the latest row's, because a recategorised subscription is
- * that category now; the old rows are history, not a second opinion.
+ * that category now; the old rows are history, not a second opinion. Everything
+ * booked on that same date counts as one payment, so a charge split over two
+ * rows is one price and a same-day refund comes off it.
  */
 export function subscriptionGroups(txns: Categorized[]): SubscriptionGroup[] {
-  const byName = new Map<string, { cents: number; count: number; last: string; category: string }>();
+  type Acc = { cents: number; latestCents: number; count: number; last: string; category: string };
+  const byName = new Map<string, Acc>();
   for (const t of txns) {
     const name = merchantOf(t);
-    const group = byName.get(name) ?? { cents: 0, count: 0, last: t.date, category: t.category };
-    group.cents += -toCents(t.amount);
+    const cents = -toCents(t.amount);
+    const group = byName.get(name) ?? { cents: 0, latestCents: 0, count: 0, last: t.date, category: t.category };
+    group.cents += cents;
     group.count++;
-    if (t.date >= group.last) {
+    if (t.date > group.last) {
       group.last = t.date;
       group.category = t.category;
+      group.latestCents = cents;
+    } else if (t.date === group.last) {
+      group.latestCents += cents;
     }
     byName.set(name, group);
   }
   return [...byName.entries()]
-    .map(([name, g]) => ({ name, category: g.category, count: g.count, total: fromCents(g.cents), last: g.last }))
+    .map(([name, g]) => ({
+      name,
+      category: g.category,
+      count: g.count,
+      total: fromCents(g.cents),
+      latest: fromCents(g.latestCents),
+      last: g.last,
+    }))
     .sort((a, b) => b.total - a.total);
 }
 
