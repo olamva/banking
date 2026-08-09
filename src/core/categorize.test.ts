@@ -1,5 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtemp, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { categorize, loadOverrides, loadSubscriptions } from './categorize.ts';
 import type { Classified } from './types.ts';
 
@@ -110,9 +113,21 @@ test('sb1 row with no bankCategory falls to ukategorisert', () => {
   assert.equal(out.category, 'ukategorisert');
 });
 
-test('loadOverrides returns {} when the file is absent', async () => {
-  const result = await loadOverrides('does-not-exist.json');
+test('loadOverrides returns {} when both files are absent', async () => {
+  const result = await loadOverrides('does-not-exist.json', 'nor-this-one.json');
   assert.deepEqual(result, {});
+});
+
+test('loadOverrides folds vennebetaling.json in, and overrides.json wins', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'categorize-'));
+  const overrides = join(dir, 'o.json');
+  const peers = join(dir, 'p.json');
+  await writeFile(overrides, JSON.stringify({ 'sit kafe': 'kafe_og_restaurant' }));
+  await writeFile(peers, JSON.stringify(['ola nordmann', 'sit kafe']));
+  assert.deepEqual(await loadOverrides(overrides, peers), {
+    'sit kafe': 'kafe_og_restaurant',
+    'ola nordmann': 'vennebetaling',
+  });
 });
 
 test('loadSubscriptions returns [] when the file is absent', async () => {

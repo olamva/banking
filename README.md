@@ -192,6 +192,18 @@ ISO country is not `NOR`, and to `ukategorisert` when it is. The bank's own
 `diverse` collapses into `ukategorisert` too, so there is one opaque bucket, not
 three.
 
+`vennebetaling.json` is a list of names, in the same pattern language, and every
+one of them means the `vennebetaling` category:
+
+```json
+["ola nordmann", "kari nordmann"]
+```
+
+Person-to-person payments are the one category with a name per payee rather than
+a pattern per merchant, so they outgrew `overrides.json` and got their own file.
+It is folded into the overrides on load, after them, so an explicit entry in
+`overrides.json` still wins a collision.
+
 `subscriptions.json` is a list of the same patterns, and it is a second axis
 rather than a category:
 
@@ -225,7 +237,7 @@ src/core/types.ts     Txn / Classified / Categorized — the shared contract
 src/core/normalize.ts data/raw/<month>/*.json -> Txn[]
 src/core/statement.ts the issuer CSV -> the merchant on card rows
 src/core/exclude.ts   flags internal transfers and card bill payments
-src/core/categorize.ts bank category + overrides.json + subscriptions.json
+src/core/categorize.ts bank category + overrides, peers and subscriptions
 src/core/db.ts        node:sqlite store, rebuilt wholesale
 src/core/stats.ts     the only money aggregation
 src/core/select.ts    which rows are in view — filters, months, categories
@@ -244,7 +256,8 @@ docs/              privacy policy and terms, required to register the
 exact code `node --test` pins.
 
 Everything holding personal data is gitignored: `data/`, `accounts.json`,
-`overrides.json`, `subscriptions.json`, `secrets/`, `.env.local`.
+`overrides.json`, `vennebetaling.json`, `subscriptions.json`, `secrets/`,
+`.env.local`.
 
 ## Design rules
 
