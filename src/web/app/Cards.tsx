@@ -462,7 +462,11 @@ const GROUP_SORTS = {
 };
 
 interface SubscriptionsCardProps {
-  /** The rows behind the list — grouped in here, so the card owns its own shape. */
+  /**
+   * Every row in view, not only the flagged ones — `subscriptionGroups` picks
+   * the payees, because the flag belongs to the payee and the bank puts it on
+   * an arbitrary subset of that payee's rows.
+   */
   txns: Categorized[];
   onMerchant: (merchant: string, meta: boolean) => void;
   onCategory: (category: string, meta: boolean) => void;
@@ -503,6 +507,9 @@ export const SubscriptionsCard = ({
     [groups],
   );
 
+  // Nothing recurring in this period is no card at all, rather than an empty box.
+  if (groups.length === 0) return null;
+
   return (
     <Card title={`Subscriptions & recurring (${groups.length})`} icon={RecurringIcon}>
       <SearchBox
@@ -512,9 +519,7 @@ export const SubscriptionsCard = ({
       />
       {sorted.length === 0 ? (
         <div className="py-10 text-center text-ink-muted">
-          {groups.length === 0
-            ? "Nothing recurring in this period."
-            : "No subscriptions match the search."}
+          No subscriptions match the search.
         </div>
       ) : (
         <DataTable

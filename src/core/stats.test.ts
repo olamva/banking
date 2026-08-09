@@ -124,12 +124,44 @@ test('subsAndRecurring keys on source and id together', () => {
   assert.equal(subsAndRecurring(monthStats('2026-07', [bank, card])).length, 2);
 });
 
+/**
+ * The flag belongs to the payee, not to the charge. The bank marked one of
+ * twelve identical monthly rent payments, so the card showed a single 6 000 kr
+ * charge while the table below it listed all twelve.
+ */
+test('subscriptionGroups counts every row of a payee that is flagged anywhere', () => {
+  const rent = (date: string, isRecurring = false) =>
+    txn({ id: date, amount: -6100, counterparty: 'Theo leie', category: 'husleie', date, isRecurring });
+
+  const [group] = subscriptionGroups([rent('2024-06-14', true), rent('2024-07-19'), rent('2024-08-15')]);
+  assert.deepEqual([group!.count, group!.total, group!.last], [3, 18300, '2024-08-15']);
+
+  // No flag anywhere on the payee, and it is not a subscription at all.
+  assert.deepEqual(subscriptionGroups([rent('2024-06-14'), rent('2024-07-19')]), []);
+
+  // Only the flagged payee is listed; an unflagged one alongside it is not.
+  const groups = subscriptionGroups([
+    rent('2024-06-14', true),
+    txn({ id: 'x', amount: -50, counterparty: 'Rema 1000', date: '2024-06-15' }),
+  ]);
+  assert.deepEqual(groups.map((g) => g.name), ['Theo leie']);
+});
+
+/** An excluded row is not spending and never joins a subscription's total. */
+test('subscriptionGroups ignores excluded rows', () => {
+  const groups = subscriptionGroups([
+    txn({ id: '1', amount: -99, counterparty: 'Spotify', isSubscription: true, date: '2026-07-01' }),
+    txn({ id: '2', amount: -500, counterparty: 'Spotify', excluded: true, reason: 'transfer', date: '2026-07-02' }),
+  ]);
+  assert.deepEqual([groups[0]!.count, groups[0]!.total], [1, 99]);
+});
+
 /** One line per thing subscribed to, biggest first — not one per charge. */
 test('subscriptionGroups sums the charges per name, newest category, latest date', () => {
   const groups = subscriptionGroups([
-    txn({ id: '1', amount: -99, counterparty: 'Spotify', category: 'diverse', date: '2026-06-01' }),
+    txn({ id: '1', amount: -99, counterparty: 'Spotify', category: 'diverse', date: '2026-06-01', isSubscription: true }),
     txn({ id: '2', amount: -99, counterparty: 'Spotify', category: 'underholdning', date: '2026-07-01' }),
-    txn({ id: '3', amount: -499, counterparty: 'Telenor', category: 'faste_utgifter', date: '2026-07-04' }),
+    txn({ id: '3', amount: -499, counterparty: 'Telenor', category: 'faste_utgifter', date: '2026-07-04', isSubscription: true }),
     // No counterparty, so the name is the description — the same fallback the table shows.
     txn({
       id: '4',
@@ -139,6 +171,7 @@ test('subscriptionGroups sums the charges per name, newest category, latest date
       description: 'Varekjøp',
       category: 'ukategorisert',
       date: '2026-07-09',
+      isRecurring: true,
     }),
   ]);
 
@@ -155,7 +188,7 @@ test('subscriptionGroups sums the charges per name, newest category, latest date
  */
 test('subscriptionGroups prices a group at its last payment, not its average', () => {
   const [risen] = subscriptionGroups([
-    txn({ id: '1', amount: -99, counterparty: 'Spotify', date: '2026-05-01' }),
+    txn({ id: '1', amount: -99, counterparty: 'Spotify', date: '2026-05-01', isSubscription: true }),
     txn({ id: '2', amount: -99, counterparty: 'Spotify', date: '2026-06-01' }),
     txn({ id: '3', amount: -129, counterparty: 'Spotify', date: '2026-07-01' }),
   ]);
@@ -164,7 +197,7 @@ test('subscriptionGroups prices a group at its last payment, not its average', (
   // Everything on the last date is one payment: split over two rows it is one
   // price, and a same-day refund comes off it.
   const [split] = subscriptionGroups([
-    txn({ id: '1', amount: -60, counterparty: 'Storage', date: '2026-07-01' }),
+    txn({ id: '1', amount: -60, counterparty: 'Storage', date: '2026-07-01', isSubscription: true }),
     txn({ id: '2', amount: -40, counterparty: 'Storage', date: '2026-07-01' }),
     txn({ id: '3', amount: 10, counterparty: 'Storage', date: '2026-07-01' }),
   ]);
@@ -172,7 +205,7 @@ test('subscriptionGroups prices a group at its last payment, not its average', (
 
   // Rows do not arrive sorted, so the latest must win whichever way round they come.
   const [reversed] = subscriptionGroups([
-    txn({ id: '1', amount: -129, counterparty: 'Spotify', date: '2026-07-01' }),
+    txn({ id: '1', amount: -129, counterparty: 'Spotify', date: '2026-07-01', isSubscription: true }),
     txn({ id: '2', amount: -99, counterparty: 'Spotify', date: '2026-05-01' }),
   ]);
   assert.equal(reversed!.latest, 129);
@@ -181,7 +214,7 @@ test('subscriptionGroups prices a group at its last payment, not its average', (
 /** A refund is money back off the same subscription, not a separate line of income. */
 test('subscriptionGroups nets a refund off its own group', () => {
   const groups = subscriptionGroups([
-    txn({ id: '1', amount: -300, counterparty: 'HelloFresh', date: '2026-07-01' }),
+    txn({ id: '1', amount: -300, counterparty: 'HelloFresh', date: '2026-07-01', isSubscription: true }),
     txn({ id: '2', amount: 100, counterparty: 'HelloFresh', date: '2026-07-05' }),
   ]);
   assert.deepEqual(groups, [

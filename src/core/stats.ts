@@ -344,9 +344,20 @@ export type SubscriptionGroup = {
 };
 
 /**
- * A subscription is one thing charging monthly, not eleven unrelated rows that
- * happen to share a name — so the card lists what is subscribed to, and the
- * charges are what each line adds up from.
+ * What is subscribed to, one line each — not one line per charge.
+ *
+ * Takes **every** row in view, not only the flagged ones, and keeps the payees
+ * that carry at least one flag. The flag is per row and the bank sets it
+ * unevenly: it marked one of twelve identical monthly rent payments, so a
+ * standing 6 100 kr/month read as a single 6 000 kr charge in June 2024 while
+ * the transactions table right below it showed all twelve. A subscription is a
+ * property of the payee, not of the individual charge — one flag anywhere is
+ * the bank telling us this payee recurs, and the rest of its rows are the same
+ * subscription whether or not the flag stuck to them.
+ *
+ * On the real data that promotes 15 rows across 36 payees, and nothing runs
+ * away with it: the bank's wrong guesses land on payees seen once or twice, so
+ * no everyday merchant is dragged in by a single stray flag.
  *
  * The category is the latest row's, because a recategorised subscription is
  * that category now; the old rows are history, not a second opinion. Everything
@@ -354,14 +365,30 @@ export type SubscriptionGroup = {
  * rows is one price and a same-day refund comes off it.
  */
 export function subscriptionGroups(txns: Categorized[]): SubscriptionGroup[] {
-  type Acc = { cents: number; latestCents: number; count: number; last: string; category: string };
+  type Acc = {
+    cents: number;
+    latestCents: number;
+    count: number;
+    last: string;
+    category: string;
+    flagged: boolean;
+  };
   const byName = new Map<string, Acc>();
   for (const t of txns) {
+    if (t.excluded) continue;
     const name = merchantOf(t);
     const cents = -toCents(t.amount);
-    const group = byName.get(name) ?? { cents: 0, latestCents: 0, count: 0, last: t.date, category: t.category };
+    const group = byName.get(name) ?? {
+      cents: 0,
+      latestCents: 0,
+      count: 0,
+      last: t.date,
+      category: t.category,
+      flagged: false,
+    };
     group.cents += cents;
     group.count++;
+    group.flagged ||= t.isSubscription || t.isRecurring;
     if (t.date > group.last) {
       group.last = t.date;
       group.category = t.category;
@@ -372,6 +399,7 @@ export function subscriptionGroups(txns: Categorized[]): SubscriptionGroup[] {
     byName.set(name, group);
   }
   return [...byName.entries()]
+    .filter(([, g]) => g.flagged)
     .map(([name, g]) => ({
       name,
       category: g.category,

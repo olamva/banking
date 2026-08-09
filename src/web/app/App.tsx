@@ -32,7 +32,6 @@ import {
   blindSpot,
   byMonth,
   monthStats,
-  subsAndRecurring,
   totals,
   yearStats,
 } from "../../core/stats.ts";
@@ -224,7 +223,6 @@ const Dashboard = ({ txns, filters, onFilters, period: p }: DashboardProps) => {
     total: c.total,
     count: c.count,
   }));
-  const subs = subsAndRecurring(stats);
   const deltas = visibleDeltas(stats.categoryDeltas).map((d) => ({
     ...d,
     category: categoryLabel(d.category),
@@ -320,13 +318,12 @@ const Dashboard = ({ txns, filters, onFilters, period: p }: DashboardProps) => {
           </Card>
         )}
 
-        {subs.length > 0 && (
-          <SubscriptionsCard
-            txns={subs}
-            onMerchant={onMerchant}
-            onCategory={pick(onFilters, "categories")}
-          />
-        )}
+        {/* Hides itself when the period has nothing recurring in it. */}
+        <SubscriptionsCard
+          txns={shown}
+          onMerchant={onMerchant}
+          onCategory={pick(onFilters, "categories")}
+        />
       </div>
 
       <ExcludedNote excluded={totals(all).excluded} where="in this period" />
