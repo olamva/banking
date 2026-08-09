@@ -16,6 +16,7 @@ function row(overrides: Partial<Categorized> = {}): Categorized {
     description: 'Coop',
     counterparty: 'Coop',
     bankCategory: 'dagligvarer',
+    typeText: 'VISA Varekjøp',
     isRecurring: false,
     isSubscription: false,
     isPending: false,

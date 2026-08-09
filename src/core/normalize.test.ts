@@ -26,7 +26,7 @@ test('SB1 date formats at Oslo midnight, not UTC', () => {
       transactions: [{
         transaction: {
           id: 'sb1-1', accountKey: 'acct', amount: -100, date: midnightOslo,
-          description: 'raw desc', cleanedDescription: 'Clean Desc',
+          description: 'raw desc', cleanedDescription: 'Clean Desc', typeText: 'VISA Varekjøp',
         },
         categories: [{ main: 'dagligvarer' }],
         recurring: false,
@@ -39,6 +39,10 @@ test('SB1 date formats at Oslo midnight, not UTC', () => {
     assert.equal(txn.source, 'sb1');
     assert.equal(txn.counterparty, 'Clean Desc');
     assert.equal(txn.bankCategory, 'dagligvarer');
+    // Carried through verbatim: `exclude` reads it to tell a transfer from a
+    // purchase that merely matches one, so dropping it here would silently
+    // turn every coincidence back into an internal transfer.
+    assert.equal(txn.typeText, 'VISA Varekjøp');
     assert.equal(txn.isPending, false);
   });
 });
@@ -90,6 +94,8 @@ test('card DBIT/CRDT sign and pending status', () => {
     assert.equal(txns[0].amount, -250);
     assert.equal(txns[0].counterparty, null);
     assert.equal(txns[0].bankCategory, null);
+    // Enable Banking has no equivalent, so a card row can never be a transfer leg.
+    assert.equal(txns[0].typeText, null);
     assert.equal(txns[0].isPending, false);
     assert.equal(txns[1].amount, 50);
     assert.equal(txns[1].isPending, true);

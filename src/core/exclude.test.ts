@@ -13,6 +13,7 @@ function txn(overrides: Partial<Txn>): Txn {
     description: 'Rema 1000',
     counterparty: 'Rema 1000',
     bankCategory: 'dagligvarer',
+    typeText: 'VISA Varekjøp',
     isRecurring: false,
     isSubscription: false,
     isPending: false,
@@ -22,11 +23,14 @@ function txn(overrides: Partial<Txn>): Txn {
 
 const accounts = { a: { mine: true }, b: { mine: true }, c: { mine: false } };
 
+/** A transfer leg, as the bank types it. All four of SB1's spellings share the stem. */
+const leg = (over: Partial<Txn>) => txn({ typeText: 'Overføring', ...over });
+
 test('flags both sides of an internal transfer', () => {
   const out = exclude(
     [
-      txn({ id: '1', accountKey: 'a', amount: -500, date: '2026-07-01' }),
-      txn({ id: '2', accountKey: 'b', amount: 500, date: '2026-07-01' }),
+      leg({ id: '1', accountKey: 'a', amount: -500, date: '2026-07-01' }),
+      leg({ id: '2', accountKey: 'b', amount: 500, date: '2026-07-01', typeText: 'Overførsel mellom egne kontoer' }),
     ],
     accounts,
   );
@@ -39,13 +43,45 @@ test('flags both sides of an internal transfer', () => {
 test('does not flag a transfer touching a non-mine account', () => {
   const out = exclude(
     [
-      txn({ id: '1', accountKey: 'a', amount: -500, date: '2026-07-01' }),
-      txn({ id: '2', accountKey: 'c', amount: 500, date: '2026-07-01' }),
+      leg({ id: '1', accountKey: 'a', amount: -500, date: '2026-07-01' }),
+      leg({ id: '2', accountKey: 'c', amount: 500, date: '2026-07-01' }),
     ],
     accounts,
   );
   assert.equal(out[0].excluded, false);
   assert.equal(out[0].reason, null);
+});
+
+/**
+ * The rule that made this necessary: amount + date + opposite sign is a weak
+ * signal, and small round amounts collide. A 22 kr coffee met 22 kr of deposit
+ * interest on the same day and the pair was excluded — 22 kr of real spending
+ * and 22 kr of real income both vanished from the totals. Twice, in two years.
+ */
+test('a purchase that happens to match an unrelated credit is not a transfer', () => {
+  const out = exclude(
+    [
+      txn({ id: '1', accountKey: 'a', amount: -22, date: '2024-04-30', description: 'CRV*Zettle*Kafe' }),
+      txn({ id: '2', accountKey: 'b', amount: 22, date: '2024-04-30', description: 'INNSKUDDSRENTE', typeText: 'Kreditrente' }),
+    ],
+    accounts,
+  );
+  assert.deepEqual(out.map((t) => t.excluded), [false, false]);
+});
+
+/**
+ * Both legs are checked, never one — the whole scheme rests on every excluded
+ * reason netting to zero across the pair, and a half-matched pair breaks it.
+ */
+test('a transfer-typed row needs a transfer-typed counterpart, not just any match', () => {
+  const out = exclude(
+    [
+      leg({ id: '1', accountKey: 'a', amount: -2000, date: '2024-06-03' }),
+      txn({ id: '2', accountKey: 'b', amount: 2000, date: '2024-06-03', typeText: 'Straksbetaling' }),
+    ],
+    accounts,
+  );
+  assert.deepEqual(out.map((t) => t.excluded), [false, false]);
 });
 
 test('does not flag an ordinary purchase with no counterpart', () => {

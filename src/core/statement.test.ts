@@ -11,6 +11,7 @@ function card(partial: Partial<Txn> & { id: string; amount: number }): Txn {
     description: 'Varekjøp',
     counterparty: null,
     bankCategory: null,
+    typeText: null,
     isRecurring: false,
     isSubscription: false,
     isPending: false,

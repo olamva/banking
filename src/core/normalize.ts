@@ -25,7 +25,12 @@ type Sb1File = {
        * counterparty fallback below.
        */
       remoteAccountName?: string;
-      /** The bank's own name for the row type. Always present, always generic. */
+      /**
+       * The bank's own name for the row type — `VISA Varekjøp`, `Kreditrente`,
+       * `Overførsel mellom egne kontoer`. Present on all 4043 rows so far, and
+       * always generic, which is exactly why `exclude` trusts it over any
+       * description to say whether a row is a transfer.
+       */
       typeText?: string;
     };
     categories: Array<{ main: string }>;
@@ -70,6 +75,7 @@ function normalizeSb1(file: Sb1File): Txn[] {
     // whatever the payer typed into the payment.
     counterparty: t.cleanedDescription ?? t.remoteAccountName ?? null,
     bankCategory: categories[0]?.main ?? null,
+    typeText: t.typeText ?? null,
     isRecurring: recurring,
     isSubscription: subscription,
     isPending: false,
@@ -88,6 +94,7 @@ function normalizeCard(file: EbFile): Txn[] {
       description: t.remittance_information.join(' '),
       counterparty: null,
       bankCategory: null,
+      typeText: null,
       isRecurring: false,
       isSubscription: false,
       isPending: t.status === 'PDNG',

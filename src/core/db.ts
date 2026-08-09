@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS transactions (
   description TEXT NOT NULL,
   counterparty TEXT,
   bankCategory TEXT,
+  typeText TEXT,
   isRecurring INTEGER NOT NULL,
   isSubscription INTEGER NOT NULL,
   isPending INTEGER NOT NULL,
@@ -43,8 +44,8 @@ export function openDb(path = 'data/banking.db'): DatabaseSync {
 const UPSERT = `
 INSERT INTO transactions
   (source, id, accountKey, date, month, amount, description, counterparty,
-   bankCategory, isRecurring, isSubscription, isPending, excluded, reason, category)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+   bankCategory, typeText, isRecurring, isSubscription, isPending, excluded, reason, category)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (source, id) DO UPDATE SET
   accountKey = excluded.accountKey,
   date = excluded.date,
@@ -53,6 +54,7 @@ ON CONFLICT (source, id) DO UPDATE SET
   description = excluded.description,
   counterparty = excluded.counterparty,
   bankCategory = excluded.bankCategory,
+  typeText = excluded.typeText,
   isRecurring = excluded.isRecurring,
   isSubscription = excluded.isSubscription,
   isPending = excluded.isPending,
@@ -72,6 +74,7 @@ function bindParams(row: Categorized) {
     row.description,
     row.counterparty,
     row.bankCategory,
+    row.typeText,
     row.isRecurring ? 1 : 0,
     row.isSubscription ? 1 : 0,
     row.isPending ? 1 : 0,
@@ -102,6 +105,7 @@ type Row = {
   description: string;
   counterparty: string | null;
   bankCategory: string | null;
+  typeText: string | null;
   isRecurring: number;
   isSubscription: number;
   isPending: number;
@@ -120,6 +124,7 @@ function toCategorized(row: Row): Categorized {
     description: row.description,
     counterparty: row.counterparty,
     bankCategory: row.bankCategory,
+    typeText: row.typeText,
     isRecurring: !!row.isRecurring,
     isSubscription: !!row.isSubscription,
     isPending: !!row.isPending,

@@ -16,6 +16,7 @@ function classified(overrides: Partial<Classified>): Classified {
     description: 'Rema 1000',
     counterparty: 'Rema 1000',
     bankCategory: 'dagligvarer',
+    typeText: 'VISA Varekjøp',
     isRecurring: false,
     isSubscription: false,
     isPending: false,

@@ -129,6 +129,7 @@ Two sources normalize into it and they do not agree on much:
 | amount | signed number | positive string + `credit_debit_indicator` |
 | counterparty | `cleanedDescription` | null until the statement CSV fills it |
 | category | the bank's own | none — null |
+| typeText | the bank's own row kind | none — null |
 | pending | never seen | `status: PDNG` happens |
 
 Notes from the real data, not the plan:
@@ -169,6 +170,21 @@ Internal transfers are **flagged, never dropped** — the excluded set has to be
 auditable. Both sides of a transfer are present because we sync every account,
 so match on amount + date + opposite sign, restricted to accounts marked `mine`
 in `accounts.json`.
+
+**Amount + date + opposite sign is not enough on its own.** It is a weak signal
+at these volumes and it collided three times in two years: 22 kr of deposit
+interest against a 22 kr coffee, 42 kr against a tram ticket, and a 2000 kr
+payment from another person against an unrelated 2000 kr move between two of my
+own accounts. Every one of those deleted real money from the totals — and the
+income side is the half nobody notices. So **both legs must also be typed as a
+transfer by the bank**: `Txn.typeText` is SB1's own name for the row kind
+(`VISA Varekjøp`, `Kreditrente`, `Overførsel mellom egne kontoer`), matched on
+the stem `overfør`, which covers all four spellings it uses. A purchase cannot
+pass that however well its number lines up. Card rows carry no `typeText` at
+all, which correctly makes them ineligible.
+
+Check both legs, never one: a row excluded while its counterpart stays in breaks
+the netting invariant below, which is the only thing that catches this class.
 
 Credit card bill payments are **excluded**, like any internal transfer. The
 card's own transactions come from Enable Banking, so counting the bills as well

@@ -22,6 +22,14 @@ export type Txn = {
   counterparty: string | null;
   /** The bank's own category. Null on card rows. */
   bankCategory: string | null;
+  /**
+   * What the bank calls this *kind* of row — `VISA Varekjøp`, `Kreditrente`,
+   * `Overførsel mellom egne kontoer`. Generic by design and never a merchant,
+   * which is what makes it the one field that says whether a row is a transfer
+   * at all rather than a purchase that happens to match one. Null on card rows:
+   * Enable Banking has no equivalent.
+   */
+  typeText: string | null;
   isRecurring: boolean;
   isSubscription: boolean;
   /** Card rows can be PDNG, so a re-synced month may legitimately change. */

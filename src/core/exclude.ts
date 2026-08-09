@@ -26,14 +26,41 @@ const BANK_BILL = 'Kredittbanken';
 const CARD_BILL = 'Innbetalinger';
 
 /**
+ * The bank's own word for a row that moves money rather than spends it:
+ * `Overføring`, `Overførsel`, `Overførsel mellom egne kontoer`. Matched on the
+ * stem, which covers all four spellings SB1 uses.
+ *
+ * This is the whole guard against a coincidence reading as a transfer. Amount +
+ * date + opposite sign is a *weak* signal at personal-banking volumes — a 22 kr
+ * coffee and 22 kr of deposit interest on the same day satisfy it perfectly, and
+ * did, twice. `typeText` is what the bank calls the row before anyone matches
+ * anything, so a purchase cannot pass it however well its number lines up.
+ *
+ * Both legs are checked, never one. Excluding a row whose counterpart stays in
+ * breaks the invariant the whole scheme rests on — that every excluded reason
+ * nets to zero across the pair.
+ */
+const TRANSFER_TYPE = /overf(ø|o)r/i;
+
+/** Card rows have no `typeText` at all, so they can never be a transfer leg — which is correct. */
+const isTransferType = (t: Txn): boolean => TRANSFER_TYPE.test(t.typeText ?? '');
+
+/**
  * Flags, never drops. Two rules, checked per transaction:
  * - internal transfer: another txn in a different `mine` account, same date,
- *   opposite-signed equal amount.
+ *   opposite-signed equal amount, and *both* rows typed as a transfer by the
+ *   bank.
  * - credit card bill payment, either leg: matched by description, since bill
  *   amounts don't track card spend within a month.
  *
  * ponytail: O(n^2) transfer scan (every txn checks every other txn). Fine at
  * personal-banking volumes; index by (date, amount) if a year ever gets slow.
+ *
+ * ponytail: pairing is `some`, not 1:1 — three same-day rows of ±2000 across
+ * two accounts all match each other, and all three were flagged. The type check
+ * above is what actually caught that one, since the odd leg out was a
+ * `Straksbetaling` from another person. Greedy 1:1 matching if a genuine
+ * transfer ever collides with another genuine transfer of the same amount.
  */
 export function exclude(txns: Txn[], accounts: Accounts): Classified[] {
   const mine = new Set(Object.entries(accounts).filter(([, a]) => a.mine).map(([key]) => key));
@@ -52,13 +79,14 @@ function billReason(t: Txn): string | null {
 }
 
 function transferReason(t: Txn, all: Txn[], mine: Set<string>): string | null {
-  if (!mine.has(t.accountKey)) return null;
+  if (!mine.has(t.accountKey) || !isTransferType(t)) return null;
   const hasCounterpart = all.some(
     (o) =>
       mine.has(o.accountKey) &&
       o.accountKey !== t.accountKey &&
       o.date === t.date &&
-      o.amount === -t.amount,
+      o.amount === -t.amount &&
+      isTransferType(o),
   );
   return hasCounterpart ? 'internal transfer' : null;
 }
