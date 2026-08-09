@@ -39,6 +39,7 @@ import {
 } from "../../core/stats.ts";
 import type { Categorized } from "../../core/types.ts";
 import {
+  AMOUNT_SIZE,
   Card,
   DataTable,
   MeterTile,
@@ -334,7 +335,11 @@ const Dashboard = ({ txns, filters, onFilters, period: p }: DashboardProps) => {
                 subsHead("Date", "date", { min: true }),
                 subsHead("Description", "merchant"),
                 subsHead("Category", "category", { min: true }),
-                subsHead("Amount", "amount", { num: true, min: true }),
+                subsHead("Amount", "amount", {
+                  num: true,
+                  min: true,
+                  sizer: AMOUNT_SIZE,
+                }),
               ]}
               rows={sortedSubs.map((t) => [
                 t.date,

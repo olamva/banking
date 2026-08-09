@@ -4,6 +4,7 @@
 import {
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -120,9 +121,39 @@ export const MeterTile = ({ label, share, note }: MeterTileProps) => (
   </div>
 );
 
+/**
+ * Holds a `min` column at the width of the widest value it can hold, rather
+ * than the widest one on screen. A windowed table renders a screenful, so
+ * without this a column resizes as you scroll onto a longer value and takes
+ * every other column sideways with it.
+ *
+ * Rendered rather than written as a `ch` width, because it has to be right in
+ * whatever font the page ends up with: the header's own, at the cells' weight,
+ * invisible and zero height, so it sets the width and nothing else.
+ *
+ * A longer value than any of these still fits — no cell wraps. It just starts
+ * moving the column again, which for the rare outlier is a better trade than
+ * reserving the room for it forever.
+ */
+const Sizer = ({ of }: { of: string[] }) => (
+  <span aria-hidden className="invisible block h-0 font-normal">
+    {of.map((s) => (
+      <span key={s} className="block">
+        {s}
+      </span>
+    ))}
+  </span>
+);
+
+/** The widest amount worth holding a money column open for. */
+export const AMOUNT_SIZE = [fmtNOK(-100000)];
+
 export interface Column {
   label: string;
+  /** Money: right-aligned. */
   num?: boolean;
+  /** Values this column must stay wide enough for, whatever is rendered — see `Sizer`. */
+  sizer?: string[];
   /**
    * Shrink to the widest cell instead of sharing the slack. `w-px` with
    * `nowrap` is the table-layout way of saying "as narrow as the content
@@ -230,9 +261,12 @@ export const DataTable = ({ columns, rows, scroll }: DataTableProps) => {
               })
           : undefined
       }
-      className={`mt-2 overflow-x-auto ${scroll ? "max-h-[460px] overflow-y-auto" : ""}`}
+      className={`mt-2 overflow-x-auto ${scroll ? "max-h-115 overflow-y-auto" : ""}`}
     >
-      <table className="w-full border-collapse text-xs">
+      {/* Tabular figures for the whole table, not just the money column: it is
+          what makes every date exactly as wide as every other one, so the date
+          column has a width the rows cannot argue with. */}
+      <table className="w-full border-collapse text-xs tabular-nums">
         <thead>
           <tr>
             {columns.map((c) => (
@@ -247,6 +281,7 @@ export const DataTable = ({ columns, rows, scroll }: DataTableProps) => {
                 }
                 className={`border-b border-grid bg-surface py-1 pr-2 font-semibold ${c.num ? "text-right" : "text-left"} ${c.min ? "w-px whitespace-nowrap" : ""} ${scroll ? "sticky top-0" : ""}`}
               >
+                {c.sizer && <Sizer of={c.sizer} />}
                 {c.onClick ? (
                   <button
                     type="button"
@@ -291,7 +326,7 @@ export const DataTable = ({ columns, rows, scroll }: DataTableProps) => {
                   key={j}
                   /* Nothing wraps in a windowed table: one tall row would put
                    every row below it out of place by the difference. */
-                  className={`border-b border-grid py-1 pr-2 ${columns[j]?.num ? "text-right tabular-nums" : "text-left"} ${columns[j]?.min ? "w-px whitespace-nowrap" : ""} ${windowed ? "whitespace-nowrap" : ""}`}
+                  className={`border-b border-grid py-1 pr-2 ${columns[j]?.num ? "text-right" : "text-left"} ${columns[j]?.min ? "w-px whitespace-nowrap" : ""} ${windowed ? "whitespace-nowrap" : ""}`}
                 >
                   {cell}
                 </td>
@@ -383,6 +418,15 @@ export const TransactionsCard = ({
 }: TransactionsCardProps) => {
   const { sorted, head } = useTxnSort(txns);
   const box = useRef<HTMLInputElement>(null);
+  /**
+   * Every category the table can show, not the ones a screenful happens to
+   * hold. Over `txns` rather than over every category there is, so a filtered
+   * table does not hold room open for a category it can no longer show.
+   */
+  const categorySizes = useMemo(
+    () => [...new Set(txns.map((t) => categoryLabel(t.category)))],
+    [txns],
+  );
 
   useEffect(() => {
     const find = (e: KeyboardEvent) => {
@@ -432,9 +476,13 @@ export const TransactionsCard = ({
           columns={[
             head("Date", "date", { min: true }),
             head("Merchant / description", "merchant"),
-            head("Category", "category", { min: true }),
+            head("Category", "category", { min: true, sizer: categorySizes }),
             { label: "Source", min: true },
-            head("Amount", "amount", { num: true, min: true }),
+            head("Amount", "amount", {
+              num: true,
+              min: true,
+              sizer: AMOUNT_SIZE,
+            }),
           ]}
           rows={sorted.map((t) => [
             t.date,
