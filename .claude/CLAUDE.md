@@ -239,8 +239,31 @@ run got wrong in two ways:
 Card credits that are *not* `Innbetalinger` stay in: `Varekjøp` credits are
 merchant refunds and `Rabatt strømmetjenester` is cashback. Both are real.
 
+Buying and selling funds is **excluded as `investment movement`**, in both
+directions. Money crossing the fund manager's settlement account is capital
+changing form, not earning or spending: fund purchases left the deposit accounts
+reading as 5 000 kr of shopping, and the settlements arriving in the share
+savings account read as 5 179 kr of income, where they were the other half of
+withdrawals already excluded. The settlement account is named in
+`rules/accounts.json` by `investment: true` — it is not mine and never will be,
+so `mine` cannot express it.
+
+That reason is **one-sided by design and exempt from the netting check below**:
+the counter-leg is booked at the fund manager and is not in `data/raw/` at all.
+Its residue is the gain on the funds, and it is the only reason allowed a
+residue.
+
+An entry may also carry `sync: false`, meaning it exists for its *number* alone —
+there is no key `/transactions` answers for. `accountKeys` skips those.
+
 The check that catches all of this: every excluded reason must net to zero
-across the pair. If it doesn't, one leg is being matched and the other isn't.
+across the pair — `investment movement` excepted. If it doesn't, one leg is
+being matched and the other isn't.
+
+**A number rule must ignore the row's own account.** Cash into a deposit machine
+books as `Innskudd automat` stamped with the number of the account it landed in,
+and reading that as "the other party is mine" excluded real income against no
+second leg. Nothing moves between an account and itself.
 
 An excluded row with no category of its own is `overfoering`, not
 `ukategorisert` — the toggle in `select.ts` is the only thing that lists these,

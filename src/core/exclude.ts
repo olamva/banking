@@ -6,8 +6,19 @@ import type { Txn, Classified } from './types.ts';
  * `number` is optional so an older hand-edited file still loads; without it an
  * account simply falls back to the amount+date rule below, exactly as before.
  * `pnpm sb1 accounts` writes it, from the same response the keys come from.
+ *
+ * `sync: false` marks an entry that exists for its *number* alone — there is no
+ * key `/transactions` would answer for, so `accountKeys` skips it. Nothing in
+ * this module reads the flag; see `src/net/sync.ts`.
+ *
+ * `investment: true` is the fund manager's settlement account, which is not
+ * mine and never will be. Money crossing it is my own capital changing form,
+ * not spending and not income — see `investmentReason`.
  */
-export type Accounts = Record<string, { mine: boolean; number?: string }>;
+export type Accounts = Record<
+  string,
+  { mine: boolean; number?: string; sync?: boolean; investment?: boolean }
+>;
 
 /**
  * The bank-account leg of a card bill payment. Deliberately not the full
@@ -71,12 +82,44 @@ const isTransferType = (t: Txn): boolean => TRANSFER_TYPE.test(t.typeText ?? '')
 export function exclude(txns: Txn[], accounts: Accounts): Classified[] {
   const ours = Object.entries(accounts).filter(([, a]) => a.mine);
   const mine = new Set(ours.map(([key]) => key));
-  const myNumbers = new Set(ours.map(([, a]) => a.number).filter((n): n is string => !!n));
+  const numbers = (pick: (a: Accounts[string]) => boolean) =>
+    new Set(
+      Object.values(accounts)
+        .filter(pick)
+        .map((a) => a.number)
+        .filter((n): n is string => !!n),
+    );
+  const myNumbers = numbers((a) => a.mine);
+  const fundNumbers = numbers((a) => !!a.investment);
 
   return txns.map((t) => {
-    const reason = billReason(t) ?? transferReason(t, txns, mine, myNumbers);
+    const reason =
+      billReason(t) ??
+      investmentReason(t, fundNumbers) ??
+      transferReason(t, txns, mine, myNumbers, accounts[t.accountKey]?.number);
     return { ...t, excluded: reason !== null, reason };
   });
+}
+
+/**
+ * Buying or selling a fund is capital changing form, not money earned or spent.
+ * Both directions cross the fund manager's settlement account, which is what
+ * names them: 5 000 kr of fund purchases read as spending on the deposit
+ * accounts, and 5 179 kr of settlements read as income on the share savings
+ * account, where they were the other half of withdrawals already excluded.
+ *
+ * **This reason is one-sided on purpose and must stay out of the nets-to-zero
+ * check.** The counter-leg is booked at the fund manager and is not in
+ * `data/raw/` at all, so unlike an internal transfer there is no second row to
+ * net against — which is exactly why it is not filed as one.
+ *
+ * No `mine` test: every row here is on an account we sync, and a movement to
+ * the fund manager is not spending whoever holds the account it left.
+ */
+function investmentReason(t: Txn, fundNumbers: Set<string>): string | null {
+  return t.remoteAccountNumber && fundNumbers.has(t.remoteAccountNumber)
+    ? 'investment movement'
+    : null;
 }
 
 function billReason(t: Txn): string | null {
@@ -86,7 +129,13 @@ function billReason(t: Txn): string | null {
   return t.description.includes(BANK_BILL) ? 'credit card bill payment' : null;
 }
 
-function transferReason(t: Txn, all: Txn[], mine: Set<string>, myNumbers: Set<string>): string | null {
+function transferReason(
+  t: Txn,
+  all: Txn[],
+  mine: Set<string>,
+  myNumbers: Set<string>,
+  own: string | undefined,
+): string | null {
   if (!mine.has(t.accountKey)) return null;
   // The other party *is* one of my accounts. That is not a coincidence the way
   // amount+date is, so it needs neither a transfer type nor a counterpart
@@ -101,7 +150,14 @@ function transferReason(t: Txn, all: Txn[], mine: Set<string>, myNumbers: Set<st
   // Netting still holds without a pair search, because it is symmetric: each leg
   // carries the other account's number, so either both legs match or neither
   // does.
-  if (t.remoteAccountNumber && myNumbers.has(t.remoteAccountNumber)) return 'internal transfer';
+  //
+  // Except when the number *is* the row's own account. A cash deposit at a
+  // machine books as `Innskudd automat` stamped with the account it landed in,
+  // and reading that as "the other party is mine" excluded 68 kr of real income
+  // with no second leg anywhere — which is precisely how the netting check
+  // surfaced it. Nothing moves between an account and itself.
+  if (t.remoteAccountNumber && t.remoteAccountNumber !== own && myNumbers.has(t.remoteAccountNumber))
+    return 'internal transfer';
   if (!isTransferType(t)) return null;
   const hasCounterpart = all.some(
     (o) =>

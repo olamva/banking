@@ -165,6 +165,63 @@ test('a payment to someone else stays in, however it is typed', () => {
   assert.equal(out[0].excluded, false);
 });
 
+/**
+ * The share savings account was missing from `rules/accounts.json` because
+ * `/accounts` hides it unless asked, so its side of every withdrawal was not in
+ * `data/raw/` and the counterpart search could never fire — 5 179 kr of my own
+ * money counted as income. One leg is enough once the account is listed: the
+ * number is proof on its own, with no counterpart to find.
+ */
+test('flags a transfer to an account of mine whose other leg is not in the data', () => {
+  const out = exclude(
+    [txn({ id: '1', accountKey: 'a', amount: 490.94, typeText: 'Overførsel mellom egne kontoer', remoteAccountNumber: '39910000009' })],
+    { ...numbered, ask: { mine: true, number: '39910000009' } },
+  );
+  assert.equal(out[0].excluded, true);
+  assert.equal(out[0].reason, 'internal transfer');
+});
+
+/**
+ * Capital changing form, in both directions: a fund purchase leaving a deposit
+ * account read as spending, and the settlement arriving in the share savings
+ * account read as income. Neither is either. The fund manager's account is not
+ * mine, so `mine`/`myNumbers` cannot express this — hence its own flag, and its
+ * own reason, since no counter-leg exists to net against.
+ */
+test('money crossing the fund manager is neither spending nor income', () => {
+  const funds = { ...numbered, fund: { mine: false, number: '47500000001', investment: true, sync: false } };
+  const out = exclude(
+    [
+      txn({ id: '1', accountKey: 'a', amount: -1000, description: 'Kjøp av Fond', typeText: 'Overførsel', remoteAccountNumber: '47500000001' }),
+      txn({ id: '2', accountKey: 'b', amount: 1215.42, description: 'Sparebank 1 Forvaltning AS', typeText: 'Overførsel', remoteAccountNumber: '47500000001' }),
+    ],
+    funds,
+  );
+  assert.deepEqual(out.map((t) => t.reason), ['investment movement', 'investment movement']);
+});
+
+/**
+ * Cash into a deposit machine books as `Innskudd automat` carrying the number of
+ * the account it landed in, not of any other party. Treating that as a
+ * self-transfer excluded real income, and left `internal transfer` netting to
+ * 68 kr instead of zero — a single leg with nothing to pair against.
+ */
+test('a row naming its own account is not a transfer', () => {
+  const out = exclude(
+    [txn({ id: '1', accountKey: 'a', amount: 33, description: 'Innskotsautomat', typeText: 'Innskudd automat', remoteAccountNumber: '39910000001' })],
+    numbered,
+  );
+  assert.equal(out[0].excluded, false);
+});
+
+test('a purchase from an account that is not the fund manager is untouched', () => {
+  const out = exclude(
+    [txn({ id: '1', accountKey: 'a', amount: -1000, remoteAccountNumber: '39910000003' })],
+    { ...numbered, fund: { mine: false, number: '47500000001', investment: true, sync: false } },
+  );
+  assert.equal(out[0].excluded, false);
+});
+
 test('an account with no number falls back to the amount+date rule', () => {
   const out = exclude(
     [

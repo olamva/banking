@@ -33,10 +33,15 @@ async function dump(file: string, data: unknown): Promise<void> {
 
 /** Pull accounts once, keep the raw dump, derive a key list. */
 async function accounts(): Promise<void> {
+  // All five, because the default on every one of them is false and an account
+  // left out here is invisible everywhere downstream — the share savings account
+  // was, and its transfers counted as income until `exclude` learned its number.
   const include = new URLSearchParams({
     includeCreditCardAccounts: 'true',
     includeBsuAccounts: 'true',
     includeAskAccounts: 'true',
+    includePensionAccounts: 'true',
+    includeCurrencyAccounts: 'true',
   });
   const raw = await get(`/personal/banking/accounts?${include}`);
   await dump(ACCOUNTS_RAW, raw);

@@ -10,6 +10,7 @@ import { existsSync } from 'node:fs';
 import { get, monthRange } from './sb1.ts';
 import * as eb from './eb.ts';
 import { RAW } from '../core/pipeline.ts';
+import type { Accounts } from '../core/exclude.ts';
 
 async function dump(file: string, data: unknown): Promise<void> {
   await mkdir(file.slice(0, file.lastIndexOf('/')), { recursive: true });
@@ -17,8 +18,18 @@ async function dump(file: string, data: unknown): Promise<void> {
   console.error(`wrote ${file}`);
 }
 
+/**
+ * The accounts to fetch — every entry except the ones marked `sync: false`,
+ * which are mine but have no key SB1 would answer for (a share savings account
+ * is absent from `/accounts` entirely). Their key here is a made-up label, so
+ * fetching one would spend a request on a 404. They still earn their entry:
+ * `exclude` matches on the *number*.
+ */
 export async function accountKeys(): Promise<string[]> {
-  return Object.keys(JSON.parse(await readFile('rules/accounts.json', 'utf8')));
+  const accounts: Accounts = JSON.parse(await readFile('rules/accounts.json', 'utf8'));
+  return Object.entries(accounts)
+    .filter(([, a]) => a.sync !== false)
+    .map(([key]) => key);
 }
 
 /**
