@@ -24,22 +24,44 @@ import type { Txn, Classified } from './types.ts';
  * in", and the card is not one. `billReason` is the one reader — a bill payment
  * is worded one way on the card and another on the account that pays it, so
  * something has to say which side a row is on.
+ *
+ * `issuer: true` is the card issuer's *collection* account — where the bill is
+ * paid to, not the card itself. Like `investment`, it exists for its `number`
+ * alone and is neither mine nor synced. See `BANK_BILL`.
  */
 export type Accounts = Record<
   string,
-  { mine: boolean; name?: string; number?: string; sync?: boolean; investment?: boolean; card?: boolean }
+  {
+    mine: boolean;
+    name?: string;
+    number?: string;
+    sync?: boolean;
+    investment?: boolean;
+    card?: boolean;
+    issuer?: boolean;
+  }
 >;
 
 /**
- * The bank-account leg of a card bill payment. Deliberately not the full
- * `Kredittbanken ASA`: the issuer also books these as
- * `Kredittbanken - del av SpareBank 1`, and the narrower string silently
- * missed those.
+ * The bank-account leg of a card bill payment, matched two ways because the
+ * description is not dependable.
  *
- * Still matched on the name and not on the account number, because the number
- * on that row is the *issuer's* collection account, not the card's own — so
- * neither leg names an account of mine and the number rule below can never see
- * this pair.
+ * The **issuer's collection account number** is the real key: every bill leg on
+ * record names it, 22 of 22. It is not an account of mine, so the `mine` number
+ * rule below can never see it — it is named in `rules/accounts.json` by
+ * `issuer: true`, the same shape as the fund manager's settlement account.
+ *
+ * The **name** stays as a fallback, and deliberately not the full
+ * `Kredittbanken ASA`: the issuer also books these as
+ * `Kredittbanken - del av SpareBank 1`, and the narrower string silently missed
+ * those.
+ *
+ * The name alone was not enough. SB1 words this row after the *channel* when
+ * the bill is paid by hand — `Mobilgiro m/KID, forfall i dag` names no payee at
+ * all, and the issuer appears only in `remoteAccountName`, which `normalize`
+ * drops whenever a `cleanedDescription` exists. That left the bank leg counted
+ * as 4 941 kr of spending while the card credit was excluded, so the pair did
+ * not net to zero.
  */
 const BANK_BILL = 'Kredittbanken';
 
@@ -115,6 +137,7 @@ export function exclude(txns: Txn[], accounts: Accounts): Classified[] {
     );
   const myNumbers = numbers((a) => a.mine);
   const fundNumbers = numbers((a) => !!a.investment);
+  const issuerNumbers = numbers((a) => !!a.issuer);
   const cards = new Set(
     Object.entries(accounts)
       .filter(([, a]) => a.card)
@@ -123,7 +146,7 @@ export function exclude(txns: Txn[], accounts: Accounts): Classified[] {
 
   return txns.map((t) => {
     const reason =
-      billReason(t, cards) ??
+      billReason(t, cards, issuerNumbers) ??
       investmentReason(t, fundNumbers) ??
       transferReason(t, txns, mine, myNumbers, accounts[t.accountKey]?.number);
     return { ...t, excluded: reason !== null, reason };
@@ -151,11 +174,12 @@ function investmentReason(t: Txn, fundNumbers: Set<string>): string | null {
     : null;
 }
 
-function billReason(t: Txn, cards: Set<string>): string | null {
+function billReason(t: Txn, cards: Set<string>, issuerNumbers: Set<string>): string | null {
   if (cards.has(t.accountKey)) {
     return t.description.includes(CARD_BILL) ? 'credit card bill payment (card side)' : null;
   }
-  return t.description.includes(BANK_BILL) ? 'credit card bill payment' : null;
+  const toIssuer = !!t.remoteAccountNumber && issuerNumbers.has(t.remoteAccountNumber);
+  return toIssuer || t.description.includes(BANK_BILL) ? 'credit card bill payment' : null;
 }
 
 function transferReason(

@@ -26,6 +26,7 @@ const accounts = {
   b: { mine: true },
   c: { mine: false },
   card: { mine: false, card: true },
+  issuer: { mine: false, issuer: true, number: '99', sync: false },
 };
 
 /** A transfer leg, as the bank types it. All four of SB1's spellings share the stem. */
@@ -107,6 +108,25 @@ test('flags a Kredittbanken bill payment by description', () => {
 test('flags the bill payment the issuer books under its other name', () => {
   const out = exclude(
     [txn({ id: '1', accountKey: 'a', amount: -2493, description: 'Kredittbanken - del av SpareBank 1' })],
+    accounts,
+  );
+  assert.equal(out[0].excluded, true);
+  assert.equal(out[0].reason, 'credit card bill payment');
+});
+
+test('flags a bill paid by hand, where the description names the channel and no payee', () => {
+  // `Mobilgiro m/KID, forfall i dag` — the issuer's name is nowhere on the row,
+  // only its collection account number.
+  const out = exclude(
+    [
+      txn({
+        id: '1',
+        amount: -4940.53,
+        description: 'Mobilgiro m/KID, forfall i dag',
+        typeText: 'MobilGiro m/KID til forfall i dag',
+        remoteAccountNumber: '99',
+      }),
+    ],
     accounts,
   );
   assert.equal(out[0].excluded, true);

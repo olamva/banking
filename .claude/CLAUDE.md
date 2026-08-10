@@ -289,11 +289,19 @@ for anything not `mine`. Both bill legs are caught by description regardless.
 A bill payment has **two legs and both must be excluded**, which the first real
 run got wrong in two ways:
 
-- Match the bank leg on `Kredittbanken`, not `Kredittbanken ASA`. The issuer
-  also books these as `Kredittbanken - del av SpareBank 1`, and the narrower
-  string silently missed one. Not on the account number either: the number on
-  that row is the issuer's *collection* account, not the card's own, so neither
-  leg names an account of mine and the number rule can never see this pair.
+- Match the bank leg on the issuer's **collection account number**, named in
+  `rules/accounts.json` by `issuer: true` — the same shape as the fund manager's
+  settlement account, an entry that exists for its number alone. It is not an
+  account of mine, so the `mine` number rule can never see this pair; it needs
+  its own flag. All 23 bank legs on record carry that number.
+  The name is the fallback, and `Kredittbanken`, not `Kredittbanken ASA`: the
+  issuer also books these as `Kredittbanken - del av SpareBank 1`, and the
+  narrower string silently missed one. The name alone was not enough either —
+  SB1 words the row after the *channel* when the bill is paid by hand, and
+  `Mobilgiro m/KID, forfall i dag` names no payee at all. The issuer is on that
+  row only as `remoteAccountName`, which `normalize` drops wherever a
+  `cleanedDescription` exists, so 4 941 kr read as spending against an excluded
+  card credit.
 - The card leg is the `Innbetaling` credit on the card account — singular, as
   SB1 words it; Enable Banking said `Innbetalinger`. It cannot ride on the
   amount+date transfer rule: the card is not a `mine` account, and the credit
@@ -305,7 +313,7 @@ refund and `Rabatt strømmetjenester` is cashback. Both are real.
 
 The two legs land in different months about once a quarter — a bank debit on the
 28th against a card credit on the 1st — so the reason nets to zero **across the
-record, not within every month**. 22 pairs, 109 903.82 kr, netting exactly.
+record, not within every month**. 23 pairs, 114 844.35 kr, netting exactly.
 
 Buying and selling funds is **excluded as `investment movement`**, in both
 directions. Money crossing the fund manager's settlement account is capital
