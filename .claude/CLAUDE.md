@@ -341,10 +341,15 @@ books as `Innskudd automat` stamped with the number of the account it landed in,
 and reading that as "the other party is mine" excluded real income against no
 second leg. Nothing moves between an account and itself.
 
-An excluded row with no category of its own is `overfoering`, not
-`ukategorisert` — the toggle in `select.ts` is the only thing that lists these,
-and every sum in `stats.ts` skips them before it adds anything up, so the slug
-is a label for the audit view and never a bucket money lands in.
+An excluded row is `overfoering`, and that decision sits **above every other
+rule in `categorize`** — above the overrides and above the bank's own category.
+It was the last fallback once, which left the bank's word for the *payment* on
+rows where the money never moved: a card bill filed as `Avgifter` on the giro
+paying it and `Annet lån og gjeld` on the credit settling it. `reason` says why
+a row is out, so the category has nothing to add. The toggle in `select.ts` is
+the only thing that lists these, and every sum in `stats.ts` skips them before
+it adds anything up, so the slug is a label for the audit view and never a
+bucket money lands in.
 
 ## The card's own fields
 

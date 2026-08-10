@@ -23,9 +23,16 @@ const UNCATEGORIZED = 'ukategorisert';
 const TRAVEL = 'reise';
 
 /**
- * What an excluded row falls back to instead of `ukategorisert`. Both legs of a
+ * What **every** excluded row is, ahead of any other rule. Both legs of a
  * transfer and both legs of a card bill are exactly that — a transfer — so the
- * one view that lists them says so rather than filing the lot under "no idea".
+ * one view that lists them says so rather than filing the lot under whatever
+ * else the row happens to look like.
+ *
+ * It used to be the last fallback, below the bank's own category, and the bank
+ * has one on most of these: a card bill read as `Avgifter` on the giro paying it
+ * and `Annet lån og gjeld` on the credit it settles. Both are true of the
+ * payment and neither is true of the money, which never left. `reason` is what
+ * says why a row is out, so the category has nothing left to add.
  *
  * No money path can see this: `stats.ts` skips excluded rows before it sums, and
  * the toggle in `select.ts` is the only thing that lists them at all.
@@ -234,6 +241,7 @@ function categoryFor(
   haystack: string,
   cards: Set<string>,
 ): string {
+  if (t.excluded) return TRANSFER;
   const override = rules.find((r) => r.matches(haystack));
   if (override) return override.category;
   // A lump transfer, and a name that says what this person's lump transfers
@@ -247,5 +255,5 @@ function categoryFor(
     return t.bankCategory === BANK_FIXED_COSTS ? FIXED_COSTS : t.bankCategory;
   }
   if (cards.has(t.accountKey) && FOREIGN_MERCHANT.test(t.counterparty ?? '')) return TRAVEL;
-  return t.excluded ? TRANSFER : UNCATEGORIZED;
+  return UNCATEGORIZED;
 }

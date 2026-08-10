@@ -35,23 +35,21 @@ test('falls back to bankCategory with no override', () => {
 });
 
 /**
- * The excluded rows are transfers, and the toggle that lists them is the only
- * place they are ever seen — filing them under "no idea" said less than the
- * reason already on the row.
+ * Every excluded row is a transfer, whatever else it looks like. The bank has a
+ * category for most of them and it describes the payment, not the money — a card
+ * bill is `Avgifter` on the giro paying it — and the toggle that lists these is
+ * the only place they are ever seen, with `reason` already on the row.
  */
-test('an excluded row with nothing else to go on is a transfer, not uncategorized', () => {
+test('an excluded row is a transfer, ahead of every other rule', () => {
   const transfer = classified({ bankCategory: null, excluded: true, reason: 'internal transfer' });
   assert.equal(categorize([transfer], {})[0]!.category, 'overfoering');
 
-  // Only the fallback: a bank category and an override both still win.
-  assert.equal(categorize([{ ...transfer, bankCategory: 'sparing' }], {})[0]!.category, 'sparing');
-
-  // Both of the bank's catch-alls are "no category", including the one it
-  // spells out on the row — otherwise a transfer keeps the bank's shrug.
+  // Not the fallback any more: the bank's category and an override both lose.
+  assert.equal(categorize([{ ...transfer, bankCategory: 'sparing' }], {})[0]!.category, 'overfoering');
   for (const bankCategory of ['diverse', 'ukategorisert']) {
     assert.equal(categorize([{ ...transfer, bankCategory }], {})[0]!.category, 'overfoering');
   }
-  assert.equal(categorize([transfer], { 'rema 1000': 'groceries' })[0]!.category, 'groceries');
+  assert.equal(categorize([transfer], { 'rema 1000': 'groceries' })[0]!.category, 'overfoering');
 
   // And nothing that is still counted changes.
   assert.equal(categorize([classified({ bankCategory: null })], {})[0]!.category, 'ukategorisert');
