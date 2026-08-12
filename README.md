@@ -58,6 +58,7 @@ pnpm sb1 sync --from 2022 --to 2026  # a whole span; either end may be YYYY-MM
 # offline — reads data/raw/ or the database
 pnpm sb1 rebuild                    # rebuild data/banking.db from data/raw/
 pnpm sb1 peers | pbcopy             # clipboard rows -> the names rules/vipps.json lacks
+pnpm sb1 merchants                  # one shop under many names -> lines for rules/payees.json
 
 # the living app
 pnpm dev                            # serve the dashboard on :4000, offline

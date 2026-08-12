@@ -6,6 +6,8 @@ import { rebuildAll, RAW } from './core/pipeline.ts';
 import { syncMonth, syncRange } from './net/sync.ts';
 import { loadPeers } from './core/categorize.ts';
 import { newPeers } from './core/peers.ts';
+import { merchantClusters, nearMisses } from './core/merchants.ts';
+import { openDb, queryRange } from './core/db.ts';
 import { serve, DEFAULT_MAX_AGE_MIN } from './web/serve.ts';
 import { remaining } from './net/budget.ts';
 
@@ -95,6 +97,54 @@ async function peers(): Promise<void> {
   for (const name of names) console.log(name);
 }
 
+/**
+ * The merchants SB1 sends under more than one name, and the line that would
+ * collapse each set. Prints, never writes — same division as `peers`: nothing
+ * under rules/ is a tool's to rewrite.
+ *
+ * Reads the database, which already has rules/payees.json applied, so a
+ * merchant that file already covers arrives as one name and never appears here.
+ */
+function merchants(): void {
+  const kr = (n: number) => `${Math.round(n).toLocaleString('nb-NO')} kr`;
+  const db = openDb();
+  const rows = queryRange(db, '0000-00', '9999-99');
+  db.close();
+  const clusters = merchantClusters(rows);
+
+  for (const c of clusters) {
+    console.log();
+    for (const m of c.members) console.log(`  ${m.name}   ${m.rows}`);
+    console.log(
+      c.pattern
+        ? `  -> ${JSON.stringify(c.pattern)}: ${JSON.stringify(c.name)}   ${c.rows} rows, ${kr(c.total)}`
+        : `  -> no safe shared pattern, write one by hand   ${c.rows} rows, ${kr(c.total)}`,
+    );
+    // Two categories under one merchant means a rule reaches some of its
+    // spellings and not the rest — worth more than the rename itself.
+    if (c.categories.length > 1) console.log(`     ! ${c.categories.length} categories: ${c.categories.join(', ')}`);
+    if (c.collateral.length) console.log(`     ! also matches: ${c.collateral.join(' / ')}`);
+  }
+  // What the prefix grouping never tried, so its ceiling is visible instead of
+  // silent: two spellings that disagree early never meet above, however plainly
+  // they are the same shop.
+  const misses = nearMisses(rows);
+  if (misses.length) {
+    console.log('\n--- never clustered, but share a word ---');
+    for (const m of misses) {
+      console.log();
+      console.log(`  ${m.token}`);
+      for (const x of m.members) console.log(`    ${x.name}   ${x.rows} rows, ${kr(x.total)}`);
+    }
+  }
+  console.error(
+    clusters.length
+      ? `\n${clusters.length} merchants under more than one name, ${kr(clusters.reduce((n, c) => n + c.total, 0))} between them.` +
+          `\n${misses.length} more share a word without sharing a prefix — read those before believing the list above is complete.`
+      : 'every merchant goes by one name already.',
+  );
+}
+
 try {
   if (cmd === 'login') await login();
   else if (cmd === 'accounts') await accounts();
@@ -116,6 +166,7 @@ try {
   }
   else if (cmd === 'rebuild') await rebuildAll();
   else if (cmd === 'peers') await peers();
+  else if (cmd === 'merchants') merchants();
   else if (cmd === 'budget') {
     // The bank's own figure, cached from the last response. Nothing on disk
     // means nothing has called it recently, not that there is nothing left.
@@ -136,6 +187,7 @@ try {
     console.error('                | sync --month YYYY-MM [--force | --stale MINUTES]');
     console.error('                | sync --from YYYY[-MM] --to YYYY[-MM] [--force | --stale MINUTES]');
     console.error('                | peers  (clipboard rows -> names for rules/vipps.json)');
+    console.error('                | merchants  (one shop under many names -> rules/payees.json)');
     console.error('                | dev [--port 4000] [--pull [--max-age 360]] | budget>');
     process.exit(1);
   }
