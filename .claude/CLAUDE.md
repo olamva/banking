@@ -12,15 +12,30 @@ things the real data does that the code has to survive.
 
 ## Committing
 
-**Commits are authorised in this repo, standing** — granted 2026-08-13, and the
-deliberate exception to the global never-commit rule. Commit as the work reaches
-a state worth keeping, in the repo's own style (Conventional Commits, no scope,
-no gitmoji, no body). `.claude/settings.json` carries the matching permission so
-it does not prompt.
+**Commit, push and PRs are authorised in this repo, standing** — commits granted
+2026-08-13, push and PRs the same day, and the deliberate exception to the global
+never-commit rule. Commit as the work reaches a state worth keeping, in the
+repo's own style (Conventional Commits, no scope, no gitmoji, no body). Push your
+own branch, and open the PR against `main` when the work is done.
+`.claude/settings.json` carries the matching permissions, so none of it prompts.
 
-It is still **commit, never push**: nothing here goes to a remote, and no PR is
-opened, without being asked for in the conversation. And nothing under `rules/`
-or `data/` is committable at all — the whole point of them being gitignored.
+Committing to `main` stays fine — it is where the work here has always landed,
+and the standing commit grant above is unchanged by any of this. What the grant
+does **not** cover, and still needs asking for in the conversation: **pushing**
+`main` to the remote, force-pushing anything, and merging a PR. A branch and a
+PR add history that can be read before it counts; those three publish or land it
+unread. The settings deny list holds the
+three spellings of a force push and `gh pr merge`, but a deny entry matches the
+front of the command only — `git push --quiet --force` is not caught, so the
+rule above is the real guard and the list is a backstop.
+
+And nothing under `rules/` or `data/` is committable at all — the whole point of
+them being gitignored, and the only reason a remote is safe here. That gitignore
+is now what stands between the transactions and GitHub, so treat an edit to it as
+an edit to a security control: never loosen the `data` or `rules` lines, and
+never `git add -f` a path under either. Push is also not a licence to publish
+anything else — the dashboard rule below is untouched, and a PR body carries no
+account numbers, payee names or amounts.
 
 ## Layout
 
