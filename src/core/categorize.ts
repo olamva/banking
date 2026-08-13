@@ -75,22 +75,18 @@ const TRANSFER = 'overfoering';
 const FOREIGN_MERCHANT = /,\s*(?!NOR(WAY)?$)[A-Z][A-Za-z .()]*$/;
 
 /**
- * The bank's own catch-alls carry no more information than having no category
- * at all, so they collapse into one bucket rather than looking like real ones.
- * It sends both — `diverse`, and `ukategorisert` spelled out on the row.
+ * The one bucket that really does carry no more information than no category at
+ * all. The bank sends it spelled out on the row, on 1 184 of them.
  *
- * **This is true of the main and false of the pair**, which is the whole finding
- * behind `Txn.bankSub`. `diverse` is the bank's largest main and every one of
- * its 2 482 rows carries a sub that means something: `vennebetaling`,
- * `overforing`, `renter_og_gebyrer`, `medlemskap_veldedighet`, `minibank`,
- * `kurs_utdanning`, `skatt`. Only `ukategorisert/annet` is a genuine shrug.
- *
- * The collapse stays for now because undoing it moves 68 rows off
- * `ukategorisert` and onto a `diverse` label that reads worse than the shrug it
- * replaced — the fix for that is a display name, which is a page change and not
- * this one. `pnpm sb1 categories` lists the rows it costs.
+ * **`diverse` is not in here, deliberately.** It reads like a second catch-all
+ * and it is the bank's largest main, but at the pair level every one of its
+ * 2 482 rows says something: `vennebetaling`, `overforing`, `renter_og_gebyrer`,
+ * `medlemskap_veldedighet`, `minibank`, `kurs_utdanning`, `skatt`. Collapsing it
+ * threw all of that away one level above where the signal was, and cost
+ * `rules/vipps.json` 176 hand-written names for people the bank had already
+ * recognised. Its Norwegian name is `Diverse`, which the bank supplies itself.
  */
-const BANK_CATCH_ALL = new Set(['diverse', UNCATEGORIZED]);
+const BANK_CATCH_ALL = new Set([UNCATEGORIZED]);
 
 /**
  * The bank calls its fixed-cost bucket `faste_boutgifter`, but it is not only
@@ -128,7 +124,7 @@ async function loadJson<T>(path: string, fallback: T): Promise<T> {
  *
  * A name is not enough on its own, though — see `rules/giro.json` below.
  */
-const PEER_PAYMENT = 'vipps';
+const PEER_PAYMENT = 'diverse/vennebetaling';
 
 /**
  * rules/giro.json: `{ "<name>": "<category>" }`, the same pattern language, applied
@@ -154,7 +150,7 @@ const PEER_PAYMENT = 'vipps';
  * `Overførsel mellom egne kontoer` is deliberately excluded: that is the bank's
  * wording for a family transfer, not a standing arrangement.
  */
-const LUMP_TYPE = /^(giro|mobilgiro|overførsel)\b(?! mellom egne)/i;
+const LUMP_TYPE = /^(giro|mobilgiro|overførsel|avtale)\b(?! mellom egne)/i;
 
 export const loadOverrides = (path = 'rules/overrides.json') => loadJson<Overrides>(path, {});
 
@@ -318,27 +314,14 @@ function keepBankSub(pair: Pair, t: Classified): Pair {
  */
 /**
  * The bank's name for something -> ours. A bare key renames a *main*; a
- * `main/sub` key renames a whole **pair** to one category of ours.
+ * `main/sub` key would rename a whole pair to one category of ours.
  *
- * The pair half is what lets `diverse` be a catch-all and still carry its
- * subcategories through. The bank's word for a peer payment is
- * `diverse/vennebetaling`, and collapsing `diverse` threw that away at the main
- * level before the sub was ever read — which is the only reason
- * `rules/vipps.json` had to name 176 people the bank had already recognised.
- * Same for the other five: every one of these was a hand-written override
- * against a pair the bank sends on its own.
- *
- * The renamed pair keeps no subcategory. `vipps/vennebetaling` would draw
- * "Vennebetaling › Vennebetaling"; the slug already *is* the pair's name.
+ * Only one entry, and that is the point: the bank's taxonomy is kept as it comes
+ * wherever it is usable, and `faste_boutgifter` is renamed only because it is
+ * not only housing — tuition and union dues book there too.
  */
 const OURS: Record<string, string> = {
   [BANK_FIXED_COSTS]: FIXED_COSTS,
-  'diverse/vennebetaling': PEER_PAYMENT,
-  'diverse/renter_og_gebyrer': 'avgifter',
-  'diverse/renter_innskudd': 'renter_og_fordeler',
-  'diverse/medlemskap_veldedighet': 'medlemskap_og_veldedighet',
-  'diverse/minibank': 'kontantuttak',
-  'diverse/skatt': 'skatt',
 };
 
 export function bankPair(t: { bankCategory: string | null; bankSub: string | null }): Pair | null {
@@ -370,7 +353,10 @@ function categoryFor(
     const named = giroRules.find((r) => r.matches(haystack));
     if (named) return keepBankSub(splitCategory(named.category), t);
   }
-  if (peerRules.some((m) => m(haystack))) return keepBankSub(flat(PEER_PAYMENT), t);
+  // The pair outright, not `keepBankSub`: the list exists precisely for the rows
+  // the bank files as `diverse/overforing` or shrugs at, and taking its sub
+  // there would file a peer payment as a transfer.
+  if (peerRules.some((m) => m(haystack))) return splitCategory(PEER_PAYMENT);
   const bank = bankPair(t);
   if (bank) return bank;
   // A guess from the shape of a merchant string, with nothing behind it at the
