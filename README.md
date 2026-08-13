@@ -57,7 +57,6 @@ pnpm sb1 sync --from 2022 --to 2026  # a whole span; either end may be YYYY-MM
 
 # offline — reads data/raw/ or the database
 pnpm sb1 rebuild                    # rebuild data/banking.db from data/raw/
-pnpm sb1 peers | pbcopy             # clipboard rows -> the names rules/vipps.json lacks
 pnpm sb1 merchants                  # one shop under many names -> lines for rules/payees.json
 pnpm sb1 categories                 # which rules/overrides.json lines the bank already covers, and which depend on line order
 pnpm sb1 categories --all           # ...plus every bank pair, and the categories that still need a name
@@ -215,8 +214,25 @@ the doubled backslash — it is JSON.
 Patterns also see the **payee's account number**, which is how one name can bill
 two different things: SiT sends the rent and the gym both as `Sit`, same row
 type and same bank category, and the account behind them is the only field that
-differs. Put the account number ahead of the name pattern and the specific one
-wins.
+differs.
+
+**Every line has to work wherever it sits.** `categorize` takes the first
+pattern that matches, so the file *could* be made to depend on its own order —
+and must not: a line added at the top would quietly take rows from one below it,
+with nothing to tell you. So the fix for two lines competing for a row is to
+narrow the *pattern*, never to move it. A refusal lookahead and a requirement
+lookahead do it without consuming anything, so the line behaves identically
+anywhere in the file:
+
+```json
+{ "/^(?!.*(?:sit kafe|sit storkiosk))(?=.*\\bsit\\b)/": "faste_utgifter/boligutgifter" }
+```
+
+`pnpm sb1 categories` lists every line that still depends on where it sits and
+prints the narrowed form to paste; `pnpm sb1 rebuild` warns if the list stops
+being empty. Because the order means nothing, the file is **grouped by the
+category it assigns** — sorted by main, then subcategory, then pattern, with a
+blank line at each change of main — and can be re-sorted freely.
 
 Keep plain patterns specific. A bare street name catches every shop on that
 street, which is how `Munkegata` first swallowed a supermarket.
@@ -234,19 +250,20 @@ than that bucket: both legs of a transfer and both legs of a card bill are a
 transfer, and the toggle that lists them is the only place they are ever seen.
 No sum can see it — `stats.ts` skips excluded rows before it adds anything up.
 
-`rules/vipps.json` is a list of names, in the same pattern language:
+Person-to-person Vipps payments need **no rule at all**, and used to need a file
+of 32 names. A bare `Vipps*` marker cannot be matched on its own — Vipps bills
+merchants too, and one pattern over it moved 271 canteen lunches and tram fares
+into `vennebetaling` — but two shapes carry a second signal that settles it:
 
-```json
-["ola nordmann", "kari nordmann"]
-```
+- On the **card**, the bank files the row as `diverse/overforing`, its reading of
+  `mcc: 4829`, *MONEY TRANSF*. All 16 such rows on record are people; the other
+  12 `Vipps*` card rows arrive as restaurants, furniture, buses and cinemas with
+  a real category to match.
+- On the **deposit accounts**, Vipps doubles its own marker — `Vipps*Vipps*` — on
+  the instant-settlement rows the bank has no category for. 18 rows, all people.
 
-A name alone is not enough, because a flatmate is two relationships at once:
-dozens of small instant payments for a coffee or a taxi, and a standing monthly
-transfer for rent. The description is the bare name in both, so no pattern in
-`rules/overrides.json` can separate them without swallowing both — **the bank's own
-`typeText` can**. A Vipps payment settles instantly (`Straksbetaling`) or rides
-the card; the other kind is a giro or a plain `Overførsel`, set up once and left
-running, or pushed across in one lump.
+Both sit above the bank's own category and below every rule below, because a
+flatmate's rent and a relative's gift are Vipps payments too.
 
 `rules/giro.json` says what a given person's lump transfers are:
 
@@ -262,10 +279,10 @@ the row. A name absent from `rules/giro.json` keeps its peer-payment reading, an
 a family transfer. An explicit entry in `rules/overrides.json` beats all of it, being
 checked first.
 
-Person-to-person payments are the one category with a name per payee rather than
-a pattern per merchant, so they outgrew `rules/overrides.json` and got their own file.
-It is folded into the overrides on load, after them, so an explicit entry in
-`rules/overrides.json` still wins a collision.
+`rules/family.json` is a list of relatives, and **the sign decides what an entry
+means**: money in is `innskudd/familie`, money out to the same person is you
+paying them back, `diverse/vennebetaling`. An entry may be an account number as
+well as a name, for the plain `Overføring` rows the bank names no payee on.
 
 `rules/payees.json` maps a pattern to the one name a payee should go by:
 
@@ -315,7 +332,7 @@ src/net/budget.ts    the bank's own remaining-request count, cached to disk
 src/core/types.ts     Txn / Classified / Categorized — the shared contract
 src/core/normalize.ts data/raw/<month>/*.json -> Txn[]
 src/core/exclude.ts   flags internal transfers and card bill payments
-src/core/categorize.ts bank category + overrides, peers and subscriptions
+src/core/categorize.ts bank category + overrides, Vipps peers, subscriptions
 src/core/db.ts        node:sqlite store, rebuilt wholesale
 src/core/stats.ts     the only money aggregation
 src/core/report.ts    what rules/overrides.json still earns against the bank
@@ -326,8 +343,8 @@ src/web/serve.ts     pnpm dev: /api/txns, Vite middleware, when to auto-refresh
 src/web/app/         the React app — App, FilterBar, Charts, Cards
 src/cli.ts           command dispatch
 
-rules/             the hand-edited JSON rules — accounts, overrides, vipps,
-                   giro, payees, subscriptions; gitignored, see Categories
+rules/             the hand-edited JSON rules — accounts, overrides, giro,
+                   family, payees, subscriptions; gitignored, see Categories
 ```
 
 `src/core/` runs in both Node and the browser, so the page aggregates with the

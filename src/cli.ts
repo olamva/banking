@@ -1,12 +1,10 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
 import { get, login } from './net/sb1.ts';
 import { monthsOnDisk, pipeline, rebuildAll, RAW } from './core/pipeline.ts';
 import type { Categorized } from './core/types.ts';
 import { syncMonth, syncRange } from './net/sync.ts';
-import { loadGiro, loadOverrides, loadPeers, loadSubscriptions } from './core/categorize.ts';
-import { newPeers } from './core/peers.ts';
+import { loadGiro, loadOverrides, loadSubscriptions } from './core/categorize.ts';
 import { narrowings, overrideReport, pairUse, unnamed } from './core/report.ts';
 import { merchantClusters, nearMisses } from './core/merchants.ts';
 import { openDb, queryRange } from './core/db.ts';
@@ -86,23 +84,9 @@ async function accounts(): Promise<void> {
 }
 
 /**
- * Copy transaction rows out of the dashboard, get the names back ready to paste
- * into rules/vipps.json. Prints, never writes: nothing under rules/ is a tool's
- * to rewrite. Names go to stdout alone, so `pnpm sb1 peers | pbcopy` is clean.
- */
-async function peers(): Promise<void> {
-  const names = newPeers(execFileSync('pbpaste', { encoding: 'utf8' }), await loadPeers());
-  if (!names.length) {
-    console.error('no new names on the clipboard — copy the rows, columns and all');
-    return;
-  }
-  for (const name of names) console.log(name);
-}
-
-/**
  * The merchants SB1 sends under more than one name, and the line that would
- * collapse each set. Prints, never writes — same division as `peers`: nothing
- * under rules/ is a tool's to rewrite.
+ * collapse each set. Prints, never writes: nothing under rules/ is a tool's to
+ * rewrite.
  *
  * Reads the database, which already has rules/payees.json applied, so a
  * merchant that file already covers arrives as one name and never appears here.
@@ -174,7 +158,6 @@ async function categories(all: boolean): Promise<void> {
     rows,
     await loadOverrides(),
     await loadSubscriptions(),
-    await loadPeers(),
     await loadGiro(),
     cards,
   );
@@ -282,7 +265,6 @@ try {
     }
   }
   else if (cmd === 'rebuild') await rebuildAll();
-  else if (cmd === 'peers') await peers();
   else if (cmd === 'merchants') merchants();
   else if (cmd === 'categories') await categories(has('all'));
   else if (cmd === 'budget') {
@@ -301,7 +283,6 @@ try {
     console.error('usage: pnpm sb1 <login | accounts | rebuild');
     console.error('                | sync --month YYYY-MM [--force | --stale MINUTES]');
     console.error('                | sync --from YYYY[-MM] --to YYYY[-MM] [--force | --stale MINUTES]');
-    console.error('                | peers  (clipboard rows -> names for rules/vipps.json)');
     console.error('                | merchants  (one shop under many names -> rules/payees.json)');
     console.error('                | categories [--all]  (which rules/overrides.json lines the bank already covers)');
     console.error('                | dev [--port 4000] | budget>');

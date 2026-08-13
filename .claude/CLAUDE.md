@@ -52,15 +52,12 @@ src/cli.ts            command dispatch
 
 vite.config.ts    root is src/web/app; middleware mode only, there is no build
 data/raw/         API responses, verbatim, gitignored
-data/eb-archive/  the retired Enable Banking files and statement CSVs, kept
-                  out of data/raw/ so rebuild cannot double-count them
 data/banking.db   derived SQLite store, rebuildable from data/raw, gitignored
 rules/accounts.json     which accounts are mine, and which is the card
                         (hand-edited), gitignored
 rules/overrides.json    substring or /regex/ -> `category` or `category/sub`,
                         gitignored; both value forms are read, so the file
                         migrates a line at a time
-rules/vipps.json        names of payees, as a list; its own rule, gitignored
 rules/giro.json         name -> what that person's lump transfers are, gitignored
 rules/payees.json       pattern -> the one name a payee goes by, gitignored
 rules/subscriptions.json  the same patterns, as a list; sets isSubscription, gitignored
@@ -115,7 +112,27 @@ brake. Because the quota is per API, the token exchange spends but does not
 **Raw is immutable.** Never rewrite a file under `data/raw/` in place. Re-sync
 with `--force` if the bank restates a month.
 
-**Dates are Oslo-local.** The API's `date` is epoch millis at *Norwegian*
+**Every line in `rules/overrides.json` is location-agnostic.** `categorize`
+takes the first pattern that matches, so the file _can_ behave as a sequence —
+but it must not. Any two lines that claim the same row and name different
+categories make the file's order load-bearing and invisible: a line added at the
+top quietly takes rows from one below it, and nobody is told. Shuffling the file
+moved 12 to 132 rows before this was fixed.
+
+The rule is that **the file may be sorted, grouped or reordered freely and every
+row must land exactly where it did.** It is currently true — 200 random shuffles
+of all 103 lines move nothing — which is what lets the file be grouped by
+category for reading.
+
+Fix it in the _pattern_, never in the matcher or the ordering. `pnpm sb1
+categories` names every offending pair and prints the narrowed form of the
+loser: `/^(?!.*(?:sit kafe|sit storkiosk))(?=.*\bsit\b)/`, a refusal lookahead
+and a requirement lookahead, neither consuming anything, so `compile`'s `.test`
+over the haystack behaves the same wherever the line sits. `rebuild` warns when
+the list stops being empty. Collisions where both lines name the same category
+are harmless and left alone — the order decides nothing there.
+
+**Dates are Oslo-local.** The API's `date` is epoch millis at _Norwegian_
 midnight, so every July timestamp is `22:00Z`. Format with
 `Europe/Oslo`, never UTC — UTC shifts every transaction back one day and moves
 the 1st of the month into the previous month.
@@ -170,7 +187,7 @@ cross-cutting change to announce, not to slip in.
 included. The card came through Enable Banking until `GET /accounts` turned out
 to hide it behind `includeCreditCardAccounts`, which — like all five `include*`
 flags — defaults to false. `/transactions/classified` answers for its key like
-any other and returns *more* per row than Enable Banking ever did: the merchant
+any other and returns _more_ per row than Enable Banking ever did: the merchant
 on 541/541, a category on 541/541, `mcc`/`mccGroup` on 534, the original
 currency on 533. That retired the EB client, the 90-day consent and the manual
 statement CSV in one go. The old files are in `data/eb-archive/`.
@@ -189,18 +206,18 @@ the row as `accountKey`; the name rides along because `stats.ts` runs in the
 browser, where there is no rules file to look one up in, and because a key is a
 local secret that must never be a label on the page.
 
-Two rules still need to know *which* account is the credit card, and both read
+Two rules still need to know _which_ account is the credit card, and both read
 `card: true` from `rules/accounts.json` rather than guessing: `billReason`,
 because a bill is worded one way on the card and another on the account paying
 it, and the travel guess in `categorize`, which must never see a deposit row.
 
 Two things every account sends that the card sends differently:
 
-| | deposit accounts | the card |
-|---|---|---|
-| typeText | `VISA Varekjøp`, `Overførsel`, … | `Transaksjon`, `Kredittkort` |
-| remoteAccountNumber | the other party's, when there is one | `-1` on all but the bill |
-| pending | 2 rows in 2026 | 7 rows in the current month alone |
+|                     | deposit accounts                     | the card                          |
+| ------------------- | ------------------------------------ | --------------------------------- |
+| typeText            | `VISA Varekjøp`, `Overførsel`, …     | `Transaksjon`, `Kredittkort`      |
+| remoteAccountNumber | the other party's, when there is one | `-1` on all but the bill          |
+| pending             | 2 rows in 2026                       | 7 rows in the current month alone |
 
 `bookingStatus: PENDING` rows are **dropped in `normalize`**, on every account.
 A reservation is reissued under a new id when it books and its amount can still
@@ -209,7 +226,7 @@ move, so keeping it is how one purchase becomes two rows. There is no
 
 Notes from the real data, not the plan:
 
-- SB1's list endpoint has no *merchant* field — use `cleanedDescription`. It
+- SB1's list endpoint has no _merchant_ field — use `cleanedDescription`. It
   does carry `remoteAccountName`, the other party of a transfer or a
   payment-with-message as the payer typed it, on 391 of 4043 rows. It is the
   counterparty fallback, never the first choice: where both exist they disagree
@@ -225,18 +242,18 @@ Notes from the real data, not the plan:
   subscription. The card carries them too, and guessed the same way — 2 of 71
   rows in a month — so `rules/subscriptions.json` is still what makes a
   subscription certain.
-- A name in `rules/vipps.json` does **not** on its own mean `vipps`. A flatmate is two
+- A name does **not** on its own mean `vipps`. A flatmate is two
   relationships at once — dozens of small instant payments, and a standing
   monthly transfer for rent — and the description is the bare name in both, so
   no pattern separates them. `typeText` does: instant or card is a peer payment,
   a giro or a plain `Overførsel` is a lump. Not separating them filed 293 000 kr
   of rent under `vipps`. But the type says how the money moved and never why, so
-  `rules/giro.json` maps the name to what its lumps *are* — rent from a flatmate,
+  `rules/giro.json` maps the name to what its lumps _are_ — rent from a flatmate,
   a share of a trip from a friend, and those two are identical on the row.
   A name absent from it keeps the peer reading; `Overførsel mellom egne kontoer`
   is excluded outright as a family transfer.
 - One payee can bill two unrelated things under one name, with the same row type
-  and the same bank category. SiT's rent and SiT's gym differ *only* in
+  and the same bank category. SiT's rent and SiT's gym differ _only_ in
   `remoteAccountNumber`, which is why that field is on `Txn` and in the override
   haystack — an account number ahead of the name pattern is the only way to
   split them.
@@ -244,14 +261,14 @@ Notes from the real data, not the plan:
   8 547 booked rows carries `main`, `sub`, `mainI18n`, `subI18n` and a
   `confidence`, in 68 distinct pairs, with no gaps anywhere on record. All five
   are on `Txn` and in the store.
-- `diverse` reads like a catch-all at the *main* level and is not one at the
+- `diverse` reads like a catch-all at the _main_ level and is not one at the
   pair level: it is the largest main, and its 2 482 rows split into
   `vennebetaling` (1 119), `overforing` (1 178), `renter_og_gebyrer`,
   `renter_innskudd`, `medlemskap_veldedighet`, `minibank`, `kurs_utdanning`,
   `skatt` and `kredittkort`. Only `ukategorisert/annet` (1 184 rows) is a real
   shrug. `categorize` still collapses `diverse` into `ukategorisert` — undoing
   it costs 68 rows a worse label until a display name exists — but that is a
-  *labelling* debt now, not a claim about the data.
+  _labelling_ debt now, not a claim about the data.
 - **Categories are not always one entry at confidence 100.** 7 802 of 8 547 rows
   are at 100 and 441 rows carry two or three candidates, always sorted by
   confidence down; `normalize` keeps the first. Low confidence marks a bank
@@ -283,9 +300,9 @@ Notes from the real data, not the plan:
   it deletes each line, re-runs the real `categorize` over that line's own rows,
   and reports what changed. On the record: **51 lines deletable outright**, 13
   that are only our name for the pair the bank sends, 13 where the bank makes a
-  different claim, 22 part-and-part, 76 load-bearing. `rules/vipps.json` is the
-  same story — 1 053 of 1 231 peer rows are already `diverse/vennebetaling`, and
-  the bank finds 62 peers the list misses.
+  different claim, 22 part-and-part, 76 load-bearing. `rules/vipps.json` was the
+  same story and did not survive it — 1 053 of 1 231 peer rows were already
+  `diverse/vennebetaling`, and the bank found 62 peers the list missed.
 - **A better subcategory and a different claim are not the same thing**, and the
   report must not offer the second as a line to paste. `"eletra": "stroem"`
   against `faste_boutgifter/stroem` is our name for the bank's own pair.
@@ -296,21 +313,17 @@ Notes from the real data, not the plan:
   that is **ours** (`uteliv`, `stroem`, `husleie`) must match the whole pair it
   resolves to elsewhere, because the main agreeing says nothing — `barrock`
   arrives as `kafe_og_restaurant/restaurant`, same main, and it is a bar.
-- `reise/annen_reise` is the bank's catch-all *inside* travel and it is filled by
+- `reise/annen_reise` is the bank's catch-all _inside_ travel and it is filled by
   where the terminal stands, not by what was sold: duty-free, inflight food, an
   airport bakery. It is a real subcategory and stays one — but it is why an
   override over an airport payee is worth keeping, and why the bank suggesting
   it is never on its own a reason to hand a row over.
-- **`rules/overrides.json` used to depend on its own line order**, invisibly:
-  `categorize` takes the first pattern that matches, so a line added at the top
-  quietly takes rows from one below it. Shuffling the file moved 12 to 132 rows
-  on the record. `pnpm sb1 categories` reports every pair of lines that claim the
-  same rows and prints the narrowed form of the loser —
-  `/^(?!.*(?:sit kafe|sit storkiosk))(?=.*\bsit\b)/` — a refusal lookahead and a
-  requirement lookahead, neither consuming anything, so `compile`'s `.test` over
-  the haystack behaves the same wherever the line sits. Collisions where both
-  lines name the same category are left alone. Keep that list empty and the file
-  can be sorted freely.
+- **`rules/overrides.json` used to depend on its own line order**, invisibly.
+  It no longer may — see the location-agnostic rule above, which is where the
+  mechanism and the fix are written down. The file is now **grouped by the
+  category it assigns**: sorted by main, then subcategory, then pattern, with a
+  blank line at every change of main. That grouping is only safe because the
+  order means nothing, and it is the reason to keep it meaning nothing.
 - Card rows are roughly 40% of monthly spending and arrive fully classified —
   merchant, category and MCC on every one — so there is no separate card bucket
   and no card-shaped hole. `diverse` and `ukategorisert` are still ~17% of them.
@@ -355,29 +368,77 @@ to the øre. `avgifter`, `kontantuttak`, `renter_og_fordeler`,
 `medlemskap_og_veldedighet` and `skatt` are gone as slugs of ours — they were
 hand-written names for pairs the bank sends.
 
+**`rules/vipps.json` is gone entirely**, as of 2026-08-13, and the 32 names it
+still held went with it. It was carrying three different jobs at once and only
+one of them ever needed a person: 9 entries were doing what the card row already
+says, 11 were doing what the doubled marker already says, one decided nothing at
+all, and the remaining 11 moved into `rules/overrides.json` and
+`rules/family.json`, which is where a pattern and a relative respectively
+belong. All 8 547 rows were diffed across the change: 5 moved, income and
+spending identical to the øre. Four are incoming rows from a relative whose
+account number is now on the family list, `diverse/vennebetaling` ->
+`innskudd/familie`; the fifth is a card peer payment the old list had never
+been told about, which is the bug that started this.
+
 **A `Vipps*` marker in the description is not a peer payment.** Vipps pays
 merchants too, and one pattern over it moved 271 correctly-filed rows — 139
-canteen lunches, 41 tram fares — into `vennebetaling`. The doubled
-`Vipps*Vipps*` form *is* conclusive: 18 rows on record, all peers, no false
-positives, so it is in the list as a pattern and future rows of that shape need
-no new name. The 33 remaining entries decide 55 rows the bank types as
-`Overføring`, `Transaksjon` or a bare `Straksbetaling` — where only knowing the
-person tells you it was a peer payment. Three of them are account numbers, for
-rows the bank names no payee on at all.
+canteen lunches, 41 tram fares — into `vennebetaling`. Two shapes add the second
+signal the bare marker lacks, and between them they retired the name list:
+
+- **The bank's own pair, on the card.** A card row is `diverse/overforing` when
+  the bank reads `mcc: 4829`, _MONEY TRANSF_, off it — the card network's word
+  for a merchant that moves money, which is what Vipps is to it when the payee
+  is a person. The 28 card rows carrying `Vipps*` split exactly there: the 16 at
+  `diverse/overforing` are all people, and the other 12 arrive as `RESTAURANTS`,
+  `FURNITURE/EQ`, `Bus Lines` and `Motion Pictu` with a real category to match.
+  No deposit row matches the pair at all. Read off `bankCategory`/`bankSub`
+  rather than the MCC, deliberately: the bank has already done that read, `mcc`
+  is not on `Txn`, and widening it would buy nothing this does not already get.
+- **The doubled `Vipps*Vipps*` form**, which is conclusive on its own: 18 rows
+  on record, all peers, no false positives. Vipps doubles its marker when a
+  payment settles as `Straksbetaling - ekstern betalingstjeneste` rather than
+  over the card rails, and the bank has no category for those at all.
+
+Both sit **below** the override, lump and family rules — a flatmate's rent and a
+relative's gift are Vipps payments too, and each already has a better name by
+then — and **above** the bank's own category, which is the whole point: letting
+`diverse/overforing` stand is what filed a peer payment as a transfer.
 
 **A standing agreement is a lump**, so `LUMP_TYPE` matches `Avtale` and
 `rules/giro.json` can say what one is. Pocket money from family arrives that way
 — 123 rows, 18 450 kr — and no other payee on record has a single `Avtale` row.
 
-**`rules/family.json` is money *in* from named relatives**, `innskudd/familie`,
-187 rows and 97 629 kr. It needs a rule of its own because neither neighbour can
-express it: `rules/giro.json` is gated on the row being a lump and most family
-money arrives as `Straksbetaling` like any other instant payment, and an override
-cannot see the sign. **Incoming only, and the category enforces that** — it sits
-under `innskudd`, where an outgoing row would be a contradiction, so paying a
-relative back stays `diverse/vennebetaling` (57 rows, 63 672 kr). It runs *below*
-the lump rule, so pocket money keeps the better label giro.json already gave it,
-and *above* the peer list, which would otherwise call every gift a Vipps payment.
+**`rules/family.json` names relatives**, and **the sign is what the entry
+decides, not whether it applies**: money in is `innskudd/familie` (187 rows,
+97 629 kr), money out to the same person is you paying a relative back, which is
+`diverse/vennebetaling` and nothing else (57 rows, 63 672 kr). Both readings live
+on one list because both need the same fact — that this person is a relative —
+and that fact is on no row. `rules/vipps.json` used to carry a second copy of
+three of them purely to catch the outgoing half.
+
+The category enforces the split by itself: `innskudd` is the bank's income main,
+so an outgoing row filed there would be a contradiction. The rule needs to exist
+because neither neighbour can express it — `rules/giro.json` is gated on the row
+being a lump and most family money arrives as `Straksbetaling` like any other
+instant payment, and an override cannot see the sign. It runs _below_ the lump
+rule, so pocket money keeps the better label giro.json already gave it, and
+_above_ the Vipps rules, which would otherwise call every gift a peer payment.
+
+**An entry may be an account number as well as a name.** The bank names no payee
+at all on a plain `Overføring`, so the number is the only thing on the row that
+says who the other party was — and a number is safe here in a way it is not in
+`rules/overrides.json`, which runs above `rules/giro.json` and would swallow the
+same relative's standing pocket-money transfers. Both numbers on the list are
+11-digit account numbers, and each belongs to a relative the list already names:
+the number only adds the rows the name cannot reach.
+
+**The test is whether the counterparty is family, never the shape of the entry.**
+A _flatmate_'s truncated name was tried here on the strength of looking like the
+other two — it is one of the few entries that is not a full name, because SB1
+truncates long ones — and it is wrong: none of its 131 rows is family, 129 are
+the rent `rules/giro.json` already places, and filing it here moved 50 incoming
+peer payments to `innskudd/familie`. It is a narrow `rules/overrides.json`
+pattern instead.
 
 `src/core/labels.ts` names them, from three sources in order — a gitignored
 `rules/categories.json`, the bank's own `mainI18n`/`subI18n` read off the rows,
@@ -396,13 +457,13 @@ The category matching is the guard — `PAYPAL BOOKING HOTEL` is a trip to us an
 overruled the bank outright and its subcategory goes too. An excluded row takes
 no sub at all: `reason` already says why it is out.
 
-So a subcategory of **Annet** on the page means *our own rules named only one
-level and the bank disagreed about the other* — never that the bank sent nothing.
+So a subcategory of **Annet** on the page means _our own rules named only one
+level and the bank disagreed about the other_ — never that the bank sent nothing.
 It has one on all 8 547 rows.
 
-A category with exactly one *named* subcategory reads as that subcategory —
+A category with exactly one _named_ subcategory reads as that subcategory —
 `annet_lan_og_gjeld` is `Studielån` and nothing else, so the parent is the vaguer
-of two names for one set of rows. A lone *unnamed* child is not a better name and
+of two names for one set of rows. A lone _unnamed_ child is not a better name and
 keeps the parent's: `vipps` must not read as `Annet`.
 
 ## Exclusions
@@ -459,7 +520,7 @@ run got wrong in two ways:
   The name is the fallback, and `Kredittbanken`, not `Kredittbanken ASA`: the
   issuer also books these as `Kredittbanken - del av SpareBank 1`, and the
   narrower string silently missed one. The name alone was not enough either —
-  SB1 words the row after the *channel* when the bill is paid by hand, and
+  SB1 words the row after the _channel_ when the bill is paid by hand, and
   `Mobilgiro m/KID, forfall i dag` names no payee at all. The issuer is on that
   row only as `remoteAccountName`, which `normalize` drops wherever a
   `cleanedDescription` exists, so 4 941 kr read as spending against an excluded
@@ -470,7 +531,7 @@ run got wrong in two ways:
   posts 0–3 days after the bank debits it anyway. Excluding only the bank leg
   leaves the credit counted as **income**.
 
-Card credits that are *not* a payment stay in: a `Varekjøp` credit is a merchant
+Card credits that are _not_ a payment stay in: a `Varekjøp` credit is a merchant
 refund and `Rabatt strømmetjenester` is cashback. Both are real.
 
 The two legs land in different months about once a quarter — a bank debit on the
@@ -491,7 +552,7 @@ the counter-leg is booked at the fund manager and is not in `data/raw/` at all.
 Its residue is the gain on the funds, and it is the only reason allowed a
 residue.
 
-An entry may also carry `sync: false`, meaning it exists for its *number* alone —
+An entry may also carry `sync: false`, meaning it exists for its _number_ alone —
 there is no key `/transactions` answers for. `accountKeys` skips those.
 
 The check that catches all of this: every excluded reason must net to zero
@@ -505,7 +566,7 @@ second leg. Nothing moves between an account and itself.
 
 An excluded row is `overfoering`, and that decision sits **above every other
 rule in `categorize`** — above the overrides and above the bank's own category.
-It was the last fallback once, which left the bank's word for the *payment* on
+It was the last fallback once, which left the bank's word for the _payment_ on
 rows where the money never moved: a card bill filed as `Avgifter` on the giro
 paying it and `Annet lån og gjeld` on the credit settling it. `reason` says why
 a row is out, so the category has nothing to add. The toggle in `select.ts` is
@@ -517,14 +578,14 @@ bucket money lands in.
 
 Everything the statement CSV used to supply now arrives on the row, and more:
 
-| field | what it is |
-|---|---|
-| `cleanedDescription` | the merchant, `NAME, CITY, COUNTRY`, on every row |
-| `description` | the same with the terminal number still on the front |
-| `categories` | the bank's own `main`/`sub`, both i18n names and a confidence, on every row |
-| `mcc` / `mccGroup` | the merchant category, `-2` on the issuer's own rows |
-| `currencyAmount` + `currencyCode` | what it cost in the currency it was paid in |
-| `remoteAccountNumber` | `-1` except on the bill, where it names the paying account |
+| field                             | what it is                                                                  |
+| --------------------------------- | --------------------------------------------------------------------------- |
+| `cleanedDescription`              | the merchant, `NAME, CITY, COUNTRY`, on every row                           |
+| `description`                     | the same with the terminal number still on the front                        |
+| `categories`                      | the bank's own `main`/`sub`, both i18n names and a confidence, on every row |
+| `mcc` / `mccGroup`                | the merchant category, `-2` on the issuer's own rows                        |
+| `currencyAmount` + `currencyCode` | what it cost in the currency it was paid in                                 |
+| `remoteAccountNumber`             | `-1` except on the bill, where it names the paying account                  |
 
 `mcc`, `mccGroup` and `currencyAmount` are worth putting on `Txn` and are not
 there yet — widening `Txn` is its own change, not a rider on the source swap.
@@ -545,7 +606,7 @@ following month, or re-run with `--force`.
 
 **Pending rows are dropped in `normalize`**, on the deposit accounts as well as
 the card. They carry a date, so this is not the missing-date rule Enable Banking
-needed: SB1 reissues a reservation under a *new* id once it books, and its
+needed: SB1 reissues a reservation under a _new_ id once it books, and its
 amount can still move, so a kept pending row is how one purchase becomes two.
 
 **Re-syncing rewrites the file even when nothing changed**, because

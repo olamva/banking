@@ -15,11 +15,11 @@ import {
   loadGiro,
   loadOverrides,
   loadPayees,
-  loadPeers,
   loadSubscriptions,
   renamePayees,
 } from './categorize.ts';
 import { openDb, rebuild as rebuildDb } from './db.ts';
+import { narrowings } from './report.ts';
 import type { Categorized } from './types.ts';
 
 export const DB_FILE = 'data/banking.db';
@@ -61,7 +61,6 @@ export async function pipeline(month: string, { rename = true } = {}): Promise<C
     exclude(normalizeMonth(`${RAW}/${month}`, names), accounts),
     await loadOverrides(),
     await loadSubscriptions(),
-    await loadPeers(),
     await loadGiro(),
     cards,
     await loadFamily(),
@@ -97,12 +96,33 @@ export async function rebuildAll(): Promise<number> {
       // "Cannot read properties of undefined" over 4000 rows. The month is the
       // one piece of context this loop has and the stack does not.
       try {
-        rows.push(...(await pipeline(month)));
+        // Un-renamed, because the ordering check below has to see the names the
+        // rules were matched against. The rename is applied once, after it.
+        rows.push(...(await pipeline(month, { rename: false })));
       } catch (e) {
         throw new Error(`${RAW}/${month}: ${e instanceof Error ? e.message : e}`, { cause: e });
       }
     }
-    rebuildDb(db, rows);
+    // Every line in rules/overrides.json is location-agnostic, so the file can
+    // be grouped and sorted freely. Nothing else would announce that breaking:
+    // two lines claiming the same row under different categories make the order
+    // load-bearing, and the only symptom is rows quietly moving the next time
+    // the file is tidied.
+    //
+    // **On the un-renamed rows, and that is load-bearing.** `rules/payees.json`
+    // rewrites `ONLINE LINJ TR` to `Online Linjeforeningen`, which matches a
+    // *different* override than the one that actually decided the row — judging
+    // the file against a name no rule ever saw invents two collisions that are
+    // not there. Warned, not thrown: the store is still right for today's order.
+    const loose = narrowings(rows, await loadOverrides());
+    if (loose.length) {
+      console.error(
+        `\nwarning: ${loose.length} line(s) in rules/overrides.json now depend on where they sit.` +
+          `\nThe file can no longer be reordered safely. Run \`pnpm sb1 categories\` for the narrowed form of each.`,
+      );
+    }
+    // Last, so no rule was ever matched against a name the bank did not send.
+    rebuildDb(db, renamePayees(rows, await loadPayees()));
     console.error(`rebuilt ${DB_FILE} from ${months.length} months, ${rows.length} rows`);
     return rows.length;
   } finally {

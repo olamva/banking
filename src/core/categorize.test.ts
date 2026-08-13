@@ -9,7 +9,6 @@ import {
   loadFamily,
   loadOverrides,
   loadPayees,
-  loadPeers,
   loadSubscriptions,
   renamePayees,
   splitCategory,
@@ -88,7 +87,7 @@ test('a card row bought abroad is travel, by the merchant country', () => {
   const cat = (counterparty: string | null, bankCategory: string | null = null) =>
     categorize(
       [classified({ accountKey: 'card', description: counterparty ?? '', counterparty, bankCategory })],
-      {}, [], [], {}, CARDS,
+      {}, [], {}, CARDS,
     )[0]!.category;
   assert.equal(cat('LAWSON, TOKYO, JAPAN'), 'reise');
   // The old Enable Banking wording, a three-letter code, reads the same way.
@@ -109,7 +108,7 @@ test('the travel guess is card rows only — a deposit row of the same shape is 
   // 23 rows of the record match this pattern without being near a trip.
   const [out] = categorize(
     [classified({ accountKey: 'a', counterparty: 'MOBILGIRO M/KID, FORF. I DAG TRANS(ER) TYPE', bankCategory: null })],
-    {}, [], [], {}, CARDS,
+    {}, [], {}, CARDS,
   );
   assert.equal(out.category, 'ukategorisert');
 });
@@ -121,7 +120,7 @@ test("the bank's own category beats the travel guess", () => {
   const cat = (counterparty: string, bankCategory: string) =>
     categorize(
       [classified({ accountKey: 'card', description: counterparty, counterparty, bankCategory })],
-      {}, [], [], {}, CARDS,
+      {}, [], {}, CARDS,
     )[0]!.category;
   assert.equal(cat('Interspar Dankt Wien, AUSTRIA', 'dagligvarer'), 'dagligvarer');
   assert.equal(cat('Telenor Norge AS, Mobil', 'faste_boutgifter'), 'faste_utgifter');
@@ -133,7 +132,7 @@ test("the bank's own category beats the travel guess", () => {
   assert.equal(
     categorize(
       [classified({ accountKey: 'card', description: 'Bankomat, WIEN, AUSTRIA', counterparty: 'Bankomat, WIEN, AUSTRIA', bankCategory: 'diverse', bankSub: 'minibank' })],
-      {}, [], [], {}, CARDS,
+      {}, [], {}, CARDS,
     )[0]!.category,
     'diverse',
   );
@@ -201,43 +200,51 @@ test('sb1 row with no bankCategory falls to ukategorisert', () => {
 
 test('loadOverrides returns {} when the file is absent', async () => {
   assert.deepEqual(await loadOverrides('does-not-exist.json'), {});
-  assert.deepEqual(await loadPeers('nor-this-one.json'), []);
 });
 
 /**
- * The peer list is checked after rules/overrides.json, so a person who shares a
- * string with a merchant can still be placed by hand.
+ * The Vipps rules are read off the row, so the one thing that can overrule them
+ * is a person saying otherwise — and rules/overrides.json runs first.
  */
-test('an explicit override beats a name in the peer list', async () => {
+test('an explicit override beats the Vipps peer rules', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'categorize-'));
   const overrides = join(dir, 'o.json');
-  const peers = join(dir, 'p.json');
   await writeFile(overrides, JSON.stringify({ 'sit kafe': 'kafe_og_restaurant' }));
-  await writeFile(peers, JSON.stringify(['ola nordmann', 'sit kafe']));
 
-  const cat = (description: string) =>
-    categorize([classified({ description, counterparty: null, bankCategory: null })], {
-      'sit kafe': 'kafe_og_restaurant',
-    }, [], ['ola nordmann', 'sit kafe'])[0]!.category;
-
-  assert.equal(cat('SIT KAFE REALFAG'), 'kafe_og_restaurant');
-  assert.equal(cat('Ola Nordmann'), 'diverse');
+  // A card row the bank filed as a money transfer, which is otherwise conclusive.
+  const row = classified({
+    description: 'Vipps*Sit Kafe',
+    counterparty: null,
+    bankCategory: 'diverse',
+    bankSub: 'overforing',
+  });
+  assert.equal(categorize([row], {})[0]!.category, 'diverse');
+  assert.equal(categorize([row], { 'sit kafe': 'kafe_og_restaurant' })[0]!.category, 'kafe_og_restaurant');
   assert.deepEqual(await loadOverrides(overrides), { 'sit kafe': 'kafe_og_restaurant' });
-  assert.deepEqual(await loadPeers(peers), ['ola nordmann', 'sit kafe']);
 });
 
 /**
- * A flatmate is two relationships at once, and the description is the bare name
- * in both — so only the bank's own row type can tell forty coffees from the
- * standing monthly rent, and 158 000 kr of it sat under `vipps` until it did.
+ * A flatmate is two relationships at once — forty coffees and a standing monthly
+ * rent — and the description is the bare name in both. Only the bank's own row
+ * type separates them, and 158 000 kr of rent sat under `vipps` until it did.
+ *
+ * The lump half is the half a rules file still has to name. The peer half now
+ * reads itself off the row, so these rows carry the Vipps shape they really have.
  */
 test('a named person is a peer payment or rent, by the row type the bank gave it', () => {
   const cat = (typeText: string | null, amount = -100) =>
     categorize(
-      [classified({ description: 'Ola Nordmann', counterparty: 'Ola Nordmann', bankCategory: null, typeText, amount })],
+      [
+        classified({
+          description: 'Vipps*Vipps*Ola Nordmann',
+          counterparty: 'Ola Nordmann',
+          bankCategory: null,
+          typeText,
+          amount,
+        }),
+      ],
       {},
       [],
-      ['ola nordmann'],
       { 'ola nordmann': 'husleie' },
     )[0]!.category;
 
@@ -247,7 +254,8 @@ test('a named person is a peer payment or rent, by the row type the bank gave it
   assert.equal(cat('VISA Varekjøp'), 'diverse');
   assert.equal(cat(null), 'diverse');
 
-  // Set up once and left running: rent.
+  // Set up once and left running: rent. The lump rule runs above the Vipps
+  // rules, so it wins even on a row that carries the marker.
   assert.equal(cat('Overførsel', 6100), 'husleie');
   assert.equal(cat('Giro', 6000), 'husleie');
   assert.equal(cat('MobilGiro m/melding til forfall i dag', 5700), 'husleie');
@@ -256,9 +264,9 @@ test('a named person is a peer payment or rent, by the row type the bank gave it
   assert.equal(cat('Overførsel mellom egne kontoer', 4000), 'diverse');
   assert.equal(cat('Overførsel mellom egne kontoer i MobilBank, forfall i dag', 12200), 'diverse');
 
-  // The gate only applies to a name on the list; nobody else is touched.
+  // The gate only applies to a name in giro.json; nobody else is touched.
   assert.equal(
-    categorize([classified({ description: 'Rema 1000', typeText: 'Overførsel' })], {}, [], ['ola nordmann'])[0]!
+    categorize([classified({ description: 'Rema 1000', typeText: 'Overførsel' })], {}, [], { 'ola nordmann': 'husleie' })[0]!
       .category,
     'dagligvarer',
   );
@@ -271,14 +279,13 @@ test('a named person is a peer payment or rent, by the row type the bank gave it
  */
 test('a lump transfer takes the category its sender is named with, and only then', () => {
   const row = classified({
-    description: 'Kari Nordmann',
+    description: 'Vipps*Vipps*Kari Nordmann',
     counterparty: 'Kari Nordmann',
     bankCategory: null,
     typeText: 'Giro',
     amount: 11850,
   });
-  const cat = (giro: Record<string, string>, over = row) =>
-    categorize([over], {}, [], ['kari nordmann'], giro)[0]!.category;
+  const cat = (giro: Record<string, string>, over = row) => categorize([over], {}, [], giro)[0]!.category;
 
   // Unnamed, so it stays what it always was: money from a person.
   assert.equal(cat({}), 'diverse');
@@ -437,7 +444,7 @@ test('the faste_boutgifter rename keeps the bank sub underneath it', () => {
 test('a guess and an excluded row name no subcategory, because neither read one', () => {
   const abroad = categorize(
     [classified({ accountKey: 'card', bankCategory: null, counterparty: 'LAWSON, TOKYO, JAPAN' })],
-    {}, [], [], {}, CARDS,
+    {}, [], {}, CARDS,
   )[0]!;
   assert.equal(abroad.category, 'reise');
   // `reise/annen_reise` would be an invented claim — the guess reads a country
@@ -471,9 +478,9 @@ test('bankPair keeps the bank taxonomy, renaming only what misnames its own rows
   });
 });
 
-test('the bank finds peers rules/vipps.json never named', () => {
-  // 62 rows on record: the list is a list of people, and the bank recognises
-  // the payment type without being told who anyone is.
+test('the bank finds peers no list ever named', () => {
+  // The bank recognises the payment type without being told who anyone is, so
+  // most peer rows never need a rule at all.
   const out = categorize(
     [classified({ description: 'Vipps*Someone', bankCategory: 'diverse', bankSub: 'vennebetaling' })],
     {},
@@ -482,16 +489,49 @@ test('the bank finds peers rules/vipps.json never named', () => {
   assert.equal(out.subcategory, 'vennebetaling');
 });
 
-test('the peer list names the pair outright, for the rows the bank types otherwise', () => {
-  // The list exists for these: the bank calls the row a transfer, and only the
-  // person paying knows it was a peer payment. Taking the bank's sub here would
-  // file it as `diverse/overforing`.
+/**
+ * The two shapes that replaced `rules/vipps.json`. Each says by itself that the
+ * payee was a person; the marker alone never does, which is the whole reason a
+ * list of 32 names existed.
+ */
+test('a Vipps row the bank calls a transfer is a peer payment, on the card', () => {
+  // The card files these as `diverse/overforing`, which is the bank reading
+  // `mcc: 4829`, *MONEY TRANSF*. Naming the pair outright is the point — taking
+  // the bank's sub here is exactly what filed a peer payment as a transfer.
   const out = categorize(
-    [classified({ description: 'Some Person', bankCategory: 'diverse', bankSub: 'overforing' })],
-    {}, [], ['some person'],
+    [classified({ description: 'Vipps*Some Person, Oslo, NORWAY', bankCategory: 'diverse', bankSub: 'overforing' })],
+    {},
   )[0]!;
   assert.equal(out.category, 'diverse');
   assert.equal(out.subcategory, 'vennebetaling');
+});
+
+test('the doubled Vipps marker is a peer payment even where the bank shrugged', () => {
+  // `Straksbetaling - ekstern betalingstjeneste`: no bank category at all, and
+  // Vipps doubles its own marker on every one of them.
+  const out = categorize(
+    [
+      classified({
+        description: '*7958 13.02 NOK 140.00 Vipps*Vipps*Some Person',
+        bankCategory: null,
+        typeText: 'Straksbetaling - ekstern betalingstjeneste',
+      }),
+    ],
+    {},
+  )[0]!;
+  assert.equal(out.category, 'diverse');
+  assert.equal(out.subcategory, 'vennebetaling');
+});
+
+test('a bare Vipps marker is never enough — Vipps bills merchants too', () => {
+  // Matching the marker alone moved 271 correctly-filed rows — canteen lunches,
+  // tram fares — into `vennebetaling`. The second signal is the whole rule.
+  const merchant = (bankCategory: string, bankSub: string) =>
+    categorize([classified({ description: 'Vipps*Some Canteen', bankCategory, bankSub })], {})[0]!;
+  assert.equal(merchant('kafe_og_restaurant', 'kantine').category, 'kafe_og_restaurant');
+  assert.equal(merchant('bil_og_transport', 'kollektivtransport').category, 'bil_og_transport');
+  // A merchant the bank shrugged at stays uncategorised rather than becoming a person.
+  assert.equal(categorize([classified({ description: 'Vipps*Some Shop', bankCategory: null })], {})[0]!.category, 'ukategorisert');
 });
 
 test('a rule that names one level keeps the bank sub, when the bank agrees on the category', () => {
@@ -536,8 +576,8 @@ test('an excluded row takes no subcategory from the bank either', () => {
 test('money in from family is family support, money out to them is a peer payment', () => {
   const from = (amount: number) =>
     categorize(
-      [classified({ amount, description: 'Margrethe Munthe Vassbotn', counterparty: 'Margrethe Munthe Vassbotn', typeText: 'Straksbetaling', bankCategory: 'diverse', bankSub: 'vennebetaling' })],
-      {}, [], ['margrethe'], {}, new Set(), ['margrethe'],
+      [classified({ amount, description: 'A Relative', counterparty: 'A Relative', typeText: 'Straksbetaling', bankCategory: 'diverse', bankSub: 'vennebetaling' })],
+      {}, [], {}, new Set(), ['a relative'],
     )[0]!;
   // In: family support, which is why it sits under the bank's income main.
   assert.equal(`${from(500).category}/${from(500).subcategory}`, 'innskudd/familie');
@@ -550,8 +590,8 @@ test('a standing arrangement keeps the name giro.json gave it, family or not', (
   // Pocket money is family money that already has a better label, so the lump
   // rule has to win — which means it runs above the family list.
   const out = categorize(
-    [classified({ amount: 150, description: 'Tarjei', counterparty: 'Tarjei', typeText: 'Avtale', bankCategory: 'diverse', bankSub: 'overforing' })],
-    {}, [], [], { tarjei: 'innskudd/lommepenger' }, new Set(), ['tarjei'],
+    [classified({ amount: 150, description: 'A Relative', counterparty: 'A Relative', typeText: 'Avtale', bankCategory: 'diverse', bankSub: 'overforing' })],
+    {}, [], { 'a relative': 'innskudd/lommepenger' }, new Set(), ['a relative'],
   )[0]!;
   assert.equal(out.category, 'innskudd');
   assert.equal(out.subcategory, 'lommepenger');
