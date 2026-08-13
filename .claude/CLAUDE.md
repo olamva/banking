@@ -256,6 +256,26 @@ Notes from the real data, not the plan:
   guess made from a merchant name it does not know — 31 rows of a student
   society's kiosk arrive as `faste_boutgifter/alarm` at confidence 25. Nothing
   gates on it; it is stored so the report can weigh what the bank claims.
+- **`rules/overrides.json` went from 175 patterns to 100** against this report,
+  with every row's category verified unchanged at each step and the money totals
+  identical to the øre. Whole slugs were migrated at once rather than line by
+  line — a slug means one pair or it fragments, and rewriting only the lines the
+  report flagged would have split `uteliv` across two categories. `uteliv` ->
+  `kafe_og_restaurant/utesteder`, `stroem` -> `faste_utgifter/stroem`, `husleie`
+  -> `faste_utgifter/boligutgifter` (in `rules/giro.json` too), plus two subs
+  that are ours alone: `kafe_og_restaurant/linjeforening_kiosk` and
+  `innskudd/linjeforening_refusjon`. The five slugs whose bank pair sits under
+  `diverse` — `avgifter`, `renter_og_fordeler`, `medlemskap_og_veldedighet`,
+  `kontantuttak`, `skatt` — were deliberately left alone: they read better than
+  `diverse` does until a display name exists.
+- **Income and spending split on the sign, not on the category** —
+  `aggregateCents` is `if (cents > 0) inCents += cents`. So no
+  category can move money between the two totals, and filing Lånekassen as
+  `annet_lan_og_gjeld/studielan` labels 618 915 kr as debt while the income
+  total still counts every øre of it. Taking something out of income means
+  excluding it in `exclude.ts`, which is a money change with a netting invariant
+  — not a rules edit. Decided 2026-08-13 to leave Lånekassen in income: the
+  money did arrive and it did get spent.
 - Much of `rules/overrides.json` predates knowing the sub existed and
   re-derives it by hand. `pnpm sb1 categories` measures that by counterfactual —
   it deletes each line, re-runs the real `categorize` over that line's own rows,
@@ -276,7 +296,9 @@ Notes from the real data, not the plan:
   arrives as `kafe_og_restaurant/restaurant`, same main, and it is a bar.
 - `reise/annen_reise` is the bank's catch-all *inside* travel and it is filled by
   where the terminal stands, not by what was sold: duty-free, inflight food, an
-  airport bakery. Treat it as a shrug wearing a category's clothes.
+  airport bakery. It is a real subcategory and stays one — but it is why an
+  override over an airport payee is worth keeping, and why the bank suggesting
+  it is never on its own a reason to hand a row over.
 - **`rules/overrides.json` used to depend on its own line order**, invisibly:
   `categorize` takes the first pattern that matches, so a line added at the top
   quietly takes rows from one below it. Shuffling the file moved 12 to 132 rows
