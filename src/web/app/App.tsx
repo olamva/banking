@@ -355,7 +355,8 @@ const Dashboard = ({
 
   // Filtered to a spending category every point's income is zero, and a line
   // along the axis is not a finding. The chart drops it; the title follows.
-  // Both ways round: filtered to Lånekassen nothing was ever spent.
+  // Both ways round: filtered to a category that only ever paid in, the spend
+  // line is the one flat on the axis.
   const anyIncome = series.some((s) => s.totalIn > 0);
   const anySpend = series.some((s) => s.totalOut > 0);
 
