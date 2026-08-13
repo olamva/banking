@@ -16,6 +16,10 @@ function row(overrides: Partial<Categorized> = {}): Categorized {
     description: 'Coop',
     counterparty: 'Coop',
     bankCategory: 'dagligvarer',
+    bankSub: null,
+    bankCategoryName: null,
+    bankSubName: null,
+    bankConfidence: null,
     typeText: 'VISA Varekjøp',
     remoteAccountNumber: null,
     isRecurring: false,
@@ -23,6 +27,7 @@ function row(overrides: Partial<Categorized> = {}): Categorized {
     excluded: false,
     reason: null,
     category: 'dagligvarer',
+    subcategory: null,
     ...overrides,
   };
 }
@@ -113,4 +118,23 @@ test('openDb on an existing file is idempotent and keeps prior data', () => {
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('the bank pair, its names and its confidence round-trip, subcategory included', () => {
+  // The builder's defaults are all null, so the nullable path is already
+  // covered above — this is the populated one, and the confidence in
+  // particular, which is the only INTEGER column that is not a boolean.
+  const db = openDb(':memory:');
+  const populated = row({
+    bankCategory: 'helse_og_velvaere',
+    bankSub: 'apotek',
+    bankCategoryName: 'Helse og velvære',
+    bankSubName: 'Apotek',
+    bankConfidence: 96,
+    category: 'helse_og_velvaere',
+    subcategory: 'apotek',
+  });
+  upsertMany(db, [populated]);
+  assert.deepEqual(queryRange(db, '2026-07', '2026-07'), [populated]);
+  db.close();
 });

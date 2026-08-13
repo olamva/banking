@@ -25,6 +25,10 @@ function txn(partial: Partial<Categorized> & { id: string; amount: number }): Ca
     description: 'test',
     counterparty: 'Kiwi',
     bankCategory: null,
+    bankSub: null,
+    bankCategoryName: null,
+    bankSubName: null,
+    bankConfidence: null,
     typeText: null,
     remoteAccountNumber: null,
     isRecurring: false,
@@ -32,6 +36,7 @@ function txn(partial: Partial<Categorized> & { id: string; amount: number }): Ca
     excluded: false,
     reason: null,
     category: 'dagligvarer',
+    subcategory: null,
     ...partial,
   };
 }

@@ -54,6 +54,46 @@ export type Txn = {
   /** The bank's own category. Set on card rows too — it classifies those itself. */
   bankCategory: string | null;
   /**
+   * The bank's own *sub*category — the half that was thrown away until now, and
+   * the reason half of `rules/overrides.json` exists at all.
+   *
+   * Present on all 8 547 booked rows of the record, always alongside a `main`,
+   * 68 distinct pairs. It is where the signal actually is: `diverse` is the
+   * bank's biggest main and reads like a shrug, but it splits into
+   * `vennebetaling` (1 119 rows), `overforing` (1 178), `renter_og_gebyrer`,
+   * `medlemskap_veldedighet`, `minibank`, `skatt` — every one of which
+   * `rules/overrides.json` re-derives by hand. Only `ukategorisert/annet` is a
+   * real shrug.
+   *
+   * Null only where the bank sends no category at all, which so far is never.
+   */
+  bankSub: string | null;
+  /**
+   * What the bank calls `bankCategory` and `bankSub` in Norwegian — `Helse og
+   * velvære`, `Apotek`. Carried on the row rather than looked up, for the same
+   * reason `account` is: `stats.ts` runs in the browser, where there is no
+   * table to join against.
+   *
+   * These name the *bank's* pair. A category our own rules invent has no bank
+   * name and takes its label from `rules/categories.json` instead.
+   */
+  bankCategoryName: string | null;
+  bankSubName: string | null;
+  /**
+   * 0-100, the bank's own confidence in that pair.
+   *
+   * 7 802 of 8 547 rows are at 100 and the rest fall away sharply, so this is a
+   * flag rather than a scale: below about 50 the bank is usually guessing from
+   * a merchant name it does not know, and 31 rows of a student society's kiosk
+   * arrive as `faste_boutgifter/alarm` that way. 441 rows carry a second and
+   * third candidate, always sorted by confidence down — `normalize` keeps the
+   * first, which is the highest.
+   *
+   * Nothing gates on it today. It is here so the divergence report can say
+   * *how much* the bank believes what it just said.
+   */
+  bankConfidence: number | null;
+  /**
    * The other party's account number, as the bank reports it. Null on anything
    * the bank does not name an account for, which is most of the card.
    *
@@ -86,6 +126,18 @@ export type Classified = Txn & {
 
 /** What the database stores. */
 export type Categorized = Classified & {
-  /** Final category after overrides. Card rows always land in the card bucket. */
+  /** Final category after overrides. */
   category: string;
+  /**
+   * The second level of it, or null where the deciding rule named only one.
+   *
+   * A rule value carrying a `/` sets both — `"kafe_og_restaurant/utesteder"` —
+   * and a bare value sets the category alone, which is what every entry in
+   * `rules/overrides.json` still is until it is rewritten. That is deliberate:
+   * the two forms coexist so the rules can be migrated a line at a time without
+   * the page moving under them, since `category` is the same string either way.
+   *
+   * Where no rule fires, this is the bank's own `bankSub`.
+   */
+  subcategory: string | null;
 };

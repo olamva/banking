@@ -17,6 +17,10 @@ CREATE TABLE IF NOT EXISTS transactions (
   description TEXT NOT NULL,
   counterparty TEXT,
   bankCategory TEXT,
+  bankSub TEXT,
+  bankCategoryName TEXT,
+  bankSubName TEXT,
+  bankConfidence INTEGER,
   typeText TEXT,
   remoteAccountNumber TEXT,
   isRecurring INTEGER NOT NULL,
@@ -24,10 +28,11 @@ CREATE TABLE IF NOT EXISTS transactions (
   excluded INTEGER NOT NULL,
   reason TEXT,
   category TEXT NOT NULL,
+  subcategory TEXT,
   PRIMARY KEY (id)
 );
 CREATE INDEX IF NOT EXISTS idx_transactions_month ON transactions(month);
-CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions(category);
+CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions(category, subcategory);
 `;
 
 /** Booking date is YYYY-MM-DD Europe/Oslo already, so this is a plain slice. */
@@ -44,8 +49,9 @@ export function openDb(path = 'data/banking.db'): DatabaseSync {
 const UPSERT = `
 INSERT INTO transactions
   (id, accountKey, account, date, month, amount, description, counterparty,
-   bankCategory, typeText, remoteAccountNumber, isRecurring, isSubscription, excluded, reason, category)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+   bankCategory, bankSub, bankCategoryName, bankSubName, bankConfidence,
+   typeText, remoteAccountNumber, isRecurring, isSubscription, excluded, reason, category, subcategory)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (id) DO UPDATE SET
   accountKey = excluded.accountKey,
   account = excluded.account,
@@ -55,13 +61,18 @@ ON CONFLICT (id) DO UPDATE SET
   description = excluded.description,
   counterparty = excluded.counterparty,
   bankCategory = excluded.bankCategory,
+  bankSub = excluded.bankSub,
+  bankCategoryName = excluded.bankCategoryName,
+  bankSubName = excluded.bankSubName,
+  bankConfidence = excluded.bankConfidence,
   typeText = excluded.typeText,
   remoteAccountNumber = excluded.remoteAccountNumber,
   isRecurring = excluded.isRecurring,
   isSubscription = excluded.isSubscription,
   excluded = excluded.excluded,
   reason = excluded.reason,
-  category = excluded.category
+  category = excluded.category,
+  subcategory = excluded.subcategory
 `;
 
 function bindParams(row: Categorized) {
@@ -75,6 +86,10 @@ function bindParams(row: Categorized) {
     row.description,
     row.counterparty,
     row.bankCategory,
+    row.bankSub,
+    row.bankCategoryName,
+    row.bankSubName,
+    row.bankConfidence,
     row.typeText,
     row.remoteAccountNumber,
     row.isRecurring ? 1 : 0,
@@ -82,6 +97,7 @@ function bindParams(row: Categorized) {
     row.excluded ? 1 : 0,
     row.reason,
     row.category,
+    row.subcategory,
   ] as const;
 }
 
@@ -106,6 +122,10 @@ type Row = {
   description: string;
   counterparty: string | null;
   bankCategory: string | null;
+  bankSub: string | null;
+  bankCategoryName: string | null;
+  bankSubName: string | null;
+  bankConfidence: number | null;
   typeText: string | null;
   remoteAccountNumber: string | null;
   isRecurring: number;
@@ -113,6 +133,7 @@ type Row = {
   excluded: number;
   reason: string | null;
   category: string;
+  subcategory: string | null;
 };
 
 function toCategorized(row: Row): Categorized {
@@ -125,6 +146,10 @@ function toCategorized(row: Row): Categorized {
     description: row.description,
     counterparty: row.counterparty,
     bankCategory: row.bankCategory,
+    bankSub: row.bankSub,
+    bankCategoryName: row.bankCategoryName,
+    bankSubName: row.bankSubName,
+    bankConfidence: row.bankConfidence,
     typeText: row.typeText,
     remoteAccountNumber: row.remoteAccountNumber,
     isRecurring: !!row.isRecurring,
@@ -132,6 +157,7 @@ function toCategorized(row: Row): Categorized {
     excluded: !!row.excluded,
     reason: row.reason,
     category: row.category,
+    subcategory: row.subcategory,
   };
 }
 
