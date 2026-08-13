@@ -8,7 +8,7 @@
  * src/core/stats.ts.
  */
 import { useId, useState, type ReactNode } from 'react';
-import { annualGrowth, spendTrend, withGaps, type CategoryDelta, type SeriesPoint } from '../../core/stats.ts';
+import { annualGrowth, spendGrowth, withGaps, type CategoryDelta, type SeriesPoint } from '../../core/stats.ts';
 import { fmtNOK, fmtPct, monthLabel, niceStep, pointLabel, useWidth } from './format.ts';
 
 interface TipState {
@@ -442,41 +442,35 @@ export const SpendLines = ({
   const clusterW = plotW / Math.max(dense.length, 1);
   const px = (i: number) => padL + i * clusterW + clusterW / 2;
 
+  const ticks = Array.from({ length: Math.floor(gridMax / step) + 1 }, (_, i) => i * step);
+  const py = (v: number) => padT + plotH - (v / gridMax) * plotH;
+
   /**
-   * One straight line through spending, for the whole span. Deliberately drawn
-   * across a gap where the series is not: it is a summary of the span rather
-   * than a reading of any point on it, which is also why it takes no dot and no
-   * tooltip.
+   * The growth curve through spending, for the whole span, and a point per slot
+   * because it is not straight. Deliberately sampled across a gap where the
+   * series is not: it is a summary of the span rather than a reading of any
+   * point on it, which is also why it takes no dot and no tooltip.
+   *
+   * It can run off the top of the plot and never off the bottom, an exponential
+   * being positive everywhere — which is why the axis needs no floor below zero
+   * and the clip is all the fitting-outside-the-box this needs.
    *
    * Fitted whatever the legend says, and cheap enough to be: the key that turns
    * it off has to know there was anything to turn off.
    */
-  const trend = offersTrend ? spendTrend(dense) : null;
-  const ends = trend ? [0, dense.length - 1].map((x) => trend.intercept + trend.slope * x) : [];
+  const trend = offersTrend ? spendGrowth(dense) : null;
+  const curve = trend
+    ? dense.map((_, i) => `${px(i)},${py(Math.exp(trend.intercept + trend.slope * i))}`).join(' ')
+    : '';
 
   /**
-   * The same line as a rate a year, which is the form the number it is to be
-   * read against comes in — inflation is quoted annually and nothing else is.
-   * Annual rather than per slot also makes it the same figure whether the
-   * window is drawn by day or by month, which the kroner-per-slot form it
-   * replaced was not.
+   * The rate a year, which is the form the number it is read against comes in —
+   * inflation is quoted annually and nothing else is. It is the fit's own slope
+   * rescaled, so it describes the whole curve rather than the two points it
+   * happens to end on, and the same spending answers the same whether the
+   * window is drawn by day or by month.
    */
-  const growth = trend ? annualGrowth(trend, dense.length, bucket === 'month' ? 12 : 365.25) : null;
-
-  /**
-   * The axis floor, which is zero until the trend needs it not to be. Spending
-   * is a total and can never be negative, but a fitted line through a falling
-   * one crosses zero on its way down — three months of 1000, 0, 0 fit a line
-   * that ends at -167 — and a line clipped away at the floor would vanish
-   * exactly where it has the most to say. Rounded down onto the same step the
-   * top uses, so the gridlines stay evenly spaced through it.
-   */
-  const gridMin = Math.min(0, ...ends.map((v) => Math.floor(v / step) * step));
-  const ticks = Array.from(
-    { length: Math.round((gridMax - gridMin) / step) + 1 },
-    (_, i) => gridMin + i * step,
-  );
-  const py = (v: number) => padT + plotH - ((v - gridMin) / (gridMax - gridMin)) * plotH;
+  const growth = trend ? annualGrowth(trend.slope, bucket === 'month' ? 12 : 365.25) : null;
 
   /**
    * The compared window laid over the same axis, matched on where in the
@@ -659,13 +653,7 @@ export const SpendLines = ({
               <g key={v}>
                 {/* Zero is a gridline like any other until the axis runs below
                     it, and then it is the line the trend is read against. */}
-                <line
-                  x1={padL}
-                  x2={width - 8}
-                  y1={gy}
-                  y2={gy}
-                  className={v === 0 && gridMin < 0 ? 'stroke-axis' : 'stroke-grid'}
-                />
+                <line x1={padL} x2={width - 8} y1={gy} y2={gy} className="stroke-grid" />
                 <text x={padL - 8} y={gy + 3} textAnchor="end" className="fill-ink-muted text-[11px]">
                   {fmtNOK(v).replace(' kr', '')}
                 </text>
@@ -749,9 +737,9 @@ export const SpendLines = ({
               </g>
             );
           })}
-          {/* Clipped to the plot rather than clamped to it: the axis already
-              stretched to hold both ends, and clamping a line is how a slope
-              gets flattened into a claim nobody made. */}
+          {/* Clipped rather than clamped: a curve that outgrows the plot leaves
+              it, and pinning it to the ceiling instead would flatten the growth
+              that is the only thing it says. */}
           {trend && shows('trend') && (
             <>
               <defs>
@@ -759,15 +747,12 @@ export const SpendLines = ({
                   <rect x={padL} y={padT} width={plotW} height={plotH} />
                 </clipPath>
               </defs>
-              <line
-                x1={px(0)}
-                y1={py(ends[0]!)}
-                x2={px(dense.length - 1)}
-                y2={py(ends[1]!)}
+              <polyline
+                points={curve}
                 strokeWidth={1.5}
                 strokeDasharray="7 5"
                 clipPath={`url(#${clip}-plot)`}
-                className="stroke-series-1"
+                className="fill-none stroke-series-1"
               />
             </>
           )}

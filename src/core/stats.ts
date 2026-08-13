@@ -423,17 +423,33 @@ export function withGaps(series: SeriesPoint[]): (SeriesPoint | null)[] {
 }
 
 /**
- * The least-squares line through a series' spending, as `y = slope * x + intercept`
- * over the **slot index** — so the x it is fitted against is the position on the
- * drawn axis, holes included. That is the whole reason it takes the gapped array
- * rather than the series: fitting against the array index instead would pull a
- * missing month's neighbours together and tilt the line towards a period that
- * was never synced.
+ * The least-squares fit of a series' spending **in log space**, as
+ * `ln(y) = slope * x + intercept` over the slot index — so `exp(intercept)` is
+ * where it starts and `exp(slope)` is what it multiplies by each slot.
  *
- * Null under two points, because a line through one point is every line.
+ * Exponential rather than straight, and that is the whole point: the figure it
+ * is drawn to support is a growth rate a year, held against inflation, and a
+ * rate like that is a multiplication. A straight line has no such rate — it
+ * adds a fixed sum each month, which off a small base is a huge percentage and
+ * off a large one is a small percentage, so any single figure quoted for it is
+ * true at one point on the line and nowhere else. Reading a compound rate off
+ * the two ends of a straight line was exactly that mistake: arithmetically
+ * right, and describing a curve that was not the line being drawn.
+ *
+ * Fitted against the **slot index**, which is why it takes the gapped array
+ * rather than the series: fitting against the array index would pull a missing
+ * month's neighbours together and tilt the fit towards a period that was never
+ * synced.
+ *
+ * A slot with no spending is skipped, having no logarithm. On months that is
+ * rare and means the account was unused; on days it is most of the week, so a
+ * daily fit describes the days money was spent on, which is the only thing a
+ * ratio can be taken over.
+ *
+ * Null under two spending slots, because a line through one point is every line.
  */
-export function spendTrend(dense: (SeriesPoint | null)[]): { slope: number; intercept: number } | null {
-  const pts = dense.flatMap((p, x) => (p ? [{ x, y: p.totalOut }] : []));
+export function spendGrowth(dense: (SeriesPoint | null)[]): { slope: number; intercept: number } | null {
+  const pts = dense.flatMap((p, x) => (p && p.totalOut > 0 ? [{ x, y: Math.log(p.totalOut) }] : []));
   if (pts.length < 2) return null;
   const mx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
   const my = pts.reduce((s, p) => s + p.y, 0) / pts.length;
@@ -444,33 +460,17 @@ export function spendTrend(dense: (SeriesPoint | null)[]): { slope: number; inte
 }
 
 /**
- * A fitted line's equivalent growth **a year**, as a fraction — `0.031` for
- * 3.1%. `slots` is how many the line spans and `slotsPerYear` how many make a
- * year, which is what lets a window drawn by day and the same window drawn by
- * month come back with the same figure.
+ * What a log-space fit grows by in a year, as a fraction — `0.031` for 3.1%.
+ * `slotsPerYear` is how many of the fit's own slots make one.
  *
- * Annual, and compounded between the line's own two ends, because the number
- * this is read against is: inflation is quoted per year and a price index
- * compounds. A linear rise stated as a flat percentage of where it started is
- * not that quantity, and would read low against it over any long window.
- *
- * Null where the ratio would mean nothing — a fit steep enough to start at or
- * below zero has no base to grow from, and a span of no time has no rate.
- * A short span is not guarded: a month of days really does imply the number in
- * the thousands it comes back with, and hiding that would be the only dishonest
- * option.
+ * The whole rate lives in the slope, so this depends on no endpoint and on no
+ * window length: the same spending drawn by day and by month answers the same,
+ * and lengthening the window changes the figure only by changing the fit. That
+ * is what makes it comparable to a published inflation rate, which is also a
+ * per-year multiplication rather than a total.
  */
-export function annualGrowth(
-  fit: { slope: number; intercept: number },
-  slots: number,
-  slotsPerYear: number,
-): number | null {
-  const years = (slots - 1) / slotsPerYear;
-  const from = fit.intercept;
-  const to = fit.intercept + fit.slope * (slots - 1);
-  if (years <= 0 || from <= 0 || to <= 0) return null;
-  return (to / from) ** (1 / years) - 1;
-}
+export const annualGrowth = (slope: number, slotsPerYear: number): number =>
+  Math.expm1(slope * slotsPerYear);
 
 export function yearStats(year: string, monthsTxns: { month: string; txns: Categorized[] }[]): YearStats {
   const sorted = [...monthsTxns].sort((a, b) => a.month.localeCompare(b.month));
