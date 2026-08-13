@@ -337,7 +337,7 @@ interface SpendLinesProps {
    * derives it because it titles the card.
    */
   income: boolean;
-  /** The same the other way round: filtered to Lånekassen nothing was spent. */
+  /** The same the other way round: a category that only ever paid in spent nothing. */
   spend: boolean;
   /**
    * Whether to shade between the two lines. Separate from `income`, because the
