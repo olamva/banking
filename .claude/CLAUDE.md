@@ -367,6 +367,16 @@ rows the bank names no payee on at all.
 `rules/giro.json` can say what one is. Pocket money from family arrives that way
 — 123 rows, 18 450 kr — and no other payee on record has a single `Avtale` row.
 
+**`rules/family.json` is money *in* from named relatives**, `innskudd/familie`,
+187 rows and 97 629 kr. It needs a rule of its own because neither neighbour can
+express it: `rules/giro.json` is gated on the row being a lump and most family
+money arrives as `Straksbetaling` like any other instant payment, and an override
+cannot see the sign. **Incoming only, and the category enforces that** — it sits
+under `innskudd`, where an outgoing row would be a contradiction, so paying a
+relative back stays `diverse/vennebetaling` (57 rows, 63 672 kr). It runs *below*
+the lump rule, so pocket money keeps the better label giro.json already gave it,
+and *above* the peer list, which would otherwise call every gift a Vipps payment.
+
 `src/core/labels.ts` names them, from three sources in order — a gitignored
 `rules/categories.json`, the bank's own `mainI18n`/`subI18n` read off the rows,
 then the slug tidied. Mains and subs are looked up in **separate maps**: one slug

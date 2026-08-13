@@ -158,6 +158,24 @@ export const loadPeers = (path = 'rules/vipps.json') => loadJson<string[]>(path,
 
 export const loadGiro = (path = 'rules/giro.json') => loadJson<Overrides>(path, {});
 
+/**
+ * rules/family.json: `["<name>", ...]`, the same pattern language.
+ *
+ * Money *from* these people is family support rather than a peer payment. It
+ * needs its own rule because neither of the two it sits between can express it:
+ * `rules/giro.json` is gated on the row being a lump, and most family money
+ * arrives as `Straksbetaling` like any other instant payment; and an override
+ * cannot see the sign, so it would file the money you send back the same way.
+ *
+ * **Incoming only, and that is the category's own doing** — it lands under
+ * `innskudd`, the bank's income main, where an outgoing row would be a
+ * contradiction. Paying a sibling back for a taxi stays a peer payment.
+ */
+export const loadFamily = (path = 'rules/family.json') => loadJson<string[]>(path, []);
+
+/** Money in from someone on that list. Under `innskudd` because it is income. */
+const FAMILY = 'innskudd/familie';
+
 export const loadSubscriptions = (path = 'rules/subscriptions.json') => loadJson<Subscriptions>(path, []);
 
 /**
@@ -255,6 +273,7 @@ export function categorize(
   giro: Overrides = {},
   /** Account keys of the credit cards — the only rows the travel guess may see. */
   cards: Set<string> = new Set(),
+  family: string[] = [],
 ): Categorized[] {
   const rules: Rule[] = Object.entries(overrides).map(([pattern, category]) => ({
     matches: compile(pattern, 'rules/overrides.json'),
@@ -265,12 +284,13 @@ export function categorize(
     matches: compile(pattern, 'rules/giro.json'),
     category,
   }));
+  const familyRules = family.map((pattern) => compile(pattern, 'rules/family.json'));
   const subs = subscriptions.map((pattern) => compile(pattern, 'rules/subscriptions.json'));
   return txns.map((t) => {
     const haystack = haystackOf(t);
     return {
       ...t,
-      ...categoryFor(t, rules, peerRules, giroRules, haystack, cards),
+      ...categoryFor(t, rules, peerRules, giroRules, familyRules, haystack, cards),
       // The bank's own flag stands; a pattern only ever adds to it.
       isSubscription: t.isSubscription || subs.some((m) => m(haystack)),
     };
@@ -339,6 +359,7 @@ function categoryFor(
   rules: Rule[],
   peerRules: Matcher[],
   giroRules: Rule[],
+  familyRules: Matcher[],
   haystack: string,
   cards: Set<string>,
 ): Pair {
@@ -353,6 +374,10 @@ function categoryFor(
     const named = giroRules.find((r) => r.matches(haystack));
     if (named) return keepBankSub(splitCategory(named.category), t);
   }
+  // Below the lump rule, so a standing arrangement keeps the name giro.json gave
+  // it — pocket money is family money that already has a better label — and
+  // above the peer list, which would otherwise call every gift a Vipps payment.
+  if (t.amount > 0 && familyRules.some((m) => m(haystack))) return splitCategory(FAMILY);
   // The pair outright, not `keepBankSub`: the list exists precisely for the rows
   // the bank files as `diverse/overforing` or shrugs at, and taking its sub
   // there would file a peer payment as a transfer.
