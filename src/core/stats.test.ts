@@ -1,12 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  annualGrowth,
+  annualRate,
   cumulative,
   dailySeries,
   monthStats,
   monthlySeries,
-  spendGrowth,
+  spendTrend,
   subsAndRecurring,
   subscriptionGroups,
   totals,
@@ -243,32 +243,26 @@ test('subscriptionGroups nets a refund off its own group', () => {
   ]);
 });
 
-test('spendGrowth fits the drawn axis, holes included', () => {
+test('spendTrend fits the drawn axis, holes included', () => {
   const p = (at: string, totalOut: number): SeriesPoint => ({ at, totalIn: 0, totalOut });
-  const at = (fit: { slope: number; intercept: number }, x: number) =>
-    Math.exp(fit.intercept + fit.slope * x);
 
-  // Exact doubling every slot comes back exactly: 100, 200, 400 through the
-  // same three points, which a straight line could not do.
-  const doubling = spendGrowth([p('a', 100), p('b', 200), p('c', 400)])!;
-  assert.equal(Math.round(Math.exp(doubling.slope) * 1e6) / 1e6, 2);
-  assert.equal(Math.round(at(doubling, 0)), 100);
-  assert.equal(Math.round(at(doubling, 2)), 400);
+  // An exact line comes back exactly, slope and intercept both.
+  assert.deepEqual(spendTrend([p('a', 100), p('b', 200), p('c', 300)]), { slope: 100, intercept: 100 });
 
-  // A hole holds its slot. Two months a year apart, one ten times the other,
-  // multiply by ten over 12 slots and not over 1 — closing the gap would claim
-  // a wildly steeper rate.
-  const gapped = spendGrowth([p('a', 100), ...Array(11).fill(null), p('b', 1000)])!;
-  assert.equal(Math.round(Math.exp(gapped.slope * 12) * 1e6) / 1e6, 10);
+  // Least squares, not first-to-last: the middle point pulls the line down.
+  const fit = spendTrend([p('a', 0), p('b', 0), p('c', 300)])!;
+  assert.equal(Math.round(fit.slope), 150);
+  assert.equal(Math.round(fit.intercept), -50);
 
-  // Flat is flat, and one point is every curve.
-  assert.equal(spendGrowth([p('a', 50), p('b', 50)])?.slope, 0);
-  assert.equal(spendGrowth([p('a', 1)]), null);
-  assert.equal(spendGrowth([null, p('a', 1), null]), null);
-  assert.equal(spendGrowth([]), null);
+  // A hole holds its slot. Two months a year apart rise by 1200 over 12 slots,
+  // not over 1 — closing the gap would claim a hundredfold steeper trend.
+  assert.equal(spendTrend([p('a', 0), ...Array(11).fill(null), p('b', 1200)])!.slope, 100);
 
-  // A slot with no spending has no logarithm and is skipped, leaving too few.
-  assert.equal(spendGrowth([p('a', 0), p('b', 0), p('c', 400)]), null);
+  // Flat is flat, and one point is every line.
+  assert.equal(spendTrend([p('a', 50), p('b', 50)])?.slope, 0);
+  assert.equal(spendTrend([p('a', 1)]), null);
+  assert.equal(spendTrend([null, p('a', 1), null]), null);
+  assert.equal(spendTrend([]), null);
 });
 
 /**
@@ -277,36 +271,45 @@ test('spendGrowth fits the drawn axis, holes included', () => {
  * flipped — which on this chart is the difference between "spending more" and
  * "spending less".
  */
-test('spendGrowth never reads income', () => {
-  const fit = spendGrowth([
-    { at: '2026-01', totalIn: 400, totalOut: 100 },
+test('spendTrend never reads income', () => {
+  const fit = spendTrend([
+    { at: '2026-01', totalIn: 300, totalOut: 100 },
     { at: '2026-02', totalIn: 200, totalOut: 200 },
-    { at: '2026-03', totalIn: 100, totalOut: 400 },
-  ])!;
-  assert.ok(fit.slope > 0, 'spending doubled each month, so the fit climbs');
-  assert.equal(Math.round(Math.exp(fit.slope) * 1e6) / 1e6, 2);
+    { at: '2026-03', totalIn: 100, totalOut: 300 },
+  ]);
+  assert.deepEqual(fit, { slope: 100, intercept: 100 });
 });
 
 /**
- * The figure is there to be held against inflation, so it has to be the same
- * kind of number: a per-year multiplication. It comes off the slope alone,
- * which is what keeps it independent of where the window starts and how long
- * it runs — the two things that made a rate read off a straight line's ends
- * true at one point on that line and nowhere else.
+ * A straight line has no growth rate of its own, so the base it is measured
+ * against decides the number entirely. Against the window's average — the one
+ * base a reader can see on the card — a line running 2 700 to 45 000 over five
+ * and a half years is 32% a year. Compounding its two ends instead divides by
+ * where the line *starts* and answers 65%, which is a true statement about an
+ * exponential nobody drew.
  */
-test('annualGrowth rescales the slope to a year, and nothing else', () => {
-  // Doubling every month is 4096x a year, and the same spending seen by day
-  // answers the same rate.
-  const monthly = annualGrowth(Math.log(2), 12);
-  assert.equal(Math.round(monthly + 1), 4096);
-  assert.ok(Math.abs(annualGrowth(Math.log(2) * 12 / 365.25, 365.25) - monthly) < 1e-9);
+test('annualRate measures the slope against the window average', () => {
+  // 68 monthly slots, 2 700 -> 45 000: the average is the midpoint, 23 850, and
+  // the line climbs 631.34 a month, so 7 576 a year on 23 850.
+  const real = { slope: (45000 - 2700) / 67, intercept: 2700 };
+  assert.equal(Math.round(annualRate(real, 68, 12)! * 1000) / 10, 31.8);
 
-  // A doubling over two years is 41.4% a year, not 50%.
-  assert.equal(Math.round(annualGrowth(Math.log(2) / 24, 12) * 1000) / 10, 41.4);
+  // Doubling across the window is the same rate whether it is drawn by day or
+  // by month: 100 -> 200 over two years climbs 50 a year against a 150
+  // average, so 33.3% — and half what the same doubling over one year would be.
+  const monthly = annualRate({ slope: 100 / 24, intercept: 100 }, 25, 12)!;
+  const daily = annualRate({ slope: 100 / 730, intercept: 100 }, 731, 365.25)!;
+  assert.equal(Math.round(monthly * 1000) / 10, 33.3);
+  assert.equal(Math.round(annualRate({ slope: 100 / 12, intercept: 100 }, 13, 12)! * 1000) / 10, 66.7);
+  assert.ok(Math.abs(daily - monthly) < 0.001, `${daily} vs ${monthly}`);
 
   // Flat is 0% a year and a fall is negative — both readings, not absences.
-  assert.equal(annualGrowth(0, 12), 0);
-  assert.ok(annualGrowth(-0.1, 12) < 0);
+  assert.equal(annualRate({ slope: 0, intercept: 500 }, 13, 12), 0);
+  assert.ok(annualRate({ slope: -10, intercept: 500 }, 13, 12)! < 0);
+
+  // No base to measure against, and no span to measure over.
+  assert.equal(annualRate({ slope: -100, intercept: 100 }, 13, 12), null, 'average at or below zero');
+  assert.equal(annualRate({ slope: 1, intercept: 100 }, 1, 12), null, 'a single slot is no span');
 });
 
 /**
