@@ -297,20 +297,26 @@ const Dashboard = ({
   // deltas beside it are measuring the same thing.
   const compare = vs ? build(previous, vs.from, vs.to) : [];
 
-  const cats = stats.categories.map((c) => ({
-    // The slug rides along so a click needs no reverse lookup — two slugs can
-    // tidy to the same display name, and the map back could not tell them apart.
-    key: c.category,
-    label: categoryLabel(c.category),
-    total: c.total,
-    subs: stats.subcategories
+  const cats = stats.categories.map((c) => {
+    const subs = stats.subcategories
       .filter((sub) => sub.category === c.category)
       .map((sub) => ({
         key: `${sub.category}/${sub.subcategory ?? ""}`,
         label: subcategoryLabel(sub.category, sub.subcategory),
         total: sub.total,
-      })),
-  }));
+      }));
+    // A category with one named child reads as that child, and filters as it —
+    // the same rows either way, under the more useful of the two names.
+    const lone = subs.length === 1 && subs[0]!.key.split("/")[1] !== "" ? subs[0]! : null;
+    return {
+      // The slug rides along so a click needs no reverse lookup — two slugs can
+      // tidy to the same display name, and the map back could not tell them apart.
+      key: lone?.key ?? c.category,
+      label: lone?.label ?? categoryLabel(c.category),
+      total: c.total,
+      subs,
+    };
+  });
   const cps = stats.topCounterparties.map((c) => ({
     label: c.counterparty,
     total: c.total,
@@ -329,7 +335,8 @@ const Dashboard = ({
   // and reports display names, so the map back stays for that one.
   const onCategory = (slugOrLabel: string, meta: boolean) =>
     pick(onFilters, "categories")(slugOf.get(slugOrLabel) ?? slugOrLabel, meta);
-  const onSubcategory = pick(onFilters, "subcategories");
+  // One axis: a subcategory is a value in the same list as its category.
+  const onSubcategory = pick(onFilters, "categories");
   const onMerchant = pick(onFilters, "merchants");
   const onAccount = pick(onFilters, "accounts");
 
@@ -603,7 +610,7 @@ export const App = () => {
   const subcategories = useMemo(
     () =>
       [
-        ...new Set([...distinctSubcategories(inPeriod), ...filters.subcategories]),
+        ...new Set([...distinctSubcategories(inPeriod), ...filters.categories.filter((c) => c.includes("/"))]),
       ].sort(
         (a, b) =>
           a.slice(0, a.indexOf("/")).localeCompare(b.slice(0, b.indexOf("/"))) ||
@@ -611,7 +618,7 @@ export const App = () => {
             subcategoryLabel(b.slice(0, b.indexOf("/")), b.slice(b.indexOf("/") + 1) || null),
           ),
       ),
-    [inPeriod, filters.subcategories],
+    [inPeriod, filters.categories],
   );
   const merchants = useMemo(
     () =>

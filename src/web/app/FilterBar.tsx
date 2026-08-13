@@ -11,10 +11,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { Axis, Filters, Mode, PeriodKind } from "../../core/select.ts";
 import { NO_FILTERS } from "../../core/select.ts";
-import { categoryLabel, subcategoryLabel } from "./format.ts";
+import { categoryLabel, pairLabel, splitPair, treeLabel } from "./format.ts";
 import {
   CloseIcon,
   DropdownIcon,
+  ExpandIcon,
   Icon,
   ResetFiltersIcon,
   SearchIcon,
@@ -46,16 +47,6 @@ interface FilterBarProps {
 const CONTROL =
   "rounded-md border border-line bg-page px-2 py-1.5 text-[13px] text-ink";
 
-/**
- * What one `category/sub` pair is called on its own, without its parent — the
- * picker already draws it indented under the category, and the chips prepend the
- * category themselves.
- */
-const pairLabel = (pair: string): string => {
-  const cut = pair.indexOf("/");
-  const sub = pair.slice(cut + 1);
-  return subcategoryLabel(pair.slice(0, cut), sub === "" ? null : sub);
-};
 
 /** Spelled out, because "2026 / 07" beside a year picker reads as a second year. */
 const MONTH_NAMES = [
@@ -113,20 +104,17 @@ interface PickerProps {
   onMode: (mode: Mode) => void;
   /** How an option reads; the values themselves are slugs for categories. */
   label?: (value: string) => string;
-  /** For a list too long to scan. Filters the options, nothing else. */
-  searchable?: boolean;
   /**
-   * The level below an option, making this a tree rather than a list. Given
-   * together, these four turn each option into a disclosure row over its own
-   * children — a second axis, checked independently of its parent.
+   * The level below an option, making this a tree rather than a list.
    *
-   * The values are whatever the second axis filters on; the picker only passes
-   * them back. One child is not a breakdown, so a row with fewer than two gets
-   * no triangle and stays a plain option.
+   * Children go into the **same** `picked` list as their parents and through
+   * the same `onToggle` — one axis, so ticking a category and a subcategory of
+   * some other category is a union rather than an intersection of nothing.
+   *
+   * A row with two or more children opens; a row with one is that child under
+   * another name, so it stays a single row and `label` is what renames it.
    */
   subs?: (option: string) => string[];
-  subPicked?: string[];
-  onToggleSub?: (value: string) => void;
   subLabel?: (value: string) => string;
 }
 
@@ -146,10 +134,7 @@ const Picker = ({
   onToggle,
   onMode,
   label = (v) => v,
-  searchable,
   subs,
-  subPicked = [],
-  onToggleSub,
   subLabel = (v) => v,
 }: PickerProps) => {
   const [query, setQuery] = useState("");
@@ -196,7 +181,7 @@ const Picker = ({
 
   const q = query.trim().toLowerCase();
   const childrenOf = (o: string) => subs?.(o) ?? [];
-  const hitsQuery = (v: string, name: string) => name.toLowerCase().includes(q);
+  const hitsQuery = (name: string) => name.toLowerCase().includes(q);
 
   // Whatever is checked stays listed however the search box is filtered, or
   // turning a filter off becomes a matter of retyping its name first. A parent
@@ -205,9 +190,9 @@ const Picker = ({
   const shown = q
     ? options.filter(
         (o) =>
-          hitsQuery(o, label(o)) ||
+          hitsQuery(label(o)) ||
           picked.includes(o) ||
-          childrenOf(o).some((c) => hitsQuery(c, subLabel(c)) || subPicked.includes(c)),
+          childrenOf(o).some((c) => hitsQuery(subLabel(c)) || picked.includes(c)),
       )
     : options;
 
@@ -223,8 +208,12 @@ const Picker = ({
     // A search that matched a child opens its parent: the row you were looking
     // for should be on screen, not one click behind a triangle.
     const openHere =
-      expanded.has(o) || (q !== "" && kids.some((c) => hitsQuery(c, subLabel(c))));
-    const parent = { value: o, sub: false };
+      expanded.has(o) || (q !== "" && kids.some((c) => hitsQuery(subLabel(c))));
+    // One *named* child is the same rows under a better name, so the row becomes
+    // that child rather than opening onto it. A lone unnamed child is not a
+    // better name — `vipps` would read as "Annet" — so those keep the parent.
+    const lone = kids.length === 1 && !kids[0]!.endsWith("/") ? kids[0]! : null;
+    const parent = { value: lone ?? o, sub: false };
     return kids.length > 1 && openHere
       ? [parent, ...kids.map((c) => ({ value: c, sub: true }))]
       : [parent];
@@ -284,8 +273,7 @@ const Picker = ({
       if (!row) return;
       e.preventDefault();
       setActive(i);
-      if (row.sub) onToggleSub?.(row.value);
-      else onToggle(row.value);
+      onToggle(row.value);
     }
   };
 
@@ -337,8 +325,11 @@ const Picker = ({
               Exclude
             </span>
           </button>
-          {searchable && (
-            <div className="relative mb-1.5 shrink-0">
+          {/* Always, not just for the long lists. It is also what gives the
+              panel focus on open, and the arrow keys only reach the list from
+              inside the panel — without it the categories menu opened with focus
+              still on the summary and the arrows scrolled the page instead. */}
+          <div className="relative mb-1.5 shrink-0">
               <Icon
                 aria-hidden
                 icon={SearchIcon}
@@ -354,10 +345,9 @@ const Picker = ({
                 placeholder={`Search ${title.toLowerCase()}…`}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                aria-label={`Search ${title.toLowerCase()}`}
-              />
-            </div>
-          )}
+              aria-label={`Search ${title.toLowerCase()}`}
+            />
+          </div>
           {/* Only the list scrolls: the mode toggle and the search box stay put
             rather than sliding away as you scroll past them. */}
           <div className="min-h-0 overflow-y-auto">
@@ -385,9 +375,12 @@ const Picker = ({
                         aria-label={`${openHere ? "Hide" : "Show"} ${label(row.value)} subcategories`}
                         className="flex h-6 w-[13px] shrink-0 items-center justify-center text-ink-muted hover:text-ink"
                       >
-                        <span className={`text-[8px] transition-transform ${openHere ? "rotate-90" : ""}`}>
-                          ▶
-                        </span>
+                        <Icon
+                          aria-hidden
+                          icon={ExpandIcon}
+                          size={12}
+                          className={`transition-transform ${openHere ? "rotate-90" : ""}`}
+                        />
                       </button>
                     ) : (
                       // Holds the column so every label starts at the same x.
@@ -406,16 +399,14 @@ const Picker = ({
                       <input
                         type="checkbox"
                         className="shrink-0"
-                        checked={(row.sub ? subPicked : picked).includes(row.value)}
-                        onChange={() =>
-                          row.sub ? onToggleSub?.(row.value) : onToggle(row.value)
-                        }
+                        checked={picked.includes(row.value)}
+                        onChange={() => onToggle(row.value)}
                         // The arrows own the highlight, so a row reached by tabbing
                         // moves it rather than leaving two rows looking active.
                         onFocus={() => setActive(i)}
                       />
                       <span className="truncate">
-                        {row.sub ? subLabel(row.value) : label(row.value)}
+                        {row.sub || row.value.includes("/") ? subLabel(row.value) : label(row.value)}
                       </span>
                     </label>
                   </div>
@@ -470,7 +461,6 @@ export const FilterBar = ({
         : [...filters[key], value],
     });
   const toggleCategory = toggle("categories");
-  const toggleSubcategory = toggle("subcategories");
 
   // A pair is `category/sub`, so its own category is its prefix — no second
   // grouping to keep in step with the list the picker was handed.
@@ -487,10 +477,7 @@ export const FilterBar = ({
   // there would only be a second copy that shoves the page down as you type.
   const searchChip = filters.search !== "" && view !== "transactions";
   const picked =
-    filters.categories.length +
-    filters.subcategories.length +
-    filters.merchants.length +
-    filters.accounts.length;
+    filters.categories.length + filters.merchants.length + filters.accounts.length;
   const chips = picked > 0 || searchChip;
   const dirty =
     picked > 0 ||
@@ -498,7 +485,6 @@ export const FilterBar = ({
     excluding ||
     excludingMerchants ||
     excludingAccounts ||
-    filters.subcategoryMode === "exclude" ||
     filters.showExcluded;
 
   return (
@@ -558,8 +544,7 @@ export const FilterBar = ({
       )}
 
       {/* A tree: each category opens into the subcategories the bank names under
-          it. The two levels are separate axes, so ticking a category and ticking
-          one of its children are different filters and either works alone. */}
+          it, and both levels go into one list — see `Filters.categories`. */}
       <Picker
         title="Categories"
         options={categories}
@@ -567,17 +552,12 @@ export const FilterBar = ({
         mode={filters.categoryMode}
         onToggle={toggleCategory}
         onMode={(categoryMode) => onFilters({ ...filters, categoryMode })}
-        label={categoryLabel}
+        label={(c) => treeLabel(c, subsOf(c))}
         subs={subsOf}
-        subPicked={filters.subcategories}
-        onToggleSub={toggleSubcategory}
         subLabel={pairLabel}
       />
 
-      {/* Searchable, and the categories one is not: there are a dozen categories
-          and several hundred merchants. */}
       <Picker
-        searchable
         title="Merchants"
         options={merchants}
         picked={filters.merchants}
@@ -629,26 +609,18 @@ export const FilterBar = ({
           aria-label="Active filters"
         >
           {/* The mode is invisible once the menu closes, so the chips carry it. */}
-          {filters.categories.map((c) => (
-            <Chip
-              key={c}
-              label={excluding ? `Not ${categoryLabel(c)}` : categoryLabel(c)}
-              tone={excluding ? "exclude" : "include"}
-              onRemove={() => toggleCategory(c)}
-            />
-          ))}
-          {/* No dropdown of its own: a subcategory is picked by opening its
-              category on the spending chart, so this is where one becomes
-              visible and removable. */}
-          {filters.subcategories.map((pair) => {
-            const name = `${categoryLabel(pair.slice(0, pair.indexOf("/")))} › ${pairLabel(pair)}`;
-            const not = filters.subcategoryMode === "exclude";
+          {filters.categories.map((c) => {
+            // A pair carries its parent, so a chip reading "Kafe" alone never
+            // leaves you wondering whose kafe it is.
+            const name = c.includes("/")
+              ? `${categoryLabel(splitPair(c)[0])} › ${pairLabel(c)}`
+              : treeLabel(c, subsOf(c));
             return (
               <Chip
-                key={pair}
-                label={not ? `Not ${name}` : name}
-                tone={not ? "exclude" : "include"}
-                onRemove={() => toggleSubcategory(pair)}
+                key={c}
+                label={excluding ? `Not ${name}` : name}
+                tone={excluding ? "exclude" : "include"}
+                onRemove={() => toggleCategory(c)}
               />
             );
           })}

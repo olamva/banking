@@ -294,34 +294,59 @@ test('AXES names every list filter with the field holding its mode', () => {
   }
 });
 
-test('the subcategory filter matches the pair, so one sub under two mains stays apart', () => {
+test('the category filter matches the pair, so one sub under two mains stays apart', () => {
   // `kollektivtransport` is a real sub under both `reise` and `bil_og_transport`.
   // A bare-sub filter would show rows from both and quietly overcount.
   const trip = txn({ id: '1', amount: -100, category: 'reise', subcategory: 'kollektivtransport' });
   const commute = txn({ id: '2', amount: -100, category: 'bil_og_transport', subcategory: 'kollektivtransport' });
-  const f = { ...NO_FILTERS, subcategories: ['reise/kollektivtransport'] };
+  const f = { ...NO_FILTERS, categories: ['reise/kollektivtransport'] };
   assert.equal(matchesFilters(trip, f), true);
   assert.equal(matchesFilters(commute, f), false);
+});
+
+/**
+ * The bug two axes had: `cat=annet_lan_og_gjeld&sub=dagligvarer/andre_dagligvarer`
+ * asked for rows that were both at once and drew an empty page. A tree with
+ * checkboxes means a union, and one list is what gives a union.
+ */
+test('a category and a subcategory of some other category are a union, not an empty page', () => {
+  const loan = txn({ id: '1', amount: -100, category: 'annet_lan_og_gjeld', subcategory: 'studielan' });
+  const other = txn({ id: '2', amount: -100, category: 'dagligvarer', subcategory: 'andre_dagligvarer' });
+  const neither = txn({ id: '3', amount: -100, category: 'dagligvarer', subcategory: 'dagligvarer' });
+  const f = { ...NO_FILTERS, categories: ['annet_lan_og_gjeld', 'dagligvarer/andre_dagligvarer'] };
+  assert.equal(matchesFilters(loan, f), true);
+  assert.equal(matchesFilters(other, f), true);
+  assert.equal(matchesFilters(neither, f), false);
+});
+
+test('a category listed alone still takes all of its subcategories with it', () => {
+  const f = { ...NO_FILTERS, categories: ['dagligvarer'] };
+  assert.equal(matchesFilters(txn({ id: '1', amount: -100, category: 'dagligvarer', subcategory: 'andre_dagligvarer' }), f), true);
+  // And excluding the parent excludes the children, for the same reason.
+  const not = { ...NO_FILTERS, categories: ['dagligvarer'], categoryMode: 'exclude' as const };
+  assert.equal(matchesFilters(txn({ id: '1', amount: -100, category: 'dagligvarer', subcategory: 'andre_dagligvarer' }), not), false);
+});
+
+test('excluding one subcategory leaves its siblings in', () => {
+  const f = { ...NO_FILTERS, categories: ['dagligvarer/andre_dagligvarer'], categoryMode: 'exclude' as const };
+  assert.equal(matchesFilters(txn({ id: '1', amount: -100, category: 'dagligvarer', subcategory: 'andre_dagligvarer' }), f), false);
+  assert.equal(matchesFilters(txn({ id: '2', amount: -100, category: 'dagligvarer', subcategory: 'dagligvarer' }), f), true);
 });
 
 test('a category whose rows have no subcategory is still selectable', () => {
   // Half of rules/overrides.json still names one level, so "the part nothing has
   // named yet" has to be reachable or the drill-down shows less than its parent.
   const bare = txn({ id: '1', amount: -100, category: 'vipps', subcategory: null });
-  assert.equal(matchesFilters(bare, { ...NO_FILTERS, subcategories: ['vipps/'] }), true);
+  assert.equal(matchesFilters(bare, { ...NO_FILTERS, categories: ['vipps/'] }), true);
   assert.equal(subcategoryOf(bare), 'vipps/');
 });
 
-test('an empty subcategory list shows every row, like every other axis', () => {
-  const t = txn({ id: '1', amount: -100, category: 'reise', subcategory: 'flybilletter' });
-  assert.equal(matchesFilters(t, NO_FILTERS), true);
-  assert.equal(matchesFilters(t, { ...NO_FILTERS, subcategories: ['reise/flybilletter'], subcategoryMode: 'exclude' }), false);
-});
-
-test('subcategories are an axis like the rest, so the toggle code covers them', () => {
-  assert.equal(AXES.subcategories, 'subcategoryMode');
-  assert.deepEqual(distinctSubcategories([
-    txn({ id: '1', amount: -100, category: 'reise', subcategory: 'flybilletter' }),
-    txn({ id: '2', amount: -100, category: 'vipps', subcategory: null }),
-  ]), ['reise/flybilletter', 'vipps/']);
+test('distinctSubcategories lists the pairs, including the unnamed remainder', () => {
+  assert.deepEqual(
+    distinctSubcategories([
+      txn({ id: '1', amount: -100, category: 'reise', subcategory: 'flybilletter' }),
+      txn({ id: '2', amount: -100, category: 'vipps', subcategory: null }),
+    ]),
+    ['reise/flybilletter', 'vipps/'],
+  );
 });

@@ -324,6 +324,32 @@ Notes from the real data, not the plan:
   the bank shrugged at reaches the guess. `mccGroup` is the honest version of
   the same signal and needs `Txn` widened first.
 
+## The page's two-level categories
+
+`Categorized` carries `category` and `subcategory`, and **`Filters.categories`
+holds both levels in one list** — a bare `dagligvarer` beside a pair
+`dagligvarer/andre_dagligvarer`, matching if either is listed. It was two axes
+for about an hour, and two axes ANDed: `cat=annet_lan_og_gjeld` with
+`sub=dagligvarer/andre_dagligvarer` asked for rows that were both at once and
+drew an empty page. A tree with checkboxes means a union, and one list gives a
+union for nothing — while excluding a parent still takes its children, because
+the bare slug is one of the candidates tested.
+
+A pair is always `category/sub`, never a bare sub: `dagligvarer` is a sub under
+itself and `kollektivtransport` sits under two mains.
+
+`src/core/labels.ts` names them, from three sources in order — a gitignored
+`rules/categories.json`, the bank's own `mainI18n`/`subI18n` read off the rows,
+then the slug tidied. Mains and subs are looked up in **separate maps**: one slug
+can be both and mean different things, `dagligvarer` being a main the bank calls
+`Dagligvarer` and a sub it calls `Matvarer`. Tidying is right for most of what we
+invent, which is what keeps that file down to five entries.
+
+A category with exactly one *named* subcategory reads as that subcategory —
+`annet_lan_og_gjeld` is `Studielån` and nothing else, so the parent is the vaguer
+of two names for one set of rows. A lone *unnamed* child is not a better name and
+keeps the parent's: `vipps` must not read as `Annet`.
+
 ## Exclusions
 
 Internal transfers are **flagged, never dropped** — the excluded set has to be

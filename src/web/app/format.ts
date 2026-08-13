@@ -41,6 +41,31 @@ export const categoryLabel = (slug: string): string => LABELS.category(slug);
 export const subcategoryLabel = (category: string, sub: string | null): string =>
   LABELS.subcategory(category, sub);
 
+/** Split a `category/sub` pair; an empty sub half means the row had none. */
+export const splitPair = (pair: string): [string, string | null] => {
+  const cut = pair.indexOf("/");
+  if (cut === -1) return [pair, null];
+  const sub = pair.slice(cut + 1);
+  return [pair.slice(0, cut), sub === "" ? null : sub];
+};
+
+/** What one pair is called on its own, without repeating its parent. */
+export const pairLabel = (pair: string): string => subcategoryLabel(...splitPair(pair));
+
+/**
+ * What a category row in a tree is called, given the pairs beneath it.
+ *
+ * A category with exactly one *named* child reads as that child: everything
+ * filed under `annet_lan_og_gjeld` is a student loan, so "Annet lån og gjeld"
+ * is the vaguer of two names for one set of rows and "Studielån" is the useful
+ * one. A category whose only child is the unnamed remainder keeps its own name
+ * — "Vennebetaling" must not become "Annet".
+ */
+export const treeLabel = (category: string, pairs: string[]): string =>
+  pairs.length === 1 && splitPair(pairs[0]!)[1] !== null
+    ? pairLabel(pairs[0]!)
+    : categoryLabel(category);
+
 export const monthLabel = (month: string): string => {
   const [y, m] = month.split("-").map(Number);
   return new Date(Date.UTC(y!, m! - 1, 1)).toLocaleDateString("nb-NO", {

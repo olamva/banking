@@ -72,10 +72,6 @@ export const toParams = (s: UrlState): string => {
   if (s.filters.categoryMode !== 'include') p.set('cat_mode', s.filters.categoryMode);
   // One param per merchant, not a joined list: a merchant name can contain a
   // comma, and a category slug cannot.
-  // Repeated rather than comma-joined: a pair carries a slash, and one day a
-  // hand-named subcategory will carry a comma too.
-  for (const sub of s.filters.subcategories) p.append('sub', sub);
-  if (s.filters.subcategoryMode !== 'include') p.set('sub_mode', s.filters.subcategoryMode);
   for (const m of s.filters.merchants) p.append('m', m);
   if (s.filters.merchantMode !== 'include') p.set('m_mode', s.filters.merchantMode);
   // Repeated for the same reason as merchants: an account is named by hand and
@@ -100,8 +96,6 @@ export const fromParams = (p: URLSearchParams): UrlState => ({
   filters: {
     categories: p.get('cat')?.split(',').filter(Boolean) ?? [],
     categoryMode: p.get('cat_mode') === 'exclude' ? 'exclude' : 'include',
-    subcategories: p.getAll('sub').filter(Boolean),
-    subcategoryMode: p.get('sub_mode') === 'exclude' ? 'exclude' : 'include',
     merchants: p.getAll('m').filter(Boolean),
     merchantMode: p.get('m_mode') === 'exclude' ? 'exclude' : 'include',
     accounts: p.getAll('acct').filter(Boolean),
