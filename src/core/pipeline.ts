@@ -11,6 +11,7 @@ import { normalizeMonth } from './normalize.ts';
 import { exclude, type Accounts } from './exclude.ts';
 import {
   categorize,
+  loadFamily,
   loadGiro,
   loadOverrides,
   loadPayees,
@@ -63,6 +64,7 @@ export async function pipeline(month: string, { rename = true } = {}): Promise<C
     await loadPeers(),
     await loadGiro(),
     cards,
+    await loadFamily(),
   );
   // Last, so every rule above matched the name the bank actually sent.
   return rename ? renamePayees(rows, await loadPayees()) : rows;

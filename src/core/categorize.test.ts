@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import {
   bankPair,
   categorize,
+  loadFamily,
   loadOverrides,
   loadPayees,
   loadPeers,
@@ -530,4 +531,32 @@ test('an excluded row takes no subcategory from the bank either', () => {
   )[0]!;
   assert.equal(out.category, 'overfoering');
   assert.equal(out.subcategory, null);
+});
+
+test('money in from family is family support, money out to them is a peer payment', () => {
+  const from = (amount: number) =>
+    categorize(
+      [classified({ amount, description: 'Margrethe Munthe Vassbotn', counterparty: 'Margrethe Munthe Vassbotn', typeText: 'Straksbetaling', bankCategory: 'diverse', bankSub: 'vennebetaling' })],
+      {}, [], ['margrethe'], {}, new Set(), ['margrethe'],
+    )[0]!;
+  // In: family support, which is why it sits under the bank's income main.
+  assert.equal(`${from(500).category}/${from(500).subcategory}`, 'innskudd/familie');
+  // Out: paying a relative back is not income, and filing it under one would be
+  // a contradiction the category itself cannot hold.
+  assert.equal(`${from(-500).category}/${from(-500).subcategory}`, 'diverse/vennebetaling');
+});
+
+test('a standing arrangement keeps the name giro.json gave it, family or not', () => {
+  // Pocket money is family money that already has a better label, so the lump
+  // rule has to win — which means it runs above the family list.
+  const out = categorize(
+    [classified({ amount: 150, description: 'Tarjei', counterparty: 'Tarjei', typeText: 'Avtale', bankCategory: 'diverse', bankSub: 'overforing' })],
+    {}, [], [], { tarjei: 'innskudd/lommepenger' }, new Set(), ['tarjei'],
+  )[0]!;
+  assert.equal(out.category, 'innskudd');
+  assert.equal(out.subcategory, 'lommepenger');
+});
+
+test('loadFamily returns [] when the file is absent', async () => {
+  assert.deepEqual(await loadFamily('rules/does-not-exist.json'), []);
 });
