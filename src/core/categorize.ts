@@ -316,12 +316,39 @@ function keepBankSub(pair: Pair, t: Classified): Pair {
  * between "this line is our name for something the bank already sends, rewrite
  * it" and "this line is the only thing standing between a canteen and the rent".
  */
+/**
+ * The bank's name for something -> ours. A bare key renames a *main*; a
+ * `main/sub` key renames a whole **pair** to one category of ours.
+ *
+ * The pair half is what lets `diverse` be a catch-all and still carry its
+ * subcategories through. The bank's word for a peer payment is
+ * `diverse/vennebetaling`, and collapsing `diverse` threw that away at the main
+ * level before the sub was ever read — which is the only reason
+ * `rules/vipps.json` had to name 176 people the bank had already recognised.
+ * Same for the other five: every one of these was a hand-written override
+ * against a pair the bank sends on its own.
+ *
+ * The renamed pair keeps no subcategory. `vipps/vennebetaling` would draw
+ * "Vennebetaling › Vennebetaling"; the slug already *is* the pair's name.
+ */
+const OURS: Record<string, string> = {
+  [BANK_FIXED_COSTS]: FIXED_COSTS,
+  'diverse/vennebetaling': PEER_PAYMENT,
+  'diverse/renter_og_gebyrer': 'avgifter',
+  'diverse/renter_innskudd': 'renter_og_fordeler',
+  'diverse/medlemskap_veldedighet': 'medlemskap_og_veldedighet',
+  'diverse/minibank': 'kontantuttak',
+  'diverse/skatt': 'skatt',
+};
+
 export function bankPair(t: { bankCategory: string | null; bankSub: string | null }): Pair | null {
-  if (!t.bankCategory || BANK_CATCH_ALL.has(t.bankCategory)) return null;
-  return {
-    category: t.bankCategory === BANK_FIXED_COSTS ? FIXED_COSTS : t.bankCategory,
-    subcategory: t.bankSub,
-  };
+  if (!t.bankCategory) return null;
+  // The pair first, and deliberately above the catch-all test: `diverse` is a
+  // catch-all as a main and never as a pair.
+  const asPair = t.bankSub && OURS[`${t.bankCategory}/${t.bankSub}`];
+  if (asPair) return flat(asPair);
+  if (BANK_CATCH_ALL.has(t.bankCategory)) return null;
+  return { category: OURS[t.bankCategory] ?? t.bankCategory, subcategory: t.bankSub };
 }
 
 function categoryFor(
