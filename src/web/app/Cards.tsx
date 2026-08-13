@@ -10,7 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { merchantOf } from "../../core/select.ts";
+import { merchantOf, subcategoryOf } from "../../core/select.ts";
 import { subscriptionGroups, type SubscriptionGroup } from "../../core/stats.ts";
 import type { Categorized } from "../../core/types.ts";
 import {
@@ -19,6 +19,7 @@ import {
   fmtNOK,
   fmtNOKExact,
   fmtPct,
+  subcategoryLabel,
   txnFields,
 } from "./format.ts";
 import {
@@ -431,12 +432,21 @@ const TXN_SORTS = {
   // under S, where it reads, and not under the `stroem` nobody sees.
   category: (a: Categorized, b: Categorized) =>
     categoryLabel(a.category).localeCompare(categoryLabel(b.category)),
+  subcategory: (a: Categorized, b: Categorized) =>
+    subcategoryLabel(a.category, a.subcategory).localeCompare(
+      subcategoryLabel(b.category, b.subcategory),
+    ),
   account: (a: Categorized, b: Categorized) => a.account.localeCompare(b.account),
   amount: (a: Categorized, b: Categorized) => a.amount - b.amount,
 };
 
 export const useTxnSort = (txns: Categorized[]) =>
-  useSort(txns, TXN_SORTS, "date", ["merchant", "category", "account"]);
+  useSort(txns, TXN_SORTS, "date", [
+    "merchant",
+    "category",
+    "subcategory",
+    "account",
+  ]);
 
 interface SearchBoxProps {
   value: string;
@@ -669,6 +679,7 @@ interface TransactionsCardProps {
   onSearch: (search: string) => void;
   /** The merchant, category and account cells filter to themselves; see `PickCell`. */
   onMerchant: (merchant: string, meta: boolean) => void;
+  /** Takes a bare category or a `category/sub` pair — one list holds both levels. */
   onCategory: (category: string, meta: boolean) => void;
   onAccount: (account: string, meta: boolean) => void;
 }
@@ -706,6 +717,12 @@ export const TransactionsCard = ({
     () => [...new Set(txns.map((t) => categoryLabel(t.category)))],
     [txns],
   );
+  const subcategorySizes = useMemo(
+    () => [
+      ...new Set(txns.map((t) => subcategoryLabel(t.category, t.subcategory))),
+    ],
+    [txns],
+  );
 
   return (
     <Card title={`Transactions (${txns.length})`} icon={TransactionsIcon}>
@@ -730,6 +747,10 @@ export const TransactionsCard = ({
             head("Date", "date", { min: true }),
             head("Merchant / description", "merchant"),
             head("Category", "category", { min: true, sizer: categorySizes }),
+            head("Subcategory", "subcategory", {
+              min: true,
+              sizer: subcategorySizes,
+            }),
             head("Account", "account", { min: true }),
             head("Amount", "amount", {
               num: true,
@@ -751,6 +772,13 @@ export const TransactionsCard = ({
             <PickCell
               label={categoryLabel(t.category)}
               value={t.category}
+              onPick={onCategory}
+            />,
+            /* Same filter axis as the category cell — `Filters.categories`
+               holds both levels, so the pair is a value in the same list. */
+            <PickCell
+              label={subcategoryLabel(t.category, t.subcategory)}
+              value={subcategoryOf(t)}
               onPick={onCategory}
             />,
             <PickCell label={t.account} onPick={onAccount} />,
