@@ -186,3 +186,57 @@ test('an SB1 row with no description at all falls back to typeText', () => {
     assert.equal(txn.counterparty, null);
   });
 });
+
+test('the bank subcategory and both i18n names come through, with the confidence', () => {
+  withMonthDir({
+    'acct.json': {
+      transactions: [{
+        transaction: {
+          id: 'sb1-1', accountKey: 'acct', amount: -249, date: Date.UTC(2026, 5, 30, 22, 0, 0),
+          cleanedDescription: 'Apotek 1', typeText: 'VISA Varekjøp',
+        },
+        // More than one candidate, sorted by confidence down — 441 rows on
+        // record look like this. The first is the bank's answer; the rest are
+        // the runners-up and are dropped.
+        categories: [
+          { confidence: 100, main: 'helse_og_velvaere', mainI18n: 'Helse og velvære', sub: 'apotek', subI18n: 'Apotek' },
+          { confidence: 41, main: 'ukategorisert', mainI18n: 'Ukategorisert', sub: 'annet', subI18n: 'Ukategorisert' },
+        ],
+        recurring: false,
+        subscription: false,
+      }],
+    },
+  }, (dir) => {
+    const [txn] = normalizeMonth(dir);
+    assert.equal(txn!.bankCategory, 'helse_og_velvaere');
+    assert.equal(txn!.bankSub, 'apotek');
+    assert.equal(txn!.bankCategoryName, 'Helse og velvære');
+    assert.equal(txn!.bankSubName, 'Apotek');
+    assert.equal(txn!.bankConfidence, 100);
+  });
+});
+
+test('a category with no sub reads as no sub, rather than crashing the rebuild', () => {
+  withMonthDir({
+    'acct.json': {
+      transactions: [{
+        transaction: {
+          id: 'sb1-1', accountKey: 'acct', amount: -100, date: Date.UTC(2026, 5, 30, 22, 0, 0),
+          cleanedDescription: 'Something', typeText: 'VISA Varekjøp',
+        },
+        // Every row on record carries all four, but the bank has never promised
+        // them and one missing key must not take four thousand rows with it.
+        categories: [{ main: 'dagligvarer' }],
+        recurring: false,
+        subscription: false,
+      }],
+    },
+  }, (dir) => {
+    const [txn] = normalizeMonth(dir);
+    assert.equal(txn!.bankCategory, 'dagligvarer');
+    assert.equal(txn!.bankSub, null);
+    assert.equal(txn!.bankCategoryName, null);
+    assert.equal(txn!.bankSubName, null);
+    assert.equal(txn!.bankConfidence, null);
+  });
+});

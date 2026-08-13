@@ -3,7 +3,16 @@ import assert from 'node:assert/strict';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { categorize, loadOverrides, loadPayees, loadPeers, loadSubscriptions, renamePayees } from './categorize.ts';
+import {
+  bankPair,
+  categorize,
+  loadOverrides,
+  loadPayees,
+  loadPeers,
+  loadSubscriptions,
+  renamePayees,
+  splitCategory,
+} from './categorize.ts';
 import type { Classified } from './types.ts';
 
 /** The card, as `rules/accounts.json` names it — the travel guess sees these rows and no others. */
@@ -19,6 +28,10 @@ function classified(overrides: Partial<Classified>): Classified {
     description: 'Rema 1000',
     counterparty: 'Rema 1000',
     bankCategory: 'dagligvarer',
+    bankSub: null,
+    bankCategoryName: null,
+    bankSubName: null,
+    bankConfidence: null,
     typeText: 'VISA Varekjøp',
     remoteAccountNumber: null,
     isRecurring: false,
@@ -377,4 +390,61 @@ test('renamePayees names a row the bank left nameless, by account number', () =>
 
 test('loadPayees returns {} when the file is absent', async () => {
   assert.deepEqual(await loadPayees('does-not-exist.json'), {});
+});
+
+test('a rule value carrying a slash sets both levels, and a bare one sets only the first', () => {
+  // The two forms coexist on purpose: rules/overrides.json is migrated a line
+  // at a time, and the category half is the same string either way, so the page
+  // does not move while half the file is still bare.
+  const pair = categorize([classified({ description: 'Bar Circus' })], { 'bar circus': 'kafe_og_restaurant/utesteder' })[0]!;
+  assert.equal(pair.category, 'kafe_og_restaurant');
+  assert.equal(pair.subcategory, 'utesteder');
+
+  const bare = categorize([classified({ description: 'Bar Circus' })], { 'bar circus': 'uteliv' })[0]!;
+  assert.equal(bare.category, 'uteliv');
+  assert.equal(bare.subcategory, null);
+});
+
+test("the bank's own subcategory rides along when no rule fires", () => {
+  const out = categorize([classified({ bankCategory: 'helse_og_velvaere', bankSub: 'apotek' })], {})[0]!;
+  assert.equal(out.category, 'helse_og_velvaere');
+  assert.equal(out.subcategory, 'apotek');
+});
+
+test('the faste_boutgifter rename keeps the bank sub underneath it', () => {
+  // The rename is ours; the pair below it is still the bank's own answer.
+  const out = categorize([classified({ bankCategory: 'faste_boutgifter', bankSub: 'stroem' })], {})[0]!;
+  assert.equal(out.category, 'faste_utgifter');
+  assert.equal(out.subcategory, 'stroem');
+});
+
+test('a guess and an excluded row name no subcategory, because neither read one', () => {
+  const abroad = categorize(
+    [classified({ accountKey: 'card', bankCategory: null, counterparty: 'LAWSON, TOKYO, JAPAN' })],
+    {}, [], [], {}, CARDS,
+  )[0]!;
+  assert.equal(abroad.category, 'reise');
+  // `reise/annen_reise` would be an invented claim — the guess reads a country
+  // off a merchant string and knows nothing about the second level.
+  assert.equal(abroad.subcategory, null);
+
+  const transfer = categorize([classified({ excluded: true, reason: 'internal transfer', bankSub: 'overforing' })], {})[0]!;
+  assert.equal(transfer.category, 'overfoering');
+  assert.equal(transfer.subcategory, null);
+});
+
+test('splitCategory keeps a stray second slash in the sub rather than trimming it', () => {
+  // No bank slug has ever held one, so `a/b/c` is a typo — better seen on the
+  // page than silently swallowed.
+  assert.deepEqual(splitCategory('a/b/c'), { category: 'a', subcategory: 'b/c' });
+  assert.deepEqual(splitCategory('a'), { category: 'a', subcategory: null });
+});
+
+test('bankPair is null for the catch-alls, so nothing downstream reads diverse as an answer', () => {
+  assert.equal(bankPair({ bankCategory: 'diverse', bankSub: 'vennebetaling' }), null);
+  assert.equal(bankPair({ bankCategory: 'ukategorisert', bankSub: 'annet' }), null);
+  assert.deepEqual(bankPair({ bankCategory: 'dagligvarer', bankSub: 'dagligvarer' }), {
+    category: 'dagligvarer',
+    subcategory: 'dagligvarer',
+  });
 });

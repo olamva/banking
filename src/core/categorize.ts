@@ -3,11 +3,21 @@ import { readFile } from 'node:fs/promises';
 import type { Classified, Categorized } from './types.ts';
 
 /**
- * rules/overrides.json: { "<pattern>": "<category>" }
+ * rules/overrides.json: { "<pattern>": "<category>" or "<category>/<sub>" }
  *
  * A pattern is a case-insensitive substring, or a regex if written as
  * `/.../ ` — `"/\\bleie\\b/"` matches the word *leie* but not *utleie* or
  * *leiebil*, which a substring cannot express.
+ *
+ * **The value takes two forms and both are current.** A bare `"dagligvarer"`
+ * names the category alone; `"kafe_og_restaurant/utesteder"` names the bank's
+ * own pair. Both forms are read by `splitCategory` below, which is what lets
+ * this file be rewritten a line at a time: the category half is unchanged by
+ * adding a sub, so the page does not move while the migration is half done.
+ *
+ * The pair form is the one to write. `pnpm sb1 categories` says which lines
+ * still earn their place — 81 of the 175 patterns on record decide exactly what
+ * the bank's own subcategory already says, and delete cleanly.
  *
  * Matched against `description` and `counterparty` both. They usually say the
  * same thing — `counterparty` is the bank's cleaned form of the description —
@@ -68,6 +78,17 @@ const FOREIGN_MERCHANT = /,\s*(?!NOR(WAY)?$)[A-Z][A-Za-z .()]*$/;
  * The bank's own catch-alls carry no more information than having no category
  * at all, so they collapse into one bucket rather than looking like real ones.
  * It sends both — `diverse`, and `ukategorisert` spelled out on the row.
+ *
+ * **This is true of the main and false of the pair**, which is the whole finding
+ * behind `Txn.bankSub`. `diverse` is the bank's largest main and every one of
+ * its 2 482 rows carries a sub that means something: `vennebetaling`,
+ * `overforing`, `renter_og_gebyrer`, `medlemskap_veldedighet`, `minibank`,
+ * `kurs_utdanning`, `skatt`. Only `ukategorisert/annet` is a genuine shrug.
+ *
+ * The collapse stays for now because undoing it moves 68 rows off
+ * `ukategorisert` and onto a `diverse` label that reads worse than the shrug it
+ * replaced — the fix for that is a display name, which is a page change and not
+ * this one. `pnpm sb1 categories` lists the rows it costs.
  */
 const BANK_CATCH_ALL = new Set(['diverse', UNCATEGORIZED]);
 
@@ -174,15 +195,45 @@ export function renamePayees<
     // Same haystack as `categorize`, account number included: SB1 sends a few
     // rows as a bare `Overføring` with no name on them at all, and the account
     // is then the only thing that says who the other party was.
-    const hit = rules.find((r) =>
-      r.matches(`${t.description} ${t.counterparty ?? ''} ${t.remoteAccountNumber ?? ''}`.toLowerCase()),
-    );
+    const hit = rules.find((r) => r.matches(haystackOf(t)));
     return hit ? { ...t, counterparty: hit.name } : t;
   });
 }
 
 type Matcher = (haystack: string) => boolean;
 type Rule = { matches: Matcher; category: string };
+
+/** What a rule decided: a category, and the second level where it named one. */
+export type Pair = { category: string; subcategory: string | null };
+
+/**
+ * A rule value -> the pair it names. `"a/b"` is both levels, `"a"` is the first
+ * alone, and a value with more than one slash keeps the rest in the sub, since
+ * no bank slug has ever contained one and a hand-typed `"a/b/c"` is a mistake
+ * better seen on the page than silently trimmed.
+ */
+export function splitCategory(value: string): Pair {
+  const cut = value.indexOf('/');
+  return cut === -1
+    ? { category: value, subcategory: null }
+    : { category: value.slice(0, cut), subcategory: value.slice(cut + 1) };
+}
+
+/**
+ * The string every pattern in every rules file is matched against.
+ *
+ * The account number is in it so a payee that bills two different things under
+ * one name can still be told apart — it is the only field that differs between
+ * SiT's rent and SiT's gym. See `Txn.remoteAccountNumber`.
+ *
+ * Exported because `report.ts` has to match patterns exactly as this file will,
+ * or a line it calls redundant is redundant only in the report.
+ */
+export const haystackOf = (t: {
+  description: string;
+  counterparty: string | null;
+  remoteAccountNumber: string | null;
+}): string => `${t.description} ${t.counterparty ?? ''} ${t.remoteAccountNumber ?? ''}`.toLowerCase();
 
 /** Compiled once per run, not once per transaction. */
 export function compile(pattern: string, source: string): Matcher {
@@ -220,17 +271,36 @@ export function categorize(
   }));
   const subs = subscriptions.map((pattern) => compile(pattern, 'rules/subscriptions.json'));
   return txns.map((t) => {
-    // The account number is in here so a payee that bills two different things
-    // under one name can still be told apart — it is the only field that differs
-    // between SiT's rent and SiT's gym. See `Txn.remoteAccountNumber`.
-    const haystack = `${t.description} ${t.counterparty ?? ''} ${t.remoteAccountNumber ?? ''}`.toLowerCase();
+    const haystack = haystackOf(t);
     return {
       ...t,
-      category: categoryFor(t, rules, peerRules, giroRules, haystack, cards),
+      ...categoryFor(t, rules, peerRules, giroRules, haystack, cards),
       // The bank's own flag stands; a pattern only ever adds to it.
       isSubscription: t.isSubscription || subs.some((m) => m(haystack)),
     };
   });
+}
+
+/** A rule that named one level only, and a guess, both say nothing about the second. */
+const flat = (category: string): Pair => ({ category, subcategory: null });
+
+/**
+ * The pair the bank's own answer becomes, or null where it said nothing usable.
+ *
+ * The sub rides along untouched even where the main is renamed: the rename is
+ * ours and the pair underneath it is still the bank's own answer.
+ *
+ * Exported so `report.ts` can tell a fallback that came from the bank from one
+ * that came from a second override. That distinction is the whole difference
+ * between "this line is our name for something the bank already sends, rewrite
+ * it" and "this line is the only thing standing between a canteen and the rent".
+ */
+export function bankPair(t: { bankCategory: string | null; bankSub: string | null }): Pair | null {
+  if (!t.bankCategory || BANK_CATCH_ALL.has(t.bankCategory)) return null;
+  return {
+    category: t.bankCategory === BANK_FIXED_COSTS ? FIXED_COSTS : t.bankCategory,
+    subcategory: t.bankSub,
+  };
 }
 
 function categoryFor(
@@ -240,20 +310,21 @@ function categoryFor(
   giroRules: Rule[],
   haystack: string,
   cards: Set<string>,
-): string {
-  if (t.excluded) return TRANSFER;
+): Pair {
+  if (t.excluded) return flat(TRANSFER);
   const override = rules.find((r) => r.matches(haystack));
-  if (override) return override.category;
+  if (override) return splitCategory(override.category);
   // A lump transfer, and a name that says what this person's lump transfers
   // are — rent from a flatmate, a share of a trip from a friend.
   if (LUMP_TYPE.test(t.typeText ?? '')) {
     const named = giroRules.find((r) => r.matches(haystack));
-    if (named) return named.category;
+    if (named) return splitCategory(named.category);
   }
-  if (peerRules.some((m) => m(haystack))) return PEER_PAYMENT;
-  if (t.bankCategory && !BANK_CATCH_ALL.has(t.bankCategory)) {
-    return t.bankCategory === BANK_FIXED_COSTS ? FIXED_COSTS : t.bankCategory;
-  }
-  if (cards.has(t.accountKey) && FOREIGN_MERCHANT.test(t.counterparty ?? '')) return TRAVEL;
-  return UNCATEGORIZED;
+  if (peerRules.some((m) => m(haystack))) return flat(PEER_PAYMENT);
+  const bank = bankPair(t);
+  if (bank) return bank;
+  // A guess from the shape of a merchant string, with nothing behind it at the
+  // second level — `reise/annen_reise` would be an invented claim, not a read one.
+  if (cards.has(t.accountKey) && FOREIGN_MERCHANT.test(t.counterparty ?? '')) return flat(TRAVEL);
+  return flat(UNCATEGORIZED);
 }

@@ -37,7 +37,23 @@ type Sb1File = {
       /** `BOOKED` or `PENDING` — see the filter in `normalizeSb1`. */
       bookingStatus?: string;
     };
-    categories: Array<{ main: string }>;
+    /**
+     * The bank's classification, richest to poorest — 441 of 8 547 rows carry
+     * more than one candidate and every one of them is sorted by `confidence`
+     * descending, so the first entry is the best and the rest are discarded.
+     *
+     * `sub`, `mainI18n` and `subI18n` are present on every row that has a
+     * `main`, without exception across the record. They are typed optional
+     * anyway: the bank has never promised them, and a missing key must read as
+     * "no subcategory" rather than crash a rebuild of four thousand rows.
+     */
+    categories: Array<{
+      main: string;
+      sub?: string;
+      mainI18n?: string;
+      subI18n?: string;
+      confidence?: number;
+    }>;
     recurring: boolean;
     subscription: boolean;
   }>;
@@ -77,6 +93,10 @@ function normalizeSb1(file: Sb1File, names: Record<string, string>): Txn[] {
     // whatever the payer typed into the payment.
     counterparty: t.cleanedDescription ?? t.remoteAccountName ?? null,
     bankCategory: categories[0]?.main ?? null,
+    bankSub: categories[0]?.sub ?? null,
+    bankCategoryName: categories[0]?.mainI18n ?? null,
+    bankSubName: categories[0]?.subI18n ?? null,
+    bankConfidence: categories[0]?.confidence ?? null,
     typeText: t.typeText ?? null,
     remoteAccountNumber:
       t.remoteAccountNumber && t.remoteAccountNumber !== NO_ACCOUNT ? t.remoteAccountNumber : null,

@@ -37,8 +37,16 @@ export function monthsOnDisk(): string[] {
  *
  * Exclusion runs per month because both legs of an internal transfer share a
  * date and so can never land in different months.
+ *
+ * `rename: false` stops before `renamePayees` and hands back the names the bank
+ * actually sent. Only the override report wants that, and it must have it: the
+ * rename runs *after* `categorize`, so a rule is never matched against a renamed
+ * name, and a report judging rules against the stored name judges a world the
+ * pipeline never ran. `rules/payees.json` rewriting a payee into a string that
+ * some *other* override pattern matches is enough to invert a verdict — one
+ * entry on record does exactly that.
  */
-export async function pipeline(month: string): Promise<Categorized[]> {
+export async function pipeline(month: string, { rename = true } = {}): Promise<Categorized[]> {
   const accounts: Accounts = JSON.parse(await readFile('rules/accounts.json', 'utf8'));
   const names = Object.fromEntries(
     Object.entries(accounts).flatMap(([key, a]) => (a.name ? [[key, a.name] as const] : [])),
@@ -57,7 +65,7 @@ export async function pipeline(month: string): Promise<Categorized[]> {
     cards,
   );
   // Last, so every rule above matched the name the bank actually sent.
-  return renamePayees(rows, await loadPayees());
+  return rename ? renamePayees(rows, await loadPayees()) : rows;
 }
 
 /**
