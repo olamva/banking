@@ -219,28 +219,6 @@ const GrainToggle = ({ grain, offered, onGrain }: GrainToggleProps) =>
     </span>
   );
 
-interface TrendToggleProps {
-  on: boolean;
-  onToggle: () => void;
-}
-
-/**
- * Beside the grain toggle, in the same pill, because it is the same kind of
- * thing: it changes what this one card draws. It was a clickable key in the
- * legend first — cheap, and wrong, since every other key there is inert, so the
- * one that could be pressed read as a label like the rest of them.
- */
-const TrendToggle = ({ on, onToggle }: TrendToggleProps) => (
-  <button
-    type="button"
-    aria-pressed={on}
-    onClick={onToggle}
-    className={`inline-flex rounded-md border border-line px-2 py-1 text-[11px] ${on ? "bg-series-1 text-white" : "bg-page text-ink-soft"}`}
-  >
-    Net trend
-  </button>
-);
-
 interface DashboardProps {
   txns: Categorized[];
   filters: Filters;
@@ -388,19 +366,6 @@ const Dashboard = ({
    */
   const band = anyIncome && (running || bucket === "month");
 
-  /**
-   * Net has a trend worth fitting in exactly the cases the band is drawn for,
-   * and for a different reason each time it is not. A running total only ever
-   * climbs, so a line fitted to it reports an average rate the tile above
-   * already gives as a number; with no income in the window, net is the
-   * spending line upside down and says nothing the red one does not.
-   *
-   * The switch is local, not in the URL the period, grain and filters share: it
-   * is how one card is being read, not what is on screen, so nothing about a
-   * shared link is wrong without it.
-   */
-  const offersTrend = anyIncome && !running;
-  const [showTrend, setShowTrend] = useState(true);
 
   // Nothing renders a box it has no rows for. Filtered to rent, "income" is a
   // zero and "net" is the spend again with a minus sign; both are noise.
@@ -449,12 +414,7 @@ const Dashboard = ({
             }`}
             icon={MonthlyIcon}
             action={
-              <span className="flex items-center gap-2">
-                <GrainToggle grain={grain} offered={offered} onGrain={onGrain} />
-                {offersTrend && (
-                  <TrendToggle on={showTrend} onToggle={() => setShowTrend((v) => !v)} />
-                )}
-              </span>
+              <GrainToggle grain={grain} offered={offered} onGrain={onGrain} />
             }
           >
             <SpendLines
@@ -462,7 +422,11 @@ const Dashboard = ({
               bucket={bucket}
               income={anyIncome}
               band={band}
-              trend={offersTrend && showTrend}
+              // A running total only ever climbs, so a line fitted to it is a
+              // straight line drawn over one — it reports an average rate the
+              // tile above already gives as a number. The legend switches it
+              // off anywhere it does mean something.
+              trend={!running}
               compare={compare}
               compareLabel={vs?.label}
             />
