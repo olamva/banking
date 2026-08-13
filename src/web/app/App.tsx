@@ -355,7 +355,9 @@ const Dashboard = ({
 
   // Filtered to a spending category every point's income is zero, and a line
   // along the axis is not a finding. The chart drops it; the title follows.
+  // Both ways round: filtered to Lånekassen nothing was ever spent.
   const anyIncome = series.some((s) => s.totalIn > 0);
+  const anySpend = series.some((s) => s.totalOut > 0);
 
   /**
    * The shading, which is a narrower question than the line above it. It reads
@@ -364,7 +366,7 @@ const Dashboard = ({
    * call almost every one of them an overspend. Accumulated, or by month, the
    * gap is a surplus again and the band comes back.
    */
-  const band = anyIncome && (running || bucket === "month");
+  const band = anyIncome && anySpend && (running || bucket === "month");
 
   // Nothing renders a box it has no rows for. Filtered to rent, "income" is a
   // zero and "net" is the spend again with a minus sign; both are noise.
@@ -408,7 +410,7 @@ const Dashboard = ({
       {series.length > 1 && (
         <div className="mb-4">
           <Card
-            title={`${anyIncome ? "Income & spend" : "Spending"}${
+            title={`${anyIncome ? (anySpend ? "Income & spend" : "Income") : "Spending"}${
               running ? ", running total" : grain === "day" ? " by day" : " by month"
             }`}
             icon={MonthlyIcon}
@@ -420,6 +422,7 @@ const Dashboard = ({
               series={series}
               bucket={bucket}
               income={anyIncome}
+              spend={anySpend}
               band={band}
               compare={compare}
               compareLabel={vs?.label}

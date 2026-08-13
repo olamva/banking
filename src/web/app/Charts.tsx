@@ -337,6 +337,8 @@ interface SpendLinesProps {
    * derives it because it titles the card.
    */
   income: boolean;
+  /** The same the other way round: filtered to Lånekassen nothing was spent. */
+  spend: boolean;
   /**
    * Whether to shade between the two lines. Separate from `income`, because the
    * band is the thing that does not survive raw days: it reads the vertical gap
@@ -359,6 +361,7 @@ export const SpendLines = ({
   series,
   bucket,
   income: hasIncome,
+  spend: hasSpend,
   band: hasBand,
   compare = [],
   compareLabel,
@@ -518,9 +521,13 @@ export const SpendLines = ({
       ) : (
         <span />
       )}
-      <span className="text-ink-soft">Spent</span>
-      <span className="text-right">{fmtNOK(p.totalOut)}</span>
-      {was && <span className="text-right text-ink-muted">{fmtNOK(was.totalOut)}</span>}
+      {hasSpend && (
+        <>
+          <span className="text-ink-soft">Spent</span>
+          <span className="text-right">{fmtNOK(p.totalOut)}</span>
+          {was && <span className="text-right text-ink-muted">{fmtNOK(was.totalOut)}</span>}
+        </>
+      )}
       {hasIncome && (
         <>
           <span className="text-ink-soft">Income</span>
@@ -558,10 +565,11 @@ export const SpendLines = ({
   return (
     <div ref={ref}>
       {/* One series needs no key telling it apart from the others — but a
-          dashed twin of it does, even with no income to name. */}
-      {(hasIncome || compare.length > 0) && series.length > 0 && (
+          dashed twin of it does, even with only one line to name. */}
+      {((hasIncome && hasSpend) || compare.length > 0) && series.length > 0 && (
         <ChartLegend
           income={hasIncome}
+          spend={hasSpend}
           band={hasBand}
           compareLabel={compare.length > 0 ? compareLabel : undefined}
         />
@@ -603,12 +611,14 @@ export const SpendLines = ({
               rather than read off. */}
           {runsOf(cmp).map((run) => (
             <g key={`cmp-${run[0]!.i}`} className="opacity-40">
-              <polyline
-                points={pts(run, (p) => p.totalOut).join(' ')}
-                strokeWidth={1.5}
-                strokeDasharray="4 3"
-                className="fill-none stroke-critical-strong"
-              />
+              {hasSpend && (
+                <polyline
+                  points={pts(run, (p) => p.totalOut).join(' ')}
+                  strokeWidth={1.5}
+                  strokeDasharray="4 3"
+                  className="fill-none stroke-critical-strong"
+                />
+              )}
               {hasIncome && (
                 <polyline
                   points={pts(run, (p) => p.totalIn).join(' ')}
@@ -643,7 +653,9 @@ export const SpendLines = ({
                     <polygon points={band} clipPath={`url(#${clip}-under-${r})`} className="fill-good-strong opacity-20" />
                   </>
                 )}
-                <polyline points={pts(run, (p) => p.totalOut).join(' ')} strokeWidth={2} className="fill-none stroke-critical-strong" />
+                {hasSpend && (
+                  <polyline points={pts(run, (p) => p.totalOut).join(' ')} strokeWidth={2} className="fill-none stroke-critical-strong" />
+                )}
                 {hasIncome && (
                   <polyline points={income.join(' ')} strokeWidth={2} className="fill-none stroke-good-strong" />
                 )}
@@ -658,7 +670,9 @@ export const SpendLines = ({
               p === null ? null : (
                 <g key={p.at}>
                   {/* A stretch of one point draws no polyline, so the dots are what carries it. */}
-                  <circle cx={px(i)} cy={py(p.totalOut)} r={near === i ? 5 : 3} className="fill-critical-strong" />
+                  {hasSpend && (
+                    <circle cx={px(i)} cy={py(p.totalOut)} r={near === i ? 5 : 3} className="fill-critical-strong" />
+                  )}
                   {hasIncome && (
                     <circle cx={px(i)} cy={py(p.totalIn)} r={near === i ? 5 : 3} className="fill-good-strong" />
                   )}
@@ -670,7 +684,9 @@ export const SpendLines = ({
               it to say which point it landed on. */}
           {!dots && near !== null && dense[near] && (
             <g>
-              <circle cx={px(near)} cy={py(dense[near].totalOut)} r={4} className="fill-critical-strong" />
+              {hasSpend && (
+                <circle cx={px(near)} cy={py(dense[near].totalOut)} r={4} className="fill-critical-strong" />
+              )}
               {hasIncome && (
                 <circle cx={px(near)} cy={py(dense[near].totalIn)} r={4} className="fill-good-strong" />
               )}
@@ -705,6 +721,7 @@ export const SpendLines = ({
 
 interface ChartLegendProps {
   income: boolean;
+  spend: boolean;
   /** Whether the shading is drawn — it is keyed only where it exists. */
   band: boolean;
   /** Named when a compared period is drawn; the dashes are the same for both its lines. */
@@ -712,12 +729,14 @@ interface ChartLegendProps {
 }
 
 /** Drawn by `SpendLines` itself — it is the only chart with more than one series. */
-const ChartLegend = ({ income, band, compareLabel }: ChartLegendProps) => (
+const ChartLegend = ({ income, spend, band, compareLabel }: ChartLegendProps) => (
   <div className="mb-2 flex flex-wrap gap-3.5 text-xs text-ink-soft">
-    <span className="inline-flex items-center gap-1.5">
-      <span className="inline-block h-[3px] w-3 rounded-sm bg-critical-strong" />
-      Spent
-    </span>
+    {spend && (
+      <span className="inline-flex items-center gap-1.5">
+        <span className="inline-block h-[3px] w-3 rounded-sm bg-critical-strong" />
+        Spent
+      </span>
+    )}
     {income && (
       <span className="inline-flex items-center gap-1.5">
         <span className="inline-block h-[3px] w-3 rounded-sm bg-good-strong" />
@@ -748,10 +767,12 @@ const ChartLegend = ({ income, band, compareLabel }: ChartLegendProps) => (
         explains are the same mark. */}
     {compareLabel && (
       <span className="inline-flex items-center gap-1.5">
-        <svg aria-hidden width={16} height={income ? 9 : 3} className="shrink-0 opacity-40">
-          <line x1={0} x2={16} y1={1.5} y2={1.5} strokeWidth={3} strokeDasharray="4 3" className="stroke-critical-strong" />
+        <svg aria-hidden width={16} height={income && spend ? 9 : 3} className="shrink-0 opacity-40">
+          {spend && (
+            <line x1={0} x2={16} y1={1.5} y2={1.5} strokeWidth={3} strokeDasharray="4 3" className="stroke-critical-strong" />
+          )}
           {income && (
-            <line x1={0} x2={16} y1={7.5} y2={7.5} strokeWidth={3} strokeDasharray="4 3" className="stroke-good-strong" />
+            <line x1={0} x2={16} y1={spend ? 7.5 : 1.5} y2={spend ? 7.5 : 1.5} strokeWidth={3} strokeDasharray="4 3" className="stroke-good-strong" />
           )}
         </svg>
         {compareLabel}
