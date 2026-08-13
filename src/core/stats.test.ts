@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  annualGrowth,
   cumulative,
   dailySeries,
   monthStats,
@@ -277,6 +278,34 @@ test('spendTrend never reads income', () => {
     { at: '2026-03', totalIn: 100, totalOut: 300 },
   ]);
   assert.deepEqual(fit, { slope: 100, intercept: 100 });
+});
+
+/**
+ * The figure is there to be held against inflation, so it has to be the same
+ * kind of number: per year, and compounded. A doubling over two years is 41.4%
+ * a year, not 50% — stating the linear rise as a flat share of its start is the
+ * mistake this exists to avoid, and it reads low against a price index over any
+ * long window.
+ */
+test('annualGrowth compounds the fit between its own ends, per year', () => {
+  // 25 monthly slots is 24 months, so exactly two years — and the slope that
+  // carries 100 to 200 across them.
+  const monthly = annualGrowth({ slope: 100 / 24, intercept: 100 }, 25, 12)!;
+  assert.equal(Math.round(monthly * 1000) / 10, 41.4);
+
+  // The same window by day answers the same, which is the point of annualising:
+  // 731 daily slots is 730 days, two years again.
+  const daily = annualGrowth({ slope: 100 / 730, intercept: 100 }, 731, 365.25)!;
+  assert.ok(Math.abs(daily - monthly) < 0.001, `${daily} vs ${monthly}`);
+
+  // Flat is 0% a year, and a fall is negative — both readings, not absences.
+  assert.equal(annualGrowth({ slope: 0, intercept: 500 }, 13, 12), 0);
+  assert.ok(annualGrowth({ slope: -10, intercept: 500 }, 13, 12)! < 0);
+
+  // No base to grow from, and no time to grow over.
+  assert.equal(annualGrowth({ slope: 10, intercept: 0 }, 13, 12), null);
+  assert.equal(annualGrowth({ slope: -50, intercept: 100 }, 13, 12), null, 'ends at or below zero');
+  assert.equal(annualGrowth({ slope: 1, intercept: 100 }, 1, 12), null, 'a single slot is no span');
 });
 
 /**
