@@ -440,13 +440,35 @@ test('splitCategory keeps a stray second slash in the sub rather than trimming i
   assert.deepEqual(splitCategory('a'), { category: 'a', subcategory: null });
 });
 
-test('bankPair is null for the catch-alls, so nothing downstream reads diverse as an answer', () => {
-  assert.equal(bankPair({ bankCategory: 'diverse', bankSub: 'vennebetaling' }), null);
+test('diverse is a catch-all as a main and never as a pair', () => {
+  // The pair rename runs above the catch-all test, which is the whole point:
+  // the bank's word for a peer payment is `diverse/vennebetaling`, and
+  // collapsing `diverse` threw that away before the sub was ever read.
+  assert.deepEqual(bankPair({ bankCategory: 'diverse', bankSub: 'vennebetaling' }), {
+    category: 'vipps',
+    subcategory: null,
+  });
+  assert.deepEqual(bankPair({ bankCategory: 'diverse', bankSub: 'minibank' }), {
+    category: 'kontantuttak',
+    subcategory: null,
+  });
+  // A diverse sub nothing renames is still a shrug, and so is ukategorisert.
+  assert.equal(bankPair({ bankCategory: 'diverse', bankSub: 'overforing' }), null);
   assert.equal(bankPair({ bankCategory: 'ukategorisert', bankSub: 'annet' }), null);
   assert.deepEqual(bankPair({ bankCategory: 'dagligvarer', bankSub: 'dagligvarer' }), {
     category: 'dagligvarer',
     subcategory: 'dagligvarer',
   });
+});
+
+test('the bank finds peers rules/vipps.json never named', () => {
+  // 62 rows on record: the list is a list of people, and the bank recognises
+  // the payment type without being told who anyone is.
+  const out = categorize(
+    [classified({ description: 'Vipps*Someone', bankCategory: 'diverse', bankSub: 'vennebetaling' })],
+    {},
+  )[0]!;
+  assert.equal(out.category, 'vipps');
 });
 
 test('a rule that names one level keeps the bank sub, when the bank agrees on the category', () => {

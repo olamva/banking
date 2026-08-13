@@ -338,6 +338,22 @@ the bare slug is one of the candidates tested.
 A pair is always `category/sub`, never a bare sub: `dagligvarer` is a sub under
 itself and `kollektivtransport` sits under two mains.
 
+**`diverse` is a catch-all as a main and never as a pair**, and `bankPair` reads
+its rename table *above* the catch-all test for exactly that reason. The bank's
+word for a peer payment is `diverse/vennebetaling`; collapsing `diverse` threw
+that away before the sub was ever read, which is the only reason
+`rules/vipps.json` ever had to name 176 people the bank had already recognised.
+Six pairs rename to slugs we already had — `vennebetaling` -> `vipps`,
+`renter_og_gebyrer` -> `avgifter`, `renter_innskudd` -> `renter_og_fordeler`,
+`medlemskap_veldedighet` -> `medlemskap_og_veldedighet`, `minibank` ->
+`kontantuttak`, `skatt` -> `skatt` — and a renamed pair keeps no subcategory,
+since the slug already *is* the pair's name.
+
+That recovered 73 rows the rules had missed and took `rules/vipps.json` from 176
+names to 33 and `rules/overrides.json` to 93, with every row landing identically.
+The 33 that remain are the peers the bank calls `diverse/overforing` or shrugs
+at — 125 of their rows are one person's standing `Avtale`.
+
 `src/core/labels.ts` names them, from three sources in order — a gitignored
 `rules/categories.json`, the bank's own `mainI18n`/`subI18n` read off the rows,
 then the slug tidied. Mains and subs are looked up in **separate maps**: one slug
