@@ -328,12 +328,14 @@ const runsOf = <T,>(dense: (T | null)[]): { m: T; i: number }[][] => {
 export type Bucket = 'day' | 'month';
 
 /**
- * A thing the legend keys, and so a thing it can switch off. One per mark on
- * the chart rather than one per key: `band` is two keys, because the shading
- * means one thing above the income line and the opposite below it, and both
- * name the same polygon.
+ * A thing the legend keys, and so a thing it can switch off.
+ *
+ * The shading is not one. It had two keys, `Left over` and `Overspent`, for the
+ * one polygon they name either side of the income line — but it is a reading of
+ * the two lines rather than a mark of its own, and red above green needs no
+ * telling apart from red and green. It draws whenever the grain supports it.
  */
-type Mark = 'out' | 'in' | 'band' | 'compare' | 'trend';
+type Mark = 'out' | 'in' | 'compare' | 'trend';
 
 interface SpendLinesProps {
   /** Already in the bucket it says it is in — see `dailySeries` / `monthlySeries`. */
@@ -629,8 +631,17 @@ export const SpendLines = ({
       {series.length > 0 && (
         <ChartLegend
           income={hasIncome}
-          band={hasBand}
-          trend={trend !== null}
+          /**
+           * The slope, as what it is: kroner per slot, and a slot is whatever
+           * the bucket says. A percentage was the other option and is worse
+           * here — it needs a baseline to be a percentage *of*, and the mean of
+           * the window is not one the reader can see, so 3% would be a number
+           * with an invisible denominator. Spending is money and the rate it
+           * moves at is money too.
+           */
+          trendRate={
+            trend ? `${trend.slope > 0 ? '+' : ''}${fmtNOK(trend.slope)} / ${bucket}` : undefined
+          }
           compareLabel={compare.length > 0 ? compareLabel : undefined}
           hidden={hidden}
           onToggle={toggle}
@@ -708,11 +719,7 @@ export const SpendLines = ({
               [`${px(run[0]!.i)},${y}`, ...income, `${px(run.at(-1)!.i)},${y}`].join(' ');
             return (
               <g key={run[0]!.m.at}>
-                {/* The shading is dismissed on its own key, not with the lines
-                    it lies between: it is a reading of the two rather than a
-                    third series, and hiding a line to see the other one clearly
-                    is not a reason to lose the surplus it was drawn against. */}
-                {hasBand && shows('band') && (
+                {hasBand && (
                   <>
                     <defs>
                       <clipPath id={`${clip}-over-${r}`}>
@@ -816,10 +823,12 @@ export const SpendLines = ({
 
 interface ChartLegendProps {
   income: boolean;
-  /** Whether the shading is drawn — it is keyed only where it exists. */
-  band: boolean;
-  /** Whether the fitted line is drawn — it is keyed only where it exists. */
-  trend: boolean;
+  /**
+   * How fast the fitted line climbs, already formatted, and given only when
+   * there is a line — the key names the rate rather than the method, since
+   * `Trend` over a straight dashed line has already said the method.
+   */
+  trendRate?: string;
   /** Named when a compared period is drawn; the dashes are the same for both its lines. */
   compareLabel?: string;
   /** Which marks are switched off, so the keys can say so. */
@@ -857,7 +866,7 @@ const LegendKey = ({ on, onToggle, name, children }: LegendKeyProps) => (
 );
 
 /** Drawn by `SpendLines` itself — it is the only chart with more than one series. */
-const ChartLegend = ({ income, band, trend, compareLabel, hidden, onToggle }: ChartLegendProps) => {
+const ChartLegend = ({ income, trendRate, compareLabel, hidden, onToggle }: ChartLegendProps) => {
   const key = (mark: Mark) => ({ on: !hidden.has(mark), onToggle: () => onToggle(mark) });
   return (
     <div className="mb-2 flex flex-wrap gap-3.5 text-xs text-ink-soft">
@@ -871,34 +880,23 @@ const ChartLegend = ({ income, band, trend, compareLabel, hidden, onToggle }: Ch
           Income
         </LegendKey>
       )}
-      {band && (
-        <>
-          {/* The band is the point of the chart where it is drawn, so it gets keys
-              of its own — and none at all where it is not.
-
-              Two keys, one mark: the shading means opposite things above and
-              below the income line, so both are named, and either switches the
-              polygon they share. */}
-          <LegendKey {...key('band')} name="the shading">
-            <span className="inline-block h-2.5 w-3 rounded-sm bg-good-strong opacity-20" />
-            Left over
-          </LegendKey>
-          <LegendKey {...key('band')} name="the shading">
-            <span className="inline-block h-2.5 w-3 rounded-sm bg-critical-strong opacity-20" />
-            Overspent
-          </LegendKey>
-        </>
-      )}
       {/* Blue, because it is not a fourth reading of the money: it is the red
           line said straight, and drawing it in red would put two claims about
           spending in one colour — with the compared period already dashed and
-          red, that is three. */}
-      {trend && (
+          red, that is three.
+
+          The key carries the slope, because a straight line's whole content is
+          how steeply it leans and the eye reads that off a plot badly: the same
+          rise looks steep on a narrow card and gentle on a wide one, and the
+          axis it is read against is rescaled by whatever the biggest month
+          happens to be. */}
+      {trendRate && (
         <LegendKey {...key('trend')} name="the fitted trend">
           <svg aria-hidden width={16} height={3} className="shrink-0">
             <line x1={0} x2={16} y1={1.5} y2={1.5} strokeWidth={3} strokeDasharray="7 5" className="stroke-series-1" />
           </svg>
           Trend
+          <span className="tabular-nums text-ink-muted">{trendRate}</span>
         </LegendKey>
       )}
       {/* One key for both dashed lines — the dashes are what mark the period, and
