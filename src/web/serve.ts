@@ -65,12 +65,16 @@ export async function serve(port: number): Promise<void> {
       return;
     }
     try {
+      // Built before the headers go out, not inside `res.end`: a database that
+      // is missing or mid-rebuild throws here, and a 200 already on the wire
+      // makes the catch below unable to answer with anything at all.
+      const body = payload();
       res.writeHead(200, {
         'Content-Type': 'application/json; charset=utf-8',
         // Always fresh; a cached copy of the data is the opposite of the point.
         'Cache-Control': 'no-store',
       });
-      res.end(payload());
+      res.end(body);
     } catch (e) {
       res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
       res.end(`${e instanceof Error ? e.message : e}\n`);
