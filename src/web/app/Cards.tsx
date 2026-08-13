@@ -14,6 +14,7 @@ import { merchantOf } from "../../core/select.ts";
 import { subscriptionGroups, type SubscriptionGroup } from "../../core/stats.ts";
 import type { Categorized } from "../../core/types.ts";
 import {
+  ID_FIELD,
   categoryLabel,
   fmtNOK,
   fmtNOKExact,
@@ -645,7 +646,15 @@ const TxnDialog = ({ txn, onClose }: TxnDialogProps) => (
         {txnFields(txn).map(([name, value]) => (
           <Fragment key={name}>
             <dt className="text-ink-soft">{name}</dt>
-            <dd className="break-words">{value}</dd>
+            {/* Cut in CSS rather than in the string, so the whole id is still
+                there to select and copy — `min-w-0` because a grid track will
+                not shrink below its content without it. */}
+            <dd
+              className={name === ID_FIELD ? "min-w-0 truncate" : "break-words"}
+              title={name === ID_FIELD ? value : undefined}
+            >
+              {value}
+            </dd>
           </Fragment>
         ))}
       </dl>

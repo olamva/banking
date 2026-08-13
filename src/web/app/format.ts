@@ -102,8 +102,15 @@ export const chipLabel = (value: string, siblings: string[]): string => {
  * what keeps this map from having to list `Txn` twice, and what makes a widened
  * `Txn` (`mcc`, `mccGroup`) show up in the detail view without a line here.
  */
+/**
+ * The one field with nothing to read in it: an opaque id, long enough to wrap to
+ * a second line and push every other field down the dialog. The detail view
+ * truncates it, and it is named here so that the rule and the map cannot drift.
+ */
+export const ID_FIELD = "Transaction ID";
+
 const FIELD_NAMES: Record<string, string> = {
-  id: "Transaction ID",
+  id: ID_FIELD,
   counterparty: "Merchant",
   typeText: "Type",
   reason: "Excluded because",

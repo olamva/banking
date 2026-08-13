@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { Categorized } from '../../core/types.ts';
-import { fmtNOKExact, txnFields } from './format.ts';
+import { ID_FIELD, fmtNOKExact, txnFields } from './format.ts';
 
 const row: Categorized = {
   id: 'row-1',
@@ -52,5 +52,6 @@ test('txnFields keeps the øre, unlike every summed figure', () => {
 test('txnFields names a field after its key when it reads as one', () => {
   const names = txnFields(row).map(([name]) => name);
   assert.ok(names.includes('Bank confidence'));
-  assert.ok(names.includes('Transaction ID'), 'and after FIELD_NAMES when not');
+  // The name the dialog truncates on, so a rename cannot quietly stop it.
+  assert.ok(names.includes(ID_FIELD), 'and after FIELD_NAMES when not');
 });
