@@ -204,19 +204,27 @@ const Picker = ({
    * array, so opening a category needs no second notion of "where am I".
    */
   const rows = shown.flatMap((o) => {
-    const kids = childrenOf(o);
+    const all = childrenOf(o);
+    // A search narrows the children too. Listing all of them because *one*
+    // matched is what made searching "vennebetaling" show every child of
+    // `diverse` — the row you asked for, buried among seven you did not.
+    // Whatever is checked stays, for the same reason it does at the top level.
+    const kids =
+      q === "" ? all : all.filter((c) => hitsQuery(subLabel(c)) || picked.includes(c));
     // A search that matched a child opens its parent: the row you were looking
-    // for should be on screen, not one click behind a triangle.
-    const openHere =
-      expanded.has(o) || (q !== "" && kids.some((c) => hitsQuery(subLabel(c))));
+    // for should be on screen, not one click behind a triangle. A parent that
+    // matched on its *own* name keeps its children folded away.
+    const openHere = expanded.has(o) || kids.length < all.length;
     // One *named* child is the same rows under a better name, so the row becomes
     // that child rather than opening onto it. A lone unnamed child is not a
     // better name — `vipps` would read as "Annet" — so those keep the parent.
-    const lone = kids.length === 1 && !kids[0]!.endsWith("/") ? kids[0]! : null;
+    const lone = all.length === 1 && !all[0]!.endsWith("/") ? all[0]! : null;
     const parent = { value: lone ?? o, sub: false };
     return kids.length > 1 && openHere
       ? [parent, ...kids.map((c) => ({ value: c, sub: true }))]
-      : [parent];
+      : kids.length === 1 && openHere
+        ? [parent, { value: kids[0]!, sub: true }]
+        : [parent];
   });
 
   // Clamped on read rather than reset on every change: typing shortens the list
