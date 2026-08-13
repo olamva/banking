@@ -59,6 +59,8 @@ export type MonthStats = {
   totalOut: number;
   net: number;
   categories: CategoryTotal[];
+  /** The second level of `categories`, shares within each parent. */
+  subcategories: SubcategoryTotal[];
   /** Top 10 by spend. */
   topCounterparties: CounterpartyTotal[];
   subscriptions: Categorized[];
@@ -111,6 +113,53 @@ function slices(byKey: Map<string, number>): { key: string; total: number; share
 const categoriesFromCents = (byCategory: Map<string, number>): CategoryTotal[] =>
   slices(byCategory).map(({ key, total, share }) => ({ category: key, total, share }));
 
+/**
+ * A subcategory's spending, and its share **of its own category** rather than of
+ * everything.
+ *
+ * Within the parent, because that is the number a drill-down is asking for: two
+ * thirds of what you spend on eating out went on fastfood is worth reading, and
+ * `0.09 of all spending` is the same fact told worse. It also keeps
+ * `categories` untouched — its shares still sum to 1 across the page, and
+ * nothing that already draws it has to change.
+ */
+export type SubcategoryTotal = {
+  category: string;
+  /** null where neither the bank nor a rule named a second level. */
+  subcategory: string | null;
+  total: number;
+  /** Of the parent category, so each parent's subcategories sum to 1. */
+  share: number;
+};
+
+/** The `/` cannot collide: no bank slug contains one, and `splitCategory` would have split it. */
+const SUB_KEY = (category: string, sub: string | null) => `${category}/${sub ?? ''}`;
+
+/**
+ * Grouped by parent and shared within it, so every parent's slices sum to 1.
+ *
+ * Sorted by category total first so a caller can walk it in the same order as
+ * `categories` without re-sorting, then by subcategory total inside each.
+ */
+function subcategoriesFromCents(bySub: Map<string, number>): SubcategoryTotal[] {
+  const byParent = new Map<string, Map<string, number>>();
+  for (const [key, cents] of bySub) {
+    const cut = key.indexOf('/');
+    const category = key.slice(0, cut);
+    (byParent.get(category) ?? byParent.set(category, new Map()).get(category)!).set(key.slice(cut + 1), cents);
+  }
+  const out: SubcategoryTotal[] = [];
+  for (const [category, subs] of byParent) {
+    for (const { key, total, share } of slices(subs)) {
+      out.push({ category, subcategory: key === '' ? null : key, total, share });
+    }
+  }
+  const parentTotal = (c: string) => out.reduce((n, x) => n + (x.category === c ? x.total : 0), 0);
+  return out.sort(
+    (a, b) => parentTotal(b.category) - parentTotal(a.category) || b.total - a.total,
+  );
+}
+
 const accountsFromCents = (byAccount: Map<string, number>): AccountTotal[] =>
   slices(byAccount).map(({ key, total, share }) => ({ account: key, total, share }));
 
@@ -118,6 +167,7 @@ type CentsAgg = {
   inCents: number;
   outCents: number;
   categoryCents: Map<string, number>;
+  subCents: Map<string, number>;
   accountCents: Map<string, number>;
   excludedCount: number;
   excludedCents: number;
@@ -128,6 +178,7 @@ function aggregateCents(txns: Categorized[]): CentsAgg {
     inCents: 0,
     outCents: 0,
     categoryCents: new Map(),
+    subCents: new Map(),
     accountCents: new Map(),
     excludedCount: 0,
     excludedCents: 0,
@@ -144,6 +195,8 @@ function aggregateCents(txns: Categorized[]): CentsAgg {
       const spend = -cents;
       agg.outCents += spend;
       agg.categoryCents.set(t.category, (agg.categoryCents.get(t.category) ?? 0) + spend);
+      const sub = SUB_KEY(t.category, t.subcategory);
+      agg.subCents.set(sub, (agg.subCents.get(sub) ?? 0) + spend);
       agg.accountCents.set(t.account, (agg.accountCents.get(t.account) ?? 0) + spend);
     }
   }
@@ -208,6 +261,7 @@ export function monthStats(month: string, txns: Categorized[], previous?: Catego
     totalOut: fromCents(agg.outCents),
     net: fromCents(agg.inCents - agg.outCents),
     categories: categoriesFromCents(agg.categoryCents),
+    subcategories: subcategoriesFromCents(agg.subCents),
     topCounterparties: topCounterparties(txns),
     subscriptions: txns.filter((t) => !t.excluded && t.isSubscription).sort(byDate),
     recurring: txns.filter((t) => !t.excluded && t.isRecurring).sort(byDate),
@@ -325,6 +379,8 @@ export type YearStats = {
   /** One entry per input month, sorted ascending — a series ready for charting. */
   months: MonthSummary[];
   categories: CategoryTotal[];
+  /** The second level of `categories`, shares within each parent. */
+  subcategories: SubcategoryTotal[];
   averageMonth: {
     totalIn: number;
     totalOut: number;
@@ -387,6 +443,7 @@ export function yearStats(year: string, monthsTxns: { month: string; txns: Categ
     year,
     months,
     categories: categoriesFromCents(agg.categoryCents),
+    subcategories: subcategoriesFromCents(agg.subCents),
     averageMonth: {
       totalIn: fromCents(Math.round(agg.inCents / n)),
       totalOut: fromCents(Math.round(agg.outCents / n)),

@@ -393,3 +393,49 @@ test('yearStats builds a monthly series and per-category totals across the year'
   assert.equal(dagligvarer?.total, 300);
   assert.equal(stats.averageMonth.totalOut, 200);
 });
+
+test('subcategories share within their own parent, not across the page', () => {
+  const s = monthStats('2026-07', [
+    txn({ id: '1', amount: -300, category: 'kafe_og_restaurant', subcategory: 'fastfood' }),
+    txn({ id: '2', amount: -100, category: 'kafe_og_restaurant', subcategory: 'kafe' }),
+    txn({ id: '3', amount: -600, category: 'dagligvarer', subcategory: 'dagligvarer' }),
+  ]);
+  // The top level is untouched: still shares of everything, still summing to 1.
+  assert.equal(s.categories.reduce((n, c) => n + c.share, 0), 1);
+
+  const eating = s.subcategories.filter((x) => x.category === 'kafe_og_restaurant');
+  assert.deepEqual(
+    eating.map((x) => [x.subcategory, x.total, x.share]),
+    [
+      ['fastfood', 300, 0.75],
+      ['kafe', 100, 0.25],
+    ],
+  );
+  // Each parent sums to 1 on its own — that is what makes a drill-down readable.
+  assert.equal(s.subcategories.filter((x) => x.category === 'dagligvarer')[0]!.share, 1);
+});
+
+test('a row with no subcategory is a slice of its parent, not a missing one', () => {
+  // Money must not vanish between the two levels while the rules are half
+  // migrated and plenty of values are still bare.
+  const s = monthStats('2026-07', [
+    txn({ id: '1', amount: -100, category: 'vipps', subcategory: null }),
+    txn({ id: '2', amount: -300, category: 'vipps', subcategory: null }),
+  ]);
+  assert.deepEqual(s.subcategories, [{ category: 'vipps', subcategory: null, total: 400, share: 1 }]);
+  assert.equal(
+    s.subcategories.reduce((n, x) => n + x.total, 0),
+    s.categories.reduce((n, c) => n + c.total, 0),
+  );
+});
+
+test('income and excluded rows stay out of the subcategory totals, as they do the categories', () => {
+  const s = monthStats('2026-07', [
+    txn({ id: '1', amount: -100, category: 'dagligvarer', subcategory: 'dagligvarer' }),
+    txn({ id: '2', amount: 5000, category: 'innskudd', subcategory: 'lonn' }),
+    txn({ id: '3', amount: -900, category: 'overfoering', subcategory: null, excluded: true, reason: 'internal transfer' }),
+  ]);
+  assert.deepEqual(s.subcategories, [
+    { category: 'dagligvarer', subcategory: 'dagligvarer', total: 100, share: 1 },
+  ]);
+});

@@ -1,5 +1,6 @@
 /** Presentation only — nothing here decides what a number is, just how it reads. */
 import { useEffect, useRef, useState } from "react";
+import { buildLabels, type Labels } from "../../core/labels.ts";
 
 /**
  * Built once. `toLocaleString` builds its formatter per call, which is invisible
@@ -14,19 +15,31 @@ export const fmtPct = (share: number): string =>
   `${Math.round(share * 1000) / 10}%`;
 
 /**
- * Slugs come from the bank and from rules/overrides.json, so a generic rule beats a
- * map that drifts every time the file is hand-edited. Only the slugs that spell
- * a Norwegian letter out need naming.
+ * What a category slug is called on the page.
+ *
+ * The names come from `core/labels.ts` — the bank's own `mainI18n`/`subI18n`
+ * off the rows, whatever `rules/categories.json` overrides, and a tidied slug
+ * for the rest. This used to be a hardcoded map here, and its own comment
+ * admitted it drifted every time the rules were edited; it still listed `stroem`
+ * after that category had stopped existing.
+ *
+ * ponytail: one module-level `Labels`, set once when the rows arrive, rather
+ * than a prop threaded through eight call sites across the cards and the charts.
+ * It replaces a module-level map in the same place, is written once per page
+ * load and only ever read after, and the components stay as dumb as they were.
+ * Upgrade path if a second labelled dataset ever shares the page: pass `Labels`
+ * as a prop from `App` and delete these two lines.
  */
-const ODD: Record<string, string> = {
-  stroem: "Strøm",
-  helse_og_velvaere: "Helse og velvære",
-  klaer_og_utstyr: "Klær og utstyr",
-  overfoering: "Overføring",
+let LABELS: Labels = buildLabels([]);
+
+export const setLabels = (l: Labels): void => {
+  LABELS = l;
 };
 
-export const categoryLabel = (slug: string): string =>
-  ODD[slug] ?? slug.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+export const categoryLabel = (slug: string): string => LABELS.category(slug);
+
+export const subcategoryLabel = (category: string, sub: string | null): string =>
+  LABELS.subcategory(category, sub);
 
 export const monthLabel = (month: string): string => {
   const [y, m] = month.split("-").map(Number);

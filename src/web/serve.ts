@@ -33,6 +33,7 @@ import { syncMonth, syncCost } from '../net/sync.ts';
 import { canAfford, remaining } from '../net/budget.ts';
 
 const STATE = 'data/sync-state.json';
+const CATEGORY_NAMES = 'rules/categories.json';
 
 /** Long enough that a day's work never triggers a second pull by accident. */
 export const DEFAULT_MAX_AGE_MIN = 360;
@@ -135,11 +136,24 @@ function maybeRefresh(maxAgeMin: number): Promise<void> {
   return settle(join(() => refresh(monthsToRefresh(), age)));
 }
 
-/** Every row, as the page wants them. Re-read per request — a rebuild shows up on reload. */
-function allTxns(): string {
+/**
+ * Every row, plus the names for the category slugs that are ours to name.
+ *
+ * The bank's own names ride on the rows themselves, so this map only carries
+ * what `rules/categories.json` overrides — usually a handful of entries, since
+ * `labels.ts` tidies a slug into a serviceable Norwegian name on its own. It has
+ * to come over the wire because `rules/` is a local secret the browser has no
+ * way to read, and the same reason `Txn.account` carries a name and not a key.
+ *
+ * Re-read per request, like the rows: an edited rules file shows up on reload.
+ */
+function payload(): string {
   const db = openDb(DB_FILE);
   try {
-    return JSON.stringify(queryRange(db, '0000-00', '9999-99'));
+    return JSON.stringify({
+      txns: queryRange(db, '0000-00', '9999-99'),
+      names: existsSync(CATEGORY_NAMES) ? JSON.parse(readFileSync(CATEGORY_NAMES, 'utf8')) : {},
+    });
   } finally {
     db.close();
   }
@@ -168,7 +182,7 @@ export async function serve(port: number, opts: { pull: boolean; maxAgeMin: numb
           // Always fresh; a cached copy of the data is the opposite of the point.
           'Cache-Control': 'no-store',
         });
-        res.end(allTxns());
+        res.end(payload());
       } catch (e) {
         res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
         res.end(`${e instanceof Error ? e.message : e}\n`);

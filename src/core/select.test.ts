@@ -9,6 +9,8 @@ import {
   distinctMonths,
   distinctCategories,
   distinctMerchants,
+  distinctSubcategories,
+  subcategoryOf,
   NO_FILTERS,
 } from './select.ts';
 import type { Categorized } from './types.ts';
@@ -290,4 +292,36 @@ test('AXES names every list filter with the field holding its mode', () => {
     assert.ok(Array.isArray(NO_FILTERS[list as keyof typeof AXES]), `${list} is a list`);
     assert.equal(NO_FILTERS[mode], 'include');
   }
+});
+
+test('the subcategory filter matches the pair, so one sub under two mains stays apart', () => {
+  // `kollektivtransport` is a real sub under both `reise` and `bil_og_transport`.
+  // A bare-sub filter would show rows from both and quietly overcount.
+  const trip = txn({ id: '1', amount: -100, category: 'reise', subcategory: 'kollektivtransport' });
+  const commute = txn({ id: '2', amount: -100, category: 'bil_og_transport', subcategory: 'kollektivtransport' });
+  const f = { ...NO_FILTERS, subcategories: ['reise/kollektivtransport'] };
+  assert.equal(matchesFilters(trip, f), true);
+  assert.equal(matchesFilters(commute, f), false);
+});
+
+test('a category whose rows have no subcategory is still selectable', () => {
+  // Half of rules/overrides.json still names one level, so "the part nothing has
+  // named yet" has to be reachable or the drill-down shows less than its parent.
+  const bare = txn({ id: '1', amount: -100, category: 'vipps', subcategory: null });
+  assert.equal(matchesFilters(bare, { ...NO_FILTERS, subcategories: ['vipps/'] }), true);
+  assert.equal(subcategoryOf(bare), 'vipps/');
+});
+
+test('an empty subcategory list shows every row, like every other axis', () => {
+  const t = txn({ id: '1', amount: -100, category: 'reise', subcategory: 'flybilletter' });
+  assert.equal(matchesFilters(t, NO_FILTERS), true);
+  assert.equal(matchesFilters(t, { ...NO_FILTERS, subcategories: ['reise/flybilletter'], subcategoryMode: 'exclude' }), false);
+});
+
+test('subcategories are an axis like the rest, so the toggle code covers them', () => {
+  assert.equal(AXES.subcategories, 'subcategoryMode');
+  assert.deepEqual(distinctSubcategories([
+    txn({ id: '1', amount: -100, category: 'reise', subcategory: 'flybilletter' }),
+    txn({ id: '2', amount: -100, category: 'vipps', subcategory: null }),
+  ]), ['reise/flybilletter', 'vipps/']);
 });

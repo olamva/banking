@@ -7,11 +7,19 @@
  */
 import { useEffect, useState } from 'react';
 import type { Categorized } from '../../core/types.ts';
+import { buildLabels, type Labels, type Names } from '../../core/labels.ts';
+
+/**
+ * `names` is only what `rules/categories.json` overrides — the bank's own names
+ * are already on the rows, so `buildLabels` learns 68 pairs from them and this
+ * map stays small.
+ */
+type Payload = { txns: Categorized[]; names: Names };
 
 type Load =
   | { status: 'loading' }
   | { status: 'error'; message: string }
-  | { status: 'ready'; txns: Categorized[] };
+  | { status: 'ready'; txns: Categorized[]; labels: Labels };
 
 export const useTransactions = (): Load => {
   const [load, setLoad] = useState<Load>({ status: 'loading' });
@@ -21,9 +29,11 @@ export const useTransactions = (): Load => {
     fetch('/api/txns')
       .then(async (r) => {
         if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
-        return (await r.json()) as Categorized[];
+        return (await r.json()) as Payload;
       })
-      .then((txns) => live && setLoad({ status: 'ready', txns }))
+      // Built once here rather than per render: it walks every row to learn what
+      // the bank calls each pair, and the rows do not change after the fetch.
+      .then(({ txns, names }) => live && setLoad({ status: 'ready', txns, labels: buildLabels(txns, names) }))
       .catch((e: unknown) => live && setLoad({ status: 'error', message: e instanceof Error ? e.message : String(e) }));
     return () => {
       live = false;

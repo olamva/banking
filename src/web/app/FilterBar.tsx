@@ -11,7 +11,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Axis, Filters, Mode, PeriodKind } from "../../core/select.ts";
 import { NO_FILTERS } from "../../core/select.ts";
-import { categoryLabel } from "./format.ts";
+import { categoryLabel, subcategoryLabel } from "./format.ts";
 import {
   CloseIcon,
   DropdownIcon,
@@ -370,6 +370,7 @@ export const FilterBar = ({
         : [...filters[key], value],
     });
   const toggleCategory = toggle("categories");
+  const toggleSubcategory = toggle("subcategories");
   const toggleMerchant = toggle("merchants");
   const toggleAccount = toggle("accounts");
 
@@ -381,7 +382,10 @@ export const FilterBar = ({
   // there would only be a second copy that shoves the page down as you type.
   const searchChip = filters.search !== "" && view !== "transactions";
   const picked =
-    filters.categories.length + filters.merchants.length + filters.accounts.length;
+    filters.categories.length +
+    filters.subcategories.length +
+    filters.merchants.length +
+    filters.accounts.length;
   const chips = picked > 0 || searchChip;
   const dirty =
     picked > 0 ||
@@ -389,6 +393,7 @@ export const FilterBar = ({
     excluding ||
     excludingMerchants ||
     excludingAccounts ||
+    filters.subcategoryMode === "exclude" ||
     filters.showExcluded;
 
   return (
@@ -520,6 +525,27 @@ export const FilterBar = ({
               onRemove={() => toggleCategory(c)}
             />
           ))}
+          {/* No dropdown of its own: a subcategory is picked by opening its
+              category on the spending chart, so this is where one becomes
+              visible and removable. */}
+          {filters.subcategories.map((pair) => {
+            const cut = pair.indexOf("/");
+            const category = pair.slice(0, cut);
+            const sub = pair.slice(cut + 1);
+            const name = `${categoryLabel(category)} › ${subcategoryLabel(
+              category,
+              sub === "" ? null : sub,
+            )}`;
+            const not = filters.subcategoryMode === "exclude";
+            return (
+              <Chip
+                key={pair}
+                label={not ? `Not ${name}` : name}
+                tone={not ? "exclude" : "include"}
+                onRemove={() => toggleSubcategory(pair)}
+              />
+            );
+          })}
           {filters.merchants.map((m) => (
             <Chip
               key={m}

@@ -14,6 +14,13 @@ export type Filters = {
   categories: string[];
   /** Whether `categories` names the only rows to show, or the only ones to hide. */
   categoryMode: Mode;
+  /**
+   * The same, one level down. Values are the **pair**, `kafe_og_restaurant/kafe`,
+   * never the bare sub: `dagligvarer` is a sub under itself and `kollektivtransport`
+   * sits under two mains, so a bare sub would filter to rows from both.
+   */
+  subcategories: string[];
+  subcategoryMode: Mode;
   /** The same, over `merchantOf` — the name the tables and the bars show. */
   merchants: string[];
   merchantMode: Mode;
@@ -39,6 +46,7 @@ export type Filters = {
  */
 export const AXES = {
   categories: 'categoryMode',
+  subcategories: 'subcategoryMode',
   merchants: 'merchantMode',
   accounts: 'accountMode',
 } as const;
@@ -48,6 +56,8 @@ export type Axis = keyof typeof AXES;
 export const NO_FILTERS: Filters = {
   categories: [],
   categoryMode: 'include',
+  subcategories: [],
+  subcategoryMode: 'include',
   merchants: [],
   merchantMode: 'include',
   accounts: [],
@@ -63,6 +73,17 @@ export const NO_FILTERS: Filters = {
  * nothing.
  */
 export const merchantOf = (t: Categorized): string => t.counterparty ?? t.description;
+
+/**
+ * The value the subcategory filter matches on: the pair, with a trailing slash
+ * where there is no second level.
+ *
+ * A row with no sub is still selectable — half of `rules/overrides.json` names
+ * only one level, so "the part of this category nothing has named yet" is a real
+ * thing to want to look at, and dropping it would make the drill-down silently
+ * show less than the category it opened from.
+ */
+export const subcategoryOf = (t: Categorized): string => `${t.category}/${t.subcategory ?? ''}`;
 
 /**
  * Both ends inclusive, and a null end is open — an empty date box means "no
@@ -83,6 +104,7 @@ const listed = (values: string[], mode: Mode, value: string): boolean =>
 export function matchesFilters(t: Categorized, f: Filters): boolean {
   if (t.excluded && !f.showExcluded) return false;
   if (!listed(f.categories, f.categoryMode, t.category)) return false;
+  if (!listed(f.subcategories, f.subcategoryMode, subcategoryOf(t))) return false;
   if (!listed(f.merchants, f.merchantMode, merchantOf(t))) return false;
   if (!listed(f.accounts, f.accountMode, t.account)) return false;
   if (f.search) {
@@ -200,6 +222,11 @@ export function distinctYears(txns: Categorized[]): string[] {
 
 export function distinctCategories(txns: Categorized[]): string[] {
   return [...new Set(txns.map((t) => t.category))].sort();
+}
+
+/** Pairs, sorted so every subcategory sits under its own category. */
+export function distinctSubcategories(txns: Categorized[]): string[] {
+  return [...new Set(txns.map(subcategoryOf))].sort();
 }
 
 /** Hundreds of these, so the dropdown that shows them is searchable. */
