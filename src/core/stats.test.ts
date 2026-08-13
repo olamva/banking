@@ -266,17 +266,19 @@ test('trendLine fits the drawn axis, holes included', () => {
 });
 
 /**
- * The two lines are fitted separately, and each sees only its own total. A
- * single fit over the pair would be a trend in the surplus, which is neither
- * line the chart draws.
+ * The chart fits net, which is on no point: it is `totalIn - totalOut`, read
+ * off both. Neither total alone can stand in for it — here income and spending
+ * each move by 100 a month and net moves by 200, so a fit over either one
+ * understates the trend by half and, over spending, gets its sign backwards.
  */
-test('trendLine reads the total it is asked for, and no other', () => {
+test('trendLine reads whatever the caller picks off the point, net included', () => {
   const both = [
     { at: '2026-01', totalIn: 300, totalOut: 100 },
     { at: '2026-02', totalIn: 200, totalOut: 200 },
     { at: '2026-03', totalIn: 100, totalOut: 300 },
   ];
 
+  assert.deepEqual(trendLine(both, (p) => p.totalIn - p.totalOut), { slope: -200, intercept: 200 });
   assert.deepEqual(trendLine(both, (p) => p.totalOut), { slope: 100, intercept: 100 });
   assert.deepEqual(trendLine(both, (p) => p.totalIn), { slope: -100, intercept: 300 });
 });
