@@ -1,6 +1,7 @@
 /** Presentation only — nothing here decides what a number is, just how it reads. */
 import { useEffect, useRef, useState } from "react";
-import { buildLabels, type Labels } from "../../core/labels.ts";
+import { buildLabels, tidy, type Labels } from "../../core/labels.ts";
+import type { Categorized } from "../../core/types.ts";
 
 /**
  * Built once. `toLocaleString` builds its formatter per call, which is invisible
@@ -10,6 +11,18 @@ import { buildLabels, type Labels } from "../../core/labels.ts";
 const NOK = new Intl.NumberFormat("nb-NO");
 
 export const fmtNOK = (n: number): string => `${NOK.format(Math.round(n))} kr`;
+
+/**
+ * The øre as well. Every other figure on the page is a sum of many rows, where
+ * two decimals are noise — one row's own amount is the one place they are the
+ * point, so the detail view must not round 249,50 to 250.
+ */
+const NOK_EXACT = new Intl.NumberFormat("nb-NO", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+export const fmtNOKExact = (n: number): string => `${NOK_EXACT.format(n)} kr`;
 
 export const fmtPct = (share: number): string =>
   `${Math.round(share * 1000) / 10}%`;
@@ -82,6 +95,49 @@ export const chipLabel = (value: string, siblings: string[]): string => {
     ? pairLabel(value)
     : `${categoryLabel(category)} › ${pairLabel(value)}`;
 };
+
+/**
+ * The four field names camel-casing does not tidy into something readable. Every
+ * other key reads as itself — `bankConfidence` -> `Bank confidence` — which is
+ * what keeps this map from having to list `Txn` twice, and what makes a widened
+ * `Txn` (`mcc`, `mccGroup`) show up in the detail view without a line here.
+ */
+const FIELD_NAMES: Record<string, string> = {
+  id: "Transaction ID",
+  counterparty: "Merchant",
+  typeText: "Type",
+  reason: "Excluded because",
+};
+
+const fieldName = (key: string): string =>
+  FIELD_NAMES[key] ?? tidy(key.replace(/([A-Z])/g, " $1").toLowerCase());
+
+/**
+ * Every field the row carries, for the detail view — read off the row itself
+ * rather than listed, so nothing has to be kept in step with `Txn`.
+ *
+ * `accountKey` is the one field held back: the key is a local secret and must
+ * never be a label on the page, which is the whole reason `account` rides along
+ * beside it. Nulls and empty strings are dropped — "the bank sent nothing here"
+ * is better said by the row not being there.
+ */
+export const txnFields = (t: Categorized): [string, string][] =>
+  Object.entries(t).flatMap(([key, value]) => {
+    if (key === "accountKey" || value === null || value === "") return [];
+    const text =
+      typeof value === "boolean"
+        ? value
+          ? "Yes"
+          : "No"
+        : key === "amount"
+          ? fmtNOKExact(value as number)
+          : key === "category"
+            ? categoryLabel(value as string)
+            : key === "subcategory"
+              ? subcategoryLabel(t.category, value as string)
+              : String(value);
+    return [[fieldName(key), text] as [string, string]];
+  });
 
 export const monthLabel = (month: string): string => {
   const [y, m] = month.split("-").map(Number);
