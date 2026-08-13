@@ -10,6 +10,7 @@
 import { useId, useState, type ReactNode } from 'react';
 import { withGaps, type CategoryDelta, type SeriesPoint } from '../../core/stats.ts';
 import { fmtNOK, monthLabel, niceStep, pointLabel, useWidth } from './format.ts';
+import { ExpandIcon, Icon } from './icons.ts';
 
 interface TipState {
   x: number;
@@ -173,7 +174,7 @@ export const HorizontalBars = ({ items, onPick, onPickSub }: HorizontalBarsProps
         {items.map((item) => {
           const id = item.key ?? item.label;
           // One child is the parent again with an extra indent, so it is not a
-          // breakdown and gets no triangle.
+          // breakdown and gets no chevron.
           const subs = item.subs && item.subs.length > 1 ? item.subs : [];
           const expanded = open.has(id);
           return (
@@ -187,9 +188,12 @@ export const HorizontalBars = ({ items, onPick, onPickSub }: HorizontalBarsProps
                     aria-label={`${expanded ? 'Hide' : 'Show'} ${item.label} breakdown`}
                     className="mr-0.5 flex h-[26px] w-3 shrink-0 items-center justify-center text-ink-soft hover:text-ink"
                   >
-                    <span className={`text-[8px] transition-transform ${expanded ? 'rotate-90' : ''}`}>
-                      ▶
-                    </span>
+                    <Icon
+                      aria-hidden
+                      icon={ExpandIcon}
+                      size={12}
+                      className={`transition-transform ${expanded ? 'rotate-90' : ''}`}
+                    />
                   </button>
                 ) : (
                   // Holds the column so labels line up whether or not a row opens.
