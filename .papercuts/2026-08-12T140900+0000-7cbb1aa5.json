@@ -1,0 +1,11 @@
+{
+  "id": "7cbb1aa5",
+  "ts": "2026-08-12T14:09:00+00:00",
+  "text": "node --test src/net/budget.test.ts 'recording the zero from a 429' is flaky in a full pnpm test run \u2014 passed alone, failed once in the suite",
+  "tags": [
+    "flaky",
+    "tests"
+  ],
+  "who": "agent",
+  "where": "src/net/budget.test.ts"
+}
