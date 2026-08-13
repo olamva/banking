@@ -443,6 +443,35 @@ export function spendTrend(dense: (SeriesPoint | null)[]): { slope: number; inte
   return { slope, intercept: my - slope * mx };
 }
 
+/**
+ * A fitted line's equivalent growth **a year**, as a fraction — `0.031` for
+ * 3.1%. `slots` is how many the line spans and `slotsPerYear` how many make a
+ * year, which is what lets a window drawn by day and the same window drawn by
+ * month come back with the same figure.
+ *
+ * Annual, and compounded between the line's own two ends, because the number
+ * this is read against is: inflation is quoted per year and a price index
+ * compounds. A linear rise stated as a flat percentage of where it started is
+ * not that quantity, and would read low against it over any long window.
+ *
+ * Null where the ratio would mean nothing — a fit steep enough to start at or
+ * below zero has no base to grow from, and a span of no time has no rate.
+ * A short span is not guarded: a month of days really does imply the number in
+ * the thousands it comes back with, and hiding that would be the only dishonest
+ * option.
+ */
+export function annualGrowth(
+  fit: { slope: number; intercept: number },
+  slots: number,
+  slotsPerYear: number,
+): number | null {
+  const years = (slots - 1) / slotsPerYear;
+  const from = fit.intercept;
+  const to = fit.intercept + fit.slope * (slots - 1);
+  if (years <= 0 || from <= 0 || to <= 0) return null;
+  return (to / from) ** (1 / years) - 1;
+}
+
 export function yearStats(year: string, monthsTxns: { month: string; txns: Categorized[] }[]): YearStats {
   const sorted = [...monthsTxns].sort((a, b) => a.month.localeCompare(b.month));
 

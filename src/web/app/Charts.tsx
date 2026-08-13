@@ -8,8 +8,8 @@
  * src/core/stats.ts.
  */
 import { useId, useState, type ReactNode } from 'react';
-import { spendTrend, withGaps, type CategoryDelta, type SeriesPoint } from '../../core/stats.ts';
-import { fmtNOK, monthLabel, niceStep, pointLabel, useWidth } from './format.ts';
+import { annualGrowth, spendTrend, withGaps, type CategoryDelta, type SeriesPoint } from '../../core/stats.ts';
+import { fmtNOK, fmtPct, monthLabel, niceStep, pointLabel, useWidth } from './format.ts';
 
 interface TipState {
   x: number;
@@ -455,6 +455,15 @@ export const SpendLines = ({
   const ends = trend ? [0, dense.length - 1].map((x) => trend.intercept + trend.slope * x) : [];
 
   /**
+   * The same line as a rate a year, which is the form the number it is to be
+   * read against comes in — inflation is quoted annually and nothing else is.
+   * Annual rather than per slot also makes it the same figure whether the
+   * window is drawn by day or by month, which the kroner-per-slot form it
+   * replaced was not.
+   */
+  const growth = trend ? annualGrowth(trend, dense.length, bucket === 'month' ? 12 : 365.25) : null;
+
+  /**
    * The axis floor, which is zero until the trend needs it not to be. Spending
    * is a total and can never be negative, but a fitted line through a falling
    * one crosses zero on its way down — three months of 1000, 0, 0 fit a line
@@ -631,17 +640,10 @@ export const SpendLines = ({
       {series.length > 0 && (
         <ChartLegend
           income={hasIncome}
-          /**
-           * The slope, as what it is: kroner per slot, and a slot is whatever
-           * the bucket says. A percentage was the other option and is worse
-           * here — it needs a baseline to be a percentage *of*, and the mean of
-           * the window is not one the reader can see, so 3% would be a number
-           * with an invisible denominator. Spending is money and the rate it
-           * moves at is money too.
-           */
-          trendRate={
-            trend ? `${trend.slope > 0 ? '+' : ''}${fmtNOK(trend.slope)} / ${bucket}` : undefined
-          }
+          trend={trend !== null}
+          // `=== null`, not falsy: a flat trend is 0% a year, which is a
+          // reading rather than a missing one.
+          trendRate={growth === null ? undefined : `${growth > 0 ? '+' : ''}${fmtPct(growth)} / year`}
           compareLabel={compare.length > 0 ? compareLabel : undefined}
           hidden={hidden}
           onToggle={toggle}
@@ -719,7 +721,12 @@ export const SpendLines = ({
               [`${px(run[0]!.i)},${y}`, ...income, `${px(run.at(-1)!.i)},${y}`].join(' ');
             return (
               <g key={run[0]!.m.at}>
-                {hasBand && (
+                {/* The shading has no key of its own, so it follows the lines
+                    it is drawn between: it is the gap from one to the other,
+                    and shading up to an edge that is not on the chart claims a
+                    surplus against nothing. Both, because either line missing
+                    leaves the polygon with an invisible side. */}
+                {hasBand && shows('in') && shows('out') && (
                   <>
                     <defs>
                       <clipPath id={`${clip}-over-${r}`}>
@@ -823,10 +830,13 @@ export const SpendLines = ({
 
 interface ChartLegendProps {
   income: boolean;
+  /** Whether the fitted line is drawn — it is keyed only where it exists. */
+  trend: boolean;
   /**
-   * How fast the fitted line climbs, already formatted, and given only when
-   * there is a line — the key names the rate rather than the method, since
-   * `Trend` over a straight dashed line has already said the method.
+   * How fast that line climbs, already formatted. Separate from `trend`,
+   * because a fit that starts at or below zero has a slope and no growth rate:
+   * the line is still drawn and still keyed, and the key simply says nothing
+   * about a ratio it cannot form.
    */
   trendRate?: string;
   /** Named when a compared period is drawn; the dashes are the same for both its lines. */
@@ -866,7 +876,7 @@ const LegendKey = ({ on, onToggle, name, children }: LegendKeyProps) => (
 );
 
 /** Drawn by `SpendLines` itself — it is the only chart with more than one series. */
-const ChartLegend = ({ income, trendRate, compareLabel, hidden, onToggle }: ChartLegendProps) => {
+const ChartLegend = ({ income, trend, trendRate, compareLabel, hidden, onToggle }: ChartLegendProps) => {
   const key = (mark: Mark) => ({ on: !hidden.has(mark), onToggle: () => onToggle(mark) });
   return (
     <div className="mb-2 flex flex-wrap gap-3.5 text-xs text-ink-soft">
@@ -885,18 +895,17 @@ const ChartLegend = ({ income, trendRate, compareLabel, hidden, onToggle }: Char
           spending in one colour — with the compared period already dashed and
           red, that is three.
 
-          The key carries the slope, because a straight line's whole content is
+          The key carries the rate, because a straight line's whole content is
           how steeply it leans and the eye reads that off a plot badly: the same
-          rise looks steep on a narrow card and gentle on a wide one, and the
-          axis it is read against is rescaled by whatever the biggest month
-          happens to be. */}
-      {trendRate && (
+          rise looks steep on a narrow card and gentle on a wide one, over an
+          axis rescaled by whatever the biggest month happens to be. */}
+      {trend && (
         <LegendKey {...key('trend')} name="the fitted trend">
           <svg aria-hidden width={16} height={3} className="shrink-0">
             <line x1={0} x2={16} y1={1.5} y2={1.5} strokeWidth={3} strokeDasharray="7 5" className="stroke-series-1" />
           </svg>
           Trend
-          <span className="tabular-nums text-ink-muted">{trendRate}</span>
+          {trendRate && <span className="tabular-nums text-ink-muted">{trendRate}</span>}
         </LegendKey>
       )}
       {/* One key for both dashed lines — the dashes are what mark the period, and
