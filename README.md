@@ -64,7 +64,6 @@ pnpm sb1 categories --all           # ...plus every bank pair, and the categorie
 
 # the living app
 pnpm dev                            # serve the dashboard on :4000, offline
-pnpm dev --pull                     # ...and refresh stale months from the API
 pnpm sb1 budget                     # what SB1 last said was left of its limit
 
 pnpm test                           # node --test, no framework
@@ -146,22 +145,15 @@ breakdown drops out — a bar chart of a single category is a bar chart of itsel
 **Never share it.** It embeds every transaction you have, and so does a
 screenshot. The server binds to `127.0.0.1`; keep it that way.
 
-### Auto-refresh, and not tripping the rate limit
+### Not tripping the rate limit
 
-`pnpm dev` is offline by default. With `--pull`, loading the page re-syncs the
-current month first if the data is more than six hours old — plus the previous
-month during its first week, while card transactions are still posting.
+**`pnpm dev` never touches the network.** Syncing is a command you run, not
+something a page view can trigger — so no number of tabs, reloads or restarts
+costs a single request. A `--pull` flag used to re-sync a stale current month on
+page load, behind four separate defences against exactly that; not having the
+path is the same guarantee for none of the code.
 
-One refresh costs one request per account, so the obvious ways to burn through
-the bank's limit are all defended:
-
-| Risk | Defence |
-|---|---|
-| Restarting the server | staleness is recorded on disk, not in memory |
-| Two tabs, or a reload during a pull | one refresh at a time; the others join it |
-| Anything at all | every call is ledgered; `sb1.get` refuses at the bank's zero |
-| A dead token retrying forever | a failed attempt still counts as an attempt |
-| Just wanting to look at the data | the network is opt-in; no `--pull`, no calls |
+Every call that is made is ledgered, and `sb1.get` refuses at the bank's zero.
 
 **The budget is the bank's, and there is no local cap.** SB1's quota is 60
 requests an hour per API — stated in its FAQ, not the reference — published as
@@ -187,15 +179,10 @@ outlast its own estimate, since the bucket refills while the sweep runs.
 
 ```bash
 pnpm dev                      # never touches the network
-pnpm dev --pull               # refresh if older than six hours
-pnpm dev --pull --max-age 60  # refresh if older than an hour
 pnpm dev --port 5000
 ```
 
 ## A typical month
-
-Mostly, nothing: leave `pnpm dev --pull` running and it keeps the current month
-current. By hand:
 
 ```bash
 pnpm sb1 sync --month 2026-08

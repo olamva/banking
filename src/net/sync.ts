@@ -65,11 +65,6 @@ const fresh = (file: string, force: Force): boolean => {
   return !force;
 };
 
-/** How many SB1 requests a `syncMonth` will cost, for a budget check beforehand. */
-export async function syncCost(): Promise<number> {
-  return (await accountKeys()).length;
-}
-
 /**
  * What a span will actually cost, counted from disk rather than assumed.
  *

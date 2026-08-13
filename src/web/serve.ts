@@ -8,133 +8,23 @@
  * only server it needs, and Ctrl-C stops one thing rather than two.
  *
  * The database is re-read per request, so a `rebuild` in another terminal shows
- * up on reload. With `--pull` a stale current month is re-synced first.
+ * up on reload.
  *
- * That last part is the dangerous one, which is why it is opt-in and not the
- * default: analysis stays offline unless you ask. SpareBank 1 allows 60/hour
- * and a refresh costs one per account, so anything that turns a page view into
- * a sync has to be defended on several sides at once:
- *
- * - staleness is recorded on disk, so restarting the server does not re-trigger
- *   a pull;
- * - the request ledger is on disk too, and `sb1.get` refuses past the cap;
- * - one refresh runs at a time, so two tabs share it rather than doubling it;
- * - a refresh that fails is remembered as an attempt, so a broken token
- *   produces one failure per interval instead of one per reload;
- * - only the current month is pulled, plus the previous one early in a month
- *   while card transactions are still posting;
- * - and none of it happens at all without `--pull`.
+ * **The server never touches the network.** There is no path from a page view to
+ * an SB1 request: syncing is `pnpm sb1 sync`, run by hand, and this process only
+ * ever reads `data/banking.db`. A `--pull` flag used to re-sync a stale current
+ * month on request, and every line of it was a defence against the page spending
+ * the bank's 60/hour — staleness on disk so a restart did not re-trigger, one
+ * refresh at a time so three tabs did not become three syncs, a failed attempt
+ * counted so a dead token did not retry forever. Not having the path at all is
+ * the same guarantee for none of the code.
  */
 import { createServer } from 'node:http';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { openDb, queryRange } from '../core/db.ts';
-import { rebuildAll, DB_FILE } from '../core/pipeline.ts';
-import { syncMonth, syncCost } from '../net/sync.ts';
-import { canAfford, remaining } from '../net/budget.ts';
+import { DB_FILE } from '../core/pipeline.ts';
 
-const STATE = 'data/sync-state.json';
 const CATEGORY_NAMES = 'rules/categories.json';
-
-/** Long enough that a day's work never triggers a second pull by accident. */
-export const DEFAULT_MAX_AGE_MIN = 360;
-
-type State = { lastAttempt?: number };
-
-function readState(): State {
-  if (!existsSync(STATE)) return {};
-  try {
-    return JSON.parse(readFileSync(STATE, 'utf8')) as State;
-  } catch {
-    return {};
-  }
-}
-
-function markAttempt(now = Date.now()): void {
-  mkdirSync('data', { recursive: true });
-  writeFileSync(STATE, JSON.stringify({ lastAttempt: now }));
-}
-
-export function ageMinutes(state: State, now = Date.now()): number | null {
-  return state.lastAttempt === undefined ? null : (now - state.lastAttempt) / 60_000;
-}
-
-/** Current month, and the previous one too while its card rows are still landing. */
-export function monthsToRefresh(now = new Date()): string[] {
-  const month = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-  const months = [month(now)];
-  if (now.getDate() <= 7) {
-    months.unshift(month(new Date(now.getFullYear(), now.getMonth() - 1, 1)));
-  }
-  return months;
-}
-
-/**
- * Joins the run already in progress instead of starting a second one.
- *
- * The returned function must do its check and its assignment in one synchronous
- * tick. An `await` between the two is enough for three tabs to each see nothing
- * running and each start a pull — which is exactly how this went wrong the
- * first time, turning one refresh into three and spending 18 requests.
- */
-export function singleFlight(): (fn: () => Promise<void>) => Promise<void> {
-  let inFlight: Promise<void> | null = null;
-  return (fn) => {
-    if (inFlight) return inFlight;
-    inFlight = fn().finally(() => {
-      inFlight = null;
-    });
-    return inFlight;
-  };
-}
-
-const join = singleFlight();
-
-async function refresh(months: string[], age: number | null): Promise<void> {
-  const cost = (await syncCost()) * months.length;
-  if (!canAfford(cost)) {
-    console.error(`skipping refresh: needs ${cost} requests, SB1 last reported ${remaining()} left`);
-    return;
-  }
-  console.error(`data is ${age === null ? 'unsynced' : `${Math.round(age)} min old`}, refreshing ${months.join(', ')}`);
-
-  // Recorded before the work, not after: a refresh that throws must still count
-  // as an attempt, or a dead token turns every page load into another retry.
-  markAttempt();
-
-  // One month failing must not discard what the others fetched — and whatever
-  // did land is still worth importing, so the rebuild below runs either way.
-  for (const month of months) {
-    try {
-      await syncMonth(month, true);
-    } catch (e) {
-      console.error(`sync ${month} failed: ${e instanceof Error ? e.message : e}`);
-    }
-  }
-  // A full reconstruct, not an upsert of just these months: SB1 reissues ids
-  // mid-month, and only a rebuild drops the row the old id left behind.
-  await rebuildAll();
-}
-
-/** A failed refresh must never take the page down — serve whatever is on disk. */
-async function settle(p: Promise<void>): Promise<void> {
-  try {
-    await p;
-  } catch (e) {
-    console.error(`refresh failed, serving existing data: ${e instanceof Error ? e.message : e}`);
-  }
-}
-
-/**
- * Deliberately not `async`. Everything before `join(...)` has to run in one
- * synchronous tick, or concurrent requests slip past the gate — see
- * `singleFlight`. The budget check lives inside `refresh` for the same reason:
- * it reads a file, and awaiting it here would reopen the race.
- */
-function maybeRefresh(maxAgeMin: number): Promise<void> {
-  const age = ageMinutes(readState());
-  if (age !== null && age < maxAgeMin) return Promise.resolve();
-  return settle(join(() => refresh(monthsToRefresh(), age)));
-}
 
 /**
  * Every row, plus the names for the category slugs that are ours to name.
@@ -159,7 +49,7 @@ function payload(): string {
   }
 }
 
-export async function serve(port: number, opts: { pull: boolean; maxAgeMin: number }): Promise<void> {
+export async function serve(port: number): Promise<void> {
   // Imported here rather than at the top: `pnpm sb1 rebuild` loads this module's
   // siblings and has no business paying for Vite's startup.
   const { createServer: createViteServer } = await import('vite');
@@ -174,29 +64,22 @@ export async function serve(port: number, opts: { pull: boolean; maxAgeMin: numb
       vite.middlewares(req, res);
       return;
     }
-    void (async () => {
-      try {
-        if (opts.pull) await maybeRefresh(opts.maxAgeMin);
-        res.writeHead(200, {
-          'Content-Type': 'application/json; charset=utf-8',
-          // Always fresh; a cached copy of the data is the opposite of the point.
-          'Cache-Control': 'no-store',
-        });
-        res.end(payload());
-      } catch (e) {
-        res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
-        res.end(`${e instanceof Error ? e.message : e}\n`);
-      }
-    })();
+    try {
+      res.writeHead(200, {
+        'Content-Type': 'application/json; charset=utf-8',
+        // Always fresh; a cached copy of the data is the opposite of the point.
+        'Cache-Control': 'no-store',
+      });
+      res.end(payload());
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end(`${e instanceof Error ? e.message : e}\n`);
+    }
   });
 
   server.listen(port, '127.0.0.1', () => {
     console.error(`http://localhost:${port}`);
-    console.error(
-      opts.pull
-        ? `auto-refresh when data is over ${opts.maxAgeMin} min old — SB1 last reported ${remaining() ?? 'an unknown number of'} requests left`
-        : 'offline — pass --pull to auto-refresh stale data',
-    );
+    console.error('offline — run `pnpm sb1 sync` then `pnpm sb1 rebuild` to bring the data forward');
     console.error('local only, and it holds every transaction — do not expose this port');
   });
 }
