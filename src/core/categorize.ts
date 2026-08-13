@@ -285,6 +285,27 @@ export function categorize(
 const flat = (category: string): Pair => ({ category, subcategory: null });
 
 /**
+ * A rule that named only a category keeps the bank's subcategory — **when the
+ * bank agrees about the category**.
+ *
+ * Most of `rules/overrides.json` still names one level, and throwing the bank's
+ * second level away with it lost real information: `/\bSAS[\d ]/` says `reise`
+ * and the bank says `reise/flybilletter`, the same category and one level
+ * deeper. 2 132 rows arrived with a subcategory on them and reached the page
+ * without one for no better reason than that.
+ *
+ * The guard is the category matching. `PAYPAL BOOKING HOTEL` is a trip to us and
+ * `hobby_og_fritid/digital_markedsplass` to the bank; grafting that sub under
+ * `reise` would invent a pair neither of us meant. Where the mains disagree the
+ * rule has overruled the bank outright, and its subcategory goes with it.
+ */
+function keepBankSub(pair: Pair, t: Classified): Pair {
+  if (pair.subcategory !== null) return pair;
+  const bank = bankPair(t);
+  return bank && bank.category === pair.category ? { ...pair, subcategory: bank.subcategory } : pair;
+}
+
+/**
  * The pair the bank's own answer becomes, or null where it said nothing usable.
  *
  * The sub rides along untouched even where the main is renamed: the rename is
@@ -311,16 +332,18 @@ function categoryFor(
   haystack: string,
   cards: Set<string>,
 ): Pair {
+  // An excluded row is a transfer and nothing else, at either level: `reason`
+  // already says why it is out, so a subcategory has nothing to add.
   if (t.excluded) return flat(TRANSFER);
   const override = rules.find((r) => r.matches(haystack));
-  if (override) return splitCategory(override.category);
+  if (override) return keepBankSub(splitCategory(override.category), t);
   // A lump transfer, and a name that says what this person's lump transfers
   // are — rent from a flatmate, a share of a trip from a friend.
   if (LUMP_TYPE.test(t.typeText ?? '')) {
     const named = giroRules.find((r) => r.matches(haystack));
-    if (named) return splitCategory(named.category);
+    if (named) return keepBankSub(splitCategory(named.category), t);
   }
-  if (peerRules.some((m) => m(haystack))) return flat(PEER_PAYMENT);
+  if (peerRules.some((m) => m(haystack))) return keepBankSub(flat(PEER_PAYMENT), t);
   const bank = bankPair(t);
   if (bank) return bank;
   // A guess from the shape of a merchant string, with nothing behind it at the

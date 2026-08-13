@@ -11,7 +11,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Axis, Filters, Mode, PeriodKind } from "../../core/select.ts";
 import { NO_FILTERS } from "../../core/select.ts";
-import { categoryLabel, pairLabel, splitPair, treeLabel } from "./format.ts";
+import { chipLabel, pairLabel, splitPair, treeLabel } from "./format.ts";
 import {
   CloseIcon,
   DropdownIcon,
@@ -255,6 +255,27 @@ const Picker = ({
    */
   const navigate = (e: React.KeyboardEvent) => {
     const step = e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0;
+    // Space opens and closes the row the arrows are on. Only once something is
+    // arrowed to: focus lives in the search box, so before that a space is
+    // someone typing "kafe og restaurant" and must stay one. Typing clears the
+    // highlight, so the two never fight over the same keystroke.
+    if (e.key === " " && at >= 0) {
+      const row = rows[at];
+      if (row && !row.sub && childrenOf(row.value).length > 1) {
+        e.preventDefault();
+        toggleOpen(row.value);
+        return;
+      }
+    }
+    // Left and right do it too, which is what a tree does everywhere else.
+    if ((e.key === "ArrowRight" || e.key === "ArrowLeft") && at >= 0) {
+      const row = rows[at];
+      if (row && !row.sub && childrenOf(row.value).length > 1) {
+        e.preventDefault();
+        if (expanded.has(row.value) === (e.key === "ArrowLeft")) toggleOpen(row.value);
+        return;
+      }
+    }
     if (step) {
       e.preventDefault();
       // Clamped, not wrapped: running off the end of a long list and landing
@@ -344,7 +365,13 @@ const Picker = ({
                 className="w-full rounded-md border border-line bg-page py-1 pr-2 pl-7 text-xs text-ink"
                 placeholder={`Search ${title.toLowerCase()}…`}
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  // The list changes under the cursor, so the row it was on is
+                  // no longer the row you meant — and it hands space back to the
+                  // box you are typing in.
+                  setActive(null);
+                }}
               aria-label={`Search ${title.toLowerCase()}`}
             />
           </div>
@@ -610,11 +637,7 @@ export const FilterBar = ({
         >
           {/* The mode is invisible once the menu closes, so the chips carry it. */}
           {filters.categories.map((c) => {
-            // A pair carries its parent, so a chip reading "Kafe" alone never
-            // leaves you wondering whose kafe it is.
-            const name = c.includes("/")
-              ? `${categoryLabel(splitPair(c)[0])} › ${pairLabel(c)}`
-              : treeLabel(c, subsOf(c));
+            const name = chipLabel(c, subsOf(splitPair(c)[0]));
             return (
               <Chip
                 key={c}
