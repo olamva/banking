@@ -8,7 +8,7 @@
  * src/core/stats.ts.
  */
 import { useId, useState, type ReactNode } from 'react';
-import { spendTrend, withGaps, type CategoryDelta, type SeriesPoint } from '../../core/stats.ts';
+import { trendLine, withGaps, type CategoryDelta, type SeriesPoint } from '../../core/stats.ts';
 import { fmtNOK, monthLabel, niceStep, pointLabel, useWidth } from './format.ts';
 
 interface TipState {
@@ -346,6 +346,15 @@ interface SpendLinesProps {
    */
   band: boolean;
   /**
+   * Whether a fitted line is worth offering at all. False on a running total,
+   * where it is a straight line drawn over an already-straight one: a
+   * cumulative series only ever climbs, so its fit says the period had an
+   * average rate and nothing else. The reader can still turn the two off where
+   * they do mean something — this is about not offering them where they never
+   * do, which is a property of the grain and so the caller's to know.
+   */
+  trend: boolean;
+  /**
    * The same span one period back, drawn faint behind. Empty when there is
    * nothing to compare against — see `vs` in App.tsx.
    */
@@ -360,12 +369,19 @@ export const SpendLines = ({
   bucket,
   income: hasIncome,
   band: hasBand,
+  trend: offersTrend,
   compare = [],
   compareLabel,
 }: SpendLinesProps) => {
   const [ref, width] = useWidth(500);
   const { show, hide, node } = useTooltip();
   const [near, setNear] = useState<number | null>(null);
+  /**
+   * On by default, and local: it is a preference about how to read one card,
+   * not a description of what is on screen, so it stays out of the URL that the
+   * period, grain and filters share. Nothing about a link is wrong without it.
+   */
+  const [showTrend, setShowTrend] = useState(true);
 
   /**
    * The caption row only earns its 14px when the axis crosses a year boundary.
@@ -485,14 +501,23 @@ export const SpendLines = ({
   const runs = runsOf(dense);
 
   /**
-   * One straight line for the whole span, fitted to spending. Deliberately drawn
-   * across a gap where the series may not be: it is a summary of the span rather
-   * than a reading of any point on it, which is also why it takes no dot and no
-   * tooltip. Clipped to the plot instead of clamped — a falling trend passes
-   * below zero before the axis ends, and pinning that end to the floor would
-   * flatten the slope that is the only thing the line says.
+   * One straight line for the whole span per series it is fitted to.
+   * Deliberately drawn across a gap where the series may not be: it is a
+   * summary of the span rather than a reading of any point on it, which is also
+   * why neither takes a dot or a tooltip. Clipped to the plot instead of
+   * clamped — a falling trend passes below zero before the axis ends, and
+   * pinning that end to the floor would flatten the slope that is the only
+   * thing the line says.
+   *
+   * Fitted whatever the toggle says, and cheap enough to be: the key that turns
+   * them off has to know whether there was anything to turn off.
    */
-  const trend = spendTrend(dense);
+  const trends = !offersTrend
+    ? []
+    : [
+        { fit: trendLine(dense, (p) => p.totalOut), stroke: 'stroke-critical-strong' },
+        ...(hasIncome ? [{ fit: trendLine(dense, (p) => p.totalIn), stroke: 'stroke-good-strong' }] : []),
+      ].flatMap(({ fit, stroke }) => (fit ? [{ fit, stroke }] : []));
 
   const pts = (run: { m: SeriesPoint; i: number }[], pick: (p: SeriesPoint) => number) =>
     run.map(({ m, i }) => `${px(i)},${py(pick(m))}`);
@@ -569,11 +594,13 @@ export const SpendLines = ({
     <div ref={ref}>
       {/* One series needs no key telling it apart from the others — but a
           dashed twin of it does, even with no income to name. */}
-      {(hasIncome || compare.length > 0 || trend !== null) && series.length > 0 && (
+      {(hasIncome || compare.length > 0 || trends.length > 0) && series.length > 0 && (
         <ChartLegend
           income={hasIncome}
           band={hasBand}
-          trend={trend !== null}
+          trend={
+            trends.length > 0 ? { on: showTrend, toggle: () => setShowTrend((v) => !v) } : undefined
+          }
           compareLabel={compare.length > 0 ? compareLabel : undefined}
         />
       )}
@@ -661,23 +688,26 @@ export const SpendLines = ({
               </g>
             );
           })}
-          {trend && (
+          {showTrend && trends.length > 0 && (
             <>
               <defs>
                 <clipPath id={`${clip}-plot`}>
                   <rect x={padL} y={padT} width={plotW} height={plotH} />
                 </clipPath>
               </defs>
-              <line
-                x1={px(0)}
-                y1={py(trend.intercept)}
-                x2={px(dense.length - 1)}
-                y2={py(trend.intercept + trend.slope * (dense.length - 1))}
-                strokeWidth={1.5}
-                strokeDasharray="7 5"
-                clipPath={`url(#${clip}-plot)`}
-                className="stroke-ink-soft"
-              />
+              {trends.map(({ fit, stroke }) => (
+                <line
+                  key={stroke}
+                  x1={px(0)}
+                  y1={py(fit.intercept)}
+                  x2={px(dense.length - 1)}
+                  y2={py(fit.intercept + fit.slope * (dense.length - 1))}
+                  strokeWidth={1.5}
+                  strokeDasharray="7 5"
+                  clipPath={`url(#${clip}-plot)`}
+                  className={stroke}
+                />
+              ))}
             </>
           )}
           {near !== null && (
@@ -737,8 +767,12 @@ interface ChartLegendProps {
   income: boolean;
   /** Whether the shading is drawn — it is keyed only where it exists. */
   band: boolean;
-  /** Whether the fitted line is drawn; it is grey and dashed and says so nowhere else. */
-  trend: boolean;
+  /**
+   * Given where there is a fitted line to draw, and then keyed whether it is
+   * drawn or not: the key is the switch, so hiding it while the lines are off
+   * would be hiding the only way to get them back.
+   */
+  trend?: { on: boolean; toggle: () => void };
   /** Named when a compared period is drawn; the dashes are the same for both its lines. */
   compareLabel?: string;
 }
@@ -770,16 +804,31 @@ const ChartLegend = ({ income, band, trend, compareLabel }: ChartLegendProps) =>
         </span>
       </>
     )}
-    {/* Grey, because it is not a series: the two colours mean money in and money
-        out, and a third line in either of them would read as more of that. Same
-        stroke and dashes as the line it explains, as below. */}
+    {/* The one key that is also a switch. A legend entry is where a reader
+        already looks to ask what a line is, which makes it the cheapest place
+        to answer "and can I turn it off" — no second control, and nothing in
+        the card header competing with the grain toggle.
+
+        Each fitted line takes the colour of the series it is fitted to, so the
+        key carries both. Only the dashes tell them apart from the lines
+        themselves, which is the point: a trend is the same quantity, said
+        straight. */}
     {trend && (
-      <span className="inline-flex items-center gap-1.5">
-        <svg aria-hidden width={16} height={3} className="shrink-0">
-          <line x1={0} x2={16} y1={1.5} y2={1.5} strokeWidth={3} strokeDasharray="7 5" className="stroke-ink-soft" />
+      <button
+        type="button"
+        onClick={trend.toggle}
+        aria-pressed={trend.on}
+        title={trend.on ? 'Hide the fitted trend' : 'Show the fitted trend'}
+        className={`inline-flex items-center gap-1.5 rounded-sm hover:text-ink ${trend.on ? '' : 'opacity-40'}`}
+      >
+        <svg aria-hidden width={16} height={income ? 9 : 3} className="shrink-0">
+          <line x1={0} x2={16} y1={1.5} y2={1.5} strokeWidth={3} strokeDasharray="7 5" className="stroke-critical-strong" />
+          {income && (
+            <line x1={0} x2={16} y1={7.5} y2={7.5} strokeWidth={3} strokeDasharray="7 5" className="stroke-good-strong" />
+          )}
         </svg>
         Trend
-      </span>
+      </button>
     )}
     {/* One key for both dashed lines — the dashes are what mark the period, and
         the colours mean the same here as they do above.

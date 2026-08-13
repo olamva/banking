@@ -423,17 +423,24 @@ export function withGaps(series: SeriesPoint[]): (SeriesPoint | null)[] {
 }
 
 /**
- * The least-squares line through a series' spending, as `y = slope * x + intercept`
- * over the **slot index** — so the x it is fitted against is the position on the
- * drawn axis, holes included. That is the whole reason it takes the gapped array
- * rather than the series: fitting against the array index instead would pull a
- * missing month's neighbours together and tilt the line towards a period that
- * was never synced.
+ * The least-squares line through one of a series' two totals, as
+ * `y = slope * x + intercept` over the **slot index** — so the x it is fitted
+ * against is the position on the drawn axis, holes included. That is the whole
+ * reason it takes the gapped array rather than the series: fitting against the
+ * array index instead would pull a missing month's neighbours together and tilt
+ * the line towards a period that was never synced.
+ *
+ * Which total is the caller's, because the two are fitted separately and never
+ * against each other — a line through the gap between them would be a trend in
+ * the surplus, which is a different chart.
  *
  * Null under two points, because a line through one point is every line.
  */
-export function spendTrend(dense: (SeriesPoint | null)[]): { slope: number; intercept: number } | null {
-  const pts = dense.flatMap((p, x) => (p ? [{ x, y: p.totalOut }] : []));
+export function trendLine(
+  dense: (SeriesPoint | null)[],
+  pick: (p: SeriesPoint) => number,
+): { slope: number; intercept: number } | null {
+  const pts = dense.flatMap((p, x) => (p ? [{ x, y: pick(p) }] : []));
   if (pts.length < 2) return null;
   const mx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
   const my = pts.reduce((s, p) => s + p.y, 0) / pts.length;
