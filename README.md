@@ -59,6 +59,8 @@ pnpm sb1 sync --from 2022 --to 2026  # a whole span; either end may be YYYY-MM
 pnpm sb1 rebuild                    # rebuild data/banking.db from data/raw/
 pnpm sb1 peers | pbcopy             # clipboard rows -> the names rules/vipps.json lacks
 pnpm sb1 merchants                  # one shop under many names -> lines for rules/payees.json
+pnpm sb1 categories                 # which rules/overrides.json lines the bank already covers, and which depend on line order
+pnpm sb1 categories --all           # ...plus every bank pair, and the categories that still need a name
 
 # the living app
 pnpm dev                            # serve the dashboard on :4000, offline
@@ -329,6 +331,7 @@ src/core/exclude.ts   flags internal transfers and card bill payments
 src/core/categorize.ts bank category + overrides, peers and subscriptions
 src/core/db.ts        node:sqlite store, rebuilt wholesale
 src/core/stats.ts     the only money aggregation
+src/core/report.ts    what rules/overrides.json still earns against the bank
 src/core/select.ts    which rows are in view — filters, months, categories
 src/core/pipeline.ts  the offline chain; imports nothing that touches a network
 
