@@ -35,6 +35,8 @@ interface FilterBarProps {
   onPeriod: (period: string) => void;
   /** Every value the two dropdowns offer, already narrowed to the period. */
   categories: string[];
+  /** `category/sub` pairs, which the categories dropdown opens into. */
+  subcategories: string[];
   merchants: string[];
   accounts: string[];
   filters: Filters;
@@ -43,6 +45,17 @@ interface FilterBarProps {
 
 const CONTROL =
   "rounded-md border border-line bg-page px-2 py-1.5 text-[13px] text-ink";
+
+/**
+ * What one `category/sub` pair is called on its own, without its parent — the
+ * picker already draws it indented under the category, and the chips prepend the
+ * category themselves.
+ */
+const pairLabel = (pair: string): string => {
+  const cut = pair.indexOf("/");
+  const sub = pair.slice(cut + 1);
+  return subcategoryLabel(pair.slice(0, cut), sub === "" ? null : sub);
+};
 
 /** Spelled out, because "2026 / 07" beside a year picker reads as a second year. */
 const MONTH_NAMES = [
@@ -102,6 +115,19 @@ interface PickerProps {
   label?: (value: string) => string;
   /** For a list too long to scan. Filters the options, nothing else. */
   searchable?: boolean;
+  /**
+   * The level below an option, making this a tree rather than a list. Given
+   * together, these four turn each option into a disclosure row over its own
+   * children — a second axis, checked independently of its parent.
+   *
+   * The values are whatever the second axis filters on; the picker only passes
+   * them back. One child is not a breakdown, so a row with fewer than two gets
+   * no triangle and stays a plain option.
+   */
+  subs?: (option: string) => string[];
+  subPicked?: string[];
+  onToggleSub?: (value: string) => void;
+  subLabel?: (value: string) => string;
 }
 
 /**
@@ -121,8 +147,14 @@ const Picker = ({
   onMode,
   label = (v) => v,
   searchable,
+  subs,
+  subPicked = [],
+  onToggleSub,
+  subLabel = (v) => v,
 }: PickerProps) => {
   const [query, setQuery] = useState("");
+  /** Which options are opened into their children. Nothing is open to begin with. */
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   /**
    * Which option the arrow keys are on, as an index into `shown`. Null until
    * something puts it somewhere — an untouched list should not open with a row
@@ -163,18 +195,52 @@ const Picker = ({
   }, []);
 
   const q = query.trim().toLowerCase();
+  const childrenOf = (o: string) => subs?.(o) ?? [];
+  const hitsQuery = (v: string, name: string) => name.toLowerCase().includes(q);
+
   // Whatever is checked stays listed however the search box is filtered, or
-  // turning a filter off becomes a matter of retyping its name first.
+  // turning a filter off becomes a matter of retyping its name first. A parent
+  // whose *child* matches stays too — searching for a subcategory that finds
+  // nothing because its category is spelled differently is not a search.
   const shown = q
     ? options.filter(
-        (o) => label(o).toLowerCase().includes(q) || picked.includes(o),
+        (o) =>
+          hitsQuery(o, label(o)) ||
+          picked.includes(o) ||
+          childrenOf(o).some((c) => hitsQuery(c, subLabel(c)) || subPicked.includes(c)),
       )
     : options;
+
+  /**
+   * The flat list the arrow keys actually walk: every shown option, with the
+   * children of the opened ones spliced in beneath their parent.
+   *
+   * Flat on purpose — the keyboard, the highlight and Enter all index into one
+   * array, so opening a category needs no second notion of "where am I".
+   */
+  const rows = shown.flatMap((o) => {
+    const kids = childrenOf(o);
+    // A search that matched a child opens its parent: the row you were looking
+    // for should be on screen, not one click behind a triangle.
+    const openHere =
+      expanded.has(o) || (q !== "" && kids.some((c) => hitsQuery(c, subLabel(c))));
+    const parent = { value: o, sub: false };
+    return kids.length > 1 && openHere
+      ? [parent, ...kids.map((c) => ({ value: c, sub: true }))]
+      : [parent];
+  });
 
   // Clamped on read rather than reset on every change: typing shortens the list
   // under the cursor, and the row it was on is not always still there. `-1`
   // matches no row, which is what "nothing is arrowed to" looks like.
-  const at = active === null ? -1 : Math.min(active, shown.length - 1);
+  const at = active === null ? -1 : Math.min(active, rows.length - 1);
+
+  const toggleOpen = (o: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(o)) next.add(o);
+      return next;
+    });
 
   /**
    * A closed menu forgets what was typed in it, a few seconds later — long
@@ -206,7 +272,7 @@ const Picker = ({
       // back at the top is a good way to lose track of where you were.
       // From nothing, either arrow lands on the first row rather than off the end.
       setActive(
-        at < 0 ? 0 : Math.max(0, Math.min(at + step, shown.length - 1)),
+        at < 0 ? 0 : Math.max(0, Math.min(at + step, rows.length - 1)),
       );
     } else if (e.key === "Enter") {
       // The mode toggle is in here too, and Enter on a button means that button.
@@ -214,10 +280,12 @@ const Picker = ({
       // Typing a name and pressing Enter means the one match you typed it for,
       // without arrowing onto it first.
       const i = at < 0 ? 0 : at;
-      if (!shown[i]) return;
+      const row = rows[i];
+      if (!row) return;
       e.preventDefault();
       setActive(i);
-      onToggle(shown[i]);
+      if (row.sub) onToggleSub?.(row.value);
+      else onToggle(row.value);
     }
   };
 
@@ -293,35 +361,66 @@ const Picker = ({
           {/* Only the list scrolls: the mode toggle and the search box stay put
             rather than sliding away as you scroll past them. */}
           <div className="min-h-0 overflow-y-auto">
-            {shown.length === 0 ? (
+            {rows.length === 0 ? (
               <div className="px-1.5 py-1 text-xs text-ink-muted">
                 {options.length === 0 ? "Nothing in this period." : "No match."}
               </div>
             ) : (
-              shown.map((o, i) => (
-                <label
-                  key={o}
-                  // Keeps the arrowed-to row in the scroller. `nearest` so it only
-                  // moves when the row is actually out of sight.
-                  ref={
-                    i === at
-                      ? (el) => el?.scrollIntoView({ block: "nearest" })
-                      : undefined
-                  }
-                  className={`flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-[13px] hover:bg-hover ${i === at ? "bg-hover" : ""}`}
-                >
-                  <input
-                    type="checkbox"
-                    className="shrink-0"
-                    checked={picked.includes(o)}
-                    onChange={() => onToggle(o)}
-                    // The arrows own the highlight, so a row reached by tabbing
-                    // moves it rather than leaving two rows looking active.
-                    onFocus={() => setActive(i)}
-                  />
-                  {label(o)}
-                </label>
-              ))
+              rows.map((row, i) => {
+                const kids = row.sub ? [] : childrenOf(row.value);
+                const openHere = expanded.has(row.value);
+                return (
+                  <div key={`${row.sub ? "sub:" : ""}${row.value}`} className="flex items-center">
+                    {row.sub ? (
+                      // Two spacers, so a child lines up under its parent's label
+                      // rather than under its triangle.
+                      <span className="w-[26px] shrink-0" />
+                    ) : kids.length > 1 ? (
+                      <button
+                        type="button"
+                        // Not inside the label: clicking a disclosure must not
+                        // also tick the box it sits next to.
+                        onClick={() => toggleOpen(row.value)}
+                        aria-expanded={openHere}
+                        aria-label={`${openHere ? "Hide" : "Show"} ${label(row.value)} subcategories`}
+                        className="flex h-6 w-[13px] shrink-0 items-center justify-center text-ink-muted hover:text-ink"
+                      >
+                        <span className={`text-[8px] transition-transform ${openHere ? "rotate-90" : ""}`}>
+                          ▶
+                        </span>
+                      </button>
+                    ) : (
+                      // Holds the column so every label starts at the same x.
+                      <span className="w-[13px] shrink-0" />
+                    )}
+                    <label
+                      // Keeps the arrowed-to row in the scroller. `nearest` so it only
+                      // moves when the row is actually out of sight.
+                      ref={
+                        i === at
+                          ? (el) => el?.scrollIntoView({ block: "nearest" })
+                          : undefined
+                      }
+                      className={`flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-[13px] hover:bg-hover ${i === at ? "bg-hover" : ""} ${row.sub ? "text-ink-soft" : ""}`}
+                    >
+                      <input
+                        type="checkbox"
+                        className="shrink-0"
+                        checked={(row.sub ? subPicked : picked).includes(row.value)}
+                        onChange={() =>
+                          row.sub ? onToggleSub?.(row.value) : onToggle(row.value)
+                        }
+                        // The arrows own the highlight, so a row reached by tabbing
+                        // moves it rather than leaving two rows looking active.
+                        onFocus={() => setActive(i)}
+                      />
+                      <span className="truncate">
+                        {row.sub ? subLabel(row.value) : label(row.value)}
+                      </span>
+                    </label>
+                  </div>
+                );
+              })
             )}
           </div>
         </div>
@@ -339,6 +438,7 @@ export const FilterBar = ({
   kind,
   onPeriod,
   categories,
+  subcategories,
   merchants,
   accounts,
   filters,
@@ -371,6 +471,11 @@ export const FilterBar = ({
     });
   const toggleCategory = toggle("categories");
   const toggleSubcategory = toggle("subcategories");
+
+  // A pair is `category/sub`, so its own category is its prefix — no second
+  // grouping to keep in step with the list the picker was handed.
+  const subsOf = (category: string) =>
+    subcategories.filter((pair) => pair.slice(0, pair.indexOf("/")) === category);
   const toggleMerchant = toggle("merchants");
   const toggleAccount = toggle("accounts");
 
@@ -452,6 +557,9 @@ export const FilterBar = ({
         </select>
       )}
 
+      {/* A tree: each category opens into the subcategories the bank names under
+          it. The two levels are separate axes, so ticking a category and ticking
+          one of its children are different filters and either works alone. */}
       <Picker
         title="Categories"
         options={categories}
@@ -460,6 +568,10 @@ export const FilterBar = ({
         onToggle={toggleCategory}
         onMode={(categoryMode) => onFilters({ ...filters, categoryMode })}
         label={categoryLabel}
+        subs={subsOf}
+        subPicked={filters.subcategories}
+        onToggleSub={toggleSubcategory}
+        subLabel={pairLabel}
       />
 
       {/* Searchable, and the categories one is not: there are a dozen categories
@@ -529,13 +641,7 @@ export const FilterBar = ({
               category on the spending chart, so this is where one becomes
               visible and removable. */}
           {filters.subcategories.map((pair) => {
-            const cut = pair.indexOf("/");
-            const category = pair.slice(0, cut);
-            const sub = pair.slice(cut + 1);
-            const name = `${categoryLabel(category)} › ${subcategoryLabel(
-              category,
-              sub === "" ? null : sub,
-            )}`;
+            const name = `${categoryLabel(pair.slice(0, pair.indexOf("/")))} › ${pairLabel(pair)}`;
             const not = filters.subcategoryMode === "exclude";
             return (
               <Chip

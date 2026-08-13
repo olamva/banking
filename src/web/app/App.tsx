@@ -21,6 +21,7 @@ import {
   axisBounds,
   distinctAccounts,
   distinctCategories,
+  distinctSubcategories,
   distinctMerchants,
   distinctMonths,
   distinctYears,
@@ -596,6 +597,22 @@ export const App = () => {
       ].sort(),
     [inPeriod, filters.categories],
   );
+  // Sorted by their own display name, not by the slug: the picker draws them
+  // under their category and `annen_reise` reading before `flybilletter` is the
+  // slug's alphabet, not the one on screen.
+  const subcategories = useMemo(
+    () =>
+      [
+        ...new Set([...distinctSubcategories(inPeriod), ...filters.subcategories]),
+      ].sort(
+        (a, b) =>
+          a.slice(0, a.indexOf("/")).localeCompare(b.slice(0, b.indexOf("/"))) ||
+          subcategoryLabel(a.slice(0, a.indexOf("/")), a.slice(a.indexOf("/") + 1) || null).localeCompare(
+            subcategoryLabel(b.slice(0, b.indexOf("/")), b.slice(b.indexOf("/") + 1) || null),
+          ),
+      ),
+    [inPeriod, filters.subcategories],
+  );
   const merchants = useMemo(
     () =>
       [
@@ -654,6 +671,7 @@ export const App = () => {
         kind={p.kind}
         onPeriod={setChosen}
         categories={categories}
+        subcategories={subcategories}
         merchants={merchants}
         accounts={accounts}
         filters={filters}
