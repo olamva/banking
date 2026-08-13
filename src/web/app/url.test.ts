@@ -6,7 +6,13 @@ import { fromParams, toParams, type UrlState } from './url.ts';
 // Importing this module must stay DOM-free: readUrl/writeUrl only touch
 // location/history when called, so node can run everything else here.
 
-const DEFAULT: UrlState = { view: 'dashboard', period: null, grain: 'running', filters: NO_FILTERS };
+const DEFAULT: UrlState = {
+  view: 'dashboard',
+  period: null,
+  grain: 'running',
+  inflation: false,
+  filters: NO_FILTERS,
+};
 
 test('the untouched page has no query string at all', () => {
   assert.equal(toParams(DEFAULT), '');
@@ -17,6 +23,7 @@ test('a populated state round-trips, nulls included', () => {
     view: 'transactions',
     grain: 'month',
     period: '2026',
+    inflation: true,
     filters: {
       categories: ['dagligvarer', 'transport'],
       categoryMode: 'exclude',
@@ -103,6 +110,13 @@ test('merchants survive a comma in the name', () => {
 });
 
 /** Hiding them is the default, so only the shown state is worth a param. */
+/** Off is the default reading, so anything but the literal `1` is off. */
+test('the inflation adjustment rides along only when it is on', () => {
+  assert.equal(toParams({ ...DEFAULT, inflation: true }), 'infl=1');
+  assert.equal(fromParams(new URLSearchParams('infl=yes')).inflation, false);
+  assert.equal(fromParams(new URLSearchParams('')).inflation, false);
+});
+
 test('showExcluded rides along only when it is on', () => {
   assert.equal(toParams({ ...DEFAULT, filters: { ...NO_FILTERS, showExcluded: true } }), 'excl=1');
   assert.equal(fromParams(new URLSearchParams('excl=yes')).filters.showExcluded, false);

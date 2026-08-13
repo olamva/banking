@@ -1,8 +1,8 @@
 /**
  * The page. Two views, dashboard and transactions, over one shared period.
- * State is four things — view, period, chart grain, filters — all of them in
- * the query string, and everything else is derived on render from the full
- * transaction list.
+ * State is five things — view, period, chart grain, the inflation adjustment,
+ * filters — all of them in the query string, and everything else is derived on
+ * render from the full transaction list.
  *
  * No aggregation lives here. `src/core/stats.ts` does all of it and is imported
  * directly, so the browser runs the exact code `node --test` pins; `src/core/
@@ -38,6 +38,7 @@ import {
   byMonth,
   cumulative,
   dailySeries,
+  inflate,
   monthStats,
   monthlySeries,
   totals,
@@ -228,6 +229,9 @@ interface DashboardProps {
   grain: Grain;
   offered: Grain[];
   onGrain: (grain: Grain) => void;
+  /** Whether the previous window is restated in the money of the one in view. */
+  inflation: boolean;
+  onInflation: (inflation: boolean) => void;
 }
 
 /**
@@ -248,6 +252,8 @@ const Dashboard = ({
   grain,
   offered,
   onGrain,
+  inflation,
+  onInflation,
 }: DashboardProps) => {
   const all = txns.filter((t) => inRange(t, p.from, p.to));
   const shown = all.filter((t) => matchesFilters(t, filters));
@@ -267,11 +273,27 @@ const Dashboard = ({
       ? p.prev
       : null;
 
-  const previous = vs
+  /**
+   * The year in view, which is the year `inflate` restates the comparison into.
+   * Read off the bound rather than the label because a month's label carries a
+   * month too — and all time has no bound, but no `vs` either.
+   */
+  const year = p.from?.slice(0, 4) ?? "";
+
+  /**
+   * Adjusted here and nowhere else, once, before anything reads it: the tiles,
+   * the category deltas and the faint comparison line all take this same array,
+   * so they cannot end up quoting two different kroner at each other.
+   */
+  const before = vs
     ? txns
         .filter((t) => inRange(t, vs.from, vs.to))
         .filter((t) => matchesFilters(t, filters))
     : [];
+  const previous = inflation ? inflate(before, year) : before;
+
+  /** The tiles and the changes card say which money they are comparing in. */
+  const vsLabel = vs && (inflation ? `${vs.label}, in ${year} kr` : vs.label);
 
   const stats = monthStats(p.label, shown, vs ? previous : undefined);
   const prev = monthStats("previous", previous);
@@ -370,13 +392,29 @@ const Dashboard = ({
   // zero and "net" is the spend again with a minus sign; both are noise.
   return (
     <>
+      {/* Not in the filter bar: it filters nothing, and it means nothing in a
+          window with no window before it — every period that has one draws the
+          control, and all time draws no control rather than a dead one. */}
+      {vs && (
+        <div className="mb-3 flex justify-end">
+          <button
+            type="button"
+            aria-pressed={inflation}
+            onClick={() => onInflation(!inflation)}
+            className={`rounded-md border border-line px-2 py-1 text-[11px] ${inflation ? "bg-series-1 text-white" : "bg-page text-ink-soft"}`}
+          >
+            Adjust {vs.label} for inflation
+          </button>
+        </div>
+      )}
+
       <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
         {stats.totalOut > 0 && (
           <StatTile
             label="Spent"
             value={fmtNOK(stats.totalOut)}
             sub={yearly ? `${fmtNOK(yearly.averageMonth.totalOut)} / month` : undefined}
-            vs={vs?.label}
+            vs={vsLabel ?? undefined}
             delta={vs ? deltaInfo(stats.totalOut, prev.totalOut, false) : undefined}
           />
         )}
@@ -385,7 +423,7 @@ const Dashboard = ({
             label="Income"
             value={fmtNOK(stats.totalIn)}
             sub={yearly ? `${fmtNOK(yearly.averageMonth.totalIn)} / month` : undefined}
-            vs={vs?.label}
+            vs={vsLabel ?? undefined}
             delta={vs ? deltaInfo(stats.totalIn, prev.totalIn, true) : undefined}
           />
         )}
@@ -394,7 +432,7 @@ const Dashboard = ({
             label="Net"
             value={fmtNOK(stats.net)}
             sub={yearly ? `${fmtNOK(yearly.averageMonth.net)} / month` : undefined}
-            vs={vs?.label}
+            vs={vsLabel ?? undefined}
             delta={vs ? deltaInfo(stats.net, prev.net, true) : undefined}
           />
         )}
@@ -422,7 +460,7 @@ const Dashboard = ({
               income={anyIncome}
               band={band}
               compare={compare}
-              compareLabel={vs?.label}
+              compareLabel={vsLabel ?? undefined}
             />
           </Card>
         </div>
@@ -437,7 +475,7 @@ const Dashboard = ({
 
         {!single && deltas.length > 0 && (
           <Card
-            title={`Biggest changes vs ${vs?.label}`}
+            title={`Biggest changes vs ${vsLabel}`}
             icon={ChangesIcon}
           >
             <DivergingBars deltas={deltas} onPick={onCategory} />
@@ -531,6 +569,7 @@ export const App = () => {
   const [chosen, setChosen] = useState<string | null>(initial.period);
   const [filters, setFilters] = useState<Filters>(initial.filters);
   const [chosenGrain, setChosenGrain] = useState<Grain>(initial.grain);
+  const [inflation, setInflation] = useState(initial.inflation);
   const [theme, onTheme] = useState<Theme>(readTheme);
 
   // Before anything renders a slug: the cards and the charts read the names
@@ -574,8 +613,8 @@ export const App = () => {
    * month returns to per day rather than to the default.
    */
   useEffect(
-    () => writeUrl({ view, period: chosen, grain, filters }),
-    [view, chosen, grain, filters],
+    () => writeUrl({ view, period: chosen, grain, inflation, filters }),
+    [view, chosen, grain, inflation, filters],
   );
 
   /**
@@ -725,6 +764,8 @@ export const App = () => {
           grain={grain}
           offered={grains}
           onGrain={setChosenGrain}
+          inflation={inflation}
+          onInflation={setInflation}
         />
       )}
       {load.status === "ready" && txns.length > 0 && view === "transactions" && (

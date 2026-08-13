@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   cumulative,
   dailySeries,
+  inflate,
   monthStats,
   monthlySeries,
   subsAndRecurring,
@@ -438,4 +439,31 @@ test('income and excluded rows stay out of the subcategory totals, as they do th
   assert.deepEqual(s.subcategories, [
     { category: 'dagligvarer', subcategory: 'dagligvarer', total: 100, share: 1 },
   ]);
+});
+
+test('inflate restates the comparison window, and leaves the rows it was given alone', () => {
+  const rows = [
+    txn({ id: '1', amount: -1000, date: '2025-07-04' }),
+    txn({ id: '2', amount: 5000, date: '2025-07-20', category: 'innskudd' }),
+  ];
+  // Keyed on 2026 — the year being compared *into*, never the year the rows are from.
+  const adjusted = inflate(rows, '2026');
+  assert.equal(adjusted[0]!.amount, -1030);
+  assert.equal(adjusted[1]!.amount, 5150);
+
+  // A copy, and only the amount moves: the caller still holds the real figures,
+  // and the comparison line still plots where the money was actually spent.
+  assert.equal(rows[0]!.amount, -1000);
+  assert.equal(adjusted[0]!.date, '2025-07-04');
+
+  // A year the table does not name takes the flat fallback, never zero.
+  assert.equal(inflate([txn({ id: '3', amount: -200 })], '1999')[0]!.amount, -206);
+});
+
+/** The whole point of the toggle: a rise smaller than inflation is a real fall. */
+test('inflate feeds the deltas', () => {
+  const now = [txn({ id: '1', amount: -1020, date: '2026-07-04' })];
+  const before = [txn({ id: '2', amount: -1000, date: '2025-07-04' })];
+  assert.equal(monthStats('2026-07', now, before).delta!.totalOut, 20);
+  assert.equal(monthStats('2026-07', now, inflate(before, '2026')).delta!.totalOut, -10);
 });

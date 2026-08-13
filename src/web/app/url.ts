@@ -20,6 +20,13 @@ export type UrlState = {
    */
   period: string | null;
   grain: Grain;
+  /**
+   * Whether the window being compared against is restated in the money of the
+   * window in view. Not a filter — it changes no row's membership, only what
+   * the previous window's amounts are worth — so it sits beside them rather
+   * than in `Filters`.
+   */
+  inflation: boolean;
   filters: Filters;
 };
 
@@ -68,6 +75,7 @@ export const toParams = (s: UrlState): string => {
   // and offers nothing else, so naming it there would record a choice that was
   // never on offer.
   if (s.grain !== grainsFor(s.period)[0]) p.set('g', s.grain);
+  if (s.inflation) p.set('infl', '1');
   if (s.filters.categories.length) p.set('cat', s.filters.categories.join(','));
   if (s.filters.categoryMode !== 'include') p.set('cat_mode', s.filters.categoryMode);
   // One param per merchant, not a joined list: a merchant name can contain a
@@ -93,6 +101,7 @@ export const fromParams = (p: URLSearchParams): UrlState => ({
   view: VIEWS.find((v) => v === p.get('view')) ?? 'dashboard',
   period: p.get('p') || null,
   grain: ALL_GRAINS.find((g) => g === p.get('g')) ?? grainsFor(p.get('p') || null)[0]!,
+  inflation: p.get('infl') === '1',
   filters: {
     categories: p.get('cat')?.split(',').filter(Boolean) ?? [],
     categoryMode: p.get('cat_mode') === 'exclude' ? 'exclude' : 'include',

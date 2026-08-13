@@ -203,6 +203,54 @@ function aggregateCents(txns: Categorized[]): CentsAgg {
   return agg;
 }
 
+/**
+ * Norway's CPI, year on year, as SSB's annual average change (table 03013),
+ * keyed by the **later** year of the pair.
+ *
+ * One number per year is all this ever needs: `period()` compares every window
+ * against the same window a year back — a month against that month last year, a
+ * year against the year before — so an adjustment here is always exactly twelve
+ * months of it, and the key is always the year in view.
+ *
+ * The figures are the published annual averages, not a July-to-July index, so
+ * they are the right size and not the exact one. Keep it that way — the number
+ * this moves is a comparison, and a monthly index would be twelve times the
+ * table for a difference no tile can show.
+ */
+const CPI: Record<string, number> = {
+  '2022': 0.058,
+  '2023': 0.055,
+  '2024': 0.031,
+  '2025': 0.03,
+  '2026': 0.03,
+};
+
+/**
+ * The rate used for a year the table does not name — including the current one
+ * before SSB has published it, and any year the table falls behind.
+ *
+ * ponytail: flat 3%; add the year to `CPI` when the real figure lands.
+ */
+const CPI_DEFAULT = 0.03;
+
+/**
+ * The previous window's rows, restated in the money of the year in view, so a
+ * delta beside them measures what changed rather than what the krone did.
+ *
+ * A copy, never a mutation: the caller still holds the real rows, and
+ * everything downstream — the tiles, the category deltas, the faint comparison
+ * line — reads the same adjusted set, so no two numbers on the page can end up
+ * on different money.
+ *
+ * Only the amount moves. The date stays the date it was, which is what keeps
+ * `dailySeries` plotting the comparison window where it actually happened.
+ */
+export function inflate(txns: Categorized[], year: string): Categorized[] {
+  const rate = CPI[year] ?? CPI_DEFAULT;
+  // Rounded to the øre, like every other amount that reaches `toCents`.
+  return txns.map((t) => ({ ...t, amount: fromCents(Math.round(toCents(t.amount) * (1 + rate))) }));
+}
+
 export type Totals = {
   totalIn: number;
   totalOut: number;
