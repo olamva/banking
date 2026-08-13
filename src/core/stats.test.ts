@@ -5,10 +5,10 @@ import {
   dailySeries,
   monthStats,
   monthlySeries,
-  spendTrend,
   subsAndRecurring,
   subscriptionGroups,
   totals,
+  trendLine,
   withGaps,
   yearStats,
 } from './stats.ts';
@@ -242,27 +242,43 @@ test('subscriptionGroups nets a refund off its own group', () => {
   ]);
 });
 
-test('spendTrend fits the drawn axis, holes included', () => {
+test('trendLine fits the drawn axis, holes included', () => {
   const p = (at: string, totalOut: number): SeriesPoint => ({ at, totalIn: 0, totalOut });
+  const out = (s: (SeriesPoint | null)[]) => trendLine(s, (x) => x.totalOut);
 
   // An exact line comes back exactly, slope and intercept both.
-  assert.deepEqual(spendTrend([p('a', 100), p('b', 200), p('c', 300)]), { slope: 100, intercept: 100 });
+  assert.deepEqual(out([p('a', 100), p('b', 200), p('c', 300)]), { slope: 100, intercept: 100 });
 
   // Least squares, not first-to-last: the middle point pulls the line down.
-  const fit = spendTrend([p('a', 0), p('b', 0), p('c', 300)])!;
+  const fit = out([p('a', 0), p('b', 0), p('c', 300)])!;
   assert.equal(Math.round(fit.slope), 150);
   assert.equal(Math.round(fit.intercept), -50);
 
   // A hole holds its slot. Two months a year apart rise by 1200 over 12 slots,
   // not over 1 — closing the gap would claim a hundredfold steeper trend.
-  const gapped = spendTrend([p('a', 0), ...Array(11).fill(null), p('b', 1200)])!;
-  assert.equal(gapped.slope, 100);
+  assert.equal(out([p('a', 0), ...Array(11).fill(null), p('b', 1200)])!.slope, 100);
 
   // Flat is flat, and one point is every line.
-  assert.equal(spendTrend([p('a', 50), p('b', 50)])?.slope, 0);
-  assert.equal(spendTrend([p('a', 1)]), null);
-  assert.equal(spendTrend([null, p('a', 1), null]), null);
-  assert.equal(spendTrend([]), null);
+  assert.equal(out([p('a', 50), p('b', 50)])?.slope, 0);
+  assert.equal(out([p('a', 1)]), null);
+  assert.equal(out([null, p('a', 1), null]), null);
+  assert.equal(out([]), null);
+});
+
+/**
+ * The two lines are fitted separately, and each sees only its own total. A
+ * single fit over the pair would be a trend in the surplus, which is neither
+ * line the chart draws.
+ */
+test('trendLine reads the total it is asked for, and no other', () => {
+  const both = [
+    { at: '2026-01', totalIn: 300, totalOut: 100 },
+    { at: '2026-02', totalIn: 200, totalOut: 200 },
+    { at: '2026-03', totalIn: 100, totalOut: 300 },
+  ];
+
+  assert.deepEqual(trendLine(both, (p) => p.totalOut), { slope: 100, intercept: 100 });
+  assert.deepEqual(trendLine(both, (p) => p.totalIn), { slope: -100, intercept: 300 });
 });
 
 /**

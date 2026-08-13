@@ -421,6 +421,10 @@ const Dashboard = ({
               bucket={bucket}
               income={anyIncome}
               band={band}
+              // A running total only ever climbs, so a straight line fitted to
+              // it is a straight line drawn over one — it reports an average
+              // rate the tile above already gives as a number.
+              trend={!running}
               compare={compare}
               compareLabel={vs?.label}
             />
