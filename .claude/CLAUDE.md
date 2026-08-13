@@ -24,10 +24,10 @@ and the standing commit grant above is unchanged by any of this. What the grant
 does **not** cover, and still needs asking for in the conversation: **pushing**
 `main` to the remote, force-pushing anything, and merging a PR. A branch and a
 PR add history that can be read before it counts; those three publish or land it
-unread. The settings deny list holds the
-three spellings of a force push and `gh pr merge`, but a deny entry matches the
-front of the command only — `git push --quiet --force` is not caught, so the
-rule above is the real guard and the list is a backstop.
+unread. The settings deny list holds the three spellings of a force push and
+`gh pr merge`, but a deny entry matches the front of the command only —
+`git push --quiet --force` is not caught, so the rule above is the real guard
+and the list is a backstop.
 
 And nothing under `rules/` or `data/` is committable at all — the whole point of
 them being gitignored, and the only reason a remote is safe here. That gitignore
