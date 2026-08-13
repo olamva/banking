@@ -7,9 +7,8 @@
  * noticed it was there. This says which lines that is — and, for the lines that
  * disagree with the bank, which of the two is worth keeping.
  *
- * It is a report and only a report, the same division as `peers.ts` and
- * `merchants.ts`: it prints, a person edits, nothing under `rules/` is a tool's
- * to rewrite.
+ * It is a report and only a report, the same division as `merchants.ts`: it
+ * prints, a person edits, nothing under `rules/` is a tool's to rewrite.
  *
  * **The verdict is a counterfactual, not a resemblance.** A line is redundant
  * when deleting it changes no row's category — computed by re-running
@@ -218,14 +217,13 @@ function group(rows: Categorized[], fallbacks: Categorized[], ours: string, sub:
  *
  * The remaining arguments are the other rules files, passed through untouched so
  * the counterfactual runs the whole chain and not just the overrides — deleting
- * a line can hand its rows to `rules/vipps.json` or to the bank, and both are
- * answers the person editing the file needs to see.
+ * a line can hand its rows to `rules/giro.json`, to the Vipps peer rules or to
+ * the bank, and all three are answers the person editing the file needs to see.
  */
 export function overrideReport(
   rows: Categorized[],
   overrides: Overrides,
   subscriptions: Subscriptions = [],
-  peers: string[] = [],
   giro: Overrides = {},
   cards: Set<string> = new Set(),
 ): PatternReport[] {
@@ -243,7 +241,7 @@ export function overrideReport(
       // change, since nothing else was matching this line in the first place.
       const without = { ...overrides };
       delete without[pattern];
-      const fallbacks = categorize(mine, without, subscriptions, peers, giro, cards);
+      const fallbacks = categorize(mine, without, subscriptions, giro, cards);
       const outcomes = group(mine, fallbacks, ours, splitCategory(value).subcategory);
       const kept = outcomes.reduce((n, o) => n + (o.same ? o.rows : 0), 0);
       // Where every row the bank has an opinion on falls to one and the same

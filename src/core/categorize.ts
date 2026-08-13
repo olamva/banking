@@ -114,17 +114,41 @@ async function loadJson<T>(path: string, fallback: T): Promise<T> {
   return JSON.parse(await readFile(path, 'utf8')) as T;
 }
 
-/**
- * rules/vipps.json: `["<name>", ...]`, the same pattern language.
- *
- * Person-to-person payments were half the lines of `rules/overrides.json` and every
- * one of them mapped to the same category, so they live as a bare list of names
- * instead. Checked *after* `rules/overrides.json`, so an explicit entry there still
- * wins for a person who shares a string with a merchant.
- *
- * A name is not enough on its own, though — see `rules/giro.json` below.
- */
 const PEER_PAYMENT = 'diverse/vennebetaling';
+
+/**
+ * The two row shapes that say *by themselves* that a Vipps payment went to a
+ * person. Both replaced a hand-written list of names — `rules/vipps.json`, 32 of
+ * them — which is now gone; the names it still earned live in
+ * `rules/overrides.json` like any other pattern.
+ *
+ * **A bare `Vipps*` marker is not one of these.** Vipps bills merchants too, and
+ * matching it alone moved 271 correctly-filed rows — canteen lunches, tram fares
+ * — into `vennebetaling`. Each shape below adds the second signal that a plain
+ * `Vipps*` lacks.
+ *
+ * `VIPPS_PEER_CARD` is the card's half. A Vipps row on the credit card arrives
+ * as `diverse/overforing`, which is the bank reading `mcc: 4829`, *MONEY
+ * TRANSF*, off the row — the card network's own word for "this merchant moves
+ * money", which is what Vipps is to it when the payee is a person. The 28 card
+ * rows carrying `Vipps*` split exactly on it: the 16 at `diverse/overforing` are
+ * all people, and the other 12 arrive as `RESTAURANTS`, `FURNITURE/EQ`,
+ * `Bus Lines` and `Motion Pictu` with a real category to match. So the pair is
+ * the whole guard, and it is read off `bankCategory`/`bankSub` rather than the
+ * MCC because the bank has already done that read — `mcc` is not on `Txn`, and
+ * widening it would buy nothing this does not already get. Checked against all
+ * 8 547 rows of the record: 16 matches, every one of them a person, and no
+ * deposit row matches at all.
+ *
+ * `VIPPS_PEER_DOUBLED` is the deposit accounts' half. Vipps doubles its own
+ * marker — `Vipps*Vipps*Name` — when the payment settles as a
+ * `Straksbetaling - ekstern betalingstjeneste` rather than over the card rails,
+ * and the bank has no category for those at all. 18 rows on record, all people,
+ * no false positives.
+ */
+const VIPPS_PEER_CARD = 'diverse/overforing';
+const VIPPS_MARKER = /vipps\*/i;
+const VIPPS_PEER_DOUBLED = /vipps\*\s*vipps\*/i;
 
 /**
  * rules/giro.json: `{ "<name>": "<category>" }`, the same pattern language, applied
@@ -154,8 +178,6 @@ const LUMP_TYPE = /^(giro|mobilgiro|overførsel|avtale)\b(?! mellom egne)/i;
 
 export const loadOverrides = (path = 'rules/overrides.json') => loadJson<Overrides>(path, {});
 
-export const loadPeers = (path = 'rules/vipps.json') => loadJson<string[]>(path, []);
-
 export const loadGiro = (path = 'rules/giro.json') => loadJson<Overrides>(path, {});
 
 /**
@@ -167,9 +189,20 @@ export const loadGiro = (path = 'rules/giro.json') => loadJson<Overrides>(path, 
  * arrives as `Straksbetaling` like any other instant payment; and an override
  * cannot see the sign, so it would file the money you send back the same way.
  *
- * **Incoming only, and that is the category's own doing** — it lands under
- * `innskudd`, the bank's income main, where an outgoing row would be a
- * contradiction. Paying a sibling back for a taxi stays a peer payment.
+ * **The sign is what the entry decides, not whether it applies.** Money in is
+ * family support; money out to the same person is you paying a relative back,
+ * which is a peer payment and nothing else — `innskudd` is the bank's income
+ * main, so an outgoing row filed there would be a contradiction. Both readings
+ * live here because both need the same list, and the list is the only thing that
+ * knows these people are relatives: `rules/vipps.json` used to carry a second
+ * copy of three of them purely to catch the outgoing half, and 57 rows and
+ * 63 672 kr of paying relatives back rode on that duplication.
+ *
+ * An entry may be an **account number** as well as a name. The bank names no
+ * payee at all on a plain `Overføring`, so the number is the only thing on the
+ * row that says who the other party was — and a number is safe here in a way it
+ * is not in `rules/overrides.json`, which runs above `rules/giro.json` and would
+ * swallow the same relative's standing pocket-money transfers.
  */
 export const loadFamily = (path = 'rules/family.json') => loadJson<string[]>(path, []);
 
@@ -269,7 +302,6 @@ export function categorize(
   txns: Classified[],
   overrides: Overrides,
   subscriptions: Subscriptions = [],
-  peers: string[] = [],
   giro: Overrides = {},
   /** Account keys of the credit cards — the only rows the travel guess may see. */
   cards: Set<string> = new Set(),
@@ -279,7 +311,6 @@ export function categorize(
     matches: compile(pattern, 'rules/overrides.json'),
     category,
   }));
-  const peerRules = peers.map((pattern) => compile(pattern, 'rules/vipps.json'));
   const giroRules: Rule[] = Object.entries(giro).map(([pattern, category]) => ({
     matches: compile(pattern, 'rules/giro.json'),
     category,
@@ -290,7 +321,7 @@ export function categorize(
     const haystack = haystackOf(t);
     return {
       ...t,
-      ...categoryFor(t, rules, peerRules, giroRules, familyRules, haystack, cards),
+      ...categoryFor(t, rules, giroRules, familyRules, haystack, cards),
       // The bank's own flag stands; a pattern only ever adds to it.
       isSubscription: t.isSubscription || subs.some((m) => m(haystack)),
     };
@@ -299,6 +330,23 @@ export function categorize(
 
 /** A rule that named one level only, and a guess, both say nothing about the second. */
 const flat = (category: string): Pair => ({ category, subcategory: null });
+
+/**
+ * A Vipps payment the row itself says went to a person, by either shape
+ * described at `VIPPS_PEER_CARD` — never on the marker alone.
+ *
+ * Exported so `report.ts` judges a line against the rules that will actually
+ * run: a name in `rules/overrides.json` this now decides without help is a line
+ * that has stopped earning its place.
+ */
+export function isVippsPeer(t: {
+  description: string;
+  bankCategory: string | null;
+  bankSub: string | null;
+}): boolean {
+  if (VIPPS_PEER_DOUBLED.test(t.description)) return true;
+  return VIPPS_MARKER.test(t.description) && `${t.bankCategory}/${t.bankSub}` === VIPPS_PEER_CARD;
+}
 
 /**
  * A rule that named only a category keeps the bank's subcategory — **when the
@@ -357,7 +405,6 @@ export function bankPair(t: { bankCategory: string | null; bankSub: string | nul
 function categoryFor(
   t: Classified,
   rules: Rule[],
-  peerRules: Matcher[],
   giroRules: Rule[],
   familyRules: Matcher[],
   haystack: string,
@@ -377,11 +424,16 @@ function categoryFor(
   // Below the lump rule, so a standing arrangement keeps the name giro.json gave
   // it — pocket money is family money that already has a better label — and
   // above the peer list, which would otherwise call every gift a Vipps payment.
-  if (t.amount > 0 && familyRules.some((m) => m(haystack))) return splitCategory(FAMILY);
-  // The pair outright, not `keepBankSub`: the list exists precisely for the rows
-  // the bank files as `diverse/overforing` or shrugs at, and taking its sub
-  // there would file a peer payment as a transfer.
-  if (peerRules.some((m) => m(haystack))) return splitCategory(PEER_PAYMENT);
+  // A relative, in either direction: money in is family support, money out is
+  // paying them back. Same list, and the sign is the whole difference.
+  if (familyRules.some((m) => m(haystack))) return splitCategory(t.amount > 0 ? FAMILY : PEER_PAYMENT);
+  // A Vipps row that says for itself it went to a person. Both shapes sit here,
+  // below the three rules above — a flatmate's rent and a parent's gift are Vipps
+  // payments too, and both already have a better name by now — and *above* the
+  // bank's own category, which is the whole point: the card rows arrive filed as
+  // `diverse/overforing`, and letting that stand is what files a peer payment as
+  // a transfer. The pair outright, not `keepBankSub`, for the same reason.
+  if (isVippsPeer(t)) return splitCategory(PEER_PAYMENT);
   const bank = bankPair(t);
   if (bank) return bank;
   // A guess from the shape of a merchant string, with nothing behind it at the

@@ -13,10 +13,11 @@ Current overrides:
 
 @rules/overrides.json
 
-Payees paid person-to-person, appended to the overrides above as
-`vipps`. A new name belongs in this file, never in `rules/overrides.json`:
+Relatives, whose rows read as `innskudd/familie` incoming and
+`diverse/vennebetaling` outgoing. A new relative belongs in this file, never in
+`rules/overrides.json`:
 
-@rules/vipps.json
+@rules/family.json
 
 Every merchant with the category it currently gets (spending rows only,
 excluded rows dropped, amounts in NOK, biggest first):
@@ -27,9 +28,10 @@ excluded rows dropped, amounts in NOK, biggest first):
 
 `src/core/categorize.ts`: patterns are case-insensitive substrings, checked in
 **file order, first match wins**, against `description + ' ' + counterparty`.
-No match → `reise` if the card merchant's trailing ISO country is not `NOR`,
-otherwise the bank's own category, and `ukategorisert` for a card row or for the
-bank's `diverse` catch-all.
+No match → the Vipps peer rules, then the bank's own category, then `reise` if
+the card merchant's trailing ISO country is not `NOR`, then `ukategorisert`.
+Person-to-person Vipps payments need no pattern: the card's `diverse/overforing`
+pair and the doubled `Vipps*Vipps*` marker each settle it on their own.
 
 ## What counts as worth flagging
 
