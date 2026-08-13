@@ -338,21 +338,34 @@ the bare slug is one of the candidates tested.
 A pair is always `category/sub`, never a bare sub: `dagligvarer` is a sub under
 itself and `kollektivtransport` sits under two mains.
 
-**`diverse` is a catch-all as a main and never as a pair**, and `bankPair` reads
-its rename table *above* the catch-all test for exactly that reason. The bank's
-word for a peer payment is `diverse/vennebetaling`; collapsing `diverse` threw
-that away before the sub was ever read, which is the only reason
-`rules/vipps.json` ever had to name 176 people the bank had already recognised.
-Six pairs rename to slugs we already had — `vennebetaling` -> `vipps`,
-`renter_og_gebyrer` -> `avgifter`, `renter_innskudd` -> `renter_og_fordeler`,
-`medlemskap_veldedighet` -> `medlemskap_og_veldedighet`, `minibank` ->
-`kontantuttak`, `skatt` -> `skatt` — and a renamed pair keeps no subcategory,
-since the slug already *is* the pair's name.
+**`diverse` is the bank's largest main and it is kept**, subcategories and all.
+It reads like a second catch-all and is not one: its 2 482 rows split into
+`vennebetaling`, `overforing`, `renter_og_gebyrer`, `medlemskap_veldedighet`,
+`minibank`, `kurs_utdanning`, `skatt`. Collapsing it — which this repo did until
+2026-08-13 — threw that away one level above where the signal was, and is the
+only reason `rules/vipps.json` ever had to name 176 people the bank had already
+recognised. `BANK_CATCH_ALL` now holds `ukategorisert` alone, and `OURS` renames
+exactly one main: `faste_boutgifter`, because it is not only housing.
 
-That recovered 73 rows the rules had missed and took `rules/vipps.json` from 176
-names to 33 and `rules/overrides.json` to 93, with every row landing identically.
-The 33 that remain are the peers the bank calls `diverse/overforing` or shrugs
-at — 125 of their rows are one person's standing `Avtale`.
+That took `rules/vipps.json` from 176 names to 33 and `rules/overrides.json`
+from 175 patterns to 93, every row landing identically and the totals unchanged
+to the øre. `avgifter`, `kontantuttak`, `renter_og_fordeler`,
+`medlemskap_og_veldedighet` and `skatt` are gone as slugs of ours — they were
+hand-written names for pairs the bank sends.
+
+**A `Vipps*` marker in the description is not a peer payment.** Vipps pays
+merchants too, and one pattern over it moved 271 correctly-filed rows — 139
+canteen lunches, 41 tram fares — into `vennebetaling`. The doubled
+`Vipps*Vipps*` form *is* conclusive: 18 rows on record, all peers, no false
+positives, so it is in the list as a pattern and future rows of that shape need
+no new name. The 33 remaining entries decide 55 rows the bank types as
+`Overføring`, `Transaksjon` or a bare `Straksbetaling` — where only knowing the
+person tells you it was a peer payment. Three of them are account numbers, for
+rows the bank names no payee on at all.
+
+**A standing agreement is a lump**, so `LUMP_TYPE` matches `Avtale` and
+`rules/giro.json` can say what one is. Pocket money from family arrives that way
+— 123 rows, 18 450 kr — and no other payee on record has a single `Avtale` row.
 
 `src/core/labels.ts` names them, from three sources in order — a gitignored
 `rules/categories.json`, the bank's own `mainI18n`/`subI18n` read off the rows,

@@ -124,8 +124,18 @@ test("the bank's own category beats the travel guess", () => {
     )[0]!.category;
   assert.equal(cat('Interspar Dankt Wien, AUSTRIA', 'dagligvarer'), 'dagligvarer');
   assert.equal(cat('Telenor Norge AS, Mobil', 'faste_boutgifter'), 'faste_utgifter');
-  // …but a catch-all is no category, so those still fall through to it.
-  assert.equal(cat('Centimeter am Spittel, WIEN, AUSTRIA', 'diverse'), 'reise');
+  // …but the one real catch-all is no category, so those still fall through.
+  assert.equal(cat('Centimeter am Spittel, WIEN, AUSTRIA', 'ukategorisert'), 'reise');
+  // `diverse` is not one of those any more: it is the bank's largest main and
+  // every pair under it means something, so a Viennese cash machine is a cash
+  // machine rather than evidence of a holiday.
+  assert.equal(
+    categorize(
+      [classified({ accountKey: 'card', description: 'Bankomat, WIEN, AUSTRIA', counterparty: 'Bankomat, WIEN, AUSTRIA', bankCategory: 'diverse', bankSub: 'minibank' })],
+      {}, [], [], {}, CARDS,
+    )[0]!.category,
+    'diverse',
+  );
 });
 
 test('an override beats the travel rule, so a foreign biller can be placed', () => {
@@ -136,9 +146,14 @@ test('an override beats the travel rule, so a foreign biller can be placed', () 
   assert.equal(out.category, 'medier_og_underholdning');
 });
 
-test("the bank's catch-all collapses into ukategorisert", () => {
-  const [out] = categorize([classified({ bankCategory: 'diverse' })], {});
-  assert.equal(out.category, 'ukategorisert');
+test('the bank spelling out ukategorisert is the one real shrug', () => {
+  assert.equal(categorize([classified({ bankCategory: 'ukategorisert', bankSub: 'annet' })], {})[0]!.category, 'ukategorisert');
+  // And `diverse` is not a second one. It used to collapse into the shrug, which
+  // threw away a level above where all its signal was and cost
+  // `rules/vipps.json` 176 hand-written names.
+  const peer = categorize([classified({ bankCategory: 'diverse', bankSub: 'vennebetaling' })], {})[0]!;
+  assert.equal(peer.category, 'diverse');
+  assert.equal(peer.subcategory, 'vennebetaling');
 });
 
 test('an override still applies to a card row', () => {
@@ -205,7 +220,7 @@ test('an explicit override beats a name in the peer list', async () => {
     }, [], ['ola nordmann', 'sit kafe'])[0]!.category;
 
   assert.equal(cat('SIT KAFE REALFAG'), 'kafe_og_restaurant');
-  assert.equal(cat('Ola Nordmann'), 'vipps');
+  assert.equal(cat('Ola Nordmann'), 'diverse');
   assert.deepEqual(await loadOverrides(overrides), { 'sit kafe': 'kafe_og_restaurant' });
   assert.deepEqual(await loadPeers(peers), ['ola nordmann', 'sit kafe']);
 });
@@ -226,10 +241,10 @@ test('a named person is a peer payment or rent, by the row type the bank gave it
     )[0]!.category;
 
   // Settled instantly, or on the card: a Vipps payment.
-  assert.equal(cat('Straksbetaling'), 'vipps');
-  assert.equal(cat('Straksbetaling - ekstern betalingstjeneste'), 'vipps');
-  assert.equal(cat('VISA Varekjøp'), 'vipps');
-  assert.equal(cat(null), 'vipps');
+  assert.equal(cat('Straksbetaling'), 'diverse');
+  assert.equal(cat('Straksbetaling - ekstern betalingstjeneste'), 'diverse');
+  assert.equal(cat('VISA Varekjøp'), 'diverse');
+  assert.equal(cat(null), 'diverse');
 
   // Set up once and left running: rent.
   assert.equal(cat('Overførsel', 6100), 'husleie');
@@ -237,8 +252,8 @@ test('a named person is a peer payment or rent, by the row type the bank gave it
   assert.equal(cat('MobilGiro m/melding til forfall i dag', 5700), 'husleie');
 
   // Between own accounts is the bank's wording for a family transfer, not rent.
-  assert.equal(cat('Overførsel mellom egne kontoer', 4000), 'vipps');
-  assert.equal(cat('Overførsel mellom egne kontoer i MobilBank, forfall i dag', 12200), 'vipps');
+  assert.equal(cat('Overførsel mellom egne kontoer', 4000), 'diverse');
+  assert.equal(cat('Overførsel mellom egne kontoer i MobilBank, forfall i dag', 12200), 'diverse');
 
   // The gate only applies to a name on the list; nobody else is touched.
   assert.equal(
@@ -265,15 +280,15 @@ test('a lump transfer takes the category its sender is named with, and only then
     categorize([over], {}, [], ['kari nordmann'], giro)[0]!.category;
 
   // Unnamed, so it stays what it always was: money from a person.
-  assert.equal(cat({}), 'vipps');
+  assert.equal(cat({}), 'diverse');
   assert.equal(cat({ 'kari nordmann': 'husleie' }), 'husleie');
   assert.equal(cat({ 'kari nordmann': 'reise' }), 'reise');
 
   // Named, but settled instantly: still the coffee, not the standing payment.
-  assert.equal(cat({ 'kari nordmann': 'husleie' }, { ...row, typeText: 'Straksbetaling' }), 'vipps');
+  assert.equal(cat({ 'kari nordmann': 'husleie' }, { ...row, typeText: 'Straksbetaling' }), 'diverse');
 
   // A name here reaches nobody else's rows.
-  assert.equal(cat({ 'ola nordmann': 'husleie' }), 'vipps');
+  assert.equal(cat({ 'ola nordmann': 'husleie' }), 'diverse');
 });
 
 test('loadSubscriptions returns [] when the file is absent', async () => {
@@ -440,24 +455,18 @@ test('splitCategory keeps a stray second slash in the sub rather than trimming i
   assert.deepEqual(splitCategory('a'), { category: 'a', subcategory: null });
 });
 
-test('diverse is a catch-all as a main and never as a pair', () => {
-  // The pair rename runs above the catch-all test, which is the whole point:
-  // the bank's word for a peer payment is `diverse/vennebetaling`, and
-  // collapsing `diverse` threw that away before the sub was ever read.
+test('bankPair keeps the bank taxonomy, renaming only what misnames its own rows', () => {
+  // `diverse` comes through as itself, subcategory and all.
   assert.deepEqual(bankPair({ bankCategory: 'diverse', bankSub: 'vennebetaling' }), {
-    category: 'vipps',
-    subcategory: null,
+    category: 'diverse',
+    subcategory: 'vennebetaling',
   });
-  assert.deepEqual(bankPair({ bankCategory: 'diverse', bankSub: 'minibank' }), {
-    category: 'kontantuttak',
-    subcategory: null,
-  });
-  // A diverse sub nothing renames is still a shrug, and so is ukategorisert.
-  assert.equal(bankPair({ bankCategory: 'diverse', bankSub: 'overforing' }), null);
+  // Only `ukategorisert` is nothing.
   assert.equal(bankPair({ bankCategory: 'ukategorisert', bankSub: 'annet' }), null);
-  assert.deepEqual(bankPair({ bankCategory: 'dagligvarer', bankSub: 'dagligvarer' }), {
-    category: 'dagligvarer',
-    subcategory: 'dagligvarer',
+  // The one rename: the bank's fixed-cost bucket is not only housing.
+  assert.deepEqual(bankPair({ bankCategory: 'faste_boutgifter', bankSub: 'stroem' }), {
+    category: 'faste_utgifter',
+    subcategory: 'stroem',
   });
 });
 
@@ -468,7 +477,20 @@ test('the bank finds peers rules/vipps.json never named', () => {
     [classified({ description: 'Vipps*Someone', bankCategory: 'diverse', bankSub: 'vennebetaling' })],
     {},
   )[0]!;
-  assert.equal(out.category, 'vipps');
+  assert.equal(out.category, 'diverse');
+  assert.equal(out.subcategory, 'vennebetaling');
+});
+
+test('the peer list names the pair outright, for the rows the bank types otherwise', () => {
+  // The list exists for these: the bank calls the row a transfer, and only the
+  // person paying knows it was a peer payment. Taking the bank's sub here would
+  // file it as `diverse/overforing`.
+  const out = categorize(
+    [classified({ description: 'Some Person', bankCategory: 'diverse', bankSub: 'overforing' })],
+    {}, [], ['some person'],
+  )[0]!;
+  assert.equal(out.category, 'diverse');
+  assert.equal(out.subcategory, 'vennebetaling');
 });
 
 test('a rule that names one level keeps the bank sub, when the bank agrees on the category', () => {
