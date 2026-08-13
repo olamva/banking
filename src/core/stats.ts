@@ -422,6 +422,27 @@ export function withGaps(series: SeriesPoint[]): (SeriesPoint | null)[] {
   return out;
 }
 
+/**
+ * The least-squares line through a series' spending, as `y = slope * x + intercept`
+ * over the **slot index** — so the x it is fitted against is the position on the
+ * drawn axis, holes included. That is the whole reason it takes the gapped array
+ * rather than the series: fitting against the array index instead would pull a
+ * missing month's neighbours together and tilt the line towards a period that
+ * was never synced.
+ *
+ * Null under two points, because a line through one point is every line.
+ */
+export function spendTrend(dense: (SeriesPoint | null)[]): { slope: number; intercept: number } | null {
+  const pts = dense.flatMap((p, x) => (p ? [{ x, y: p.totalOut }] : []));
+  if (pts.length < 2) return null;
+  const mx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
+  const my = pts.reduce((s, p) => s + p.y, 0) / pts.length;
+  const varX = pts.reduce((s, p) => s + (p.x - mx) ** 2, 0);
+  if (varX === 0) return null;
+  const slope = pts.reduce((s, p) => s + (p.x - mx) * (p.y - my), 0) / varX;
+  return { slope, intercept: my - slope * mx };
+}
+
 export function yearStats(year: string, monthsTxns: { month: string; txns: Categorized[] }[]): YearStats {
   const sorted = [...monthsTxns].sort((a, b) => a.month.localeCompare(b.month));
 

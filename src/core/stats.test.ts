@@ -5,6 +5,7 @@ import {
   dailySeries,
   monthStats,
   monthlySeries,
+  spendTrend,
   subsAndRecurring,
   subscriptionGroups,
   totals,
@@ -239,6 +240,29 @@ test('subscriptionGroups nets a refund off its own group', () => {
   assert.deepEqual(groups, [
     { name: 'HelloFresh', category: 'dagligvarer', count: 2, total: 200, latest: -100, last: '2026-07-05' },
   ]);
+});
+
+test('spendTrend fits the drawn axis, holes included', () => {
+  const p = (at: string, totalOut: number): SeriesPoint => ({ at, totalIn: 0, totalOut });
+
+  // An exact line comes back exactly, slope and intercept both.
+  assert.deepEqual(spendTrend([p('a', 100), p('b', 200), p('c', 300)]), { slope: 100, intercept: 100 });
+
+  // Least squares, not first-to-last: the middle point pulls the line down.
+  const fit = spendTrend([p('a', 0), p('b', 0), p('c', 300)])!;
+  assert.equal(Math.round(fit.slope), 150);
+  assert.equal(Math.round(fit.intercept), -50);
+
+  // A hole holds its slot. Two months a year apart rise by 1200 over 12 slots,
+  // not over 1 — closing the gap would claim a hundredfold steeper trend.
+  const gapped = spendTrend([p('a', 0), ...Array(11).fill(null), p('b', 1200)])!;
+  assert.equal(gapped.slope, 100);
+
+  // Flat is flat, and one point is every line.
+  assert.equal(spendTrend([p('a', 50), p('b', 50)])?.slope, 0);
+  assert.equal(spendTrend([p('a', 1)]), null);
+  assert.equal(spendTrend([null, p('a', 1), null]), null);
+  assert.equal(spendTrend([]), null);
 });
 
 /**
