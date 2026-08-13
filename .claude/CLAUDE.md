@@ -10,6 +10,18 @@ list. `pnpm test` and `pnpm typecheck` both have to pass before anything is
 finished. What follows is the part a README would not carry: the rules, and the
 things the real data does that the code has to survive.
 
+## Committing
+
+**Commits are authorised in this repo, standing** — granted 2026-08-13, and the
+deliberate exception to the global never-commit rule. Commit as the work reaches
+a state worth keeping, in the repo's own style (Conventional Commits, no scope,
+no gitmoji, no body). `.claude/settings.json` carries the matching permission so
+it does not prompt.
+
+It is still **commit, never push**: nothing here goes to a remote, and no PR is
+opened, without being asked for in the conversation. And nothing under `rules/`
+or `data/` is committable at all — the whole point of them being gitignored.
+
 ## Layout
 
 `src/` is split by **which half of the rule a file is on**: `net/` is allowed to
@@ -28,6 +40,8 @@ src/core/exclude.ts   Txn[] -> Classified[]; flags transfers and bill payments
 src/core/categorize.ts Classified[] -> Categorized[]; bank category + overrides
 src/core/db.ts        node:sqlite store, rebuilt wholesale
 src/core/stats.ts     the only money aggregation — monthStats() and yearStats()
+src/core/report.ts    what rules/overrides.json still earns against the bank's
+                      own subcategory; prints, never writes
 src/core/select.ts    which rows are in view; no money logic, ever — `AXES` is
                       the three list filters, one control repeated
 src/core/pipeline.ts  the offline chain, importable by the CLI and the server
@@ -43,7 +57,9 @@ data/eb-archive/  the retired Enable Banking files and statement CSVs, kept
 data/banking.db   derived SQLite store, rebuildable from data/raw, gitignored
 rules/accounts.json     which accounts are mine, and which is the card
                         (hand-edited), gitignored
-rules/overrides.json    substring or /regex/ -> category, gitignored
+rules/overrides.json    substring or /regex/ -> `category` or `category/sub`,
+                        gitignored; both value forms are read, so the file
+                        migrates a line at a time
 rules/vipps.json        names of payees, as a list; its own rule, gitignored
 rules/giro.json         name -> what that person's lump transfers are, gitignored
 rules/payees.json       pattern -> the one name a payee goes by, gitignored
@@ -222,12 +238,55 @@ Notes from the real data, not the plan:
   `remoteAccountNumber`, which is why that field is on `Txn` and in the override
   haystack — an account number ahead of the name pattern is the only way to
   split them.
-- SB1 categories are always exactly one entry at confidence 100. `diverse` is
-  the bank's catch-all and carries no more signal than no category at all, so
-  `categorize` collapses it into `ukategorisert` — as it does the bank's own
-  literal `ukategorisert`, which it sends on ~500 rows and which is the same
-  shrug by another name. Together they are ~40% of rows, which is why
-  `rules/overrides.json` does real work.
+- **SB1 sends a subcategory too, and it is where the signal is.** Every one of
+  8 547 booked rows carries `main`, `sub`, `mainI18n`, `subI18n` and a
+  `confidence`, in 68 distinct pairs, with no gaps anywhere on record. All five
+  are on `Txn` and in the store.
+- `diverse` reads like a catch-all at the *main* level and is not one at the
+  pair level: it is the largest main, and its 2 482 rows split into
+  `vennebetaling` (1 119), `overforing` (1 178), `renter_og_gebyrer`,
+  `renter_innskudd`, `medlemskap_veldedighet`, `minibank`, `kurs_utdanning`,
+  `skatt` and `kredittkort`. Only `ukategorisert/annet` (1 184 rows) is a real
+  shrug. `categorize` still collapses `diverse` into `ukategorisert` — undoing
+  it costs 68 rows a worse label until a display name exists — but that is a
+  *labelling* debt now, not a claim about the data.
+- **Categories are not always one entry at confidence 100.** 7 802 of 8 547 rows
+  are at 100 and 441 rows carry two or three candidates, always sorted by
+  confidence down; `normalize` keeps the first. Low confidence marks a bank
+  guess made from a merchant name it does not know — 31 rows of a student
+  society's kiosk arrive as `faste_boutgifter/alarm` at confidence 25. Nothing
+  gates on it; it is stored so the report can weigh what the bank claims.
+- Much of `rules/overrides.json` predates knowing the sub existed and
+  re-derives it by hand. `pnpm sb1 categories` measures that by counterfactual —
+  it deletes each line, re-runs the real `categorize` over that line's own rows,
+  and reports what changed. On the record: **51 lines deletable outright**, 13
+  that are only our name for the pair the bank sends, 13 where the bank makes a
+  different claim, 22 part-and-part, 76 load-bearing. `rules/vipps.json` is the
+  same story — 1 053 of 1 231 peer rows are already `diverse/vennebetaling`, and
+  the bank finds 62 peers the list misses.
+- **A better subcategory and a different claim are not the same thing**, and the
+  report must not offer the second as a line to paste. `"eletra": "stroem"`
+  against `faste_boutgifter/stroem` is our name for the bank's own pair.
+  `"bit oslo lufthavn": "kafe_og_restaurant"` against `reise/annen_reise` is the
+  bank calling a bakery a trip. The test needs no alias map and reads the corpus
+  instead: a slug that **is** a bank main (`kafe_og_restaurant`, `reise`) agrees
+  when the bank's main matches, since a rewrite there only adds a level; a slug
+  that is **ours** (`uteliv`, `stroem`, `husleie`) must match the whole pair it
+  resolves to elsewhere, because the main agreeing says nothing — `barrock`
+  arrives as `kafe_og_restaurant/restaurant`, same main, and it is a bar.
+- `reise/annen_reise` is the bank's catch-all *inside* travel and it is filled by
+  where the terminal stands, not by what was sold: duty-free, inflight food, an
+  airport bakery. Treat it as a shrug wearing a category's clothes.
+- **`rules/overrides.json` used to depend on its own line order**, invisibly:
+  `categorize` takes the first pattern that matches, so a line added at the top
+  quietly takes rows from one below it. Shuffling the file moved 12 to 132 rows
+  on the record. `pnpm sb1 categories` reports every pair of lines that claim the
+  same rows and prints the narrowed form of the loser —
+  `/^(?!.*(?:sit kafe|sit storkiosk))(?=.*\bsit\b)/` — a refusal lookahead and a
+  requirement lookahead, neither consuming anything, so `compile`'s `.test` over
+  the haystack behaves the same wherever the line sits. Collisions where both
+  lines name the same category are left alone. Keep that list empty and the file
+  can be sorted freely.
 - Card rows are roughly 40% of monthly spending and arrive fully classified —
   merchant, category and MCC on every one — so there is no separate card bucket
   and no card-shaped hole. `diverse` and `ukategorisert` are still ~17% of them.
@@ -359,7 +418,7 @@ Everything the statement CSV used to supply now arrives on the row, and more:
 |---|---|
 | `cleanedDescription` | the merchant, `NAME, CITY, COUNTRY`, on every row |
 | `description` | the same with the terminal number still on the front |
-| `categories` | the bank's own, on every row |
+| `categories` | the bank's own `main`/`sub`, both i18n names and a confidence, on every row |
 | `mcc` / `mccGroup` | the merchant category, `-2` on the issuer's own rows |
 | `currencyAmount` + `currencyCode` | what it cost in the currency it was paid in |
 | `remoteAccountNumber` | `-1` except on the bill, where it names the paying account |
