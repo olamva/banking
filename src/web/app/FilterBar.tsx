@@ -47,6 +47,13 @@ interface FilterBarProps {
 const CONTROL =
   "rounded-md border border-line bg-page px-2 py-1.5 text-[13px] text-ink";
 
+/**
+ * How many chips stay on screen before the rest fold behind a count. One row on
+ * a normal window: past that the chips push the whole dashboard down, which is
+ * the opposite of what a filter bar is for.
+ */
+const CHIP_LIMIT = 6;
+
 
 /** Spelled out, because "2026 / 07" beside a year picker reads as a second year. */
 const MONTH_NAMES = [
@@ -470,6 +477,8 @@ export const FilterBar = ({
   filters,
   onFilters,
 }: FilterBarProps) => {
+  /** Whether the chips past `CHIP_LIMIT` are unfolded. Folded again on every reload. */
+  const [showAll, setShowAll] = useState(false);
   // A month period is a year with a month in it, so the year picker reads the
   // front of the same string rather than being state of its own — two selects,
   // still one value, and nothing to keep in sync.
@@ -513,7 +522,49 @@ export const FilterBar = ({
   const searchChip = filters.search !== "" && view !== "transactions";
   const picked =
     filters.categories.length + filters.merchants.length + filters.accounts.length;
-  const chips = picked > 0 || searchChip;
+
+  /**
+   * The three lists and the search as one array, because the chips are one row
+   * that has to be counted and cut as a whole — cutting each list separately
+   * would show six categories and then six merchants under them.
+   */
+  const chips = [
+    ...filters.categories.map((c) => {
+      const name = chipLabel(c, subsOf(splitPair(c)[0]));
+      return {
+        key: `category:${c}`,
+        label: excluding ? `Not ${name}` : name,
+        tone: excluding ? ("exclude" as const) : ("include" as const),
+        onRemove: () => toggleCategory(c),
+      };
+    }),
+    ...filters.merchants.map((m) => ({
+      key: `merchant:${m}`,
+      label: excludingMerchants ? `Not ${m}` : m,
+      tone: excludingMerchants ? ("exclude" as const) : ("include" as const),
+      onRemove: () => toggleMerchant(m),
+    })),
+    ...filters.accounts.map((a) => ({
+      key: `account:${a}`,
+      label: excludingAccounts ? `Not ${a}` : a,
+      tone: excludingAccounts ? ("exclude" as const) : ("include" as const),
+      onRemove: () => toggleAccount(a),
+    })),
+    // On the dashboards there is no search box, so without this a search set
+    // from a bar click would be a filter with nothing to clear it.
+    ...(searchChip
+      ? [
+          {
+            key: "search",
+            label: `“${filters.search}”`,
+            tone: "include" as const,
+            onRemove: () => onFilters({ ...filters, search: "" }),
+          },
+        ]
+      : []),
+  ];
+  const hidden = chips.length - CHIP_LIMIT;
+  const shown = showAll ? chips : chips.slice(0, CHIP_LIMIT);
   const dirty =
     picked > 0 ||
     filters.search !== "" ||
@@ -637,47 +688,32 @@ export const FilterBar = ({
         </button>
       )}
 
-      {chips && (
+      {chips.length > 0 && (
         <div
-          className="flex basis-full flex-wrap gap-1.5"
+          className="flex basis-full flex-wrap items-center gap-1.5"
           role="group"
           aria-label="Active filters"
         >
           {/* The mode is invisible once the menu closes, so the chips carry it. */}
-          {filters.categories.map((c) => {
-            const name = chipLabel(c, subsOf(splitPair(c)[0]));
-            return (
-              <Chip
-                key={c}
-                label={excluding ? `Not ${name}` : name}
-                tone={excluding ? "exclude" : "include"}
-                onRemove={() => toggleCategory(c)}
-              />
-            );
-          })}
-          {filters.merchants.map((m) => (
+          {shown.map((chip) => (
             <Chip
-              key={m}
-              label={excludingMerchants ? `Not ${m}` : m}
-              tone={excludingMerchants ? "exclude" : "include"}
-              onRemove={() => toggleMerchant(m)}
+              key={chip.key}
+              label={chip.label}
+              tone={chip.tone}
+              onRemove={chip.onRemove}
             />
           ))}
-          {filters.accounts.map((a) => (
-            <Chip
-              key={a}
-              label={excludingAccounts ? `Not ${a}` : a}
-              tone={excludingAccounts ? "exclude" : "include"}
-              onRemove={() => toggleAccount(a)}
-            />
-          ))}
-          {/* On the dashboards there is no search box, so without this a search
-              set from a bar click would be a filter with nothing to clear it. */}
-          {searchChip && (
-            <Chip
-              label={`“${filters.search}”`}
-              onRemove={() => onFilters({ ...filters, search: "" })}
-            />
+          {/* The folded ones are still on, so the count has to say how many —
+              a filter you cannot see is a filter you cannot turn off, and this
+              is the one click back to seeing it. */}
+          {hidden > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowAll(!showAll)}
+              className="rounded-full border border-line px-2.5 py-1 text-xs text-ink-muted"
+            >
+              {showAll ? "Show fewer" : `+${hidden} more`}
+            </button>
           )}
         </div>
       )}
