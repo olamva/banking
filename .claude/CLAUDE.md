@@ -345,6 +345,20 @@ can be both and mean different things, `dagligvarer` being a main the bank calls
 `Dagligvarer` and a sub it calls `Matvarer`. Tidying is right for most of what we
 invent, which is what keeps that file down to five entries.
 
+**A rule that names one level keeps the bank's subcategory**, when the bank
+agrees about the category. Most of `rules/overrides.json` still names one level,
+and discarding the second with it threw away a level the bank had already
+supplied: `/\bSAS[\d ]/` says `reise` and the bank says `reise/flybilletter`.
+The category matching is the guard — `PAYPAL BOOKING HOTEL` is a trip to us and
+`hobby_og_fritid/digital_markedsplass` to the bank, and grafting that sub under
+`reise` would invent a pair neither meant. Where the mains disagree the rule has
+overruled the bank outright and its subcategory goes too. An excluded row takes
+no sub at all: `reason` already says why it is out.
+
+So a subcategory of **Annet** on the page means *our own rules named only one
+level and the bank disagreed about the other* — never that the bank sent nothing.
+It has one on all 8 547 rows.
+
 A category with exactly one *named* subcategory reads as that subcategory —
 `annet_lan_og_gjeld` is `Studielån` and nothing else, so the parent is the vaguer
 of two names for one set of rows. A lone *unnamed* child is not a better name and

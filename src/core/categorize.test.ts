@@ -448,3 +448,42 @@ test('bankPair is null for the catch-alls, so nothing downstream reads diverse a
     subcategory: 'dagligvarer',
   });
 });
+
+test('a rule that names one level keeps the bank sub, when the bank agrees on the category', () => {
+  // `/\bSAS[\d ]/` says `reise` and the bank says `reise/flybilletter` — the
+  // same category, one level deeper. Discarding that lost 2 132 rows a level.
+  const out = categorize(
+    [classified({ description: 'SAS 117', bankCategory: 'reise', bankSub: 'flybilletter' })],
+    { '/\\bSAS[\\d ]/': 'reise' },
+  )[0]!;
+  assert.equal(out.category, 'reise');
+  assert.equal(out.subcategory, 'flybilletter');
+});
+
+test('a sub from a category the rule overruled is not grafted on', () => {
+  // A hotel booking is a trip to us and a digital marketplace to the bank.
+  // `reise/digital_markedsplass` is a pair neither of us meant.
+  const out = categorize(
+    [classified({ description: 'PAYPAL BOOKING HOTEL', bankCategory: 'hobby_og_fritid', bankSub: 'digital_markedsplass' })],
+    { 'booking hotel': 'reise' },
+  )[0]!;
+  assert.equal(out.category, 'reise');
+  assert.equal(out.subcategory, null);
+});
+
+test('a rule that names both levels is never second-guessed by the bank', () => {
+  const out = categorize(
+    [classified({ description: 'Barrock', bankCategory: 'kafe_og_restaurant', bankSub: 'restaurant' })],
+    { barrock: 'kafe_og_restaurant/utesteder' },
+  )[0]!;
+  assert.equal(out.subcategory, 'utesteder');
+});
+
+test('an excluded row takes no subcategory from the bank either', () => {
+  const out = categorize(
+    [classified({ excluded: true, reason: 'internal transfer', bankCategory: 'overfoering', bankSub: 'overforing' })],
+    {},
+  )[0]!;
+  assert.equal(out.category, 'overfoering');
+  assert.equal(out.subcategory, null);
+});

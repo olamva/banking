@@ -597,10 +597,19 @@ export const App = () => {
     () => txns.filter((t) => inRange(t, p.from, p.to)),
     [txns, p],
   );
+  // Only bare categories are options; a picked *pair* contributes its parent
+  // instead. Feeding the pair itself in listed it twice — once as the category
+  // row the lone-child rule had already renamed to it, once as an option of its
+  // own, both reading "Studielån" and both ticked.
   const categories = useMemo(
     () =>
       [
-        ...new Set([...distinctCategories(inPeriod), ...filters.categories]),
+        ...new Set([
+          ...distinctCategories(inPeriod),
+          ...filters.categories.map((c) =>
+            c.includes("/") ? c.slice(0, c.indexOf("/")) : c,
+          ),
+        ]),
       ].sort(),
     [inPeriod, filters.categories],
   );
