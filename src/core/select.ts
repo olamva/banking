@@ -10,17 +10,23 @@ import type { Categorized } from './types.ts';
 export type Mode = 'include' | 'exclude';
 
 export type Filters = {
-  /** Empty means every category, whichever way `categoryMode` is set. */
+  /**
+   * Empty means every category, whichever way `categoryMode` is set.
+   *
+   * **Holds both levels**: a bare `dagligvarer` and a pair
+   * `dagligvarer/andre_dagligvarer` live in the same list, and a row matches if
+   * *either* is listed. One axis rather than two, because two ANDed — picking a
+   * category and a subcategory under some other category asked for rows that are
+   * both at once and drew an empty page. A tree with checkboxes means a union,
+   * and a union is what one list gives for nothing.
+   *
+   * A pair is always `category/sub`, never a bare sub: `dagligvarer` is a sub
+   * under itself and `kollektivtransport` sits under two mains, so a bare sub
+   * would quietly pull rows from both.
+   */
   categories: string[];
   /** Whether `categories` names the only rows to show, or the only ones to hide. */
   categoryMode: Mode;
-  /**
-   * The same, one level down. Values are the **pair**, `kafe_og_restaurant/kafe`,
-   * never the bare sub: `dagligvarer` is a sub under itself and `kollektivtransport`
-   * sits under two mains, so a bare sub would filter to rows from both.
-   */
-  subcategories: string[];
-  subcategoryMode: Mode;
   /** The same, over `merchantOf` — the name the tables and the bars show. */
   merchants: string[];
   merchantMode: Mode;
@@ -46,7 +52,6 @@ export type Filters = {
  */
 export const AXES = {
   categories: 'categoryMode',
-  subcategories: 'subcategoryMode',
   merchants: 'merchantMode',
   accounts: 'accountMode',
 } as const;
@@ -56,8 +61,6 @@ export type Axis = keyof typeof AXES;
 export const NO_FILTERS: Filters = {
   categories: [],
   categoryMode: 'include',
-  subcategories: [],
-  subcategoryMode: 'include',
   merchants: [],
   merchantMode: 'include',
   accounts: [],
@@ -101,10 +104,18 @@ export function inRange(t: Categorized, from: string | null, to: string | null):
 const listed = (values: string[], mode: Mode, value: string): boolean =>
   !values.length || values.includes(value) === (mode === 'include');
 
+/**
+ * The same, where a row can be named more than one way. Any candidate matching
+ * counts as a match, so a category and one of its own subcategories are a union
+ * rather than an impossible intersection — and excluding a category still takes
+ * its subcategories with it, since the bare slug is one of the candidates.
+ */
+const listedAny = (values: string[], mode: Mode, candidates: string[]): boolean =>
+  !values.length || candidates.some((c) => values.includes(c)) === (mode === 'include');
+
 export function matchesFilters(t: Categorized, f: Filters): boolean {
   if (t.excluded && !f.showExcluded) return false;
-  if (!listed(f.categories, f.categoryMode, t.category)) return false;
-  if (!listed(f.subcategories, f.subcategoryMode, subcategoryOf(t))) return false;
+  if (!listedAny(f.categories, f.categoryMode, [t.category, subcategoryOf(t)])) return false;
   if (!listed(f.merchants, f.merchantMode, merchantOf(t))) return false;
   if (!listed(f.accounts, f.accountMode, t.account)) return false;
   if (f.search) {

@@ -20,8 +20,6 @@ test('a populated state round-trips, nulls included', () => {
     filters: {
       categories: ['dagligvarer', 'transport'],
       categoryMode: 'exclude',
-      subcategories: ['kafe_og_restaurant/kafe', 'vipps/'],
-      subcategoryMode: 'include',
       merchants: ['Rema 1000', 'Kiwi'],
       merchantMode: 'include',
       accounts: ['Mastercard Ung'],
@@ -118,15 +116,16 @@ test('junk params fall back to the default, and an empty cat is no categories', 
   assert.equal(s.period, null);
 });
 
-test('a subcategory pair survives the slash, and so does one with no second level', () => {
-  // The pair is the filter value, so `/` is data rather than a separator — and
-  // a category whose rows have no sub is still selectable as `slug/`.
+test('a subcategory pair rides in the category list, slash and all', () => {
+  // Both levels are one axis, so a pair is just another value in `cat` — and
+  // `cat` is comma-joined, which a pair never contains.
   const state: UrlState = {
     ...DEFAULT,
-    filters: { ...DEFAULT.filters, subcategories: ['kafe_og_restaurant/kafe', 'vipps/'] },
+    filters: { ...DEFAULT.filters, categories: ['annet_lan_og_gjeld', 'dagligvarer/andre_dagligvarer', 'vipps/'] },
   };
-  assert.deepEqual(fromParams(new URLSearchParams(toParams(state))).filters.subcategories, [
-    'kafe_og_restaurant/kafe',
+  assert.deepEqual(fromParams(new URLSearchParams(toParams(state))).filters.categories, [
+    'annet_lan_og_gjeld',
+    'dagligvarer/andre_dagligvarer',
     'vipps/',
   ]);
 });
