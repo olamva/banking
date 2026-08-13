@@ -8,7 +8,7 @@
  * src/core/stats.ts.
  */
 import { useId, useState, type ReactNode } from 'react';
-import { withGaps, type CategoryDelta, type SeriesPoint } from '../../core/stats.ts';
+import { spendTrend, withGaps, type CategoryDelta, type SeriesPoint } from '../../core/stats.ts';
 import { fmtNOK, monthLabel, niceStep, pointLabel, useWidth } from './format.ts';
 
 interface TipState {
@@ -484,6 +484,16 @@ export const SpendLines = ({
 
   const runs = runsOf(dense);
 
+  /**
+   * One straight line for the whole span, fitted to spending. Deliberately drawn
+   * across a gap where the series may not be: it is a summary of the span rather
+   * than a reading of any point on it, which is also why it takes no dot and no
+   * tooltip. Clipped to the plot instead of clamped — a falling trend passes
+   * below zero before the axis ends, and pinning that end to the floor would
+   * flatten the slope that is the only thing the line says.
+   */
+  const trend = spendTrend(dense);
+
   const pts = (run: { m: SeriesPoint; i: number }[], pick: (p: SeriesPoint) => number) =>
     run.map(({ m, i }) => `${px(i)},${py(pick(m))}`);
 
@@ -559,10 +569,11 @@ export const SpendLines = ({
     <div ref={ref}>
       {/* One series needs no key telling it apart from the others — but a
           dashed twin of it does, even with no income to name. */}
-      {(hasIncome || compare.length > 0) && series.length > 0 && (
+      {(hasIncome || compare.length > 0 || trend !== null) && series.length > 0 && (
         <ChartLegend
           income={hasIncome}
           band={hasBand}
+          trend={trend !== null}
           compareLabel={compare.length > 0 ? compareLabel : undefined}
         />
       )}
@@ -650,6 +661,25 @@ export const SpendLines = ({
               </g>
             );
           })}
+          {trend && (
+            <>
+              <defs>
+                <clipPath id={`${clip}-plot`}>
+                  <rect x={padL} y={padT} width={plotW} height={plotH} />
+                </clipPath>
+              </defs>
+              <line
+                x1={px(0)}
+                y1={py(trend.intercept)}
+                x2={px(dense.length - 1)}
+                y2={py(trend.intercept + trend.slope * (dense.length - 1))}
+                strokeWidth={1.5}
+                strokeDasharray="7 5"
+                clipPath={`url(#${clip}-plot)`}
+                className="stroke-ink-soft"
+              />
+            </>
+          )}
           {near !== null && (
             <line x1={px(near)} x2={px(near)} y1={padT} y2={padT + plotH} strokeDasharray="3 3" className="stroke-ink-muted" />
           )}
@@ -707,12 +737,14 @@ interface ChartLegendProps {
   income: boolean;
   /** Whether the shading is drawn — it is keyed only where it exists. */
   band: boolean;
+  /** Whether the fitted line is drawn; it is grey and dashed and says so nowhere else. */
+  trend: boolean;
   /** Named when a compared period is drawn; the dashes are the same for both its lines. */
   compareLabel?: string;
 }
 
 /** Drawn by `SpendLines` itself — it is the only chart with more than one series. */
-const ChartLegend = ({ income, band, compareLabel }: ChartLegendProps) => (
+const ChartLegend = ({ income, band, trend, compareLabel }: ChartLegendProps) => (
   <div className="mb-2 flex flex-wrap gap-3.5 text-xs text-ink-soft">
     <span className="inline-flex items-center gap-1.5">
       <span className="inline-block h-[3px] w-3 rounded-sm bg-critical-strong" />
@@ -737,6 +769,17 @@ const ChartLegend = ({ income, band, compareLabel }: ChartLegendProps) => (
           Overspent
         </span>
       </>
+    )}
+    {/* Grey, because it is not a series: the two colours mean money in and money
+        out, and a third line in either of them would read as more of that. Same
+        stroke and dashes as the line it explains, as below. */}
+    {trend && (
+      <span className="inline-flex items-center gap-1.5">
+        <svg aria-hidden width={16} height={3} className="shrink-0">
+          <line x1={0} x2={16} y1={1.5} y2={1.5} strokeWidth={3} strokeDasharray="7 5" className="stroke-ink-soft" />
+        </svg>
+        Trend
+      </span>
     )}
     {/* One key for both dashed lines — the dashes are what mark the period, and
         the colours mean the same here as they do above.
