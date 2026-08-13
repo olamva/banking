@@ -46,7 +46,7 @@ src/core/select.ts    which rows are in view; no money logic, ever — `AXES` is
                       the three list filters, one control repeated
 src/core/pipeline.ts  the offline chain, importable by the CLI and the server
 
-src/web/serve.ts      pnpm dev — /api/txns, Vite middleware, the refresh policy
+src/web/serve.ts      pnpm dev — /api/txns and Vite middleware, offline always
 src/web/app/          the React app: App, FilterBar, Charts, Cards, icons
 src/cli.ts            command dispatch
 
@@ -82,11 +82,13 @@ is the directory split: **nothing in `src/core/` may import from `src/net/`**,
 and that includes indirectly. If an analysis step needs a field that isn't in
 the raw JSON, extend `sync`, re-run it, and commit nothing.
 
-`pnpm dev --pull` is the one place both halves meet: it may trigger a sync
-before rendering. That is the server composing the two, not analysis reaching
-for the network, and every guard around it is there to keep the request count
-sane — see the header of `src/web/serve.ts` before changing any of it. Without
-`--pull` the server never touches the network at all, which is the default.
+**The server never calls the API either.** `src/web/serve.ts` imports from
+`src/core/` alone and reads only `data/banking.db`, so no page view can cost a
+request. A `--pull` flag once let it sync a stale current month before
+rendering, with four guards around it to keep the request count sane — staleness
+on disk, single-flight, a budget check, a failed attempt still counted. It was
+removed in favour of not having the path at all, and the reasoning is in that
+file's header. Syncing is `pnpm sb1 sync`, run by hand.
 
 **Every SB1 request is ledgered, against the bank's own count.** `sb1.get` and
 the token exchange both call `budget.spend` before the request and

@@ -10,7 +10,7 @@ import { newPeers } from './core/peers.ts';
 import { narrowings, overrideReport, pairUse, unnamed } from './core/report.ts';
 import { merchantClusters, nearMisses } from './core/merchants.ts';
 import { openDb, queryRange } from './core/db.ts';
-import { serve, DEFAULT_MAX_AGE_MIN } from './web/serve.ts';
+import { serve } from './web/serve.ts';
 import { remaining } from './net/budget.ts';
 
 const args = process.argv.slice(2);
@@ -296,10 +296,7 @@ try {
     );
   }
   else if (cmd === 'dev') {
-    await serve(Number(flag('port') ?? 4000), {
-      pull: has('pull'),
-      maxAgeMin: Number(flag('max-age') ?? DEFAULT_MAX_AGE_MIN),
-    });
+    await serve(Number(flag('port') ?? 4000));
   } else {
     console.error('usage: pnpm sb1 <login | accounts | rebuild');
     console.error('                | sync --month YYYY-MM [--force | --stale MINUTES]');
@@ -307,7 +304,7 @@ try {
     console.error('                | peers  (clipboard rows -> names for rules/vipps.json)');
     console.error('                | merchants  (one shop under many names -> rules/payees.json)');
     console.error('                | categories [--all]  (which rules/overrides.json lines the bank already covers)');
-    console.error('                | dev [--port 4000] [--pull [--max-age 360]] | budget>');
+    console.error('                | dev [--port 4000] | budget>');
     process.exit(1);
   }
 } catch (e) {
