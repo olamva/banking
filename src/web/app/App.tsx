@@ -66,7 +66,7 @@ import {
   useTransactions,
   type Theme,
 } from "./data.ts";
-import { categoryLabel, fmtNOK } from "./format.ts";
+import { categoryLabel, fmtNOK, setLabels, subcategoryLabel } from "./format.ts";
 import {
   AccountIcon,
   CategoryIcon,
@@ -297,8 +297,18 @@ const Dashboard = ({
   const compare = vs ? build(previous, vs.from, vs.to) : [];
 
   const cats = stats.categories.map((c) => ({
+    // The slug rides along so a click needs no reverse lookup — two slugs can
+    // tidy to the same display name, and the map back could not tell them apart.
+    key: c.category,
     label: categoryLabel(c.category),
     total: c.total,
+    subs: stats.subcategories
+      .filter((sub) => sub.category === c.category)
+      .map((sub) => ({
+        key: `${sub.category}/${sub.subcategory ?? ""}`,
+        label: subcategoryLabel(sub.category, sub.subcategory),
+        total: sub.total,
+      })),
   }));
   const cps = stats.topCounterparties.map((c) => ({
     label: c.counterparty,
@@ -314,8 +324,11 @@ const Dashboard = ({
     ...stats.categories.map((c) => c.category),
     ...stats.categoryDeltas.map((d) => d.category),
   ]);
-  const onCategory = (label: string, meta: boolean) =>
-    pick(onFilters, "categories")(slugOf.get(label) ?? label, meta);
+  // `HorizontalBars` reports the slug it was given; `DivergingBars` still draws
+  // and reports display names, so the map back stays for that one.
+  const onCategory = (slugOrLabel: string, meta: boolean) =>
+    pick(onFilters, "categories")(slugOf.get(slugOrLabel) ?? slugOrLabel, meta);
+  const onSubcategory = pick(onFilters, "subcategories");
   const onMerchant = pick(onFilters, "merchants");
   const onAccount = pick(onFilters, "accounts");
 
@@ -410,7 +423,7 @@ const Dashboard = ({
       <div className={p.kind === "all" ? CARD_GRID_3 : CARD_GRID}>
         {!single && cats.length > 0 && (
           <Card title="Spending by category" icon={CategoryIcon}>
-            <HorizontalBars items={cats} onPick={onCategory} />
+            <HorizontalBars items={cats} onPick={onCategory} onPickSub={onSubcategory} />
           </Card>
         )}
 
@@ -511,6 +524,10 @@ export const App = () => {
   const [filters, setFilters] = useState<Filters>(initial.filters);
   const [chosenGrain, setChosenGrain] = useState<Grain>(initial.grain);
   const [theme, onTheme] = useState<Theme>(readTheme);
+
+  // Before anything renders a slug: the cards and the charts read the names
+  // through `categoryLabel`, which has no other way to reach them.
+  if (load.status === "ready") setLabels(load.labels);
 
   const txns = load.status === "ready" ? load.txns : [];
   const months = useMemo(() => distinctMonths(txns), [txns]);

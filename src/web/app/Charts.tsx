@@ -60,6 +60,18 @@ export interface BarItem {
   label: string;
   total: number;
   count?: number;
+  /**
+   * What a click reports, when that is not the label. Categories arrive already
+   * readable, so the slug has to ride along or every click would have to be
+   * mapped back from a display name — and two slugs can tidy to one name.
+   */
+  key?: string;
+  /**
+   * The level below this row. Given, the row gains a disclosure triangle and
+   * these appear indented under it, drawn on the same scale so a child bar reads
+   * as the slice of its parent that it is.
+   */
+  subs?: BarItem[];
 }
 
 interface HorizontalBarsProps {
@@ -72,7 +84,9 @@ interface HorizontalBarsProps {
    * Omit it and the rows are plain text: a breakdown nothing can filter on has
    * no business looking clickable.
    */
-  onPick?: (label: string, meta: boolean) => void;
+  onPick?: (key: string, meta: boolean) => void;
+  /** The same, for a row's children. Omit it and children are plain text. */
+  onPickSub?: (key: string, meta: boolean) => void;
 }
 
 /**
@@ -85,55 +99,112 @@ interface HorizontalBarsProps {
  * capitals, and a merchant billing as `RUTERAPPEN OSLO NO` measured as fitting
  * and then ran off the left edge of the card. CSS truncates against the room
  * actually there.
+ *
+ * A row carrying `subs` expands in place. Children share the parent's scale
+ * rather than being renormalised to their own widest, so an opened category
+ * reads as that bar cut up — renormalising would draw the largest child as wide
+ * as its parent and say the opposite.
  */
-export const HorizontalBars = ({ items, onPick }: HorizontalBarsProps) => {
+export const HorizontalBars = ({ items, onPick, onPickSub }: HorizontalBarsProps) => {
   const { bind, node } = useTooltip();
+  const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
   const maxVal = Math.max(...items.map((i) => i.total), 1);
 
   if (items.length === 0) return <Empty>Nothing in this range.</Empty>;
+
+  const toggle = (key: string) =>
+    setOpen((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(key)) next.add(key);
+      return next;
+    });
+
+  const bar = (item: BarItem, depth: number, pick?: (key: string, meta: boolean) => void) => {
+    const id = item.key ?? item.label;
+    const row = (
+      <>
+        <span
+          className="shrink-0 truncate text-right text-ink-soft"
+          style={{ width: `${122 - depth * 12}px` }}
+        >
+          {item.label}
+        </span>
+        <span className="flex min-w-0 flex-1 items-center gap-2">
+          {/* The bar area keeps 78px back for the value, as the SVG did — a
+              full-width bar would otherwise push the number off the edge.
+              `min-w-px` keeps the smallest total visible as a sliver. */}
+          <span
+            className={`h-4 min-w-px rounded ${depth ? 'bg-series-1/50' : 'bg-series-1'}`}
+            style={{ width: `calc((100% - 78px) * ${item.total / maxVal})` }}
+          />
+          <span className="shrink-0 font-semibold">{fmtNOK(item.total)}</span>
+        </span>
+      </>
+    );
+    const tip = bind(
+      <>
+        <div className="text-ink-soft">{item.label}</div>
+        <div className="font-semibold">
+          {fmtNOK(item.total)}
+          {item.count ? ` · ${item.count} txns` : ''}
+        </div>
+      </>,
+    );
+    const shared = 'flex h-[26px] min-w-0 flex-1 items-center gap-2 rounded-md text-[11px]';
+    return pick ? (
+      <button
+        type="button"
+        onClick={(e) => pick(id, e.metaKey)}
+        className={`${shared} hover:bg-hover`}
+        {...tip}
+      >
+        {row}
+      </button>
+    ) : (
+      <div className={shared} {...tip}>
+        {row}
+      </div>
+    );
+  };
 
   return (
     <>
       <div className="flex flex-col">
         {items.map((item) => {
-          const row = (
-            <>
-              <span className="w-[122px] shrink-0 truncate text-right text-ink-soft">{item.label}</span>
-              <span className="flex min-w-0 flex-1 items-center gap-2">
-                {/* The bar area keeps 78px back for the value, as the SVG did — a
-                    full-width bar would otherwise push the number off the edge.
-                    `min-w-px` keeps the smallest total visible as a sliver. */}
-                <span
-                  className="h-4 min-w-px rounded bg-series-1"
-                  style={{ width: `calc((100% - 78px) * ${item.total / maxVal})` }}
-                />
-                <span className="shrink-0 font-semibold">{fmtNOK(item.total)}</span>
-              </span>
-            </>
-          );
-          const tip = bind(
-            <>
-              <div className="text-ink-soft">{item.label}</div>
-              <div className="font-semibold">
-                {fmtNOK(item.total)}
-                {item.count ? ` · ${item.count} txns` : ''}
+          const id = item.key ?? item.label;
+          // One child is the parent again with an extra indent, so it is not a
+          // breakdown and gets no triangle.
+          const subs = item.subs && item.subs.length > 1 ? item.subs : [];
+          const expanded = open.has(id);
+          return (
+            <div key={id} className="flex flex-col">
+              <div className="flex items-center">
+                {subs.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => toggle(id)}
+                    aria-expanded={expanded}
+                    aria-label={`${expanded ? 'Hide' : 'Show'} ${item.label} breakdown`}
+                    className="mr-0.5 flex h-[26px] w-3 shrink-0 items-center justify-center text-ink-soft hover:text-ink"
+                  >
+                    <span className={`text-[8px] transition-transform ${expanded ? 'rotate-90' : ''}`}>
+                      ▶
+                    </span>
+                  </button>
+                ) : (
+                  // Holds the column so labels line up whether or not a row opens.
+                  <span className="mr-0.5 w-3 shrink-0" />
+                )}
+                {bar(item, 0, onPick)}
               </div>
-            </>,
-          );
-          const shared = 'flex h-[26px] items-center gap-2 rounded-md text-[11px]';
-          return onPick ? (
-            <button
-              key={item.label}
-              type="button"
-              onClick={(e) => onPick(item.label, e.metaKey)}
-              className={`${shared} hover:bg-hover`}
-              {...tip}
-            >
-              {row}
-            </button>
-          ) : (
-            <div key={item.label} className={shared} {...tip}>
-              {row}
+              {expanded &&
+                subs.map((sub) => (
+                  <div key={sub.key ?? sub.label} className="flex items-center">
+                    <span className="mr-0.5 w-3 shrink-0" />
+                    <span className="w-3 shrink-0" />
+                    {bar(sub, 1, onPickSub)}
+                  </div>
+                ))}
             </div>
           );
         })}

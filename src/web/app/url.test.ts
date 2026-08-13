@@ -20,6 +20,8 @@ test('a populated state round-trips, nulls included', () => {
     filters: {
       categories: ['dagligvarer', 'transport'],
       categoryMode: 'exclude',
+      subcategories: ['kafe_og_restaurant/kafe', 'vipps/'],
+      subcategoryMode: 'include',
       merchants: ['Rema 1000', 'Kiwi'],
       merchantMode: 'include',
       accounts: ['Mastercard Ung'],
@@ -114,4 +116,17 @@ test('junk params fall back to the default, and an empty cat is no categories', 
   assert.deepEqual(s.filters.categories, []);
   assert.equal(s.view, 'dashboard');
   assert.equal(s.period, null);
+});
+
+test('a subcategory pair survives the slash, and so does one with no second level', () => {
+  // The pair is the filter value, so `/` is data rather than a separator — and
+  // a category whose rows have no sub is still selectable as `slug/`.
+  const state: UrlState = {
+    ...DEFAULT,
+    filters: { ...DEFAULT.filters, subcategories: ['kafe_og_restaurant/kafe', 'vipps/'] },
+  };
+  assert.deepEqual(fromParams(new URLSearchParams(toParams(state))).filters.subcategories, [
+    'kafe_og_restaurant/kafe',
+    'vipps/',
+  ]);
 });
