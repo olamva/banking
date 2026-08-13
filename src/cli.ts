@@ -1,11 +1,13 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { get, login } from './net/sb1.ts';
-import { rebuildAll, RAW } from './core/pipeline.ts';
+import { monthsOnDisk, pipeline, rebuildAll, RAW } from './core/pipeline.ts';
+import type { Categorized } from './core/types.ts';
 import { syncMonth, syncRange } from './net/sync.ts';
-import { loadPeers } from './core/categorize.ts';
+import { loadGiro, loadOverrides, loadPeers, loadSubscriptions } from './core/categorize.ts';
 import { newPeers } from './core/peers.ts';
+import { narrowings, overrideReport, pairUse, unnamed } from './core/report.ts';
 import { merchantClusters, nearMisses } from './core/merchants.ts';
 import { openDb, queryRange } from './core/db.ts';
 import { serve, DEFAULT_MAX_AGE_MIN } from './web/serve.ts';
@@ -145,6 +147,121 @@ function merchants(): void {
   );
 }
 
+/**
+ * Which lines of rules/overrides.json the bank's own subcategory has made
+ * redundant, and where the two disagree. Prints, never writes.
+ *
+ * `--all` adds the two wider views: every bank pair against what we file its
+ * rows as, and the categories we assign that no bank pair backs — the ones
+ * needing a name of their own on a two-level page.
+ */
+async function categories(all: boolean): Promise<void> {
+  const kr = (n: number) => `${Math.round(n).toLocaleString('nb-NO')} kr`;
+  const accounts: Record<string, { card?: boolean }> = JSON.parse(
+    await readFile('rules/accounts.json', 'utf8'),
+  );
+  const cards = new Set(Object.entries(accounts).filter(([, a]) => a.card).map(([k]) => k));
+
+  // Straight from data/raw/, and deliberately not from the database: the store
+  // holds names `renamePayees` has already rewritten, and that rename runs
+  // *after* `categorize`. Judging a rule against a name it never saw inverts
+  // verdicts — `rules/payees.json` renames one payee into a string a different
+  // override pattern matches, which moved 353 rows in the first run of this.
+  const rows: Categorized[] = [];
+  for (const month of monthsOnDisk()) rows.push(...(await pipeline(month, { rename: false })));
+
+  const report = overrideReport(
+    rows,
+    await loadOverrides(),
+    await loadSubscriptions(),
+    await loadPeers(),
+    await loadGiro(),
+    cards,
+  );
+
+  const MARK = {
+    redundant: 'DELETE  ',
+    rewrite: 'REWRITE ',
+    diverges: 'ARGUE   ',
+    'load-bearing': 'KEEP    ',
+    mixed: 'READ    ',
+    unused: 'UNUSED  ',
+  };
+  for (const verdict of ['redundant', 'rewrite', 'diverges', 'mixed', 'load-bearing', 'unused'] as const) {
+    const lines = report.filter((r) => r.verdict === verdict);
+    if (!lines.length) continue;
+    console.log(`\n--- ${verdict} (${lines.length} patterns, ${lines.reduce((n, r) => n + r.rows, 0)} rows) ---`);
+    for (const r of lines) {
+      console.log(
+        `\n${MARK[verdict]}${JSON.stringify(r.pattern)}: ${JSON.stringify(r.value)}   ${r.rows} rows, ${kr(r.total)}`,
+      );
+      // A rewrite is a line to copy. A divergence is not — the bank is making a
+      // different claim there, and printing it the same way is how eight airport
+      // shops nearly became travel.
+      if (r.verdict === 'rewrite')
+        console.log(`         -> ${JSON.stringify(r.pattern)}: ${JSON.stringify(r.suggest)}`);
+      else if (r.suggest && r.verdict !== 'redundant')
+        console.log(`         ?  the bank would say ${JSON.stringify(r.suggest)} — your call`);
+      // A redundant line's outcomes all agree by definition, so only the
+      // subcategory it would gain is worth the ink.
+      for (const o of r.outcomes) {
+        const gain = o.same ? '=' : '!';
+        const conf = o.confidence && o.confidence < 100 ? ` @${o.confidence}` : '';
+        console.log(`   ${gain} ${String(o.rows).padStart(4)}  -> ${o.fallback}${conf}   ${o.bankName}`);
+        if (!o.same) console.log(`             ${o.examples.join(' / ')}`);
+      }
+    }
+  }
+
+  if (all) {
+    console.log('\n--- every bank pair, against what we call it ---');
+    for (const p of pairUse(rows)) {
+      console.log(`\n  ${p.pair}   ${p.rows} rows   ${p.name}`);
+      for (const o of p.ours) console.log(`      ${String(o.rows).padStart(5)}  ${o.category}`);
+    }
+    // Two ways off this list: name the slug, or rewrite the rules so it becomes
+    // a pair the bank already sends. The report does not choose between them.
+    console.log('\n--- ours alone: the bank never spells these, so they need a name ---');
+    for (const u of unnamed(rows))
+      console.log(`  ${String(u.rows).padStart(5)}  ${u.slug}   (${u.level})`);
+  }
+
+  // Printed every run, not behind --all: an override file that depends on its
+  // own line order has an invisible requirement, and this is the only thing
+  // that makes it visible.
+  const loose = narrowings(rows, await loadOverrides());
+  if (loose.length) {
+    console.log('\n--- these lines only work where they sit in the file ---');
+    for (const l of loose) {
+      console.log(`\n${JSON.stringify(l.pattern)}: ${JSON.stringify(l.value)}`);
+      for (const b of l.beaten)
+        console.log(`   loses ${String(b.rows).padStart(4)} rows to ${JSON.stringify(b.pattern)}: ${JSON.stringify(b.value)}`);
+      console.log(
+        l.suggest
+          ? `   -> ${JSON.stringify(l.suggest)}: ${JSON.stringify(l.value)}`
+          : '   -> narrow by hand: one of the winners is anchored and cannot be inlined',
+      );
+    }
+  }
+
+  const n = (v: string) => report.filter((r) => r.verdict === v).reduce((a, r) => a + r.rows, 0);
+  const p = (v: string) => report.filter((r) => r.verdict === v).length;
+  console.error(
+    `\n${report.length} patterns, ${rows.filter((t) => !t.excluded).length} rows in scope:` +
+      `\n  ${p('redundant')} deletable    ${n('redundant')} rows   the bank already says this` +
+      `\n  ${p('rewrite')} to rewrite   ${n('rewrite')} rows   our name for the pair the bank sends` +
+      `\n  ${p('diverges')} to argue     ${n('diverges')} rows   the bank claims something else` +
+      `\n  ${p('mixed')} to read      ${n('mixed')} rows   part bank, part ours` +
+      `\n  ${p('load-bearing')} to keep      ${n('load-bearing')} rows   the bank has nothing better` +
+      `\n  ${p('unused')} unused       matches nothing on record` +
+      `\nA deletable line changes no row's category — its rows gain the bank's subcategory in exchange.` +
+      `\n\n${loose.length} lines only work where they sit in the file.` +
+      (loose.length
+        ? `\nPaste the narrowed forms above and the order stops deciding anything.`
+        : `\nNo line depends on its position, so rules/overrides.json can be sorted freely.`),
+  );
+}
+
 try {
   if (cmd === 'login') await login();
   else if (cmd === 'accounts') await accounts();
@@ -167,6 +284,7 @@ try {
   else if (cmd === 'rebuild') await rebuildAll();
   else if (cmd === 'peers') await peers();
   else if (cmd === 'merchants') merchants();
+  else if (cmd === 'categories') await categories(has('all'));
   else if (cmd === 'budget') {
     // The bank's own figure, cached from the last response. Nothing on disk
     // means nothing has called it recently, not that there is nothing left.
@@ -188,6 +306,7 @@ try {
     console.error('                | sync --from YYYY[-MM] --to YYYY[-MM] [--force | --stale MINUTES]');
     console.error('                | peers  (clipboard rows -> names for rules/vipps.json)');
     console.error('                | merchants  (one shop under many names -> rules/payees.json)');
+    console.error('                | categories [--all]  (which rules/overrides.json lines the bank already covers)');
     console.error('                | dev [--port 4000] [--pull [--max-age 360]] | budget>');
     process.exit(1);
   }
