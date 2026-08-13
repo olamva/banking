@@ -8,7 +8,7 @@
  * src/core/stats.ts.
  */
 import { useId, useState, type ReactNode } from 'react';
-import { annualGrowth, spendGrowth, withGaps, type CategoryDelta, type SeriesPoint } from '../../core/stats.ts';
+import { annualRate, spendTrend, withGaps, type CategoryDelta, type SeriesPoint } from '../../core/stats.ts';
 import { fmtNOK, fmtPct, monthLabel, niceStep, pointLabel, useWidth } from './format.ts';
 
 interface TipState {
@@ -442,35 +442,51 @@ export const SpendLines = ({
   const clusterW = plotW / Math.max(dense.length, 1);
   const px = (i: number) => padL + i * clusterW + clusterW / 2;
 
-  const ticks = Array.from({ length: Math.floor(gridMax / step) + 1 }, (_, i) => i * step);
-  const py = (v: number) => padT + plotH - (v / gridMax) * plotH;
-
   /**
-   * The growth curve through spending, for the whole span, and a point per slot
-   * because it is not straight. Deliberately sampled across a gap where the
-   * series is not: it is a summary of the span rather than a reading of any
-   * point on it, which is also why it takes no dot and no tooltip.
-   *
-   * It can run off the top of the plot and never off the bottom, an exponential
-   * being positive everywhere — which is why the axis needs no floor below zero
-   * and the clip is all the fitting-outside-the-box this needs.
+   * One straight line through spending, for the whole span. Deliberately drawn
+   * across a gap where the series is not: it is a summary of the span rather
+   * than a reading of any point on it, which is also why it takes no dot and no
+   * tooltip.
    *
    * Fitted whatever the legend says, and cheap enough to be: the key that turns
    * it off has to know there was anything to turn off.
    */
-  const trend = offersTrend ? spendGrowth(dense) : null;
-  const curve = trend
-    ? dense.map((_, i) => `${px(i)},${py(Math.exp(trend.intercept + trend.slope * i))}`).join(' ')
-    : '';
+  const trend = offersTrend ? spendTrend(dense) : null;
+  const ends = trend ? [0, dense.length - 1].map((x) => trend.intercept + trend.slope * x) : [];
 
   /**
-   * The rate a year, which is the form the number it is read against comes in —
-   * inflation is quoted annually and nothing else is. It is the fit's own slope
-   * rescaled, so it describes the whole curve rather than the two points it
-   * happens to end on, and the same spending answers the same whether the
-   * window is drawn by day or by month.
+   * How steeply that line climbs, per year, against the average of what is on
+   * screen. Per year because inflation is quoted per year and nothing else is;
+   * against the average because a straight line has no rate of its own, and the
+   * average is the one base a reader can see on the card.
    */
-  const growth = trend ? annualGrowth(trend.slope, bucket === 'month' ? 12 : 365.25) : null;
+  const slotsPerYear = bucket === 'month' ? 12 : 365.25;
+  const rate = trend ? annualRate(trend, dense.length, slotsPerYear) : null;
+  /**
+   * The denominator, spelled out for the key's hover. A percentage whose base
+   * is nowhere on the card is what made the first one of these unreadable.
+   */
+  const rateBase =
+    trend && rate !== null
+      ? `${fmtNOK(trend.slope * slotsPerYear)} a year against the ${fmtNOK(
+          trend.intercept + (trend.slope * (dense.length - 1)) / 2,
+        )} average in view`
+      : undefined;
+
+  /**
+   * The axis floor, which is zero until the trend needs it not to be. Spending
+   * is a total and can never be negative, but a fitted line through a falling
+   * one crosses zero on its way down — three months of 1000, 0, 0 fit a line
+   * that ends at -167 — and a line clipped away at the floor would vanish
+   * exactly where it has the most to say. Rounded down onto the same step the
+   * top uses, so the gridlines stay evenly spaced through it.
+   */
+  const gridMin = Math.min(0, ...ends.map((v) => Math.floor(v / step) * step));
+  const ticks = Array.from(
+    { length: Math.round((gridMax - gridMin) / step) + 1 },
+    (_, i) => gridMin + i * step,
+  );
+  const py = (v: number) => padT + plotH - ((v - gridMin) / (gridMax - gridMin)) * plotH;
 
   /**
    * The compared window laid over the same axis, matched on where in the
@@ -637,7 +653,8 @@ export const SpendLines = ({
           trend={trend !== null}
           // `=== null`, not falsy: a flat trend is 0% a year, which is a
           // reading rather than a missing one.
-          trendRate={growth === null ? undefined : `${growth > 0 ? '+' : ''}${fmtPct(growth)} / year`}
+          trendRate={rate === null ? undefined : `${rate > 0 ? '+' : ''}${fmtPct(rate)} / year`}
+          trendBase={rateBase}
           compareLabel={compare.length > 0 ? compareLabel : undefined}
           hidden={hidden}
           onToggle={toggle}
@@ -653,7 +670,15 @@ export const SpendLines = ({
               <g key={v}>
                 {/* Zero is a gridline like any other until the axis runs below
                     it, and then it is the line the trend is read against. */}
-                <line x1={padL} x2={width - 8} y1={gy} y2={gy} className="stroke-grid" />
+                {/* Zero is a gridline like any other until the axis runs below
+                    it, and then it is the line the trend is read against. */}
+                <line
+                  x1={padL}
+                  x2={width - 8}
+                  y1={gy}
+                  y2={gy}
+                  className={v === 0 && gridMin < 0 ? 'stroke-axis' : 'stroke-grid'}
+                />
                 <text x={padL - 8} y={gy + 3} textAnchor="end" className="fill-ink-muted text-[11px]">
                   {fmtNOK(v).replace(' kr', '')}
                 </text>
@@ -737,9 +762,9 @@ export const SpendLines = ({
               </g>
             );
           })}
-          {/* Clipped rather than clamped: a curve that outgrows the plot leaves
-              it, and pinning it to the ceiling instead would flatten the growth
-              that is the only thing it says. */}
+          {/* Clipped to the plot rather than clamped to it: the axis already
+              stretched to hold both ends, and clamping a line is how a slope
+              gets flattened into a claim nobody made. */}
           {trend && shows('trend') && (
             <>
               <defs>
@@ -747,12 +772,15 @@ export const SpendLines = ({
                   <rect x={padL} y={padT} width={plotW} height={plotH} />
                 </clipPath>
               </defs>
-              <polyline
-                points={curve}
+              <line
+                x1={px(0)}
+                y1={py(ends[0]!)}
+                x2={px(dense.length - 1)}
+                y2={py(ends[1]!)}
                 strokeWidth={1.5}
                 strokeDasharray="7 5"
                 clipPath={`url(#${clip}-plot)`}
-                className="fill-none stroke-series-1"
+                className="stroke-series-1"
               />
             </>
           )}
@@ -818,12 +846,14 @@ interface ChartLegendProps {
   /** Whether the fitted line is drawn — it is keyed only where it exists. */
   trend: boolean;
   /**
-   * How fast that line climbs, already formatted. Separate from `trend`,
-   * because a fit that starts at or below zero has a slope and no growth rate:
+   * How steeply that line climbs, already formatted. Separate from `trend`,
+   * because a fit whose average is at or below zero has a slope and no rate:
    * the line is still drawn and still keyed, and the key simply says nothing
    * about a ratio it cannot form.
    */
   trendRate?: string;
+  /** What the rate is a percentage *of*, spelled out on hover. */
+  trendBase?: string;
   /** Named when a compared period is drawn; the dashes are the same for both its lines. */
   compareLabel?: string;
   /** Which marks are switched off, so the keys can say so. */
@@ -861,7 +891,7 @@ const LegendKey = ({ on, onToggle, name, children }: LegendKeyProps) => (
 );
 
 /** Drawn by `SpendLines` itself — it is the only chart with more than one series. */
-const ChartLegend = ({ income, trend, trendRate, compareLabel, hidden, onToggle }: ChartLegendProps) => {
+const ChartLegend = ({ income, trend, trendRate, trendBase, compareLabel, hidden, onToggle }: ChartLegendProps) => {
   const key = (mark: Mark) => ({ on: !hidden.has(mark), onToggle: () => onToggle(mark) });
   return (
     <div className="mb-2 flex flex-wrap gap-3.5 text-xs text-ink-soft">
@@ -890,7 +920,11 @@ const ChartLegend = ({ income, trend, trendRate, compareLabel, hidden, onToggle 
             <line x1={0} x2={16} y1={1.5} y2={1.5} strokeWidth={3} strokeDasharray="7 5" className="stroke-series-1" />
           </svg>
           Trend
-          {trendRate && <span className="tabular-nums text-ink-muted">{trendRate}</span>}
+          {trendRate && (
+            <span title={trendBase} className="tabular-nums text-ink-muted">
+              {trendRate}
+            </span>
+          )}
         </LegendKey>
       )}
       {/* One key for both dashed lines — the dashes are what mark the period, and

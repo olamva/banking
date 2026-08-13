@@ -423,33 +423,17 @@ export function withGaps(series: SeriesPoint[]): (SeriesPoint | null)[] {
 }
 
 /**
- * The least-squares fit of a series' spending **in log space**, as
- * `ln(y) = slope * x + intercept` over the slot index — so `exp(intercept)` is
- * where it starts and `exp(slope)` is what it multiplies by each slot.
+ * The least-squares line through a series' spending, as `y = slope * x + intercept`
+ * over the **slot index** — so the x it is fitted against is the position on the
+ * drawn axis, holes included. That is the whole reason it takes the gapped array
+ * rather than the series: fitting against the array index instead would pull a
+ * missing month's neighbours together and tilt the line towards a period that
+ * was never synced.
  *
- * Exponential rather than straight, and that is the whole point: the figure it
- * is drawn to support is a growth rate a year, held against inflation, and a
- * rate like that is a multiplication. A straight line has no such rate — it
- * adds a fixed sum each month, which off a small base is a huge percentage and
- * off a large one is a small percentage, so any single figure quoted for it is
- * true at one point on the line and nowhere else. Reading a compound rate off
- * the two ends of a straight line was exactly that mistake: arithmetically
- * right, and describing a curve that was not the line being drawn.
- *
- * Fitted against the **slot index**, which is why it takes the gapped array
- * rather than the series: fitting against the array index would pull a missing
- * month's neighbours together and tilt the fit towards a period that was never
- * synced.
- *
- * A slot with no spending is skipped, having no logarithm. On months that is
- * rare and means the account was unused; on days it is most of the week, so a
- * daily fit describes the days money was spent on, which is the only thing a
- * ratio can be taken over.
- *
- * Null under two spending slots, because a line through one point is every line.
+ * Null under two points, because a line through one point is every line.
  */
-export function spendGrowth(dense: (SeriesPoint | null)[]): { slope: number; intercept: number } | null {
-  const pts = dense.flatMap((p, x) => (p && p.totalOut > 0 ? [{ x, y: Math.log(p.totalOut) }] : []));
+export function spendTrend(dense: (SeriesPoint | null)[]): { slope: number; intercept: number } | null {
+  const pts = dense.flatMap((p, x) => (p ? [{ x, y: p.totalOut }] : []));
   if (pts.length < 2) return null;
   const mx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
   const my = pts.reduce((s, p) => s + p.y, 0) / pts.length;
@@ -460,17 +444,34 @@ export function spendGrowth(dense: (SeriesPoint | null)[]): { slope: number; int
 }
 
 /**
- * What a log-space fit grows by in a year, as a fraction — `0.031` for 3.1%.
- * `slotsPerYear` is how many of the fit's own slots make one.
+ * How steeply a fitted line climbs, as a share of the level it climbs from, per
+ * year — `0.031` for 3.1%. `slots` is how many the line spans and `slotsPerYear`
+ * how many make a year, which is what lets a window drawn by day and the same
+ * window drawn by month answer the same.
  *
- * The whole rate lives in the slope, so this depends on no endpoint and on no
- * window length: the same spending drawn by day and by month answers the same,
- * and lengthening the window changes the figure only by changing the fit. That
- * is what makes it comparable to a published inflation rate, which is also a
- * per-year multiplication rather than a total.
+ * **The level is the window's own average**, which for a straight line is its
+ * value at the midpoint. A straight line has no single growth rate — it adds a
+ * fixed sum each slot, which is a large share of a small base and a small share
+ * of a large one — so the rate quoted for it is only as meaningful as the base
+ * named with it, and the average of what is on screen is the one base a reader
+ * can see. Compounding the two ends instead is the same arithmetic as a CAGR
+ * and reads far higher, because it divides by where the line *starts*: a fit
+ * running 2 700 kr to 45 000 kr over five and a half years is 65% a year that
+ * way and 32% of the average this way, and only the second describes the
+ * straight line actually drawn.
+ *
+ * Null where the share would mean nothing — an average at or below zero is no
+ * base to measure against, and a single slot is no span.
  */
-export const annualGrowth = (slope: number, slotsPerYear: number): number =>
-  Math.expm1(slope * slotsPerYear);
+export function annualRate(
+  fit: { slope: number; intercept: number },
+  slots: number,
+  slotsPerYear: number,
+): number | null {
+  const mean = fit.intercept + (fit.slope * (slots - 1)) / 2;
+  if (slots < 2 || mean <= 0) return null;
+  return (fit.slope * slotsPerYear) / mean;
+}
 
 export function yearStats(year: string, monthsTxns: { month: string; txns: Categorized[] }[]): YearStats {
   const sorted = [...monthsTxns].sort((a, b) => a.month.localeCompare(b.month));
