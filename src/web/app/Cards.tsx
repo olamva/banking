@@ -2,6 +2,7 @@
  * The boxes everything sits in: cards, KPI tiles and tables. Presentation only.
  */
 import {
+  Fragment,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -12,8 +13,15 @@ import {
 import { merchantOf } from "../../core/select.ts";
 import { subscriptionGroups, type SubscriptionGroup } from "../../core/stats.ts";
 import type { Categorized } from "../../core/types.ts";
-import { categoryLabel, fmtNOK, fmtPct } from "./format.ts";
 import {
+  categoryLabel,
+  fmtNOK,
+  fmtNOKExact,
+  fmtPct,
+  txnFields,
+} from "./format.ts";
+import {
+  CloseIcon,
   DownIcon,
   FlatIcon,
   Icon,
@@ -183,11 +191,17 @@ interface PickCellProps {
 /**
  * A cell that is also the filter for its own value, the same gesture as a chart
  * bar: click to show only it, meta-click to hide it.
+ *
+ * The click stops here: the row around it may open the details dialog, and a
+ * click meant to filter to a merchant must not also open the row it sits in.
  */
 export const PickCell = ({ label, value = label, onPick }: PickCellProps) => (
   <button
     type="button"
-    onClick={(e) => onPick(value, e.metaKey)}
+    onClick={(e) => {
+      e.stopPropagation();
+      onPick(value, e.metaKey);
+    }}
     className="text-left hover:underline"
   >
     {label}
@@ -199,6 +213,11 @@ interface DataTableProps {
   rows: ReactNode[][];
   /** Caps the height and pins the header, for the long lists. */
   scroll?: boolean;
+  /**
+   * Makes the rows clickable, by index into `rows`. `PickCell` stops its own
+   * click, so the filter cells keep filtering.
+   */
+  onRow?: (index: number) => void;
 }
 
 /**
@@ -213,7 +232,7 @@ const OVERSCAN = 12;
 /** The scroller's own height, matching `max-h-[460px]` — a starting guess, remeasured on the first scroll. */
 const VIEWPORT = 460;
 
-export const DataTable = ({ columns, rows, scroll }: DataTableProps) => {
+export const DataTable = ({ columns, rows, scroll, onRow }: DataTableProps) => {
   const [win, setWin] = useState({ top: 0, height: VIEWPORT });
   /**
    * Measured rather than assumed: padding and font size are the card's business,
@@ -343,7 +362,8 @@ export const DataTable = ({ columns, rows, scroll }: DataTableProps) => {
             <tr
               key={first + i}
               ref={i === 0 ? probe : undefined}
-              className="hover:bg-hover"
+              onClick={onRow && (() => onRow(first + i))}
+              className={`hover:bg-hover ${onRow ? "cursor-pointer" : ""}`}
             >
               {row.map((cell, j) => (
                 <td
@@ -579,6 +599,60 @@ export const SubscriptionsCard = ({
   );
 };
 
+interface TxnDialogProps {
+  txn: Categorized;
+  onClose: () => void;
+}
+
+/**
+ * One row, with everything on it. A native `<dialog>` opened modally, so Esc,
+ * the backdrop, the scroll lock and keeping focus inside are the browser's job
+ * and not ours — the fields are read off the row by `txnFields`, so this stays a
+ * layout and nothing else.
+ */
+const TxnDialog = ({ txn, onClose }: TxnDialogProps) => (
+  <dialog
+    ref={(el) => {
+      el?.showModal();
+    }}
+    onClose={onClose}
+    /* The padding is on the inner div so that a click landing on it is a click
+       on the card, not on the dialog box — only the backdrop closes. */
+    onClick={(e) => {
+      if (e.target === e.currentTarget) onClose();
+    }}
+    className="m-auto max-h-[80vh] w-[min(560px,92vw)] overflow-y-auto rounded-[10px] border border-line bg-surface p-0 text-ink backdrop:bg-black/50"
+  >
+    <div className="p-4">
+      <div className="mb-3 flex items-start gap-3">
+        <div className="min-w-0">
+          <h2 className="truncate text-sm font-semibold">{merchantOf(txn)}</h2>
+          <div className="text-xs text-ink-soft">{txn.date}</div>
+        </div>
+        <div className="ml-auto text-lg font-semibold tabular-nums whitespace-nowrap">
+          {fmtNOKExact(txn.amount)}
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className="text-ink-muted hover:text-ink"
+        >
+          <Icon aria-hidden icon={CloseIcon} size={16} />
+        </button>
+      </div>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-xs">
+        {txnFields(txn).map(([name, value]) => (
+          <Fragment key={name}>
+            <dt className="text-ink-soft">{name}</dt>
+            <dd className="break-words">{value}</dd>
+          </Fragment>
+        ))}
+      </dl>
+    </div>
+  </dialog>
+);
+
 interface TransactionsCardProps {
   txns: Categorized[];
   /** The search box sits on the table it filters, rather than off in the filter bar. */
@@ -613,6 +687,7 @@ export const TransactionsCard = ({
   onAccount,
 }: TransactionsCardProps) => {
   const { sorted, head } = useTxnSort(txns);
+  const [open, setOpen] = useState<Categorized | null>(null);
   /**
    * Every category the table can show, not the ones a screenful happens to
    * hold. Over `txns` rather than over every category there is, so a filtered
@@ -638,6 +713,7 @@ export const TransactionsCard = ({
       ) : (
         <DataTable
           scroll
+          onRow={(i) => setOpen(sorted[i] ?? null)}
           /* Everything but the merchant is content-width, so the one column
              whose text actually varies is the one that absorbs the slack —
              filtering the rows no longer slides the others sideways. */
@@ -653,7 +729,15 @@ export const TransactionsCard = ({
             }),
           ]}
           rows={sorted.map((t) => [
-            t.date,
+            /* The whole row opens the details; the date is the same thing as a
+               button, so a keyboard reaches it too. */
+            <button
+              type="button"
+              onClick={() => setOpen(t)}
+              className="text-left hover:underline"
+            >
+              {t.date}
+            </button>,
             <PickCell label={merchantOf(t)} onPick={onMerchant} />,
             <PickCell
               label={categoryLabel(t.category)}
@@ -665,6 +749,7 @@ export const TransactionsCard = ({
           ])}
         />
       )}
+      {open && <TxnDialog txn={open} onClose={() => setOpen(null)} />}
     </Card>
   );
 };
