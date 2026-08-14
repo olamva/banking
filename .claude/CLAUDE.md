@@ -515,6 +515,90 @@ A category with exactly one _named_ subcategory reads as that subcategory —
 of two names for one set of rows. A lone _unnamed_ child is not a better name and
 keeps the parent's: `vipps` must not read as `Annet`.
 
+## The page is read on a phone
+
+`pnpm dev` binds to 127.0.0.1 and that is not the same as "opened on a laptop":
+the machine serving it is on the same wifi as the phone in your hand, and a
+month's spending is a thing to check standing in a shop. So **the narrow window
+is a supported width, not a courtesy**, and every UI change is finished only once
+it has been looked at at **375 CSS px** — an iPhone in portrait, and the width
+everything below is measured against.
+
+There is no separate mobile page and there must not be one. One layout that
+bends, because two layouts is two of everything to keep in step and the page is
+five `useState`s precisely so that it isn't.
+
+**Nothing may make the page scroll sideways.** That is the single test the rest
+of this section serves, and it is worth stating on its own because a page that
+scrolls sideways is not slightly wrong — every column is off, the header runs
+away from the cards under it, and no amount of squinting at a desktop window
+reproduces it. Two things caused it here, and both are the same mistake:
+_a width that was written down instead of asked for._
+
+- **A grid track's minimum is a floor, and a floor wider than the phone is the
+  bug.** `minmax(460px, 1fr)` never gives up its 460, so the cards stayed
+  460 wide inside a 375 page. Always
+  `minmax(min(460px, 100%), 1fr)`: the same preference, surrendered when there is
+  no room for it. `src/web/app/layout.test.ts` refuses the bare form anywhere in
+  `src/web/app/`, because it is invisible at every width a laptop has open —
+  write it and the test says so, including in a comment quoting it.
+- **An absolutely-positioned panel is anchored wherever its trigger wrapped to.**
+  The filter dropdowns are 256px wide and open against their own `details`; a
+  picker that wrapped halfway along the bar hung the panel off the right edge.
+  The fix is `max-sm:w-full` on the `details`, which anchors it to the left of
+  the bar — not a narrower panel, which only moves the width at which it breaks.
+
+**Charts measure, they never assume.** `useWidth` is a `ResizeObserver` and every
+chart already reads its box through it, draws into a `viewBox` and recomputes its
+label stride against `clusterW` — which is why the same year is twelve labels on
+a full-width card and four on a third of one. Keep new SVG on that path. A
+hardcoded chart width, or a label gutter in fixed pixels, is the first rule again
+one level down: `HorizontalBars` clamps its own label column to `min(122px, 34%)`
+for exactly that reason, since 122px of label plus the 78px held back for the
+value is most of a phone-width card and a bar chart with 20px bars has stopped
+being one.
+
+**Any field you can focus is 16px below `sm`.** iOS Safari zooms the whole page
+in when you focus a control whose text is smaller, and does not zoom back out —
+so typing in the transactions search left the dashboard permanently magnified and
+scrolling sideways. One unlayered media query in `index.css` does it for every
+input and select at once; it has to stay _outside_ `@layer`, because a rule in
+`@layer base` loses to `text-sm` on the element however specific it is. Do not
+reach for `maximum-scale=1` on the viewport tag, which fixes the same thing by
+taking pinch-zoom away from everyone.
+
+**Hover and meta-click are shortcuts, never the only route.** A phone has
+neither. Every number a tooltip gives must be readable somewhere else — the bars
+print their own totals, which is what lets the tooltip be a nicety — and every
+gesture behind a modifier key needs a plain control that does the same thing:
+meta-click excludes, and the Include/Exclude toggle inside each picker is the
+route to the same state without a keyboard. Adding a modifier-only capability
+with no such twin is how a feature ships that a phone cannot reach at all.
+
+**A tap is a `pointerdown` and a `pointerup` with no `pointermove` between
+them.** A chart bound only to `onPointerMove` therefore has no reading at all on
+a phone, which is why the plot catches `onPointerDown` too. The matching trap is
+the other way round: do not put `touch-action: none` on a plot to catch the drag,
+because then the chart eats the page's scroll and the reader is stuck on it.
+
+**Touch targets are the one thing the density does not get to win.** This page is
+deliberately dense and stays so — 11px rows, 26px bars — but a 12px-wide
+disclosure triangle is a _column_, not something a finger can hit. Widen the hit
+area with a `before:absolute before:-inset-2` pseudo-element rather than by
+resizing the control: the triangle stays in its column, the labels stay lined up,
+and the target goes from 12×24 to about 29×40.
+
+**Wide content scrolls inside its own box.** The transactions table is five
+columns of tabular figures and will never fit a phone; `DataTable` wraps itself
+in `overflow-x-auto`, so the table scrolls and the page does not. Anything else
+that cannot shrink gets the same treatment rather than being allowed to push the
+page out.
+
+And the dependency rule is untouched by all of this: no CSS framework beyond
+Tailwind, no device-detection package, no chart library that claims to be
+responsive. Everything above is a media query, a `min()`, a `ResizeObserver` and
+a pseudo-element.
+
 ## Exclusions
 
 Internal transfers are **flagged, never dropped** — the excluded set has to be
