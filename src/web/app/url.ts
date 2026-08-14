@@ -6,13 +6,13 @@
  * `toParams` and `fromParams` touch no DOM, which is what lets `node --test`
  * pin the parsing edges — a stray NaN here would silently filter every row away.
  */
-import { period, type Filters, type PeriodKind } from '../../core/select.ts';
+import { period, type Filters, type PeriodKind } from "../../core/select.ts";
 
 /** How the spending chart plots the window: as a running total, or as its raw buckets. */
-export type Grain = 'running' | 'day' | 'month';
+export type Grain = "running" | "day" | "month";
 
 export type UrlState = {
-  view: 'dashboard' | 'transactions';
+  view: "dashboard" | "transactions";
   /**
    * One period for both views — a month, a year, `30d` or `all`. Null is "the
    * latest month", which App derives from the rows it has; storing the answer
@@ -23,8 +23,8 @@ export type UrlState = {
   filters: Filters;
 };
 
-const VIEWS: UrlState['view'][] = ['dashboard', 'transactions'];
-const ALL_GRAINS: Grain[] = ['running', 'day', 'month'];
+const VIEWS: UrlState["view"][] = ["dashboard", "transactions"];
+const ALL_GRAINS: Grain[] = ["running", "day", "month"];
 
 /**
  * Which grains a window can actually carry, most useful first. **The first is
@@ -47,9 +47,9 @@ const ALL_GRAINS: Grain[] = ['running', 'day', 'month'];
  * the list is what an edited URL is checked against.
  */
 export const GRAINS: Record<PeriodKind, Grain[]> = {
-  month: ['running', 'day'],
-  year: ['running', 'month'],
-  all: ['month'],
+  month: ["running", "day"],
+  year: ["running", "month"],
+  all: ["month"],
 };
 
 /**
@@ -58,28 +58,32 @@ export const GRAINS: Record<PeriodKind, Grain[]> = {
  * with no rows at all, where App falls back to all time and there is no chart
  * to draw either way.
  */
-const grainsFor = (p: string | null): Grain[] => GRAINS[p === null ? 'month' : period(p).kind];
+const grainsFor = (p: string | null): Grain[] =>
+  GRAINS[p === null ? "month" : period(p).kind];
 
 export const toParams = (s: UrlState): string => {
   const p = new URLSearchParams();
-  if (s.view !== 'dashboard') p.set('view', s.view);
-  if (s.period) p.set('p', s.period);
+  if (s.view !== "dashboard") p.set("view", s.view);
+  if (s.period) p.set("p", s.period);
   // Against the window's own default, not a global one: `all` draws per month
   // and offers nothing else, so naming it there would record a choice that was
   // never on offer.
-  if (s.grain !== grainsFor(s.period)[0]) p.set('g', s.grain);
-  if (s.filters.categories.length) p.set('cat', s.filters.categories.join(','));
-  if (s.filters.categoryMode !== 'include') p.set('cat_mode', s.filters.categoryMode);
+  if (s.grain !== grainsFor(s.period)[0]) p.set("g", s.grain);
+  if (s.filters.categories.length) p.set("cat", s.filters.categories.join(","));
+  if (s.filters.categoryMode !== "include")
+    p.set("cat_mode", s.filters.categoryMode);
   // One param per merchant, not a joined list: a merchant name can contain a
   // comma, and a category slug cannot.
-  for (const m of s.filters.merchants) p.append('m', m);
-  if (s.filters.merchantMode !== 'include') p.set('m_mode', s.filters.merchantMode);
+  for (const m of s.filters.merchants) p.append("m", m);
+  if (s.filters.merchantMode !== "include")
+    p.set("m_mode", s.filters.merchantMode);
   // Repeated for the same reason as merchants: an account is named by hand and
   // may hold a comma.
-  for (const a of s.filters.accounts) p.append('acct', a);
-  if (s.filters.accountMode !== 'include') p.set('acct_mode', s.filters.accountMode);
-  if (s.filters.search) p.set('q', s.filters.search);
-  if (s.filters.showExcluded) p.set('excl', '1');
+  for (const a of s.filters.accounts) p.append("acct", a);
+  if (s.filters.accountMode !== "include")
+    p.set("acct_mode", s.filters.accountMode);
+  if (s.filters.search) p.set("q", s.filters.search);
+  if (s.filters.showExcluded) p.set("excl", "1");
   return p.toString();
 };
 
@@ -90,25 +94,28 @@ export const toParams = (s: UrlState): string => {
  * falls back on when the window in view does not offer it.
  */
 export const fromParams = (p: URLSearchParams): UrlState => ({
-  view: VIEWS.find((v) => v === p.get('view')) ?? 'dashboard',
-  period: p.get('p') || null,
-  grain: ALL_GRAINS.find((g) => g === p.get('g')) ?? grainsFor(p.get('p') || null)[0]!,
+  view: VIEWS.find((v) => v === p.get("view")) ?? "dashboard",
+  period: p.get("p") || null,
+  grain:
+    ALL_GRAINS.find((g) => g === p.get("g")) ??
+    grainsFor(p.get("p") || null)[0]!,
   filters: {
-    categories: p.get('cat')?.split(',').filter(Boolean) ?? [],
-    categoryMode: p.get('cat_mode') === 'exclude' ? 'exclude' : 'include',
-    merchants: p.getAll('m').filter(Boolean),
-    merchantMode: p.get('m_mode') === 'exclude' ? 'exclude' : 'include',
-    accounts: p.getAll('acct').filter(Boolean),
-    accountMode: p.get('acct_mode') === 'exclude' ? 'exclude' : 'include',
-    search: p.get('q') ?? '',
-    showExcluded: p.get('excl') === '1',
+    categories: p.get("cat")?.split(",").filter(Boolean) ?? [],
+    categoryMode: p.get("cat_mode") === "exclude" ? "exclude" : "include",
+    merchants: p.getAll("m").filter(Boolean),
+    merchantMode: p.get("m_mode") === "exclude" ? "exclude" : "include",
+    accounts: p.getAll("acct").filter(Boolean),
+    accountMode: p.get("acct_mode") === "exclude" ? "exclude" : "include",
+    search: p.get("q") ?? "",
+    showExcluded: p.get("excl") === "1",
   },
 });
 
-export const readUrl = (): UrlState => fromParams(new URLSearchParams(location.search));
+export const readUrl = (): UrlState =>
+  fromParams(new URLSearchParams(location.search));
 
 /** replaceState, never push — back should leave the page, not undo one filter edit. */
 export const writeUrl = (s: UrlState): void => {
   const q = toParams(s);
-  history.replaceState(null, '', q ? `?${q}` : location.pathname);
+  history.replaceState(null, "", q ? `?${q}` : location.pathname);
 };

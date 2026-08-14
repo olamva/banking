@@ -28,10 +28,10 @@
  * The file survives a restart on purpose. Holding this in memory would forget
  * it exactly when two tabs or a restarting watcher make it matter.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 
-const LEDGER = 'data/api-budget.json';
+const LEDGER = "data/api-budget.json";
 
 /** SB1's stated quota — "normally 60 API requests each hour", per its FAQ. */
 const CAP = 60;
@@ -51,14 +51,18 @@ type Ledger = { remaining: number; at: number };
 function accrue(l: Ledger, now: number): Ledger {
   const credits = Math.floor((now - l.at) / REFILL_MS);
   if (credits <= 0) return l; // also covers a clock that went backwards
-  return { remaining: Math.min(CAP, l.remaining + credits), at: l.at + credits * REFILL_MS };
+  return {
+    remaining: Math.min(CAP, l.remaining + credits),
+    at: l.at + credits * REFILL_MS,
+  };
 }
 
 function read(path: string, now: number): Ledger | null {
   if (!existsSync(path)) return null;
   try {
-    const l = JSON.parse(readFileSync(path, 'utf8')) as Ledger;
-    if (typeof l?.remaining !== 'number' || typeof l?.at !== 'number') return null;
+    const l = JSON.parse(readFileSync(path, "utf8")) as Ledger;
+    if (typeof l?.remaining !== "number" || typeof l?.at !== "number")
+      return null;
     return accrue(l, now);
   } catch {
     return null; // a corrupt ledger must not wedge the CLI; worst case we re-learn
@@ -80,7 +84,11 @@ export function remaining(path = LEDGER, now = Date.now()): number | null {
 }
 
 /** Whether `cost` more calls fit. Unknown is not a refusal. */
-export function canAfford(cost: number, path = LEDGER, now = Date.now()): boolean {
+export function canAfford(
+  cost: number,
+  path = LEDGER,
+  now = Date.now(),
+): boolean {
   const left = remaining(path, now);
   return left === null || left >= cost;
 }

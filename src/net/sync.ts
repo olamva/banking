@@ -5,15 +5,15 @@
  * Every SB1 call is counted against the bank's own budget inside `sb1.get`, so
  * the accounting holds no matter who calls these.
  */
-import { mkdir, writeFile, readFile } from 'node:fs/promises';
-import { existsSync, statSync } from 'node:fs';
-import { get, monthRange, RateLimited } from './sb1.ts';
-import { BudgetExhausted, remaining } from './budget.ts';
-import { RAW } from '../core/pipeline.ts';
-import type { Accounts } from '../core/exclude.ts';
+import { existsSync, statSync } from "node:fs";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import type { Accounts } from "../core/exclude.ts";
+import { RAW } from "../core/pipeline.ts";
+import { BudgetExhausted, remaining } from "./budget.ts";
+import { get, monthRange, RateLimited } from "./sb1.ts";
 
 async function dump(file: string, data: unknown): Promise<void> {
-  await mkdir(file.slice(0, file.lastIndexOf('/')), { recursive: true });
+  await mkdir(file.slice(0, file.lastIndexOf("/")), { recursive: true });
   await writeFile(file, JSON.stringify(data, null, 2));
   console.error(`wrote ${file}`);
 }
@@ -26,7 +26,9 @@ async function dump(file: string, data: unknown): Promise<void> {
  * `exclude` matches on the *number*.
  */
 export async function accountKeys(): Promise<string[]> {
-  const accounts: Accounts = JSON.parse(await readFile('rules/accounts.json', 'utf8'));
+  const accounts: Accounts = JSON.parse(
+    await readFile("rules/accounts.json", "utf8"),
+  );
   return Object.entries(accounts)
     .filter(([, a]) => a.sync !== false)
     .map(([key]) => key);
@@ -40,9 +42,12 @@ export async function accountKeys(): Promise<string[]> {
  * cannot answer for is a request spent on nothing, and `fromDate`..`toDate`
  * may not span more than five years either way.
  */
-export function rangeToDate(month: string, today = new Date()): { from: string; to: string } {
+export function rangeToDate(
+  month: string,
+  today = new Date(),
+): { from: string; to: string } {
   const { from, to } = monthRange(month);
-  const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
   return { from, to: to > iso ? iso : to };
 }
 
@@ -61,7 +66,8 @@ export type Force = boolean | number;
 /** Whether this file is already as fresh as `force` asks for. */
 const fresh = (file: string, force: Force): boolean => {
   if (!existsSync(file)) return false;
-  if (typeof force === 'number') return Date.now() - statSync(file).mtimeMs < force * 60_000;
+  if (typeof force === "number")
+    return Date.now() - statSync(file).mtimeMs < force * 60_000;
   return !force;
 };
 
@@ -71,10 +77,14 @@ const fresh = (file: string, force: Force): boolean => {
  * A month whose files are all present costs nothing without `--force`, so the
  * honest number for a resumed sweep is the missing files and not the months.
  */
-export async function rangeCost(months: string[], force: Force): Promise<number> {
+export async function rangeCost(
+  months: string[],
+  force: Force,
+): Promise<number> {
   const keys = await accountKeys();
   return months.reduce(
-    (n, month) => n + keys.filter((key) => !fresh(fileFor(month, key), force)).length,
+    (n, month) =>
+      n + keys.filter((key) => !fresh(fileFor(month, key), force)).length,
     0,
   );
 }
@@ -86,20 +96,25 @@ export async function rangeCost(months: string[], force: Force): Promise<number>
  * Never past the current month: there is nothing to fetch in a month that has
  * not happened, and asking costs a request per account to be told so.
  */
-export function monthsBetween(from: string, to: string, today = new Date()): string[] {
+export function monthsBetween(
+  from: string,
+  to: string,
+  today = new Date(),
+): string[] {
   const bound = (v: string, end: boolean) => {
-    if (/^\d{4}$/.test(v)) return `${v}-${end ? '12' : '01'}`;
+    if (/^\d{4}$/.test(v)) return `${v}-${end ? "12" : "01"}`;
     if (/^\d{4}-\d{2}$/.test(v)) return v;
     throw new Error(`--from/--to want YYYY or YYYY-MM, got "${v}"`);
   };
-  const index = (m: string) => Number(m.slice(0, 4)) * 12 + Number(m.slice(5)) - 1;
-  const now = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+  const index = (m: string) =>
+    Number(m.slice(0, 4)) * 12 + Number(m.slice(5)) - 1;
+  const now = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
   const start = index(bound(from, false));
   const stop = Math.min(index(bound(to, true)), index(now));
 
   const out: string[] = [];
   for (let i = start; i <= stop; i++) {
-    out.push(`${Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, '0')}`);
+    out.push(`${Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, "0")}`);
   }
   return out;
 }
@@ -122,11 +137,17 @@ export function monthsBetween(from: string, to: string, today = new Date()): str
  * sweep goes, which is why a run can outlast its own estimate. Months on disk
  * cost nothing without `--force`, which is what makes re-running it a resume.
  */
-export async function syncRange(from: string, to: string, force: Force = false): Promise<void> {
+export async function syncRange(
+  from: string,
+  to: string,
+  force: Force = false,
+): Promise<void> {
   const months = monthsBetween(from, to);
   const cost = await rangeCost(months, force);
   const left = remaining();
-  console.error(`${months.length} months, ${months[0]} to ${months.at(-1)}: ${cost} requests`);
+  console.error(
+    `${months.length} months, ${months[0]} to ${months.at(-1)}: ${cost} requests`,
+  );
   // `null` is "the bank has not said recently", not "nothing left" — in that
   // case there is no estimate to give and the first response will supply one.
   if (left !== null && cost > left) {
@@ -145,9 +166,12 @@ export async function syncRange(from: string, to: string, force: Force = false):
       // is how 32 files got announced as 28.
       await syncMonth(month, force, () => fetched++);
     } catch (e) {
-      if (!(e instanceof BudgetExhausted) && !(e instanceof RateLimited)) throw e;
+      if (!(e instanceof BudgetExhausted) && !(e instanceof RateLimited))
+        throw e;
       console.error(`\n${e.message}`);
-      console.error(`stopped part way through ${month}. ${fetched} files fetched — re-run to carry on.`);
+      console.error(
+        `stopped part way through ${month}. ${fetched} files fetched — re-run to carry on.`,
+      );
       return;
     }
   }
@@ -160,7 +184,11 @@ export async function syncRange(from: string, to: string, force: Force = false):
  * `onFile` fires as each one lands, so a caller can count what a run got
  * through even when the next request is the one that runs out of budget.
  */
-export async function syncMonth(month: string, force: Force = false, onFile?: () => void): Promise<number> {
+export async function syncMonth(
+  month: string,
+  force: Force = false,
+  onFile?: () => void,
+): Promise<number> {
   const { from, to } = rangeToDate(month);
   let fetched = 0;
   for (const key of await accountKeys()) {
@@ -170,7 +198,10 @@ export async function syncMonth(month: string, force: Force = false, onFile?: ()
       continue;
     }
     const q = `accountKey=${encodeURIComponent(key)}&fromDate=${from}&toDate=${to}`;
-    await dump(file, await get(`/personal/banking/transactions/classified?${q}`));
+    await dump(
+      file,
+      await get(`/personal/banking/transactions/classified?${q}`),
+    );
     fetched++;
     onFile?.();
   }

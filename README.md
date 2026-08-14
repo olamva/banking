@@ -9,10 +9,10 @@ Private repo, single user, personal use. Not a product, not accepting issues.
 
 One source goes in and one picture comes out:
 
-| Account | Gives |
-|---|---|
-| 6 bank accounts | amount, date, description, the bank's own category |
-| 1 credit card | the same, plus the merchant's MCC and the original currency |
+| Account         | Gives                                                       |
+| --------------- | ----------------------------------------------------------- |
+| 6 bank accounts | amount, date, description, the bank's own category          |
+| 1 credit card   | the same, plus the merchant's MCC and the original currency |
 
 All of it comes from the SpareBank 1 API. The card used to need Enable Banking
 and a manual statement export for the merchant; `GET /accounts` turned out to
@@ -97,8 +97,8 @@ server exposes exactly one endpoint, `/api/txns`, which re-reads the database
 per request — a `rebuild` in another terminal shows up on reload. Everything is
 computed in the browser by importing `src/core/stats.ts` directly.
 
-**Two views over one period.** *Dashboard* is the tiles and the charts,
-*transactions* is the rows behind them, and one pair of pickers chooses what
+**Two views over one period.** _Dashboard_ is the tiles and the charts,
+_transactions_ is the rows behind them, and one pair of pickers chooses what
 both are looking at: a year, then a month inside it or the whole of it. All time
 sits above the years and drops the month picker, having no year to be inside.
 Month and year were never two layouts — the same tiles over two window lengths —
@@ -111,12 +111,12 @@ compare against: all time has nothing before it, and neither does the first
 period in the archive. The "per month" averages appear once the window spans
 more than one month.
 
-**The spending chart runs on days.** *Running total* accumulates from the start
+**The spending chart runs on days.** _Running total_ accumulates from the start
 of the window, so the two lines climb to the window's own totals and the gap
 between them is the running surplus — where they cross is the day it went under.
 Accumulated the line is monotonic, which is what lets a point per day stay
-readable across a whole year. *Per day* plots the days raw, for "what happened
-on the 14th"; *per month* plots the months. Each window offers the raw bucket it
+readable across a whole year. _Per day_ plots the days raw, for "what happened
+on the 14th"; _per month_ plots the months. Each window offers the raw bucket it
 can carry and no other — a month has no months in it to plot, and a year has 365
 days to fit across a thousand pixels — so a month offers per day, a year offers
 per month, and all time offers only that.
@@ -142,7 +142,7 @@ it is, what it costs a month, what it has taken across the window, how many
 times, and when it last went out. Sortable, searchable and windowed, like the
 transactions table.
 
-*Per month* is the **last payment**, not the average — an old price averaged in
+_Per month_ is the **last payment**, not the average — an old price averaged in
 says what a subscription has cost, and the question here is what it costs now.
 A yearly bill therefore reads as its yearly amount, since nothing on a row says
 how often it recurs.
@@ -169,7 +169,7 @@ Every call that is made is ledgered, and `sb1.get` refuses at the bank's zero.
 **The budget is the bank's, and there is no local cap.** SB1's quota is 60
 requests an hour per API — stated in its FAQ, not the reference — published as
 `x-ratelimit-remaining` on every response, with a 429 at zero. Crucially it
-refills *as it goes*, roughly a request a minute, rather than holding each call
+refills _as it goes_, roughly a request a minute, rather than holding each call
 against you for a full 60 minutes the way "hourly limit" sounds.
 
 So `data/api-budget.json` keeps the last figure and its timestamp, and derives
@@ -229,15 +229,17 @@ type and same bank category, and the account behind them is the only field that
 differs.
 
 **Every line has to work wherever it sits.** `categorize` takes the first
-pattern that matches, so the file *could* be made to depend on its own order —
+pattern that matches, so the file _could_ be made to depend on its own order —
 and must not: a line added at the top would quietly take rows from one below it,
 with nothing to tell you. So the fix for two lines competing for a row is to
-narrow the *pattern*, never to move it. A refusal lookahead and a requirement
+narrow the _pattern_, never to move it. A refusal lookahead and a requirement
 lookahead do it without consuming anything, so the line behaves identically
 anywhere in the file:
 
 ```json
-{ "/^(?!.*(?:sit kafe|sit storkiosk))(?=.*\\bsit\\b)/": "faste_utgifter/boligutgifter" }
+{
+  "/^(?!.*(?:sit kafe|sit storkiosk))(?=.*\\bsit\\b)/": "faste_utgifter/boligutgifter"
+}
 ```
 
 `pnpm sb1 categories` lists every line that still depends on where it sits and
@@ -251,7 +253,7 @@ street, which is how `Munkegata` first swallowed a supermarket.
 
 A card merchant ends with the terminal's country — `LAWSON, TOKYO, JAPAN` — so a
 card row that neither a pattern nor the bank has placed falls to `reise` when
-that country is not Norway, and to `ukategorisert` when it is. It sits *below*
+that country is not Norway, and to `ukategorisert` when it is. It sits _below_
 the bank's own category on purpose: a supermarket in Vienna is groceries that
 happened abroad. The bank's catch-alls — `diverse`, and `ukategorisert` spelled
 out on the row — collapse into `ukategorisert` too, so there is one opaque
@@ -268,7 +270,7 @@ merchants too, and one pattern over it moved 271 canteen lunches and tram fares
 into `vennebetaling` — but two shapes carry a second signal that settles it:
 
 - On the **card**, the bank files the row as `diverse/overforing`, its reading of
-  `mcc: 4829`, *MONEY TRANSF*. All 16 such rows on record are people; the other
+  `mcc: 4829`, _MONEY TRANSF_. All 16 such rows on record are people; the other
   12 `Vipps*` card rows arrive as restaurants, furniture, buses and cinemas with
   a real category to match.
 - On the **deposit accounts**, Vipps doubles its own marker — `Vipps*Vipps*` — on

@@ -2,10 +2,7 @@
   "id": "13a0ff4c",
   "ts": "2026-08-14T00:29:43+00:00",
   "text": "worktree bg-isolation guard refuses plain compound bash (n=$(gh pr view --json number) && gh api ...) as 'too complex to verify', and the error blames a redirect that is not in the command",
-  "tags": [
-    "tools",
-    "worktree"
-  ],
+  "tags": ["tools", "worktree"],
   "who": "agent",
   "model": "opus-5",
   "session": "f67b33cd",

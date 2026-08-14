@@ -5,10 +5,8 @@
  * calls the API. That rule is enforced by this file's import list — keep it
  * that way.
  */
-import { mkdir, readFile } from 'node:fs/promises';
-import { readdirSync, rmSync } from 'node:fs';
-import { normalizeMonth } from './normalize.ts';
-import { exclude, type Accounts } from './exclude.ts';
+import { readdirSync, rmSync } from "node:fs";
+import { mkdir, readFile } from "node:fs/promises";
 import {
   categorize,
   loadFamily,
@@ -17,13 +15,15 @@ import {
   loadPayees,
   loadSubscriptions,
   renamePayees,
-} from './categorize.ts';
-import { openDb, rebuild as rebuildDb } from './db.ts';
-import { narrowings } from './report.ts';
-import type { Categorized } from './types.ts';
+} from "./categorize.ts";
+import { openDb, rebuild as rebuildDb } from "./db.ts";
+import { exclude, type Accounts } from "./exclude.ts";
+import { normalizeMonth } from "./normalize.ts";
+import { narrowings } from "./report.ts";
+import type { Categorized } from "./types.ts";
 
-export const DB_FILE = 'data/banking.db';
-export const RAW = 'data/raw';
+export const DB_FILE = "data/banking.db";
+export const RAW = "data/raw";
 
 /** Every YYYY-MM directory under data/raw/, ascending. */
 export function monthsOnDisk(): string[] {
@@ -47,10 +47,17 @@ export function monthsOnDisk(): string[] {
  * some *other* override pattern matches is enough to invert a verdict — one
  * entry on record does exactly that.
  */
-export async function pipeline(month: string, { rename = true } = {}): Promise<Categorized[]> {
-  const accounts: Accounts = JSON.parse(await readFile('rules/accounts.json', 'utf8'));
+export async function pipeline(
+  month: string,
+  { rename = true } = {},
+): Promise<Categorized[]> {
+  const accounts: Accounts = JSON.parse(
+    await readFile("rules/accounts.json", "utf8"),
+  );
   const names = Object.fromEntries(
-    Object.entries(accounts).flatMap(([key, a]) => (a.name ? [[key, a.name] as const] : [])),
+    Object.entries(accounts).flatMap(([key, a]) =>
+      a.name ? [[key, a.name] as const] : [],
+    ),
   );
   const cards = new Set(
     Object.entries(accounts)
@@ -85,7 +92,7 @@ export async function pipeline(month: string, { rename = true } = {}): Promise<C
  */
 export async function rebuildAll(): Promise<number> {
   rmSync(DB_FILE, { force: true });
-  await mkdir('data', { recursive: true });
+  await mkdir("data", { recursive: true });
   const db = openDb(DB_FILE);
   try {
     const months = monthsOnDisk();
@@ -100,7 +107,10 @@ export async function rebuildAll(): Promise<number> {
         // rules were matched against. The rename is applied once, after it.
         rows.push(...(await pipeline(month, { rename: false })));
       } catch (e) {
-        throw new Error(`${RAW}/${month}: ${e instanceof Error ? e.message : e}`, { cause: e });
+        throw new Error(
+          `${RAW}/${month}: ${e instanceof Error ? e.message : e}`,
+          { cause: e },
+        );
       }
     }
     // Every line in rules/overrides.json is location-agnostic, so the file can
@@ -123,7 +133,9 @@ export async function rebuildAll(): Promise<number> {
     }
     // Last, so no rule was ever matched against a name the bank did not send.
     rebuildDb(db, renamePayees(rows, await loadPayees()));
-    console.error(`rebuilt ${DB_FILE} from ${months.length} months, ${rows.length} rows`);
+    console.error(
+      `rebuilt ${DB_FILE} from ${months.length} months, ${rows.length} rows`,
+    );
     return rows.length;
   } finally {
     db.close();

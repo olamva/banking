@@ -2,10 +2,7 @@
   "id": "d9088934",
   "ts": "2026-08-09T21:18:48+00:00",
   "text": "SB1 publishes x-ratelimit-remaining but no x-ratelimit-limit, no reset and no Retry-After, so the real ceiling and window can only be found by hitting 429",
-  "tags": [
-    "api",
-    "ratelimit"
-  ],
+  "tags": ["api", "ratelimit"],
   "who": "agent",
   "where": "src/net/sb1.ts"
 }

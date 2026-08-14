@@ -2,10 +2,7 @@
   "id": "a658635e",
   "ts": "2026-08-09T21:18:48+00:00",
   "text": "GET /personal/banking/common/helloworld 404s \u2014 the sb1-api skill listed it as the cheap token check",
-  "tags": [
-    "api",
-    "docs"
-  ],
+  "tags": ["api", "docs"],
   "who": "agent",
   "where": ".claude/skills/sb1-api/SKILL.md"
 }

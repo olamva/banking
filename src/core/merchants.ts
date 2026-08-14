@@ -20,9 +20,9 @@
  * its own. Anything still holding two names is work not yet done, which is why
  * there is no separate check against the rules file.
  */
-import { compile } from './categorize.ts';
-import { merchantOf } from './select.ts';
-import type { Categorized } from './types.ts';
+import { compile } from "./categorize.ts";
+import { merchantOf } from "./select.ts";
+import type { Categorized } from "./types.ts";
 
 export type Cluster = {
   /** Left side of the line to paste: a substring of every member. */
@@ -48,8 +48,8 @@ const MIN_NAME = 6;
 const normalize = (name: string): string =>
   name
     .toLowerCase()
-    .split(',')[0]!
-    .replace(/[^a-z0-9æøå]+/g, ' ')
+    .split(",")[0]!
+    .replace(/[^a-z0-9æøå]+/g, " ")
     .trim();
 
 /**
@@ -105,11 +105,19 @@ function commonPrefix(names: string[]): string {
  * will still hand back a street and a city.
  */
 function canonical(members: { name: string; rows: number }[]): string {
-  const cut = members.map((m) => ({ ...m, name: m.name.split(',')[0]!.trim() }));
-  const cleaned = cut.filter((m) => /[a-zæøå]/.test(m.name) && /[A-ZÆØÅ]/.test(m.name));
+  const cut = members.map((m) => ({
+    ...m,
+    name: m.name.split(",")[0]!.trim(),
+  }));
+  const cleaned = cut.filter(
+    (m) => /[a-zæøå]/.test(m.name) && /[A-ZÆØÅ]/.test(m.name),
+  );
   const pool = cleaned.length ? cleaned : cut;
-  return pool.reduce((a, b) => (b.rows > a.rows || (b.rows === a.rows && b.name.length > a.name.length) ? b : a))
-    .name;
+  return pool.reduce((a, b) =>
+    b.rows > a.rows || (b.rows === a.rows && b.name.length > a.name.length)
+      ? b
+      : a,
+  ).name;
 }
 
 type Acc = { rows: number; cents: number; categories: Set<string> };
@@ -120,7 +128,11 @@ function tally(txns: Categorized[]): Map<string, Acc> {
   for (const t of txns) {
     if (t.excluded || t.amount >= 0) continue;
     const name = merchantOf(t);
-    const acc = byName.get(name) ?? { rows: 0, cents: 0, categories: new Set<string>() };
+    const acc = byName.get(name) ?? {
+      rows: 0,
+      cents: 0,
+      categories: new Set<string>(),
+    };
     acc.rows++;
     // In cents, so a report over thousands of rows does not drift.
     acc.cents += Math.round(-t.amount * 100);
@@ -138,11 +150,14 @@ function tally(txns: Categorized[]): Map<string, Acc> {
  * and the pipeline never sees.
  */
 function group(names: string[]): string[][] {
-  const sorted = [...names].sort((a, b) => normalize(a).localeCompare(normalize(b)));
+  const sorted = [...names].sort((a, b) =>
+    normalize(a).localeCompare(normalize(b)),
+  );
   const groups: string[][] = [];
   for (const name of sorted) {
     const last = groups.at(-1);
-    if (last && related(normalize(last.at(-1)!), normalize(name))) last.push(name);
+    if (last && related(normalize(last.at(-1)!), normalize(name)))
+      last.push(name);
     else groups.push([name]);
   }
   return groups;
@@ -160,13 +175,13 @@ function group(names: string[]): string[][] {
  */
 function relaxed(names: string[]): string {
   const shared = commonPrefix(names.map(normalize)).trimEnd();
-  if (shared.length < MIN_NAME) return '';
-  return `/${shared.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/ /g, '.')}/`;
+  if (shared.length < MIN_NAME) return "";
+  return `/${shared.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/ /g, ".")}/`;
 }
 
 /** What the suggested pattern would match, judged by the matcher that will run it. */
 const reaches = (pattern: string) => {
-  const matches = compile(pattern, 'pnpm sb1 merchants');
+  const matches = compile(pattern, "pnpm sb1 merchants");
   return (name: string) => matches(name.toLowerCase());
 };
 
@@ -193,12 +208,18 @@ export function merchantClusters(txns: Categorized[]): Cluster[] {
       members,
       rows: names.reduce((n, name) => n + byName.get(name)!.rows, 0),
       total: names.reduce((c, name) => c + byName.get(name)!.cents, 0) / 100,
-      categories: [...new Set(names.flatMap((name) => [...byName.get(name)!.categories]))].sort(),
+      categories: [
+        ...new Set(names.flatMap((name) => [...byName.get(name)!.categories])),
+      ].sort(),
       // A pattern that reaches past its own cluster is the one way pasting the
       // line does damage, so the report has to say so before it is pasted.
       // Matched with `compile`, the same matcher rules/payees.json will use, so
       // a suggested regex is tested exactly as it will behave.
-      collateral: pattern ? [...byName.keys()].filter((n) => !inCluster.has(n) && reaches(pattern)(n)) : [],
+      collateral: pattern
+        ? [...byName.keys()].filter(
+            (n) => !inCluster.has(n) && reaches(pattern)(n),
+          )
+        : [],
     });
   }
   return clusters.sort((a, b) => b.total - a.total);
@@ -235,11 +256,13 @@ const MAX_MERCHANTS_PER_TOKEN = 5;
 export function nearMisses(txns: Categorized[]): NearMiss[] {
   const byName = tally(txns);
   const clusterOf = new Map<string, number>();
-  group([...byName.keys()]).forEach((names, i) => names.forEach((n) => clusterOf.set(n, i)));
+  group([...byName.keys()]).forEach((names, i) =>
+    names.forEach((n) => clusterOf.set(n, i)),
+  );
 
   const byToken = new Map<string, Set<string>>();
   for (const name of byName.keys())
-    for (const token of new Set(normalize(name).split(' '))) {
+    for (const token of new Set(normalize(name).split(" "))) {
       if (token.length < MIN_TOKEN || /^\d+$/.test(token)) continue;
       byToken.set(token, (byToken.get(token) ?? new Set()).add(name));
     }
@@ -252,7 +275,11 @@ export function nearMisses(txns: Categorized[]): NearMiss[] {
     misses.push({
       token,
       members: [...names]
-        .map((name) => ({ name, rows: byName.get(name)!.rows, total: byName.get(name)!.cents / 100 }))
+        .map((name) => ({
+          name,
+          rows: byName.get(name)!.rows,
+          total: byName.get(name)!.cents / 100,
+        }))
         .sort((a, b) => b.total - a.total),
     });
   }

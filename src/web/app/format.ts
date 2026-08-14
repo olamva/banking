@@ -51,8 +51,10 @@ export const setLabels = (l: Labels): void => {
 
 export const categoryLabel = (slug: string): string => LABELS.category(slug);
 
-export const subcategoryLabel = (category: string, sub: string | null): string =>
-  LABELS.subcategory(category, sub);
+export const subcategoryLabel = (
+  category: string,
+  sub: string | null,
+): string => LABELS.subcategory(category, sub);
 
 /**
  * A hue per main category, so a subcategory can say which main it belongs to
@@ -99,7 +101,8 @@ export const splitPair = (pair: string): [string, string | null] => {
 };
 
 /** What one pair is called on its own, without repeating its parent. */
-export const pairLabel = (pair: string): string => subcategoryLabel(...splitPair(pair));
+export const pairLabel = (pair: string): string =>
+  subcategoryLabel(...splitPair(pair));
 
 /**
  * What a category row in a tree is called, given the pairs beneath it.

@@ -1,4 +1,4 @@
-import type { Txn, Classified } from './types.ts';
+import type { Classified, Txn } from "./types.ts";
 
 /**
  * rules/accounts.json: SB1 account key -> whether it's ours, and its number.
@@ -63,7 +63,7 @@ export type Accounts = Record<
  * as 4 941 kr of spending while the card credit was excluded, so the pair did
  * not net to zero.
  */
-const BANK_BILL = 'Kredittbanken';
+const BANK_BILL = "Kredittbanken";
 
 /**
  * The card leg of the same payment. The bank debit and the card credit are
@@ -80,7 +80,7 @@ const BANK_BILL = 'Kredittbanken';
  * stay in: a merchant refund is a real negative spend, and
  * `Rabatt strømmetjenester` is cashback.
  */
-const CARD_BILL = 'Innbetaling';
+const CARD_BILL = "Innbetaling";
 
 /**
  * The bank's own word for a row that moves money rather than spends it:
@@ -106,7 +106,8 @@ const TRANSFER_TYPE = /overf(ø|o)r/i;
  * used to hold because the field was null on every card row, so it rests on the
  * value now and not on the absence.
  */
-const isTransferType = (t: Txn): boolean => TRANSFER_TYPE.test(t.typeText ?? '');
+const isTransferType = (t: Txn): boolean =>
+  TRANSFER_TYPE.test(t.typeText ?? "");
 
 /**
  * Flags, never drops. Two rules, checked per transaction:
@@ -170,16 +171,25 @@ export function exclude(txns: Txn[], accounts: Accounts): Classified[] {
  */
 function investmentReason(t: Txn, fundNumbers: Set<string>): string | null {
   return t.remoteAccountNumber && fundNumbers.has(t.remoteAccountNumber)
-    ? 'investment movement'
+    ? "investment movement"
     : null;
 }
 
-function billReason(t: Txn, cards: Set<string>, issuerNumbers: Set<string>): string | null {
+function billReason(
+  t: Txn,
+  cards: Set<string>,
+  issuerNumbers: Set<string>,
+): string | null {
   if (cards.has(t.accountKey)) {
-    return t.description.includes(CARD_BILL) ? 'credit card bill payment (card side)' : null;
+    return t.description.includes(CARD_BILL)
+      ? "credit card bill payment (card side)"
+      : null;
   }
-  const toIssuer = !!t.remoteAccountNumber && issuerNumbers.has(t.remoteAccountNumber);
-  return toIssuer || t.description.includes(BANK_BILL) ? 'credit card bill payment' : null;
+  const toIssuer =
+    !!t.remoteAccountNumber && issuerNumbers.has(t.remoteAccountNumber);
+  return toIssuer || t.description.includes(BANK_BILL)
+    ? "credit card bill payment"
+    : null;
 }
 
 function transferReason(
@@ -209,8 +219,12 @@ function transferReason(
   // and reading that as "the other party is mine" excluded 68 kr of real income
   // with no second leg anywhere — which is precisely how the netting check
   // surfaced it. Nothing moves between an account and itself.
-  if (t.remoteAccountNumber && t.remoteAccountNumber !== own && myNumbers.has(t.remoteAccountNumber))
-    return 'internal transfer';
+  if (
+    t.remoteAccountNumber &&
+    t.remoteAccountNumber !== own &&
+    myNumbers.has(t.remoteAccountNumber)
+  )
+    return "internal transfer";
   if (!isTransferType(t)) return null;
   const hasCounterpart = all.some(
     (o) =>
@@ -220,5 +234,5 @@ function transferReason(
       o.amount === -t.amount &&
       isTransferType(o),
   );
-  return hasCounterpart ? 'internal transfer' : null;
+  return hasCounterpart ? "internal transfer" : null;
 }

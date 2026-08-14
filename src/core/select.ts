@@ -5,9 +5,9 @@
  *
  * Pure and dependency-free so the browser and `node --test` run the same code.
  */
-import type { Categorized } from './types.ts';
+import type { Categorized } from "./types.ts";
 
-export type Mode = 'include' | 'exclude';
+export type Mode = "include" | "exclude";
 
 export type Filters = {
   /**
@@ -51,21 +51,21 @@ export type Filters = {
  * this entry plus its two fields above.
  */
 export const AXES = {
-  categories: 'categoryMode',
-  merchants: 'merchantMode',
-  accounts: 'accountMode',
+  categories: "categoryMode",
+  merchants: "merchantMode",
+  accounts: "accountMode",
 } as const;
 
 export type Axis = keyof typeof AXES;
 
 export const NO_FILTERS: Filters = {
   categories: [],
-  categoryMode: 'include',
+  categoryMode: "include",
   merchants: [],
-  merchantMode: 'include',
+  merchantMode: "include",
   accounts: [],
-  accountMode: 'include',
-  search: '',
+  accountMode: "include",
+  search: "",
   showExcluded: false,
 };
 
@@ -75,7 +75,8 @@ export const NO_FILTERS: Filters = {
  * same fallback everywhere, or a merchant clicked in the table filters to
  * nothing.
  */
-export const merchantOf = (t: Categorized): string => t.counterparty ?? t.description;
+export const merchantOf = (t: Categorized): string =>
+  t.counterparty ?? t.description;
 
 /**
  * The value the subcategory filter matches on: the pair, with a trailing slash
@@ -86,7 +87,8 @@ export const merchantOf = (t: Categorized): string => t.counterparty ?? t.descri
  * thing to want to look at, and dropping it would make the drill-down silently
  * show less than the category it opened from.
  */
-export const subcategoryOf = (t: Categorized): string => `${t.category}/${t.subcategory ?? ''}`;
+export const subcategoryOf = (t: Categorized): string =>
+  `${t.category}/${t.subcategory ?? ""}`;
 
 /**
  * Both ends inclusive, and a null end is open — an empty date box means "no
@@ -94,7 +96,11 @@ export const subcategoryOf = (t: Categorized): string => `${t.category}/${t.subc
  * comparison is the whole implementation; no parsing, and no timezone to get
  * wrong the way `new Date(...)` would.
  */
-export function inRange(t: Categorized, from: string | null, to: string | null): boolean {
+export function inRange(
+  t: Categorized,
+  from: string | null,
+  to: string | null,
+): boolean {
   if (from && t.date < from) return false;
   if (to && t.date > to) return false;
   return true;
@@ -102,7 +108,7 @@ export function inRange(t: Categorized, from: string | null, to: string | null):
 
 /** An empty list is every row, either way round — a filter nobody set must never empty the page. */
 const listed = (values: string[], mode: Mode, value: string): boolean =>
-  !values.length || values.includes(value) === (mode === 'include');
+  !values.length || values.includes(value) === (mode === "include");
 
 /**
  * The same, where a row can be named more than one way. Any candidate matching
@@ -110,23 +116,29 @@ const listed = (values: string[], mode: Mode, value: string): boolean =>
  * rather than an impossible intersection — and excluding a category still takes
  * its subcategories with it, since the bare slug is one of the candidates.
  */
-const listedAny = (values: string[], mode: Mode, candidates: string[]): boolean =>
-  !values.length || candidates.some((c) => values.includes(c)) === (mode === 'include');
+const listedAny = (
+  values: string[],
+  mode: Mode,
+  candidates: string[],
+): boolean =>
+  !values.length ||
+  candidates.some((c) => values.includes(c)) === (mode === "include");
 
 export function matchesFilters(t: Categorized, f: Filters): boolean {
   if (t.excluded && !f.showExcluded) return false;
-  if (!listedAny(f.categories, f.categoryMode, [t.category, subcategoryOf(t)])) return false;
+  if (!listedAny(f.categories, f.categoryMode, [t.category, subcategoryOf(t)]))
+    return false;
   if (!listed(f.merchants, f.merchantMode, merchantOf(t))) return false;
   if (!listed(f.accounts, f.accountMode, t.account)) return false;
   if (f.search) {
     const q = f.search.toLowerCase();
-    const hay = (t.description + ' ' + (t.counterparty ?? '')).toLowerCase();
+    const hay = (t.description + " " + (t.counterparty ?? "")).toLowerCase();
     if (!hay.includes(q)) return false;
   }
   return true;
 }
 
-export type PeriodKind = 'month' | 'year' | 'all';
+export type PeriodKind = "month" | "year" | "all";
 
 export type Period = {
   /** Which of the two pickers the value came from — the shape of the string is the answer. */
@@ -149,7 +161,8 @@ const monthBounds = (m: string) => ({ from: `${m}-01`, to: `${m}-31` });
 const yearBounds = (y: number) => ({ from: `${y}-01-01`, to: `${y}-12-31` });
 
 /** Today in Oslo, in the same shape and zone as `Txn.date`. */
-export const todayOslo = (): string => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Oslo' });
+export const todayOslo = (): string =>
+  new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Oslo" });
 
 /**
  * The one period the whole page runs on: a month `2026-07`, a year `2026`, or
@@ -178,19 +191,27 @@ export function period(p: string, now = todayOslo()): Period {
     const back = `${Number(p.slice(0, 4)) - 1}-${p.slice(5)}`;
     const prev =
       now.slice(0, 7) === p
-        ? { from: `${back}-01`, to: `${back}-${now.slice(8)}`, label: 'this time last year' }
-        : { ...monthBounds(back), label: 'last year' };
-    return { kind: 'month', ...monthBounds(p), label: p, prev };
+        ? {
+            from: `${back}-01`,
+            to: `${back}-${now.slice(8)}`,
+            label: "this time last year",
+          }
+        : { ...monthBounds(back), label: "last year" };
+    return { kind: "month", ...monthBounds(p), label: p, prev };
   }
   if (/^\d{4}$/.test(p)) {
     const y = Number(p);
     const prev =
       now.slice(0, 4) === p
-        ? { from: `${y - 1}-01-01`, to: `${y - 1}-${now.slice(5)}`, label: 'this time last year' }
-        : { ...yearBounds(y - 1), label: 'last year' };
-    return { kind: 'year', ...yearBounds(y), label: p, prev };
+        ? {
+            from: `${y - 1}-01-01`,
+            to: `${y - 1}-${now.slice(5)}`,
+            label: "this time last year",
+          }
+        : { ...yearBounds(y - 1), label: "last year" };
+    return { kind: "year", ...yearBounds(y), label: p, prev };
   }
-  return { kind: 'all', from: null, to: null, label: 'All time', prev: null };
+  return { kind: "all", from: null, to: null, label: "All time", prev: null };
 }
 
 /**
@@ -216,9 +237,14 @@ export function axisBounds(
   p: Period,
   now = todayOslo(),
 ): { from: string; to: string } {
-  const edge = rows.reduce((latest, t) => (t.date > latest ? t.date : latest), now);
+  const edge = rows.reduce(
+    (latest, t) => (t.date > latest ? t.date : latest),
+    now,
+  );
   return {
-    from: p.from ?? rows.reduce((first, t) => (t.date < first ? t.date : first), edge),
+    from:
+      p.from ??
+      rows.reduce((first, t) => (t.date < first ? t.date : first), edge),
     to: p.to && p.to < edge ? p.to : edge,
   };
 }
@@ -246,5 +272,7 @@ export function distinctMerchants(txns: Categorized[]): string[] {
 }
 
 export function distinctAccounts(txns: Categorized[]): string[] {
-  return [...new Set(txns.map((t) => t.account))].sort((a, b) => a.localeCompare(b));
+  return [...new Set(txns.map((t) => t.account))].sort((a, b) =>
+    a.localeCompare(b),
+  );
 }

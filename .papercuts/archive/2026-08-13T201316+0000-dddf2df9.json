@@ -2,10 +2,7 @@
   "id": "dddf2df9",
   "ts": "2026-08-13T20:13:16+00:00",
   "text": "pnpm dev in a fresh worktree needs .env.local, data/ and rules/ symlinked in by hand, and dies on the main checkout's port 4000 with no fallback",
-  "tags": [
-    "dev",
-    "worktree"
-  ],
+  "tags": ["dev", "worktree"],
   "who": "agent",
   "where": "/Users/olavassbotn/Documents/banking/.claude/worktrees/inflation-toggle"
 }

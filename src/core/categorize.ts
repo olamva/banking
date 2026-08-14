@@ -1,6 +1,6 @@
-import { existsSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
-import type { Classified, Categorized } from './types.ts';
+import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
+import type { Categorized, Classified } from "./types.ts";
 
 /**
  * rules/overrides.json: { "<pattern>": "<category>" or "<category>/<sub>" }
@@ -29,8 +29,8 @@ import type { Classified, Categorized } from './types.ts';
  */
 export type Overrides = Record<string, string>;
 
-const UNCATEGORIZED = 'ukategorisert';
-const TRAVEL = 'reise';
+const UNCATEGORIZED = "ukategorisert";
+const TRAVEL = "reise";
 
 /**
  * What **every** excluded row is, ahead of any other rule. Both legs of a
@@ -47,7 +47,7 @@ const TRAVEL = 'reise';
  * No money path can see this: `stats.ts` skips excluded rows before it sums, and
  * the toggle in `select.ts` is the only thing that lists them at all.
  */
-const TRANSFER = 'overfoering';
+const TRANSFER = "overfoering";
 
 /**
  * A card merchant ends with the terminal's country, `NAME, CITY, COUNTRY` —
@@ -95,8 +95,8 @@ const BANK_CATCH_ALL = new Set([UNCATEGORIZED]);
  * `rules/overrides.json`, because these rows carry no override at all: the slug
  * arrives on `bankCategory` and would otherwise reach the page unchanged.
  */
-const BANK_FIXED_COSTS = 'faste_boutgifter';
-const FIXED_COSTS = 'faste_utgifter';
+const BANK_FIXED_COSTS = "faste_boutgifter";
+const FIXED_COSTS = "faste_utgifter";
 
 /**
  * rules/subscriptions.json: `["<pattern>", ...]`, the same pattern language.
@@ -111,10 +111,10 @@ export type Subscriptions = string[];
 
 async function loadJson<T>(path: string, fallback: T): Promise<T> {
   if (!existsSync(path)) return fallback;
-  return JSON.parse(await readFile(path, 'utf8')) as T;
+  return JSON.parse(await readFile(path, "utf8")) as T;
 }
 
-const PEER_PAYMENT = 'diverse/vennebetaling';
+const PEER_PAYMENT = "diverse/vennebetaling";
 
 /**
  * The two row shapes that say *by themselves* that a Vipps payment went to a
@@ -146,7 +146,7 @@ const PEER_PAYMENT = 'diverse/vennebetaling';
  * and the bank has no category for those at all. 18 rows on record, all people,
  * no false positives.
  */
-const VIPPS_PEER_CARD = 'diverse/overforing';
+const VIPPS_PEER_CARD = "diverse/overforing";
 const VIPPS_MARKER = /vipps\*/i;
 const VIPPS_PEER_DOUBLED = /vipps\*\s*vipps\*/i;
 
@@ -176,9 +176,11 @@ const VIPPS_PEER_DOUBLED = /vipps\*\s*vipps\*/i;
  */
 const LUMP_TYPE = /^(giro|mobilgiro|overførsel|avtale)\b(?! mellom egne)/i;
 
-export const loadOverrides = (path = 'rules/overrides.json') => loadJson<Overrides>(path, {});
+export const loadOverrides = (path = "rules/overrides.json") =>
+  loadJson<Overrides>(path, {});
 
-export const loadGiro = (path = 'rules/giro.json') => loadJson<Overrides>(path, {});
+export const loadGiro = (path = "rules/giro.json") =>
+  loadJson<Overrides>(path, {});
 
 /**
  * rules/family.json: `["<name>", ...]`, the same pattern language.
@@ -204,12 +206,14 @@ export const loadGiro = (path = 'rules/giro.json') => loadJson<Overrides>(path, 
  * is not in `rules/overrides.json`, which runs above `rules/giro.json` and would
  * swallow the same relative's standing pocket-money transfers.
  */
-export const loadFamily = (path = 'rules/family.json') => loadJson<string[]>(path, []);
+export const loadFamily = (path = "rules/family.json") =>
+  loadJson<string[]>(path, []);
 
 /** Money in from someone on that list. Under `innskudd` because it is income. */
-const FAMILY = 'innskudd/familie';
+const FAMILY = "innskudd/familie";
 
-export const loadSubscriptions = (path = 'rules/subscriptions.json') => loadJson<Subscriptions>(path, []);
+export const loadSubscriptions = (path = "rules/subscriptions.json") =>
+  loadJson<Subscriptions>(path, []);
 
 /**
  * rules/payees.json: `{ "<pattern>": "<name>" }`, the same pattern language — the one
@@ -228,13 +232,18 @@ export const loadSubscriptions = (path = 'rules/subscriptions.json') => loadJson
  * matched against a name it did not see. The month is still in `description`,
  * which is what the search box reads, so nothing is actually lost.
  */
-export const loadPayees = (path = 'rules/payees.json') => loadJson<Overrides>(path, {});
+export const loadPayees = (path = "rules/payees.json") =>
+  loadJson<Overrides>(path, {});
 
 export function renamePayees<
-  T extends { description: string; counterparty: string | null; remoteAccountNumber: string | null },
+  T extends {
+    description: string;
+    counterparty: string | null;
+    remoteAccountNumber: string | null;
+  },
 >(txns: T[], payees: Overrides): T[] {
   const rules = Object.entries(payees).map(([pattern, name]) => ({
-    matches: compile(pattern, 'rules/payees.json'),
+    matches: compile(pattern, "rules/payees.json"),
     name,
   }));
   if (rules.length === 0) return txns;
@@ -260,7 +269,7 @@ export type Pair = { category: string; subcategory: string | null };
  * better seen on the page than silently trimmed.
  */
 export function splitCategory(value: string): Pair {
-  const cut = value.indexOf('/');
+  const cut = value.indexOf("/");
   return cut === -1
     ? { category: value, subcategory: null }
     : { category: value.slice(0, cut), subcategory: value.slice(cut + 1) };
@@ -280,7 +289,8 @@ export const haystackOf = (t: {
   description: string;
   counterparty: string | null;
   remoteAccountNumber: string | null;
-}): string => `${t.description} ${t.counterparty ?? ''} ${t.remoteAccountNumber ?? ''}`.toLowerCase();
+}): string =>
+  `${t.description} ${t.counterparty ?? ""} ${t.remoteAccountNumber ?? ""}`.toLowerCase();
 
 /** Compiled once per run, not once per transaction. */
 export function compile(pattern: string, source: string): Matcher {
@@ -291,10 +301,12 @@ export function compile(pattern: string, source: string): Matcher {
   }
   try {
     // Always case-insensitive: the haystack is lowercased before matching.
-    const re = new RegExp(asRegex[1]!, asRegex[2]!.replace('i', '') + 'i');
+    const re = new RegExp(asRegex[1]!, asRegex[2]!.replace("i", "") + "i");
     return (h) => re.test(h);
   } catch (e) {
-    throw new Error(`${source}: ${pattern} is not a valid regex — ${e instanceof Error ? e.message : e}`);
+    throw new Error(
+      `${source}: ${pattern} is not a valid regex — ${e instanceof Error ? e.message : e}`,
+    );
   }
 }
 
@@ -307,16 +319,22 @@ export function categorize(
   cards: Set<string> = new Set(),
   family: string[] = [],
 ): Categorized[] {
-  const rules: Rule[] = Object.entries(overrides).map(([pattern, category]) => ({
-    matches: compile(pattern, 'rules/overrides.json'),
-    category,
-  }));
+  const rules: Rule[] = Object.entries(overrides).map(
+    ([pattern, category]) => ({
+      matches: compile(pattern, "rules/overrides.json"),
+      category,
+    }),
+  );
   const giroRules: Rule[] = Object.entries(giro).map(([pattern, category]) => ({
-    matches: compile(pattern, 'rules/giro.json'),
+    matches: compile(pattern, "rules/giro.json"),
     category,
   }));
-  const familyRules = family.map((pattern) => compile(pattern, 'rules/family.json'));
-  const subs = subscriptions.map((pattern) => compile(pattern, 'rules/subscriptions.json'));
+  const familyRules = family.map((pattern) =>
+    compile(pattern, "rules/family.json"),
+  );
+  const subs = subscriptions.map((pattern) =>
+    compile(pattern, "rules/subscriptions.json"),
+  );
   return txns.map((t) => {
     const haystack = haystackOf(t);
     return {
@@ -345,7 +363,10 @@ export function isVippsPeer(t: {
   bankSub: string | null;
 }): boolean {
   if (VIPPS_PEER_DOUBLED.test(t.description)) return true;
-  return VIPPS_MARKER.test(t.description) && `${t.bankCategory}/${t.bankSub}` === VIPPS_PEER_CARD;
+  return (
+    VIPPS_MARKER.test(t.description) &&
+    `${t.bankCategory}/${t.bankSub}` === VIPPS_PEER_CARD
+  );
 }
 
 /**
@@ -366,7 +387,9 @@ export function isVippsPeer(t: {
 function keepBankSub(pair: Pair, t: Classified): Pair {
   if (pair.subcategory !== null) return pair;
   const bank = bankPair(t);
-  return bank && bank.category === pair.category ? { ...pair, subcategory: bank.subcategory } : pair;
+  return bank && bank.category === pair.category
+    ? { ...pair, subcategory: bank.subcategory }
+    : pair;
 }
 
 /**
@@ -392,14 +415,20 @@ const OURS: Record<string, string> = {
   [BANK_FIXED_COSTS]: FIXED_COSTS,
 };
 
-export function bankPair(t: { bankCategory: string | null; bankSub: string | null }): Pair | null {
+export function bankPair(t: {
+  bankCategory: string | null;
+  bankSub: string | null;
+}): Pair | null {
   if (!t.bankCategory) return null;
   // The pair first, and deliberately above the catch-all test: `diverse` is a
   // catch-all as a main and never as a pair.
   const asPair = t.bankSub && OURS[`${t.bankCategory}/${t.bankSub}`];
   if (asPair) return flat(asPair);
   if (BANK_CATCH_ALL.has(t.bankCategory)) return null;
-  return { category: OURS[t.bankCategory] ?? t.bankCategory, subcategory: t.bankSub };
+  return {
+    category: OURS[t.bankCategory] ?? t.bankCategory,
+    subcategory: t.bankSub,
+  };
 }
 
 function categoryFor(
@@ -417,7 +446,7 @@ function categoryFor(
   if (override) return keepBankSub(splitCategory(override.category), t);
   // A lump transfer, and a name that says what this person's lump transfers
   // are — rent from a flatmate, a share of a trip from a friend.
-  if (LUMP_TYPE.test(t.typeText ?? '')) {
+  if (LUMP_TYPE.test(t.typeText ?? "")) {
     const named = giroRules.find((r) => r.matches(haystack));
     if (named) return keepBankSub(splitCategory(named.category), t);
   }
@@ -426,7 +455,8 @@ function categoryFor(
   // above the peer list, which would otherwise call every gift a Vipps payment.
   // A relative, in either direction: money in is family support, money out is
   // paying them back. Same list, and the sign is the whole difference.
-  if (familyRules.some((m) => m(haystack))) return splitCategory(t.amount > 0 ? FAMILY : PEER_PAYMENT);
+  if (familyRules.some((m) => m(haystack)))
+    return splitCategory(t.amount > 0 ? FAMILY : PEER_PAYMENT);
   // A Vipps row that says for itself it went to a person. Both shapes sit here,
   // below the three rules above — a flatmate's rent and a parent's gift are Vipps
   // payments too, and both already have a better name by now — and *above* the
@@ -438,6 +468,7 @@ function categoryFor(
   if (bank) return bank;
   // A guess from the shape of a merchant string, with nothing behind it at the
   // second level — `reise/annen_reise` would be an invented claim, not a read one.
-  if (cards.has(t.accountKey) && FOREIGN_MERCHANT.test(t.counterparty ?? '')) return flat(TRAVEL);
+  if (cards.has(t.accountKey) && FOREIGN_MERCHANT.test(t.counterparty ?? ""))
+    return flat(TRAVEL);
   return flat(UNCATEGORIZED);
 }

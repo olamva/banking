@@ -1,7 +1,7 @@
 // Flattens data/raw/<month>/*.json into Txn[]. Pure, no network.
-import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import type { Txn } from './types.ts';
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import type { Txn } from "./types.ts";
 
 type Sb1File = {
   transactions: Array<{
@@ -60,7 +60,9 @@ type Sb1File = {
 };
 
 function osloDate(epochMs: number): string {
-  return new Date(epochMs).toLocaleDateString('en-CA', { timeZone: 'Europe/Oslo' });
+  return new Date(epochMs).toLocaleDateString("en-CA", {
+    timeZone: "Europe/Oslo",
+  });
 }
 
 /**
@@ -68,41 +70,45 @@ function osloDate(epochMs: number): string {
  * but the bill payment. It is a placeholder, not a number, and it must not reach
  * the override haystack or the `mine`-account match as if it were one.
  */
-const NO_ACCOUNT = '-1';
+const NO_ACCOUNT = "-1";
 
 function normalizeSb1(file: Sb1File, names: Record<string, string>): Txn[] {
-  return file.transactions
-    // A pending row is a reservation: SB1 reissues it under a *new* id once it
-    // books, its amount can still change, and it is dated by the purchase and
-    // so carries no booking date to commit to. Rows in the store are booked
-    // rows only — that is what makes a re-synced month idempotent. Pending rows
-    // land on the deposit accounts too, so this is not a card rule.
-    .filter(({ transaction: t }) => t.bookingStatus !== 'PENDING')
-    .map(({ transaction: t, categories, recurring, subscription }) => ({
-    id: t.id,
-    accountKey: t.accountKey,
-    account: names[t.accountKey] ?? t.accountKey,
-    date: osloDate(t.date),
-    amount: t.amount,
-    // `description` is the string every exclusion rule and override matches on,
-    // so it has to stay a string. typeText is the honest fallback: generic, but
-    // it is what the bank itself calls the row.
-    description: t.description ?? t.typeText ?? '',
-    // cleanedDescription first: where both exist they disagree on 117 rows, and
-    // the bank's cleaned string is the merchant, while remoteAccountName is
-    // whatever the payer typed into the payment.
-    counterparty: t.cleanedDescription ?? t.remoteAccountName ?? null,
-    bankCategory: categories[0]?.main ?? null,
-    bankSub: categories[0]?.sub ?? null,
-    bankCategoryName: categories[0]?.mainI18n ?? null,
-    bankSubName: categories[0]?.subI18n ?? null,
-    bankConfidence: categories[0]?.confidence ?? null,
-    typeText: t.typeText ?? null,
-    remoteAccountNumber:
-      t.remoteAccountNumber && t.remoteAccountNumber !== NO_ACCOUNT ? t.remoteAccountNumber : null,
-    isRecurring: recurring,
-    isSubscription: subscription,
-  }));
+  return (
+    file.transactions
+      // A pending row is a reservation: SB1 reissues it under a *new* id once it
+      // books, its amount can still change, and it is dated by the purchase and
+      // so carries no booking date to commit to. Rows in the store are booked
+      // rows only — that is what makes a re-synced month idempotent. Pending rows
+      // land on the deposit accounts too, so this is not a card rule.
+      .filter(({ transaction: t }) => t.bookingStatus !== "PENDING")
+      .map(({ transaction: t, categories, recurring, subscription }) => ({
+        id: t.id,
+        accountKey: t.accountKey,
+        account: names[t.accountKey] ?? t.accountKey,
+        date: osloDate(t.date),
+        amount: t.amount,
+        // `description` is the string every exclusion rule and override matches on,
+        // so it has to stay a string. typeText is the honest fallback: generic, but
+        // it is what the bank itself calls the row.
+        description: t.description ?? t.typeText ?? "",
+        // cleanedDescription first: where both exist they disagree on 117 rows, and
+        // the bank's cleaned string is the merchant, while remoteAccountName is
+        // whatever the payer typed into the payment.
+        counterparty: t.cleanedDescription ?? t.remoteAccountName ?? null,
+        bankCategory: categories[0]?.main ?? null,
+        bankSub: categories[0]?.sub ?? null,
+        bankCategoryName: categories[0]?.mainI18n ?? null,
+        bankSubName: categories[0]?.subI18n ?? null,
+        bankConfidence: categories[0]?.confidence ?? null,
+        typeText: t.typeText ?? null,
+        remoteAccountNumber:
+          t.remoteAccountNumber && t.remoteAccountNumber !== NO_ACCOUNT
+            ? t.remoteAccountNumber
+            : null,
+        isRecurring: recurring,
+        isSubscription: subscription,
+      }))
+  );
 }
 
 /**
@@ -115,11 +121,16 @@ function normalizeSb1(file: Sb1File, names: Record<string, string>): Txn[] {
  * missing from it keeps the key as its name, so an account added to the bank
  * but not yet to the rules file still reads as something.
  */
-export function normalizeMonth(dir: string, names: Record<string, string> = {}): Txn[] {
+export function normalizeMonth(
+  dir: string,
+  names: Record<string, string> = {},
+): Txn[] {
   const out: Txn[] = [];
   for (const file of readdirSync(dir)) {
-    if (!file.endsWith('.json')) continue;
-    out.push(...normalizeSb1(JSON.parse(readFileSync(join(dir, file), 'utf8')), names));
+    if (!file.endsWith(".json")) continue;
+    out.push(
+      ...normalizeSb1(JSON.parse(readFileSync(join(dir, file), "utf8")), names),
+    );
   }
   return out;
 }
