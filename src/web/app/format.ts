@@ -146,10 +146,18 @@ const fieldName = (key: string): string =>
  * never be a label on the page, which is the whole reason `account` rides along
  * beside it. Nulls and empty strings are dropped — "the bank sent nothing here"
  * is better said by the row not being there.
+ *
+ * `skip` is for the caller that already shows a field somewhere better: the
+ * detail view puts six of them in its heading, and a list repeating them under
+ * it is the same fact twice.
  */
-export const txnFields = (t: Categorized): [string, string][] =>
+export const txnFields = (
+  t: Categorized,
+  skip: readonly string[] = [],
+): [string, string][] =>
   Object.entries(t).flatMap(([key, value]) => {
-    if (key === "accountKey" || value === null || value === "") return [];
+    if (key === "accountKey" || skip.includes(key)) return [];
+    if (value === null || value === "") return [];
     const text =
       typeof value === "boolean"
         ? value
@@ -163,6 +171,19 @@ export const txnFields = (t: Categorized): [string, string][] =>
               ? subcategoryLabel(t.category, value as string)
               : String(value);
     return [[fieldName(key), text] as [string, string]];
+  });
+
+/**
+ * One row's own date, spelled out: `2026-07-04` reads `4. juli 2026`. Parsed and
+ * formatted as UTC, because the string is already the Oslo-local day — reading
+ * it in any other zone is what moves the 1st into the previous month.
+ */
+export const fmtDate = (date: string): string =>
+  new Date(`${date}T00:00:00Z`).toLocaleDateString("nb-NO", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
   });
 
 export const monthLabel = (month: string): string => {
