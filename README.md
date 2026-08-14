@@ -42,7 +42,19 @@ pnpm install
 pnpm dev                            # http://localhost:4000
 ```
 
-You also need `.env.local` with the SpareBank 1 credentials. It is not in git.
+You also need `.env.local` with the SpareBank 1 credentials, for the online
+commands only — `pnpm dev` and everything offline runs without it. It is not in
+git.
+
+**A second checkout starts empty.** `.env.local`, `data/` and `rules/` are all
+gitignored, so a fresh clone or `git worktree` has no database to serve and no
+rules to read. Point it at the originals rather than re-syncing them:
+
+```bash
+pnpm install
+ln -s ../../../{.env.local,data,rules} .   # from a worktree under .claude/worktrees/
+pnpm dev --port 4001                        # 4000 is the main checkout's
+```
 
 ## Commands
 
