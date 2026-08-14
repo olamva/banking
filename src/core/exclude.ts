@@ -38,6 +38,18 @@ export type Accounts = Record<
     sync?: boolean;
     /** `YYYY-MM` the account opened — see `accountKeys`. */
     from?: string;
+    /**
+     * Kroner in the account before the first row on record, so `reconcile` can
+     * close. Money is not always explainable by transactions: SB1 serves no
+     * history before 2003, so an account older than that arrives already
+     * holding something with nothing to account for it. Omitted means zero,
+     * which is right for every account whose history reaches its own opening.
+     *
+     * It is a *balance*, and no money total ever reads it — `stats.ts` sums
+     * flows, and adding a stock to income or spending would make the page's net
+     * neither one thing nor the other.
+     */
+    opening?: number;
     investment?: boolean;
     card?: boolean;
     issuer?: boolean;

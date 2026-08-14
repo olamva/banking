@@ -6,10 +6,13 @@ import {
   loadSubscriptions,
 } from "./core/categorize.ts";
 import { openDb, queryRange } from "./core/db.ts";
+import type { Accounts } from "./core/exclude.ts";
 import { merchantClusters, nearMisses } from "./core/merchants.ts";
+import { normalizeMonth } from "./core/normalize.ts";
 import { monthsOnDisk, pipeline, RAW, rebuildAll } from "./core/pipeline.ts";
+import { reconcile, unexplained } from "./core/reconcile.ts";
 import { narrowings, overrideReport, pairUse, unnamed } from "./core/report.ts";
-import type { Categorized } from "./core/types.ts";
+import type { Categorized, Txn } from "./core/types.ts";
 import { remaining } from "./net/budget.ts";
 import { get, login } from "./net/sb1.ts";
 import { syncMonth, syncRange, thisMonth } from "./net/sync.ts";
@@ -105,6 +108,52 @@ async function accounts(): Promise<void> {
  * Reads the database, which already has rules/payees.json applied, so a
  * merchant that file already covers arrives as one name and never appears here.
  */
+/**
+ * Does the history explain the money that is there? Offline, against the
+ * balances `pnpm sb1 accounts` last wrote — so a stale snapshot reads as a gap,
+ * and refreshing it is the first thing to try when one appears.
+ */
+async function reconcileCmd(): Promise<void> {
+  const accounts: Accounts = JSON.parse(
+    await readFile("rules/accounts.json", "utf8"),
+  );
+  const snap = JSON.parse(await readFile(ACCOUNTS_RAW, "utf8")) as {
+    accounts?: Array<{ key: string; balance: number }>;
+  };
+  if (!snap.accounts?.length) {
+    raise(`No balances in ${ACCOUNTS_RAW} — run \`pnpm sb1 accounts\` first.`);
+  }
+  const balances = new Map(snap.accounts!.map((a) => [a.key, a.balance]));
+
+  const txns: Txn[] = [];
+  for (const month of monthsOnDisk())
+    txns.push(...normalizeMonth(`${RAW}/${month}`));
+
+  const kr = (n: number) =>
+    n.toLocaleString("nb-NO", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  const lines = reconcile(txns, accounts, balances);
+  const col = (s: string) => s.padStart(15);
+  console.log(
+    `${"account".padEnd(18)}${col("opening")}${col("+ rows")}${col("= expected")}${col("bank says")}${col("gap")}`,
+  );
+  for (const l of lines)
+    console.log(
+      `${l.name.padEnd(18)}${col(kr(l.opening))}${col(kr(l.rows))}${col(kr(l.expected))}${col(kr(l.actual))}${col(kr(l.gap))}`,
+    );
+
+  const bad = unexplained(lines);
+  console.error(
+    bad.length
+      ? `\n${bad.length} account(s) do not add up. Either the balances are stale — ` +
+          `\`pnpm sb1 accounts\` — or rows are missing, or an "opening" is owed in rules/accounts.json:\n` +
+          bad.map((l) => `  ${l.name}: ${kr(l.gap)}`).join("\n")
+      : `\nEvery account adds up. The history explains the money.`,
+  );
+}
+
 function merchants(): void {
   const kr = (n: number) => `${Math.round(n).toLocaleString("nb-NO")} kr`;
   const db = openDb();
@@ -314,6 +363,7 @@ try {
       await syncMonth(needMonth("sync"), force);
     }
   } else if (cmd === "rebuild") await rebuildAll();
+  else if (cmd === "reconcile") await reconcileCmd();
   else if (cmd === "merchants") merchants();
   else if (cmd === "categories") await categories(has("all"));
   else if (cmd === "budget") {
@@ -337,6 +387,9 @@ try {
     );
     console.error(
       "                    (--to defaults to this month; one request per five years)",
+    );
+    console.error(
+      "                | reconcile  (does the history explain the balances?)",
     );
     console.error(
       "                | merchants  (one shop under many names -> rules/payees.json)",

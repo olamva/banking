@@ -57,6 +57,8 @@ src/core/db.ts        node:sqlite store, rebuilt wholesale
 src/core/stats.ts     the only money aggregation — monthStats() and yearStats()
 src/core/report.ts    what rules/overrides.json still earns against the bank's
                       own subcategory; prints, never writes
+src/core/reconcile.ts opening + every row == the balance the bank reports; the
+                      only check that looks outside the repo for its answer
 src/core/select.ts    which rows are in view; no money logic, ever — `AXES` is
                       the three list filters, one control repeated
 src/core/pipeline.ts  the offline chain, importable by the CLI and the server
@@ -710,6 +712,30 @@ proof. To actually test a floor, drop it and re-sweep — which is cheap now, si
 the span it would re-ask is one request.
 
 An account with no `from` has no floor.
+
+An entry may carry **`opening`, the kroner in the account before the first row on
+record**. It exists because money is not always explainable by transactions:
+**SB1 serves no history before 2003** — asked for Sparekonto over 1998-2002 it
+answers zero rows and no error — so an account older than that arrives already
+holding something, with nothing to account for it. One account needs it, at
+3 610,50. Omitted means zero, which is right wherever the history reaches the
+account's own opening.
+
+`opening` is a **balance, and no money total may ever read it.** `stats.ts` sums
+flows; adding a stock to income or spending makes the page's net neither one
+thing nor the other. Its only reader is `reconcile`.
+
+**`pnpm sb1 reconcile` is the one check that looks outside the repo.**
+`opening + every row == the balance the bank reports`, per account, offline,
+against whatever `pnpm sb1 accounts` last wrote. Everything else here is the raw
+data agreeing with itself, and a rule that quietly drops rows agrees with itself
+perfectly — which is how a 27 950 kr cash deposit stayed excluded from 2018 to 2026. This is the check that would have said so the same week.
+
+It takes `Txn`, **before anything is flagged, and counts excluded rows too.**
+Money moved whether or not it counts as earning or spending, so using the
+counted rows alone would make every internal transfer look like a hole and hide
+the one thing this is for. A gap means one of three things, in the order worth
+trying: the balances are stale, rows are missing, or an `opening` is owed.
 
 The check that catches all of this: every excluded reason must net to zero
 across the pair — `investment movement` excepted. If it doesn't, one leg is

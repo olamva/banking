@@ -71,6 +71,7 @@ pnpm sb1 sync --from 2022            # --to defaults to this month
 
 # offline — reads data/raw/ or the database
 pnpm sb1 rebuild                    # rebuild data/banking.db from data/raw/
+pnpm sb1 reconcile                  # does the history explain the balances? (needs `sb1 accounts` for fresh ones)
 pnpm sb1 merchants                  # one shop under many names -> lines for rules/payees.json
 pnpm sb1 categories                 # which rules/overrides.json lines the bank already covers, and which depend on line order
 pnpm sb1 categories --all           # ...plus every bank pair, and the categories that still need a name
