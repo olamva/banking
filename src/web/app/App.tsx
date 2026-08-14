@@ -366,6 +366,7 @@ const Dashboard = ({
    */
   const band = anyIncome && (running || bucket === "month");
 
+
   // Nothing renders a box it has no rows for. Filtered to rent, "income" is a
   // zero and "net" is the spend again with a minus sign; both are noise.
   return (
@@ -421,6 +422,11 @@ const Dashboard = ({
               bucket={bucket}
               income={anyIncome}
               band={band}
+              // A running total only ever climbs, so a line fitted to it is a
+              // straight line drawn over one — it reports an average rate the
+              // tile above already gives as a number. The legend switches it
+              // off anywhere it does mean something.
+              trend={!running}
               compare={compare}
               compareLabel={vs?.label}
             />
