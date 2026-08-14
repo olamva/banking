@@ -138,7 +138,7 @@ export function matchesFilters(t: Categorized, f: Filters): boolean {
   return true;
 }
 
-export type PeriodKind = "month" | "year" | "all";
+export type PeriodKind = "month" | "year" | "all" | "custom";
 
 export type Period = {
   /** Which of the two pickers the value came from — the shape of the string is the answer. */
@@ -160,13 +160,23 @@ export type Period = {
 const monthBounds = (m: string) => ({ from: `${m}-01`, to: `${m}-31` });
 const yearBounds = (y: number) => ({ from: `${y}-01-01`, to: `${y}-12-31` });
 
+/**
+ * A hand-picked window, `from..to`, either end allowed to be empty for an open
+ * one — the same "no bound" `inRange` already understands, so clearing one date
+ * box is a period rather than an error.
+ *
+ * A range says nothing about which month or year it sits in, so it is its own
+ * kind rather than a shape the month regex could be widened to.
+ */
+const CUSTOM = /^(\d{4}-\d{2}-\d{2})?\.\.(\d{4}-\d{2}-\d{2})?$/;
+
 /** Today in Oslo, in the same shape and zone as `Txn.date`. */
 export const todayOslo = (): string =>
   new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Oslo" });
 
 /**
- * The one period the whole page runs on: a month `2026-07`, a year `2026`, or
- * anything else meaning all time.
+ * The one period the whole page runs on: a month `2026-07`, a year `2026`, a
+ * hand-picked `2026-03-04..2026-05-01`, or anything else meaning all time.
  *
  * Both views read this, which is what lets the dashboard and the table stay in
  * step — and what makes "vs the previous period" mean the same thing for a
@@ -210,6 +220,28 @@ export function period(p: string, now = todayOslo()): Period {
           }
         : { ...yearBounds(y - 1), label: "last year" };
     return { kind: "year", ...yearBounds(y), label: p, prev };
+  }
+  const range = CUSTOM.exec(p);
+  if (range) {
+    const [, from = null, to = null] = range;
+    /**
+     * **No previous window, deliberately.** A hand-picked range belongs to no
+     * calendar, so nothing says what it is a period *of*: the equally long span
+     * before it was tried, and it compares a trip against the fortnight at home
+     * before it, or a fortnight against a different fortnight nobody chose. A
+     * month has last year and a year has the year before; a range has nothing,
+     * and an invented comparison reads as a measurement.
+     *
+     * So the changes card and the deltas are absent here, exactly as they are
+     * for all time.
+     */
+    return {
+      kind: "custom",
+      from,
+      to,
+      label: from && to ? `${from} – ${to}` : (from ?? to ?? "All time"),
+      prev: null,
+    };
   }
   return { kind: "all", from: null, to: null, label: "All time", prev: null };
 }
