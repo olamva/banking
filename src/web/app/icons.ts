@@ -26,6 +26,7 @@ export { default as SortableIcon } from '@hugeicons/core-free-icons/ArrowUpDownI
 export { default as SearchIcon } from '@hugeicons/core-free-icons/Search01Icon';
 export { default as ResetFiltersIcon } from '@hugeicons/core-free-icons/FilterResetIcon';
 export { default as CloseIcon } from '@hugeicons/core-free-icons/Cancel01Icon';
+export { default as KeyboardIcon } from '@hugeicons/core-free-icons/KeyboardIcon';
 export { default as DropdownIcon } from '@hugeicons/core-free-icons/ArrowDown01Icon';
 // A category that opens into its subcategories. Rotated 90° when open, rather
 // than a second icon module for the same arrow pointing down.
