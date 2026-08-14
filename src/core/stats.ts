@@ -29,7 +29,7 @@ export type AccountTotal = {
 
 export type CounterpartyTotal = {
   counterparty: string;
-  /** NOK, magnitude spent. */
+  /** NOK, magnitude moved — spent or received, depending on which list this is. */
   total: number;
   count: number;
 };
@@ -61,8 +61,14 @@ export type MonthStats = {
   categories: CategoryTotal[];
   /** The second level of `categories`, shares within each parent. */
   subcategories: SubcategoryTotal[];
-  /** Top 10 by spend. */
+  /** Top 25 by spend; the card draws 10 of them until it is opened. */
   topCounterparties: CounterpartyTotal[];
+  /** The same three breakdowns over the money that came *in*. Empty where nothing did. */
+  incomeCategories: CategoryTotal[];
+  incomeSubcategories: SubcategoryTotal[];
+  /** Top 25 by income; the card draws 10 of them until it is opened. */
+  topIncomeCounterparties: CounterpartyTotal[];
+  incomeAccounts: AccountTotal[];
   subscriptions: Categorized[];
   recurring: Categorized[];
   categoryDeltas: CategoryDelta[];
@@ -163,23 +169,41 @@ function subcategoriesFromCents(bySub: Map<string, number>): SubcategoryTotal[] 
 const accountsFromCents = (byAccount: Map<string, number>): AccountTotal[] =>
   slices(byAccount).map(({ key, total, share }) => ({ account: key, total, share }));
 
-type CentsAgg = {
-  inCents: number;
-  outCents: number;
+/**
+ * One direction's breakdowns. The two sides are aggregated identically and kept
+ * apart, which is the same rule the totals have always followed: the sign
+ * decides which side a row lands on, and no category can move money between
+ * them.
+ */
+type SideAgg = {
+  /** Magnitude, never negative — on both sides. */
+  cents: number;
   categoryCents: Map<string, number>;
   subCents: Map<string, number>;
   accountCents: Map<string, number>;
+};
+
+type CentsAgg = {
+  in: SideAgg;
+  out: SideAgg;
   excludedCount: number;
   excludedCents: number;
 };
 
+const emptySide = (): SideAgg => ({
+  cents: 0,
+  categoryCents: new Map(),
+  subCents: new Map(),
+  accountCents: new Map(),
+});
+
+const bump = (m: Map<string, number>, key: string, cents: number) =>
+  m.set(key, (m.get(key) ?? 0) + cents);
+
 function aggregateCents(txns: Categorized[]): CentsAgg {
   const agg: CentsAgg = {
-    inCents: 0,
-    outCents: 0,
-    categoryCents: new Map(),
-    subCents: new Map(),
-    accountCents: new Map(),
+    in: emptySide(),
+    out: emptySide(),
     excludedCount: 0,
     excludedCents: 0,
   };
@@ -190,15 +214,13 @@ function aggregateCents(txns: Categorized[]): CentsAgg {
       agg.excludedCents += Math.abs(cents);
       continue;
     }
-    if (cents > 0) agg.inCents += cents;
-    if (cents < 0) {
-      const spend = -cents;
-      agg.outCents += spend;
-      agg.categoryCents.set(t.category, (agg.categoryCents.get(t.category) ?? 0) + spend);
-      const sub = SUB_KEY(t.category, t.subcategory);
-      agg.subCents.set(sub, (agg.subCents.get(sub) ?? 0) + spend);
-      agg.accountCents.set(t.account, (agg.accountCents.get(t.account) ?? 0) + spend);
-    }
+    if (cents === 0) continue;
+    const side = cents > 0 ? agg.in : agg.out;
+    const mag = Math.abs(cents);
+    side.cents += mag;
+    bump(side.categoryCents, t.category, mag);
+    bump(side.subCents, SUB_KEY(t.category, t.subcategory), mag);
+    bump(side.accountCents, t.account, mag);
   }
   return agg;
 }
@@ -218,19 +240,32 @@ export type Totals = {
 export function totals(txns: Categorized[]): Totals {
   const agg = aggregateCents(txns);
   return {
-    totalIn: fromCents(agg.inCents),
-    totalOut: fromCents(agg.outCents),
-    net: fromCents(agg.inCents - agg.outCents),
+    totalIn: fromCents(agg.in.cents),
+    totalOut: fromCents(agg.out.cents),
+    net: fromCents(agg.in.cents - agg.out.cents),
     excluded: { count: agg.excludedCount, total: fromCents(agg.excludedCents) },
   };
 }
 
-function topCounterparties(txns: Categorized[], limit = 10): CounterpartyTotal[] {
+/**
+ * `dir` is the sign the row must have: `out` is money spent, `in` is money
+ * received.
+ *
+ * 25 rather than the 10 the card draws, because the card now opens: a limit
+ * equal to what is shown is a card whose "show more" can never appear, and the
+ * cut has to sit above the fold rather than on it.
+ */
+function topCounterparties(
+  txns: Categorized[],
+  dir: 'in' | 'out',
+  limit = 25,
+): CounterpartyTotal[] {
   const byCp = new Map<string, { cents: number; count: number }>();
   for (const t of txns) {
-    if (t.excluded || t.amount >= 0 || t.counterparty === null) continue;
+    if (t.excluded || t.counterparty === null) continue;
+    if (dir === 'out' ? t.amount >= 0 : t.amount <= 0) continue;
     const entry = byCp.get(t.counterparty) ?? { cents: 0, count: 0 };
-    entry.cents += -toCents(t.amount);
+    entry.cents += Math.abs(toCents(t.amount));
     entry.count++;
     byCp.set(t.counterparty, entry);
   }
@@ -246,10 +281,10 @@ export function monthStats(month: string, txns: Categorized[], previous?: Catego
 
   const categoryDeltas: CategoryDelta[] = [];
   if (prevAgg) {
-    const names = new Set([...agg.categoryCents.keys(), ...prevAgg.categoryCents.keys()]);
+    const names = new Set([...agg.out.categoryCents.keys(), ...prevAgg.out.categoryCents.keys()]);
     for (const category of names) {
-      const current = fromCents(agg.categoryCents.get(category) ?? 0);
-      const prev = fromCents(prevAgg.categoryCents.get(category) ?? 0);
+      const current = fromCents(agg.out.categoryCents.get(category) ?? 0);
+      const prev = fromCents(prevAgg.out.categoryCents.get(category) ?? 0);
       categoryDeltas.push({ category, current, previous: prev, delta: current - prev });
     }
     categoryDeltas.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
@@ -257,24 +292,30 @@ export function monthStats(month: string, txns: Categorized[], previous?: Catego
 
   return {
     month,
-    totalIn: fromCents(agg.inCents),
-    totalOut: fromCents(agg.outCents),
-    net: fromCents(agg.inCents - agg.outCents),
-    categories: categoriesFromCents(agg.categoryCents),
-    subcategories: subcategoriesFromCents(agg.subCents),
-    topCounterparties: topCounterparties(txns),
+    totalIn: fromCents(agg.in.cents),
+    totalOut: fromCents(agg.out.cents),
+    net: fromCents(agg.in.cents - agg.out.cents),
+    categories: categoriesFromCents(agg.out.categoryCents),
+    subcategories: subcategoriesFromCents(agg.out.subCents),
+    topCounterparties: topCounterparties(txns, 'out'),
+    incomeCategories: categoriesFromCents(agg.in.categoryCents),
+    incomeSubcategories: subcategoriesFromCents(agg.in.subCents),
+    topIncomeCounterparties: topCounterparties(txns, 'in'),
+    incomeAccounts: accountsFromCents(agg.in.accountCents),
     subscriptions: txns.filter((t) => !t.excluded && t.isSubscription).sort(byDate),
     recurring: txns.filter((t) => !t.excluded && t.isRecurring).sort(byDate),
     categoryDeltas,
     delta: prevAgg
       ? {
-          totalIn: fromCents(agg.inCents - prevAgg.inCents),
-          totalOut: fromCents(agg.outCents - prevAgg.outCents),
-          net: fromCents(agg.inCents - agg.outCents - (prevAgg.inCents - prevAgg.outCents)),
+          totalIn: fromCents(agg.in.cents - prevAgg.in.cents),
+          totalOut: fromCents(agg.out.cents - prevAgg.out.cents),
+          net: fromCents(
+            agg.in.cents - agg.out.cents - (prevAgg.in.cents - prevAgg.out.cents),
+          ),
         }
       : null,
     excluded: { count: agg.excludedCount, total: fromCents(agg.excludedCents) },
-    accounts: accountsFromCents(agg.accountCents),
+    accounts: accountsFromCents(agg.out.accountCents),
   };
 }
 
@@ -303,7 +344,7 @@ export type SeriesPoint = {
 
 const point = (at: string, txns: Categorized[]): SeriesPoint => {
   const agg = aggregateCents(txns);
-  return { at, totalIn: fromCents(agg.inCents), totalOut: fromCents(agg.outCents) };
+  return { at, totalIn: fromCents(agg.in.cents), totalOut: fromCents(agg.out.cents) };
 };
 
 /**
@@ -450,9 +491,9 @@ export function yearStats(year: string, monthsTxns: { month: string; txns: Categ
     const agg = aggregateCents(txns);
     return {
       month,
-      totalIn: fromCents(agg.inCents),
-      totalOut: fromCents(agg.outCents),
-      net: fromCents(agg.inCents - agg.outCents),
+      totalIn: fromCents(agg.in.cents),
+      totalOut: fromCents(agg.out.cents),
+      net: fromCents(agg.in.cents - agg.out.cents),
       excluded: { count: agg.excludedCount, total: fromCents(agg.excludedCents) },
     };
   });
@@ -463,12 +504,12 @@ export function yearStats(year: string, monthsTxns: { month: string; txns: Categ
   return {
     year,
     months,
-    categories: categoriesFromCents(agg.categoryCents),
-    subcategories: subcategoriesFromCents(agg.subCents),
+    categories: categoriesFromCents(agg.out.categoryCents),
+    subcategories: subcategoriesFromCents(agg.out.subCents),
     averageMonth: {
-      totalIn: fromCents(Math.round(agg.inCents / n)),
-      totalOut: fromCents(Math.round(agg.outCents / n)),
-      net: fromCents(Math.round((agg.inCents - agg.outCents) / n)),
+      totalIn: fromCents(Math.round(agg.in.cents / n)),
+      totalOut: fromCents(Math.round(agg.out.cents / n)),
+      net: fromCents(Math.round((agg.in.cents - agg.out.cents) / n)),
     },
     excluded: { count: agg.excludedCount, total: fromCents(agg.excludedCents) },
   };
