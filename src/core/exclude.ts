@@ -112,6 +112,76 @@ const isTransferType = (t: Txn): boolean =>
   TRANSFER_TYPE.test(t.typeText ?? "");
 
 /**
+ * Cash entering the bank, which can never be a move between two of my accounts.
+ *
+ * A deposit machine stamps `remoteAccountNumber` with an account of mine, and
+ * **which** one is not meaningful — it records the card fed into the terminal,
+ * not a counterparty. There is no second leg because the money came from a
+ * pocket.
+ *
+ * This replaces a narrower guard that only ignored the number when it was the
+ * row's *own* account. That was the same bug seen from one angle: it caught a
+ * machine naming Sparekonto on a Sparekonto row, and missed one naming
+ * BRUKSKONTO on a Sparekonto row — which excluded a **27 950 kr cash deposit**
+ * with no counterpart anywhere in 284 months, and is most of why
+ * `internal transfer` stopped netting to zero. The proof it was real money is
+ * that the whole record contains 877 kr of net cash withdrawals, so it cannot
+ * be my own cash going back in.
+ *
+ * `Kontantinnskudd` is the over-the-counter wording of the same thing and is
+ * included for the same reason, before it costs anything.
+ */
+const CASH_IN = /^(innskudd automat|kontantinnskudd)/i;
+
+const isCashDeposit = (t: Txn): boolean => CASH_IN.test(t.typeText ?? "");
+
+/**
+ * Which rows are one leg of a genuine pair, decided **once for the whole month**
+ * rather than per row.
+ *
+ * A row used to ask "does an opposite leg exist?" with `some`, which is not a
+ * pairing at all: on 2018-12-12 two +200 rows and one −200 row all answered yes,
+ * so 200 kr was excluded twice against a single counterpart. Existence is the
+ * wrong question — a leg may be spent once.
+ *
+ * Greedy is enough and is deterministic here. Within one date and one absolute
+ * amount, every candidate is interchangeable except for which account it sits
+ * on, so pairing the first positive with the first negative on another account
+ * gives the same count as any smarter matching would.
+ *
+ * The counterpart must be on a **different** account: nothing moves between an
+ * account and itself, and two same-signed legs are not a transfer however
+ * neatly their numbers line up.
+ */
+function transferPairs(txns: Txn[], mine: Set<string>): Set<string> {
+  const groups = new Map<string, Txn[]>();
+  for (const t of txns) {
+    if (!mine.has(t.accountKey) || !isTransferType(t)) continue;
+    const k = `${t.date}|${Math.abs(t.amount).toFixed(2)}`;
+    const g = groups.get(k);
+    if (g) g.push(t);
+    else groups.set(k, [t]);
+  }
+
+  const paired = new Set<string>();
+  for (const group of groups.values()) {
+    const credits = group.filter((t) => t.amount > 0);
+    const debits = group.filter((t) => t.amount < 0);
+    const taken = new Set<number>();
+    for (const credit of credits) {
+      const i = debits.findIndex(
+        (d, j) => !taken.has(j) && d.accountKey !== credit.accountKey,
+      );
+      if (i === -1) continue;
+      taken.add(i);
+      paired.add(credit.id);
+      paired.add(debits[i].id);
+    }
+  }
+  return paired;
+}
+
+/**
  * Flags, never drops. Two rules, checked per transaction:
  * - internal transfer: another txn in a different `mine` account, same date,
  *   opposite-signed equal amount, and *both* rows typed as a transfer by the
@@ -119,14 +189,11 @@ const isTransferType = (t: Txn): boolean =>
  * - credit card bill payment, either leg: matched by description, since bill
  *   amounts don't track card spend within a month.
  *
- * ponytail: O(n^2) transfer scan (every txn checks every other txn). Fine at
- * personal-banking volumes; index by (date, amount) if a year ever gets slow.
- *
- * ponytail: pairing is `some`, not 1:1 — three same-day rows of ±2000 across
- * two accounts all match each other, and all three were flagged. The type check
- * above is what actually caught that one, since the odd leg out was a
- * `Straksbetaling` from another person. Greedy 1:1 matching if a genuine
- * transfer ever collides with another genuine transfer of the same amount.
+ * Pairing is 1:1 and decided once per month — see `transferPairs`. It used to be
+ * `some`, an existence check, which the comment here called out as fine "until a
+ * genuine transfer collides with another genuine transfer of the same amount".
+ * That happened on 2018-12-12 and cost 200 kr; the O(n^2) scan went with it,
+ * since grouping by (date, amount) is what the pairing needed anyway.
  */
 export function exclude(txns: Txn[], accounts: Accounts): Classified[] {
   const ours = Object.entries(accounts).filter(([, a]) => a.mine);
@@ -147,11 +214,19 @@ export function exclude(txns: Txn[], accounts: Accounts): Classified[] {
       .map(([key]) => key),
   );
 
+  const paired = transferPairs(txns, mine);
+
   return txns.map((t) => {
     const reason =
       billReason(t, cards, issuerNumbers) ??
       investmentReason(t, fundNumbers) ??
-      transferReason(t, txns, mine, myNumbers, accounts[t.accountKey]?.number);
+      transferReason(
+        t,
+        paired,
+        mine,
+        myNumbers,
+        accounts[t.accountKey]?.number,
+      );
     return { ...t, excluded: reason !== null, reason };
   });
 }
@@ -196,7 +271,7 @@ function billReason(
 
 function transferReason(
   t: Txn,
-  all: Txn[],
+  paired: Set<string>,
   mine: Set<string>,
   myNumbers: Set<string>,
   own: string | undefined,
@@ -216,25 +291,19 @@ function transferReason(
   // carries the other account's number, so either both legs match or neither
   // does.
   //
-  // Except when the number *is* the row's own account. A cash deposit at a
-  // machine books as `Innskudd automat` stamped with the account it landed in,
-  // and reading that as "the other party is mine" excluded 68 kr of real income
-  // with no second leg anywhere — which is precisely how the netting check
-  // surfaced it. Nothing moves between an account and itself.
+  // Two exceptions, and both are the same mistake: a number on the row that is
+  // not a counterparty at all.
+  //
+  // Nothing moves between an account and itself, so the row's own number never
+  // counts. And a cash deposit is never a transfer whichever of my accounts the
+  // machine stamped on it — see `isCashDeposit`, which is what stops a 27 950 kr
+  // deposit being excluded against a second leg that does not exist.
   if (
     t.remoteAccountNumber &&
     t.remoteAccountNumber !== own &&
+    !isCashDeposit(t) &&
     myNumbers.has(t.remoteAccountNumber)
   )
     return "internal transfer";
-  if (!isTransferType(t)) return null;
-  const hasCounterpart = all.some(
-    (o) =>
-      mine.has(o.accountKey) &&
-      o.accountKey !== t.accountKey &&
-      o.date === t.date &&
-      o.amount === -t.amount &&
-      isTransferType(o),
-  );
-  return hasCounterpart ? "internal transfer" : null;
+  return paired.has(t.id) ? "internal transfer" : null;
 }

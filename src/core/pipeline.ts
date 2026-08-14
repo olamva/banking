@@ -77,6 +77,30 @@ export async function pipeline(
 }
 
 /**
+ * What each excluded reason sums to, which must be zero for all but one.
+ *
+ * `investment movement` is exempt **by design**: its counter-leg is booked at
+ * the fund manager and is not in `data/raw/` at all, so its residue is the gain
+ * on the funds. Every other reason has both legs in the data, so a non-zero sum
+ * is not a rounding artefact — it is money one rule took out of the totals and
+ * no rule put back.
+ */
+export function netByReason(rows: Categorized[]): Map<string, number> {
+  const net = new Map<string, number>();
+  for (const r of rows) {
+    if (!r.excluded || !r.reason || r.reason === "investment movement")
+      continue;
+    // A card bill's two legs are one pair under two names — the bank debit and
+    // the card credit are worded differently, so they are labelled differently.
+    // Netting them apart would report every bill twice as an error and never as
+    // the balanced pair it is.
+    const pair = r.reason.replace(/ \(card side\)$/, "");
+    net.set(pair, (net.get(pair) ?? 0) + r.amount);
+  }
+  return net;
+}
+
+/**
  * The database is derived and disposable: delete it and reconstruct from
  * data/raw/ alone.
  *
@@ -129,6 +153,18 @@ export async function rebuildAll(): Promise<number> {
       console.error(
         `\nwarning: ${loose.length} line(s) in rules/overrides.json now depend on where they sit.` +
           `\nThe file can no longer be reordered safely. Run \`pnpm sb1 categories\` for the narrowed form of each.`,
+      );
+    }
+    // Every excluded reason must net to zero across its pair, because both legs
+    // of a flagged move are in the data. A reason that does not net is a leg
+    // excluded whose counterpart stayed in, which silently deletes real money
+    // from both totals — 28 150 kr of it went unnoticed for eight years because
+    // this check lived only in the tests and never ran over the record.
+    for (const [reason, net] of netByReason(rows)) {
+      if (Math.abs(net) < 0.005) continue;
+      console.error(
+        `\nwarning: excluded reason "${reason}" nets to ${net.toFixed(2)}, not zero.` +
+          `\nOne leg of a pair is being excluded while the other is counted — that much money is missing from the totals.`,
       );
     }
     // Last, so no rule was ever matched against a name the bank did not send.

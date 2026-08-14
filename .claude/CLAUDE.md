@@ -715,10 +715,39 @@ The check that catches all of this: every excluded reason must net to zero
 across the pair — `investment movement` excepted. If it doesn't, one leg is
 being matched and the other isn't.
 
-**A number rule must ignore the row's own account.** Cash into a deposit machine
-books as `Innskudd automat` stamped with the number of the account it landed in,
-and reading that as "the other party is mine" excluded real income against no
-second leg. Nothing moves between an account and itself.
+**That check now runs, at every `rebuild`.** It lived only in the tests for two
+years, where it could only ever see the rows a test author thought to write, and
+over that time the real record drifted 28 150 kr away from zero without a word.
+`netByReason` in `pipeline.ts` sums the excluded rows by reason and warns on
+anything non-zero, the same shape as the `narrowings` warning beside it. The two
+card-bill legs fold into one bucket first: they are one pair under two names, so
+netting them apart would report every bill as an error forever.
+
+**A number on a row is not always a counterparty**, and two rules follow from
+that. Nothing moves between an account and itself, so the row's own number never
+counts. And **a cash deposit is never a transfer** — `Innskudd automat` and
+`Kontantinnskudd` are money arriving from a pocket, and the machine stamps
+`remoteAccountNumber` with whichever of my accounts the card belonged to.
+
+The narrower version of that second rule — ignore the number only when it is the
+row's _own_ account — is what this repo had, and it is the same bug seen from one
+angle. It caught a machine naming Sparekonto on a Sparekonto row and missed one
+naming BRUKSKONTO on a Sparekonto row, which excluded a **27 950 kr cash deposit**
+as an internal transfer with no second leg anywhere in 284 months. That single row
+was 27 950 of the 28 150 the netting check now refuses.
+
+It was decided on evidence, not memory: the whole record holds **877 kr of net
+cash withdrawals**, largest single 800, so 27 950 in cash cannot be my own money
+going back in. A real internal transfer looks like 2022-08-12 — −25 000 on
+BRUKSKONTO and +25 000 on Sparekonto, both present, both flagged.
+
+**Pairing is 1:1, and that is not the same as "a counterpart exists".** The
+matcher was `some`, which asks only whether an opposite leg is somewhere in the
+month. Two +200 rows and one −200 row on 2018-12-12 all answered yes, so 200 kr
+was excluded twice against a counterpart already taken. `transferPairs` decides
+the pairing once per month and consumes each leg, and it still requires the two
+legs to sit on different accounts. This was a `ponytail:` note in the code
+predicting exactly this collision; it is now spent.
 
 An excluded row is `overfoering`, and that decision sits **above every other
 rule in `categorize`** — above the overrides and above the bank's own category.

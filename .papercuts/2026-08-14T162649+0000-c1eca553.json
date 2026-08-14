@@ -1,0 +1,13 @@
+{
+  "id": "c1eca553",
+  "ts": "2026-08-14T16:26:49+00:00",
+  "text": "EnterWorktree branches from the session's current HEAD, not origin/main \u2014 created an accidental PR stack and a fix built on the wrong base twice in one session",
+  "tags": [
+    "git",
+    "worktree"
+  ],
+  "who": "agent",
+  "model": "opus-5",
+  "session": "125e97b2",
+  "where": "/Users/olavassbotn/Documents/banking/.claude/worktrees/transfer-netting"
+}
