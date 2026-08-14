@@ -1,0 +1,13 @@
+{
+  "id": "47519da1",
+  "ts": "2026-08-14T15:48:02+00:00",
+  "text": "Bash tool refuses a heredoc-write + run + stdout-redirect as one compound command in a worktree session; had to split into three calls",
+  "tags": [
+    "tools",
+    "worktree"
+  ],
+  "who": "agent",
+  "model": "opus-5",
+  "session": "b4e1ce63",
+  "where": "/Users/olavassbotn/Documents/banking/.claude/worktrees/worktree-nameless-counterparty"
+}

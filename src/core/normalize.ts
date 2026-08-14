@@ -72,6 +72,27 @@ function osloDate(epochMs: number): string {
  */
 const NO_ACCOUNT = "-1";
 
+/**
+ * A cleaned description that names nobody. SB1 words a payment-with-message as
+ * `Til: <account number>` and cleans it to a bare `Til:` — the preposition with
+ * the payee taken out of it, and the account number with it.
+ *
+ * It has to lose to `remoteAccountName`, which on both rows on record carries a
+ * real name. Letting it win costs the row its name *and* its category: the
+ * number survives in `remoteAccountNumber`, but `haystackOf` never sees
+ * `remoteAccountName`, so one month of a standing rent payment reached the page
+ * uncategorised while the same payee's eleven others matched `/\bleie\b/` on the
+ * name the bank had left on them. The other row is a transfer to an account of
+ * mine, already excluded, and only ever wanted the better name.
+ *
+ * Only the *empty* case, deliberately. `Til: Ola Munthe Vassbotn - Online` is
+ * the same wording with a payee still in it, and it is the best string on that
+ * row.
+ */
+const NAMES_NOBODY = /^(til|fra)[\s:.-]*$/i;
+
+const named = (s?: string) => (s && !NAMES_NOBODY.test(s.trim()) ? s : undefined);
+
 function normalizeSb1(file: Sb1File, names: Record<string, string>): Txn[] {
   return (
     file.transactions
@@ -93,8 +114,9 @@ function normalizeSb1(file: Sb1File, names: Record<string, string>): Txn[] {
         description: t.description ?? t.typeText ?? "",
         // cleanedDescription first: where both exist they disagree on 117 rows, and
         // the bank's cleaned string is the merchant, while remoteAccountName is
-        // whatever the payer typed into the payment.
-        counterparty: t.cleanedDescription ?? t.remoteAccountName ?? null,
+        // whatever the payer typed into the payment. Unless it names nobody —
+        // see NAMES_NOBODY, where a bare `Til:` is worth less than either.
+        counterparty: named(t.cleanedDescription) ?? t.remoteAccountName ?? null,
         bankCategory: categories[0]?.main ?? null,
         bankSub: categories[0]?.sub ?? null,
         bankCategoryName: categories[0]?.mainI18n ?? null,
