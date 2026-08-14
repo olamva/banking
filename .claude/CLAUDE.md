@@ -689,15 +689,27 @@ residue.
 An entry may also carry `sync: false`, meaning it exists for its _number_ alone —
 there is no key `/transactions` answers for. `accountKeys` skips those.
 
-An entry may carry **`from`, the `YYYY-MM` the account opened**, and `accountKeys`
-skips it for any earlier month. A sweep costs one request per account per month
-whether the account existed then or not, and five of the seven opened well after
-the record starts — the card in 2026-02 against raw going back to 2018-09. Over
-that span the floor is 217 requests of 672, nearly a third, and at 60 an hour
-that is three and a half hours of sweeping bought back. The dates are checked
-against the raw and are exact for four of them; BSU+'s 2016-02 predates
-`data/raw/` and is taken on the account holder's word. An account with no `from`
-has no floor.
+An entry may carry **`from`, the `YYYY-MM` that account first saw activity**, and
+`accountKeys` skips it for any earlier month. `data/raw/` now reaches back to
+**2003-01**, and the seven accounts open across thirteen years of it, so the
+month-by-account rectangle is mostly empty: the floors skip **1 386 of 1 988
+account-months**, and 2003-01..2007-12 is a whole five-year span with no account
+in it — no request at all, rather than a cheap one.
+
+All seven now carry one, and **six are measured rather than asserted**: the first
+row on record sits in exactly that month, with only empty files behind it. In
+order — Sparekonto 2011-02, BSU+ 2016-02, BRUKSKONTO 2016-08, Sparemål 2021-07,
+AKSJESPAREKONTO 2021-09, Leie 2023-07, the card 2026-02.
+
+BSU+ is the one still taken on the account holder's word, and the reason is worth
+knowing because it generalises: its floor was set to 2016-02 _before_ the 2003
+sweep, so that sweep never asked for BSU+ below 2016-02 and there are no empty
+files behind it to prove anything. **A floor makes itself unfalsifiable.** Its
+first row landing on 2016-02-25, the very month claimed, is corroboration and not
+proof. To actually test a floor, drop it and re-sweep — which is cheap now, since
+the span it would re-ask is one request.
+
+An account with no `from` has no floor.
 
 The check that catches all of this: every excluded reason must net to zero
 across the pair — `investment movement` excepted. If it doesn't, one leg is
