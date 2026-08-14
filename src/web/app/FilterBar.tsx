@@ -40,14 +40,6 @@ interface FilterBarProps {
   subcategories: string[];
   merchants: string[];
   accounts: string[];
-  /**
-   * The year actually being compared against, read off the period rather than
-   * off the choice: a choice the window cannot use has already fallen back by
-   * the time it gets here, so the select can never show one thing while the
-   * tiles measure another.
-   */
-  compareYear: string | null;
-  onCompareYear: (year: string) => void;
   /** Whether the compared window is restated in the money of the one in view. */
   inflation: boolean;
   onInflation: (inflation: boolean) => void;
@@ -478,8 +470,6 @@ export const FilterBar = ({
   subcategories,
   merchants,
   accounts,
-  compareYear,
-  onCompareYear,
   inflation,
   onInflation,
   filters,
@@ -501,19 +491,6 @@ export const FilterBar = ({
     const mm = kind === "month" ? period.slice(5) : "";
     onPeriod(mm && months.includes(`${next}-${mm}`) ? `${next}-${mm}` : next);
   };
-
-  /**
-   * Every year the record has rows for that sits before the one in view, plus
-   * the one being compared against whichever way the record looks — a gap in
-   * the archive must still leave the select showing its own value rather than
-   * blank.
-   *
-   * Descending, because a comparison is reached for backwards from where you
-   * are: last year is the common one and belongs at the top.
-   */
-  const compareYears = compareYear
-    ? [...new Set([...years.filter((y) => y < year), compareYear])].sort().reverse()
-    : [];
 
   /** Ticking a box in any of the three menus is the same edit over a different pair of fields. */
   const toggle = (key: Axis) => (value: string) =>
@@ -606,36 +583,20 @@ export const FilterBar = ({
         </select>
       )}
 
-      {/* What the deltas, the tiles and the faint line measure against: which
-          year, and whether its kroner are restated as the ones in view. Neither
-          filters a row. They are here because they belong to the period, which
-          is the two controls to the left — and only on the dashboard, which is
-          the only view that compares anything. `compareYear` is null for all
-          time, which has nothing before it to compare against. */}
-      {view === "dashboard" && compareYear && (
-        <>
-          <select
-            className={CONTROL}
-            value={compareYear}
-            onChange={(e) => onCompareYear(e.target.value)}
-            aria-label="Compare to"
-          >
-            {compareYears.map((y) => (
-              <option key={y} value={y}>
-                vs {y}
-              </option>
-            ))}
-          </select>
-
-          <button
-            type="button"
-            aria-pressed={inflation}
-            onClick={() => onInflation(!inflation)}
-            className={`${CONTROL} ${inflation ? "bg-series-1 text-white" : "text-ink-soft"}`}
-          >
-            Adjust for inflation
-          </button>
-        </>
+      {/* Whether the window a year back is restated in the kroner of the one in
+          view. It filters no row; it is here because it belongs to the period,
+          which is the two controls to the left — and only on the dashboard,
+          which is the only view that compares anything, and not for all time,
+          which has nothing before it to compare against. */}
+      {view === "dashboard" && kind !== "all" && (
+        <button
+          type="button"
+          aria-pressed={inflation}
+          onClick={() => onInflation(!inflation)}
+          className={`${CONTROL} ${inflation ? "bg-series-1 text-white" : "text-ink-soft"}`}
+        >
+          Adjust for inflation
+        </button>
       )}
 
       {/* A tree: each category opens into the subcategories the bank names under

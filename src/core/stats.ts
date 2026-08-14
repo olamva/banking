@@ -207,11 +207,10 @@ function aggregateCents(txns: Categorized[]): CentsAgg {
  * Norway's CPI, year on year, as SSB's annual average change (table 03013),
  * keyed by the **later** year of the pair.
  *
- * One number per year is all this ever needs: `period()` compares a window
- * against the same window some whole number of years back — a month against
- * that month in an earlier year, a year against an earlier year — so an
- * adjustment here is always a whole number of years of it, compounded, and
- * every key it reads is a calendar year.
+ * One number per year is all this ever needs: `period()` compares every window
+ * against the same window a year back — a month against that month last year, a
+ * year against the year before — so an adjustment here is always exactly twelve
+ * months of it, and the key is always the year in view.
  *
  * The figures are the published annual averages, not a July-to-July index, so
  * they are the right size and not the exact one. Keep it that way — the number
@@ -245,17 +244,11 @@ const CPI_DEFAULT = 0.03;
  *
  * Only the amount moves. The date stays the date it was, which is what keeps
  * `dailySeries` plotting the comparison window where it actually happened.
- *
- * `from` is the year the rows are in and `to` the year in view; the years
- * between them compound, so a window three years back is three years of it and
- * not three times one year's. `from` at or after `to` scales nothing, which is
- * what a comparison against the year in view itself should do.
  */
-export function inflate(txns: Categorized[], from: string, to: string): Categorized[] {
-  let factor = 1;
-  for (let y = Number(from) + 1; y <= Number(to); y++) factor *= 1 + (CPI[String(y)] ?? CPI_DEFAULT);
+export function inflate(txns: Categorized[], year: string): Categorized[] {
+  const rate = CPI[year] ?? CPI_DEFAULT;
   // Rounded to the øre, like every other amount that reaches `toCents`.
-  return txns.map((t) => ({ ...t, amount: fromCents(Math.round(toCents(t.amount) * factor)) }));
+  return txns.map((t) => ({ ...t, amount: fromCents(Math.round(toCents(t.amount) * (1 + rate))) }));
 }
 
 export type Totals = {

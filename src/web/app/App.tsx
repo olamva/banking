@@ -291,10 +291,7 @@ const Dashboard = ({
         .filter((t) => inRange(t, vs.from, vs.to))
         .filter((t) => matchesFilters(t, filters))
     : [];
-  // From the compared window's own year, not from a fixed year back: the year
-  // picker can put it three years away, and three years of inflation is not
-  // three times one year of it.
-  const previous = inflation && vs ? inflate(before, vs.from.slice(0, 4), year) : before;
+  const previous = inflation ? inflate(before, year) : before;
 
   /** The tiles and the changes card say which money they are comparing in. */
   const vsLabel = vs && (inflation ? `${vs.label}, in ${year} kr` : vs.label);
@@ -557,7 +554,6 @@ export const App = () => {
   const [chosen, setChosen] = useState<string | null>(initial.period);
   const [filters, setFilters] = useState<Filters>(initial.filters);
   const [chosenGrain, setChosenGrain] = useState<Grain>(initial.grain);
-  const [chosenVs, setChosenVs] = useState<string | null>(initial.vsYear);
   const [inflation, setInflation] = useState(initial.inflation);
   const [theme, onTheme] = useState<Theme>(readTheme);
 
@@ -578,10 +574,7 @@ export const App = () => {
     chosen && offered.includes(chosen)
       ? chosen
       : (months[months.length - 1] ?? "all");
-  // The comparison year goes in raw: `period` ignores one the window in view
-  // cannot compare against, so a choice held over from another period survives
-  // the trip rather than being narrowed away here.
-  const p = useMemo(() => period(active, undefined, chosenVs), [active, chosenVs]);
+  const p = useMemo(() => period(active), [active]);
 
   /**
    * The same narrowing one line down, and for the same reason: a window draws
@@ -592,17 +585,6 @@ export const App = () => {
    */
   const grains = GRAINS[p.kind];
   const grain = grains.includes(chosenGrain) ? chosenGrain : grains[0]!;
-
-  /**
-   * The year actually compared against, which `period` has already narrowed:
-   * anything that is not a year before this one has fallen back to the year
-   * back by now. Read off the window rather than off the choice, so the picker
-   * and the tiles can never disagree.
-   */
-  const compared = p.prev?.from.slice(0, 4) ?? null;
-  /** Null at the default, so an untouched window names no year — see the grain. */
-  const vsYear =
-    compared && compared !== `${Number(p.from!.slice(0, 4)) - 1}` ? compared : null;
 
   /**
    * The period goes in raw and the grain goes in derived, which looks
@@ -616,8 +598,8 @@ export const App = () => {
    * month returns to per day rather than to the default.
    */
   useEffect(
-    () => writeUrl({ view, period: chosen, grain, vsYear, inflation, filters }),
-    [view, chosen, grain, vsYear, inflation, filters],
+    () => writeUrl({ view, period: chosen, grain, inflation, filters }),
+    [view, chosen, grain, inflation, filters],
   );
 
   /**
@@ -732,8 +714,6 @@ export const App = () => {
         subcategories={subcategories}
         merchants={merchants}
         accounts={accounts}
-        compareYear={compared}
-        onCompareYear={setChosenVs}
         inflation={inflation}
         onInflation={setInflation}
         filters={filters}

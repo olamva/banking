@@ -10,7 +10,6 @@ const DEFAULT: UrlState = {
   view: 'dashboard',
   period: null,
   grain: 'running',
-  vsYear: null,
   inflation: false,
   filters: NO_FILTERS,
 };
@@ -24,7 +23,6 @@ test('a populated state round-trips, nulls included', () => {
     view: 'transactions',
     grain: 'month',
     period: '2026',
-    vsYear: '2023',
     inflation: true,
     filters: {
       categories: ['dagligvarer', 'transport'],
@@ -113,18 +111,6 @@ test('merchants survive a comma in the name', () => {
 
 /** Hiding them is the default, so only the shown state is worth a param. */
 /** Off is the default reading, so anything but the literal `1` is off. */
-/**
- * The default is the year back, which `period()` works out from the period
- * itself — writing it would record a choice nobody made, and freeze one that
- * moves with the window.
- */
-test('the compared year rides along only when one was chosen', () => {
-  assert.equal(toParams({ ...DEFAULT, vsYear: '2023' }), 'vs=2023');
-  assert.equal(fromParams(new URLSearchParams('vs=last')).vsYear, null);
-  assert.equal(fromParams(new URLSearchParams('vs=20233')).vsYear, null);
-  assert.equal(fromParams(new URLSearchParams('')).vsYear, null);
-});
-
 test('the inflation adjustment rides along only when it is on', () => {
   assert.equal(toParams({ ...DEFAULT, inflation: true }), 'infl=1');
   assert.equal(fromParams(new URLSearchParams('infl=yes')).inflation, false);
