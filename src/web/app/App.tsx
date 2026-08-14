@@ -18,6 +18,7 @@ import {
 } from "react";
 import {
   AXES,
+  NO_FILTERS,
   axisBounds,
   distinctAccounts,
   distinctCategories,
@@ -61,6 +62,11 @@ import {
 } from "./Charts.tsx";
 import { FilterBar, type View } from "./FilterBar.tsx";
 import {
+  ShortcutsDialog,
+  useShortcuts,
+  type Shortcut,
+} from "./Shortcuts.tsx";
+import {
   THEMES,
   readTheme,
   setTheme,
@@ -83,6 +89,7 @@ import {
   ErrorIcon,
   Icon,
   InfoIcon,
+  KeyboardIcon,
   LightThemeIcon,
   LoadingIcon,
   MonthlyIcon,
@@ -96,14 +103,20 @@ import { GRAINS, readUrl, writeUrl, type Grain } from "./url.ts";
  *
  * That `nth-child(odd)` is doing real work, and both ways round. A month or a
  * year normally shows eight — four spending charts (category, changes,
- * counterparties, accounts), three income ones, and the subscriptions table —
- * so the table is the eighth and pairs off with the last chart. Drop one card
- * (a year with nothing before it to change against, a period with no income,
- * one account) and the count goes odd, which is when the span has to fire.
- * Either parity happens in practice, which is why it must not be unconditional.
+ * merchants, accounts), three income ones, and the subscriptions table — so the
+ * table is the eighth and pairs off with the last chart. Drop one card (a year
+ * with nothing before it to change against, a period with no income, one
+ * account) and the count goes odd, which is when the span has to fire. Either
+ * parity happens in practice, which is why it must not be unconditional.
+ *
+ * The `min(…, 100%)` is what makes the 460 a *preference* rather than a floor.
+ * Written as a bare pixel minimum the column never goes narrower than that, so
+ * on a phone it stayed 460 wide and the whole page scrolled sideways under it.
+ * `layout.test.ts` refuses the bare form anywhere in here; the mobile rules are
+ * in CLAUDE.md.
  */
 const CARD_GRID =
-  "grid grid-cols-[repeat(auto-fit,minmax(460px,1fr))] gap-4 [&>*:last-child:nth-child(odd)]:col-span-full";
+  "grid grid-cols-[repeat(auto-fit,minmax(min(460px,100%),1fr))] gap-4 [&>*:last-child:nth-child(odd)]:col-span-full";
 
 /**
  * All time: three charts across, and the table under them.
@@ -120,7 +133,7 @@ const CARD_GRID =
  * there is always something recurring for it to hold.
  */
 const CARD_GRID_3 =
-  "grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] gap-4 [&>*:last-child]:col-span-full";
+  "grid grid-cols-[repeat(auto-fit,minmax(min(300px,100%),1fr))] gap-4 [&>*:last-child]:col-span-full";
 
 const THEME_ICONS = {
   system: SystemThemeIcon,
@@ -395,7 +408,7 @@ const Dashboard = ({
   // zero and "net" is the spend again with a minus sign; both are noise.
   return (
     <>
-      <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
+      <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(min(160px,100%),1fr))] gap-3">
         {stats.totalOut > 0 && (
           <StatTile
             label="Spent"
@@ -567,7 +580,7 @@ const TransactionsView = ({
       {/* All three, always — unlike the dashboards, which hide a tile they have
           no rows for. Here the numbers move on every keystroke, and a tile that
           vanishes at zero takes the rows below it for a ride up the page. */}
-      <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
+      <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(min(160px,100%),1fr))] gap-3">
         <StatTile label="Spent" value={fmtNOK(sums.totalOut)} />
         <StatTile label="Income" value={fmtNOK(sums.totalIn)} />
         <StatTile label="Net" value={fmtNOK(sums.net)} />
@@ -599,6 +612,7 @@ export const App = () => {
   const [filters, setFilters] = useState<Filters>(initial.filters);
   const [chosenGrain, setChosenGrain] = useState<Grain>(initial.grain);
   const [theme, onTheme] = useState<Theme>(readTheme);
+  const [help, setHelp] = useState(false);
 
   // Before anything renders a slug: the cards and the charts read the names
   // through `categoryLabel`, which has no other way to reach them. The hues go
@@ -661,6 +675,112 @@ export const App = () => {
     setView(next);
   };
 
+  /**
+   * The arrows step within the kind of period in view — months through months,
+   * years through years — because a month and the year holding it are two
+   * lengths of window rather than two neighbours in one list. All time has
+   * nothing either side of it. Clamped at both ends: the archive stops.
+   */
+  const steps = p.kind === "month" ? months : p.kind === "year" ? years : [];
+  const step = (by: number) => {
+    const next = steps[steps.indexOf(active) + by];
+    if (next) setChosen(next);
+  };
+
+  /**
+   * The other axis: `A`, `Y` and `M` change how long the window is, where the
+   * arrows move it. All time holds no year to step through, so without these
+   * the arrows are a dead end — `A` went in and nothing came back out.
+   *
+   * Which year: the one in view, and the latest on record from all time, which
+   * is where the page opens anyway. `M` then takes the last month of it, so
+   * `Y` `M` from all time lands where the page started.
+   */
+  const inView = active.slice(0, 4);
+  const year = years.includes(inView) ? inView : years[years.length - 1];
+  const lastMonthOf = (y: string) =>
+    months.filter((m) => m.startsWith(`${y}-`)).at(-1);
+
+  /**
+   * What the keys do, and what the dialog prints — one list for both, so a key
+   * that works is a key that is listed. `/` and ⌘F are listed here and bound on
+   * the search box, which is the only thing that can reach it.
+   */
+  const shortcuts: Shortcut[] = [
+    { keys: ["d"], cap: "D", what: "Dashboard", run: () => changeView("dashboard") },
+    {
+      keys: ["t"],
+      cap: "T",
+      what: "Transactions",
+      run: () => changeView("transactions"),
+    },
+    {
+      keys: ["ArrowLeft"],
+      cap: "←",
+      what: "The month or year before",
+      run: () => step(-1),
+    },
+    {
+      keys: ["ArrowRight"],
+      cap: "→",
+      what: "The month or year after",
+      run: () => step(1),
+    },
+    { keys: ["a"], cap: "A", what: "All time", run: () => setChosen("all") },
+    {
+      keys: ["y"],
+      cap: "Y",
+      what: "The whole year — the latest, from all time",
+      run: () => year && setChosen(year),
+    },
+    {
+      keys: ["m"],
+      cap: "M",
+      what: "The last month of that year",
+      run: () => {
+        const m = year && lastMonthOf(year);
+        if (m) setChosen(m);
+      },
+    },
+    {
+      keys: ["g"],
+      cap: "G",
+      what: "Next grain on the spending chart",
+      run: () =>
+        setChosenGrain(grains[(grains.indexOf(grain) + 1) % grains.length]!),
+    },
+    {
+      keys: ["e"],
+      cap: "E",
+      what: "Show or hide excluded rows",
+      run: () => setFilters((f) => ({ ...f, showExcluded: !f.showExcluded })),
+    },
+    {
+      keys: ["r"],
+      cap: "R",
+      what: "Reset every filter",
+      run: () => setFilters(NO_FILTERS),
+    },
+    {
+      keys: ["c"],
+      cap: "C",
+      what: "Next theme",
+      run: () => {
+        const next = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length]!;
+        onTheme(next);
+        setTheme(next);
+      },
+    },
+    { cap: "/ ⌘F", what: "Search the transactions table" },
+    {
+      keys: ["?"],
+      cap: "?",
+      what: "This list",
+      run: () => setHelp(true),
+    },
+  ];
+  useShortcuts(shortcuts);
+
   // Chips for the period in view, not for all time — a category last spent in
   // January is not a filter March has any use for. Narrowed by the period only:
   // narrowing by the other filters too would let the search box empty the rail.
@@ -717,9 +837,19 @@ export const App = () => {
   );
 
   return (
-    <div className="mx-auto max-w-295 p-6">
+    <div className="mx-auto max-w-295 p-3 sm:p-6">
       <header className="mb-4 flex flex-wrap items-baseline justify-between gap-4">
         <h1 className="text-xl font-semibold">Spending dashboard</h1>
+        <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setHelp(true)}
+          aria-label="Keyboard shortcuts"
+          className="flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-ink-soft"
+        >
+          <Icon aria-hidden icon={KeyboardIcon} size={14} />
+          Shortcuts
+        </button>
         {/* Three named options rather than a cycling button: a toggle whose next
             state you cannot see is a toggle you press twice. The icon names the
             option picked — "system" is the machine, not the way it resolved. */}
@@ -748,7 +878,14 @@ export const App = () => {
             ))}
           </select>
         </div>
+        </div>
       </header>
+
+      <ShortcutsDialog
+        shortcuts={shortcuts}
+        open={help}
+        onClose={() => setHelp(false)}
+      />
 
       <FilterBar
         view={view}
