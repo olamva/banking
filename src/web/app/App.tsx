@@ -654,9 +654,12 @@ export const App = () => {
   // first render after the fetch lands is already on the right month. Anything
   // the picker does not offer falls back to it too, so a hand-edited URL cannot
   // leave the select showing one period while the page renders another.
+  // A hand-picked range is offered by the date boxes rather than by a list, so
+  // it is checked by shape instead — `period` reads anything it does not
+  // recognise as all time, so an unparseable one still falls back.
   const offered = [...months, ...years, "all"];
   const active =
-    chosen && offered.includes(chosen)
+    chosen && (offered.includes(chosen) || period(chosen).kind === "custom")
       ? chosen
       : (months[months.length - 1] ?? "all");
   const p = useMemo(() => period(active), [active]);
@@ -933,6 +936,8 @@ export const App = () => {
         years={years}
         period={active}
         kind={p.kind}
+        from={p.from}
+        to={p.to}
         onPeriod={setChosen}
         categories={categories}
         subcategories={subcategories}
