@@ -8,8 +8,8 @@
  * exact code `node --test` pins rather than a hand-synced copy that drifts the
  * first time a rule changes. Keep it free of `node:` imports for that reason.
  */
-import { merchantOf } from './select.ts';
-import type { Categorized } from './types.ts';
+import { merchantOf } from "./select.ts";
+import type { Categorized } from "./types.ts";
 
 export type CategoryTotal = {
   category: string;
@@ -107,7 +107,9 @@ function allocateShares(parts: number[]): number[] {
 }
 
 /** Totals and shares for one grouping, biggest first. The label is the caller's to name. */
-function slices(byKey: Map<string, number>): { key: string; total: number; share: number }[] {
+function slices(
+  byKey: Map<string, number>,
+): { key: string; total: number; share: number }[] {
   const keys = [...byKey.keys()];
   const cents = keys.map((k) => byKey.get(k)!);
   const shares = allocateShares(cents);
@@ -116,8 +118,14 @@ function slices(byKey: Map<string, number>): { key: string; total: number; share
     .sort((a, b) => b.total - a.total);
 }
 
-const categoriesFromCents = (byCategory: Map<string, number>): CategoryTotal[] =>
-  slices(byCategory).map(({ key, total, share }) => ({ category: key, total, share }));
+const categoriesFromCents = (
+  byCategory: Map<string, number>,
+): CategoryTotal[] =>
+  slices(byCategory).map(({ key, total, share }) => ({
+    category: key,
+    total,
+    share,
+  }));
 
 /**
  * A subcategory's spending, and its share **of its own category** rather than of
@@ -139,7 +147,8 @@ export type SubcategoryTotal = {
 };
 
 /** The `/` cannot collide: no bank slug contains one, and `splitCategory` would have split it. */
-const SUB_KEY = (category: string, sub: string | null) => `${category}/${sub ?? ''}`;
+const SUB_KEY = (category: string, sub: string | null) =>
+  `${category}/${sub ?? ""}`;
 
 /**
  * Grouped by parent and shared within it, so every parent's slices sum to 1.
@@ -147,27 +156,42 @@ const SUB_KEY = (category: string, sub: string | null) => `${category}/${sub ?? 
  * Sorted by category total first so a caller can walk it in the same order as
  * `categories` without re-sorting, then by subcategory total inside each.
  */
-function subcategoriesFromCents(bySub: Map<string, number>): SubcategoryTotal[] {
+function subcategoriesFromCents(
+  bySub: Map<string, number>,
+): SubcategoryTotal[] {
   const byParent = new Map<string, Map<string, number>>();
   for (const [key, cents] of bySub) {
-    const cut = key.indexOf('/');
+    const cut = key.indexOf("/");
     const category = key.slice(0, cut);
-    (byParent.get(category) ?? byParent.set(category, new Map()).get(category)!).set(key.slice(cut + 1), cents);
+    (
+      byParent.get(category) ?? byParent.set(category, new Map()).get(category)!
+    ).set(key.slice(cut + 1), cents);
   }
   const out: SubcategoryTotal[] = [];
   for (const [category, subs] of byParent) {
     for (const { key, total, share } of slices(subs)) {
-      out.push({ category, subcategory: key === '' ? null : key, total, share });
+      out.push({
+        category,
+        subcategory: key === "" ? null : key,
+        total,
+        share,
+      });
     }
   }
-  const parentTotal = (c: string) => out.reduce((n, x) => n + (x.category === c ? x.total : 0), 0);
+  const parentTotal = (c: string) =>
+    out.reduce((n, x) => n + (x.category === c ? x.total : 0), 0);
   return out.sort(
-    (a, b) => parentTotal(b.category) - parentTotal(a.category) || b.total - a.total,
+    (a, b) =>
+      parentTotal(b.category) - parentTotal(a.category) || b.total - a.total,
   );
 }
 
 const accountsFromCents = (byAccount: Map<string, number>): AccountTotal[] =>
-  slices(byAccount).map(({ key, total, share }) => ({ account: key, total, share }));
+  slices(byAccount).map(({ key, total, share }) => ({
+    account: key,
+    total,
+    share,
+  }));
 
 /**
  * One direction's breakdowns. The two sides are aggregated identically and kept
@@ -257,35 +281,51 @@ export function totals(txns: Categorized[]): Totals {
  */
 function topCounterparties(
   txns: Categorized[],
-  dir: 'in' | 'out',
+  dir: "in" | "out",
   limit = 25,
 ): CounterpartyTotal[] {
   const byCp = new Map<string, { cents: number; count: number }>();
   for (const t of txns) {
     if (t.excluded || t.counterparty === null) continue;
-    if (dir === 'out' ? t.amount >= 0 : t.amount <= 0) continue;
+    if (dir === "out" ? t.amount >= 0 : t.amount <= 0) continue;
     const entry = byCp.get(t.counterparty) ?? { cents: 0, count: 0 };
     entry.cents += Math.abs(toCents(t.amount));
     entry.count++;
     byCp.set(t.counterparty, entry);
   }
   return [...byCp.entries()]
-    .map(([counterparty, { cents, count }]) => ({ counterparty, total: fromCents(cents), count }))
+    .map(([counterparty, { cents, count }]) => ({
+      counterparty,
+      total: fromCents(cents),
+      count,
+    }))
     .sort((a, b) => b.total - a.total)
     .slice(0, limit);
 }
 
-export function monthStats(month: string, txns: Categorized[], previous?: Categorized[]): MonthStats {
+export function monthStats(
+  month: string,
+  txns: Categorized[],
+  previous?: Categorized[],
+): MonthStats {
   const agg = aggregateCents(txns);
   const prevAgg = previous ? aggregateCents(previous) : null;
 
   const categoryDeltas: CategoryDelta[] = [];
   if (prevAgg) {
-    const names = new Set([...agg.out.categoryCents.keys(), ...prevAgg.out.categoryCents.keys()]);
+    const names = new Set([
+      ...agg.out.categoryCents.keys(),
+      ...prevAgg.out.categoryCents.keys(),
+    ]);
     for (const category of names) {
       const current = fromCents(agg.out.categoryCents.get(category) ?? 0);
       const prev = fromCents(prevAgg.out.categoryCents.get(category) ?? 0);
-      categoryDeltas.push({ category, current, previous: prev, delta: current - prev });
+      categoryDeltas.push({
+        category,
+        current,
+        previous: prev,
+        delta: current - prev,
+      });
     }
     categoryDeltas.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
   }
@@ -297,12 +337,14 @@ export function monthStats(month: string, txns: Categorized[], previous?: Catego
     net: fromCents(agg.in.cents - agg.out.cents),
     categories: categoriesFromCents(agg.out.categoryCents),
     subcategories: subcategoriesFromCents(agg.out.subCents),
-    topCounterparties: topCounterparties(txns, 'out'),
+    topCounterparties: topCounterparties(txns, "out"),
     incomeCategories: categoriesFromCents(agg.in.categoryCents),
     incomeSubcategories: subcategoriesFromCents(agg.in.subCents),
-    topIncomeCounterparties: topCounterparties(txns, 'in'),
+    topIncomeCounterparties: topCounterparties(txns, "in"),
     incomeAccounts: accountsFromCents(agg.in.accountCents),
-    subscriptions: txns.filter((t) => !t.excluded && t.isSubscription).sort(byDate),
+    subscriptions: txns
+      .filter((t) => !t.excluded && t.isSubscription)
+      .sort(byDate),
     recurring: txns.filter((t) => !t.excluded && t.isRecurring).sort(byDate),
     categoryDeltas,
     delta: prevAgg
@@ -310,7 +352,9 @@ export function monthStats(month: string, txns: Categorized[], previous?: Catego
           totalIn: fromCents(agg.in.cents - prevAgg.in.cents),
           totalOut: fromCents(agg.out.cents - prevAgg.out.cents),
           net: fromCents(
-            agg.in.cents - agg.out.cents - (prevAgg.in.cents - prevAgg.out.cents),
+            agg.in.cents -
+              agg.out.cents -
+              (prevAgg.in.cents - prevAgg.out.cents),
           ),
         }
       : null,
@@ -320,7 +364,9 @@ export function monthStats(month: string, txns: Categorized[], previous?: Catego
 }
 
 /** Groups by month, ready for `yearStats`. */
-export function byMonth(txns: Categorized[]): { month: string; txns: Categorized[] }[] {
+export function byMonth(
+  txns: Categorized[],
+): { month: string; txns: Categorized[] }[] {
   const buckets = new Map<string, Categorized[]>();
   for (const t of txns) {
     const month = t.date.slice(0, 7);
@@ -328,7 +374,9 @@ export function byMonth(txns: Categorized[]): { month: string; txns: Categorized
     if (bucket) bucket.push(t);
     else buckets.set(month, [t]);
   }
-  return [...buckets.entries()].sort().map(([month, txns]) => ({ month, txns }));
+  return [...buckets.entries()]
+    .sort()
+    .map(([month, txns]) => ({ month, txns }));
 }
 
 /**
@@ -344,7 +392,11 @@ export type SeriesPoint = {
 
 const point = (at: string, txns: Categorized[]): SeriesPoint => {
   const agg = aggregateCents(txns);
-  return { at, totalIn: fromCents(agg.in.cents), totalOut: fromCents(agg.out.cents) };
+  return {
+    at,
+    totalIn: fromCents(agg.in.cents),
+    totalOut: fromCents(agg.out.cents),
+  };
 };
 
 /**
@@ -359,7 +411,7 @@ const point = (at: string, txns: Categorized[]): SeriesPoint => {
 const eachDay = (from: string, to: string): string[] => {
   const out: string[] = [];
   const cursor = new Date(`${from}T00:00:00Z`);
-  for (let at = from; at <= to; ) {
+  for (let at = from; at <= to;) {
     out.push(at);
     cursor.setUTCDate(cursor.getUTCDate() + 1);
     at = cursor.toISOString().slice(0, 10);
@@ -377,7 +429,11 @@ const eachDay = (from: string, to: string): string[] => {
  * record stops every weekend. The range comes from the period rather than from
  * the rows, so a filter narrows the lines without shortening the axis.
  */
-export function dailySeries(txns: Categorized[], from: string, to: string): SeriesPoint[] {
+export function dailySeries(
+  txns: Categorized[],
+  from: string,
+  to: string,
+): SeriesPoint[] {
   const buckets = new Map<string, Categorized[]>();
   for (const t of txns) {
     const bucket = buckets.get(t.date);
@@ -411,7 +467,11 @@ export function cumulative(series: SeriesPoint[]): SeriesPoint[] {
   return series.map((p) => {
     inCents += toCents(p.totalIn);
     outCents += toCents(p.totalOut);
-    return { at: p.at, totalIn: fromCents(inCents), totalOut: fromCents(outCents) };
+    return {
+      at: p.at,
+      totalIn: fromCents(inCents),
+      totalOut: fromCents(outCents),
+    };
   });
 }
 
@@ -432,7 +492,7 @@ export type YearStats = {
 
 /** `2026-08` -> a single sortable number, so month arithmetic needs no Date and no year wrap. */
 const monthIndex = (month: string): number => {
-  const [y, m] = month.split('-').map(Number);
+  const [y, m] = month.split("-").map(Number);
   return y! * 12 + (m! - 1);
 };
 
@@ -473,7 +533,9 @@ export function withGaps(series: SeriesPoint[]): (SeriesPoint | null)[] {
  *
  * Null under two points, because a line through one point is every line.
  */
-export function spendTrend(dense: (SeriesPoint | null)[]): { slope: number; intercept: number } | null {
+export function spendTrend(
+  dense: (SeriesPoint | null)[],
+): { slope: number; intercept: number } | null {
   const pts = dense.flatMap((p, x) => (p ? [{ x, y: p.totalOut }] : []));
   if (pts.length < 2) return null;
   const mx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
@@ -484,7 +546,10 @@ export function spendTrend(dense: (SeriesPoint | null)[]): { slope: number; inte
   return { slope, intercept: my - slope * mx };
 }
 
-export function yearStats(year: string, monthsTxns: { month: string; txns: Categorized[] }[]): YearStats {
+export function yearStats(
+  year: string,
+  monthsTxns: { month: string; txns: Categorized[] }[],
+): YearStats {
   const sorted = [...monthsTxns].sort((a, b) => a.month.localeCompare(b.month));
 
   const months: MonthSummary[] = sorted.map(({ month, txns }) => {
@@ -494,7 +559,10 @@ export function yearStats(year: string, monthsTxns: { month: string; txns: Categ
       totalIn: fromCents(agg.in.cents),
       totalOut: fromCents(agg.out.cents),
       net: fromCents(agg.in.cents - agg.out.cents),
-      excluded: { count: agg.excludedCount, total: fromCents(agg.excludedCents) },
+      excluded: {
+        count: agg.excludedCount,
+        total: fromCents(agg.excludedCents),
+      },
     };
   });
 

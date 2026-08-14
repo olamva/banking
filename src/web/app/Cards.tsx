@@ -10,7 +10,10 @@ import {
   type ReactNode,
 } from "react";
 import { merchantOf, subcategoryOf } from "../../core/select.ts";
-import { subscriptionGroups, type SubscriptionGroup } from "../../core/stats.ts";
+import {
+  subscriptionGroups,
+  type SubscriptionGroup,
+} from "../../core/stats.ts";
 import type { Categorized } from "../../core/types.ts";
 import {
   ID_FIELD,
@@ -131,7 +134,9 @@ interface MeterTileProps {
 export const MeterTile = ({ label, share, note }: MeterTileProps) => (
   <div className="rounded-[10px] border border-line bg-surface px-4 py-3.5">
     <div className="text-xs text-ink-soft">{label}</div>
-    <div className="mt-1 text-[22px] font-semibold sm:text-[26px]">{fmtPct(share)}</div>
+    <div className="mt-1 text-[22px] font-semibold sm:text-[26px]">
+      {fmtPct(share)}
+    </div>
     <div className="mt-2 h-2.5 overflow-hidden rounded-md bg-series-1-track">
       <div
         className="h-full rounded-md bg-series-1"
@@ -451,7 +456,8 @@ const TXN_SORTS = {
     subcategoryLabel(a.category, a.subcategory).localeCompare(
       subcategoryLabel(b.category, b.subcategory),
     ),
-  account: (a: Categorized, b: Categorized) => a.account.localeCompare(b.account),
+  account: (a: Categorized, b: Categorized) =>
+    a.account.localeCompare(b.account),
   amount: (a: Categorized, b: Categorized) => a.amount - b.amount,
 };
 
@@ -471,7 +477,12 @@ interface SearchBoxProps {
   hotkey?: boolean;
 }
 
-const SearchBox = ({ value, onChange, placeholder, hotkey }: SearchBoxProps) => {
+const SearchBox = ({
+  value,
+  onChange,
+  placeholder,
+  hotkey,
+}: SearchBoxProps) => {
   const box = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -583,7 +594,10 @@ export const SubscriptionsCard = ({
   if (groups.length === 0) return null;
 
   return (
-    <Card title={`Subscriptions & recurring (${groups.length})`} icon={RecurringIcon}>
+    <Card
+      title={`Subscriptions & recurring (${groups.length})`}
+      icon={RecurringIcon}
+    >
       <SearchBox
         value={search}
         onChange={setSearch}
@@ -607,7 +621,11 @@ export const SubscriptionsCard = ({
               min: true,
               sizer: AMOUNT_SIZE,
             }),
-            head("Total", "total", { num: true, min: true, sizer: AMOUNT_SIZE }),
+            head("Total", "total", {
+              num: true,
+              min: true,
+              sizer: AMOUNT_SIZE,
+            }),
             head("Last", "last", { min: true }),
           ]}
           rows={sorted.map((g) => [
@@ -750,7 +768,7 @@ const TxnDialog = ({ txn, onClose }: TxnDialogProps) => {
             <div className={ROW}>
               <dt className="shrink-0 text-ink-soft">Bank category</dt>
               <dd className="min-w-0 text-right">
-                <div className="text-sm break-words">{bank[0]}</div>
+                <div className="text-sm wrap-break-word">{bank[0]}</div>
                 {/* The slug in the shape a rule is written in, monospaced
                     because that is what it is — five fields said this, and four
                     of them were saying it twice. */}
@@ -767,7 +785,7 @@ const TxnDialog = ({ txn, onClose }: TxnDialogProps) => {
                   still there to select and copy — `min-w-0` because a flex item
                   will not shrink below its content without it. */}
               <dd
-                className={`min-w-0 text-right ${name === ID_FIELD ? "truncate" : "break-words"}`}
+                className={`min-w-0 text-right ${name === ID_FIELD ? "truncate" : "wrap-break-word"}`}
                 title={name === ID_FIELD ? value : undefined}
               >
                 {value}

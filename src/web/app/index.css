@@ -1,4 +1,4 @@
-@import 'tailwindcss';
+@import "tailwindcss";
 
 /**
  * The palette is Tailwind theme variables, so `bg-surface` compiles to
@@ -50,7 +50,7 @@
   }
 
   @media (prefers-color-scheme: dark) {
-    html:not([data-theme='light']) {
+    html:not([data-theme="light"]) {
       color-scheme: dark;
       --color-page: #0d0d0d;
       --color-surface: #1a1a19;
@@ -71,7 +71,7 @@
     }
   }
 
-  html[data-theme='dark'] {
+  html[data-theme="dark"] {
     color-scheme: dark;
     --color-page: #0d0d0d;
     --color-surface: #1a1a19;
@@ -94,7 +94,11 @@
   body {
     background-color: var(--color-page);
     color: var(--color-ink);
-    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-family:
+      system-ui,
+      -apple-system,
+      "Segoe UI",
+      sans-serif;
   }
 
   /*
@@ -104,7 +108,7 @@
   button:not(:disabled),
   summary,
   select,
-  label:has(input[type='checkbox']) {
+  label:has(input[type="checkbox"]) {
     cursor: pointer;
   }
 
@@ -138,7 +142,7 @@
   }
 
   /* The clear "x" of a search box lives in the shadow tree, out of reach of a class. */
-  input[type='search']::-webkit-search-cancel-button {
+  input[type="search"]::-webkit-search-cancel-button {
     cursor: pointer;
   }
 }
@@ -158,7 +162,7 @@
  * taking pinch-zoom away from everyone.
  */
 @media (max-width: 40rem) {
-  input:not([type='checkbox']):not([type='radio']),
+  input:not([type="checkbox"]):not([type="radio"]),
   select,
   textarea {
     font-size: 16px;

@@ -22,9 +22,9 @@ import {
   axisBounds,
   distinctAccounts,
   distinctCategories,
-  distinctSubcategories,
   distinctMerchants,
   distinctMonths,
+  distinctSubcategories,
   distinctYears,
   inRange,
   matchesFilters,
@@ -61,11 +61,7 @@ import {
   type Bucket,
 } from "./Charts.tsx";
 import { FilterBar, type View } from "./FilterBar.tsx";
-import {
-  ShortcutsDialog,
-  useShortcuts,
-  type Shortcut,
-} from "./Shortcuts.tsx";
+import { ShortcutsDialog, useShortcuts, type Shortcut } from "./Shortcuts.tsx";
 import {
   THEMES,
   readTheme,
@@ -308,7 +304,8 @@ const Dashboard = ({
   const { from, to } = axisBounds(all, p);
 
   const build = (rows: Categorized[], a: string, b: string) => {
-    const raw = bucket === "day" ? dailySeries(rows, a, b) : monthlySeries(rows);
+    const raw =
+      bucket === "day" ? dailySeries(rows, a, b) : monthlySeries(rows);
     return running ? cumulative(raw) : raw;
   };
 
@@ -334,7 +331,10 @@ const Dashboard = ({
         }));
       // A category with one named child reads as that child, and filters as it —
       // the same rows either way, under the more useful of the two names.
-      const lone = subs.length === 1 && subs[0]!.key.split("/")[1] !== "" ? subs[0]! : null;
+      const lone =
+        subs.length === 1 && subs[0]!.key.split("/")[1] !== ""
+          ? subs[0]!
+          : null;
       return {
         // The slug rides along so a click needs no reverse lookup — two slugs can
         // tidy to the same display name, and the map back could not tell them apart.
@@ -345,7 +345,11 @@ const Dashboard = ({
       };
     });
   const cpBars = (list: typeof stats.topCounterparties) =>
-    list.map((c) => ({ label: c.counterparty, total: c.total, count: c.count }));
+    list.map((c) => ({
+      label: c.counterparty,
+      total: c.total,
+      count: c.count,
+    }));
 
   const cats = catBars(stats.categories, stats.subcategories);
   const cps = cpBars(stats.topCounterparties);
@@ -413,25 +417,39 @@ const Dashboard = ({
           <StatTile
             label="Spent"
             value={fmtNOK(stats.totalOut)}
-            sub={yearly ? `${fmtNOK(yearly.averageMonth.totalOut)} / month` : undefined}
+            sub={
+              yearly
+                ? `${fmtNOK(yearly.averageMonth.totalOut)} / month`
+                : undefined
+            }
             vs={vs?.label}
-            delta={vs ? deltaInfo(stats.totalOut, prev.totalOut, false) : undefined}
+            delta={
+              vs ? deltaInfo(stats.totalOut, prev.totalOut, false) : undefined
+            }
           />
         )}
         {stats.totalIn > 0 && (
           <StatTile
             label="Income"
             value={fmtNOK(stats.totalIn)}
-            sub={yearly ? `${fmtNOK(yearly.averageMonth.totalIn)} / month` : undefined}
+            sub={
+              yearly
+                ? `${fmtNOK(yearly.averageMonth.totalIn)} / month`
+                : undefined
+            }
             vs={vs?.label}
-            delta={vs ? deltaInfo(stats.totalIn, prev.totalIn, true) : undefined}
+            delta={
+              vs ? deltaInfo(stats.totalIn, prev.totalIn, true) : undefined
+            }
           />
         )}
         {stats.totalIn > 0 && stats.totalOut > 0 && (
           <StatTile
             label="Net"
             value={fmtNOK(stats.net)}
-            sub={yearly ? `${fmtNOK(yearly.averageMonth.net)} / month` : undefined}
+            sub={
+              yearly ? `${fmtNOK(yearly.averageMonth.net)} / month` : undefined
+            }
             vs={vs?.label}
             delta={vs ? deltaInfo(stats.net, prev.net, true) : undefined}
           />
@@ -447,7 +465,11 @@ const Dashboard = ({
         <div className="mb-4">
           <Card
             title={`${anyIncome ? (anySpend ? "Income & spend" : "Income") : "Spending"}${
-              running ? ", running total" : grain === "day" ? " by day" : " by month"
+              running
+                ? ", running total"
+                : grain === "day"
+                  ? " by day"
+                  : " by month"
             }`}
             icon={MonthlyIcon}
             action={
@@ -493,10 +515,7 @@ const Dashboard = ({
         )}
 
         {!single && deltas.length > 0 && (
-          <Card
-            title={`Biggest changes vs ${vs?.label}`}
-            icon={ChangesIcon}
-          >
+          <Card title={`Biggest changes vs ${vs?.label}`} icon={ChangesIcon}>
             <DivergingBars deltas={deltas} onPick={onCategory} />
           </Card>
         )}
@@ -532,7 +551,11 @@ const Dashboard = ({
 
         {inAccounts.length > 1 && (
           <Card title="Income by account" icon={AccountIcon}>
-            <HorizontalBars items={inAccounts} onPick={onAccount} tone="income" />
+            <HorizontalBars
+              items={inAccounts}
+              onPick={onAccount}
+              tone="income"
+            />
           </Card>
         )}
 
@@ -707,7 +730,12 @@ export const App = () => {
    * the search box, which is the only thing that can reach it.
    */
   const shortcuts: Shortcut[] = [
-    { keys: ["d"], cap: "D", what: "Dashboard", run: () => changeView("dashboard") },
+    {
+      keys: ["d"],
+      cap: "D",
+      what: "Dashboard",
+      run: () => changeView("dashboard"),
+    },
     {
       keys: ["t"],
       cap: "T",
@@ -811,27 +839,38 @@ export const App = () => {
   const subcategories = useMemo(
     () =>
       [
-        ...new Set([...distinctSubcategories(inPeriod), ...filters.categories.filter((c) => c.includes("/"))]),
+        ...new Set([
+          ...distinctSubcategories(inPeriod),
+          ...filters.categories.filter((c) => c.includes("/")),
+        ]),
       ].sort(
         (a, b) =>
-          a.slice(0, a.indexOf("/")).localeCompare(b.slice(0, b.indexOf("/"))) ||
-          subcategoryLabel(a.slice(0, a.indexOf("/")), a.slice(a.indexOf("/") + 1) || null).localeCompare(
-            subcategoryLabel(b.slice(0, b.indexOf("/")), b.slice(b.indexOf("/") + 1) || null),
+          a
+            .slice(0, a.indexOf("/"))
+            .localeCompare(b.slice(0, b.indexOf("/"))) ||
+          subcategoryLabel(
+            a.slice(0, a.indexOf("/")),
+            a.slice(a.indexOf("/") + 1) || null,
+          ).localeCompare(
+            subcategoryLabel(
+              b.slice(0, b.indexOf("/")),
+              b.slice(b.indexOf("/") + 1) || null,
+            ),
           ),
       ),
     [inPeriod, filters.categories],
   );
   const merchants = useMemo(
     () =>
-      [
-        ...new Set([...distinctMerchants(inPeriod), ...filters.merchants]),
-      ].sort((a, b) => a.localeCompare(b)),
+      [...new Set([...distinctMerchants(inPeriod), ...filters.merchants])].sort(
+        (a, b) => a.localeCompare(b),
+      ),
     [inPeriod, filters.merchants],
   );
   const accounts = useMemo(
     () =>
-      [...new Set([...distinctAccounts(inPeriod), ...filters.accounts])].sort((a, b) =>
-        a.localeCompare(b),
+      [...new Set([...distinctAccounts(inPeriod), ...filters.accounts])].sort(
+        (a, b) => a.localeCompare(b),
       ),
     [inPeriod, filters.accounts],
   );
@@ -841,43 +880,43 @@ export const App = () => {
       <header className="mb-4 flex flex-wrap items-baseline justify-between gap-4">
         <h1 className="text-xl font-semibold">Spending dashboard</h1>
         <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => setHelp(true)}
-          aria-label="Keyboard shortcuts"
-          className="flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-ink-soft"
-        >
-          <Icon aria-hidden icon={KeyboardIcon} size={14} />
-          Shortcuts
-        </button>
-        {/* Three named options rather than a cycling button: a toggle whose next
+          <button
+            type="button"
+            onClick={() => setHelp(true)}
+            aria-label="Keyboard shortcuts"
+            className="flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-ink-soft"
+          >
+            <Icon aria-hidden icon={KeyboardIcon} size={14} />
+            Shortcuts
+          </button>
+          {/* Three named options rather than a cycling button: a toggle whose next
             state you cannot see is a toggle you press twice. The icon names the
             option picked — "system" is the machine, not the way it resolved. */}
-        <div className="relative">
-          <Icon
-            aria-hidden
-            icon={THEME_ICONS[theme]}
-            size={14}
-            className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-ink-soft"
-          />
-          <select
-            className="w-full appearance-none rounded-md border border-line bg-surface py-1.5 pr-3 pl-8 text-xs text-ink-soft"
-            value={theme}
-            onChange={(e) => {
-              const next = e.target.value as Theme;
-              onTheme(next);
-              setTheme(next);
-            }}
-            aria-label="Theme"
-          >
-            {/* Capitalised here, not in CSS — a native select menu ignores text-transform. */}
-            {THEMES.map((t) => (
-              <option key={t} value={t}>
-                {t[0]!.toUpperCase() + t.slice(1)}
-              </option>
-            ))}
-          </select>
-        </div>
+          <div className="relative">
+            <Icon
+              aria-hidden
+              icon={THEME_ICONS[theme]}
+              size={14}
+              className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-ink-soft"
+            />
+            <select
+              className="w-full appearance-none rounded-md border border-line bg-surface py-1.5 pr-3 pl-8 text-xs text-ink-soft"
+              value={theme}
+              onChange={(e) => {
+                const next = e.target.value as Theme;
+                onTheme(next);
+                setTheme(next);
+              }}
+              aria-label="Theme"
+            >
+              {/* Capitalised here, not in CSS — a native select menu ignores text-transform. */}
+              {THEMES.map((t) => (
+                <option key={t} value={t}>
+                  {t[0]!.toUpperCase() + t.slice(1)}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </header>
 
@@ -936,13 +975,15 @@ export const App = () => {
           onGrain={setChosenGrain}
         />
       )}
-      {load.status === "ready" && txns.length > 0 && view === "transactions" && (
-        <TransactionsView
-          rows={inPeriod}
-          filters={filters}
-          onFilters={setFilters}
-        />
-      )}
+      {load.status === "ready" &&
+        txns.length > 0 &&
+        view === "transactions" && (
+          <TransactionsView
+            rows={inPeriod}
+            filters={filters}
+            onFilters={setFilters}
+          />
+        )}
     </div>
   );
 };

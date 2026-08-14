@@ -2,10 +2,7 @@
   "id": "512c6889",
   "ts": "2026-08-09T08:29:03+00:00",
   "text": "A fresh worktree can't run pnpm test: secrets/ .env.local data/ accounts.json are all gitignored, so node --test dies with ENOENT on secrets/localhost-key.pem until you hand-link each one from the main checkout",
-  "tags": [
-    "tests",
-    "worktree"
-  ],
+  "tags": ["tests", "worktree"],
   "who": "agent",
   "where": "/Users/olavassbotn/Documents/banking/.claude/worktrees/assemble-features"
 }

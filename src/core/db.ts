@@ -3,8 +3,8 @@
  * and disposable: deleting it must never lose anything, and `rebuild` must
  * reconstruct it from whatever the caller re-derives from data/raw/ alone.
  */
-import { DatabaseSync } from 'node:sqlite';
-import type { Categorized } from './types.ts';
+import { DatabaseSync } from "node:sqlite";
+import type { Categorized } from "./types.ts";
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS transactions (
@@ -40,7 +40,7 @@ function monthOf(date: string): string {
   return date.slice(0, 7);
 }
 
-export function openDb(path = 'data/banking.db'): DatabaseSync {
+export function openDb(path = "data/banking.db"): DatabaseSync {
   const db = new DatabaseSync(path);
   db.exec(SCHEMA);
   return db;
@@ -103,12 +103,12 @@ function bindParams(row: Categorized) {
 
 export function upsertMany(db: DatabaseSync, rows: Categorized[]): void {
   const stmt = db.prepare(UPSERT);
-  db.exec('BEGIN');
+  db.exec("BEGIN");
   try {
     for (const row of rows) stmt.run(...bindParams(row));
-    db.exec('COMMIT');
+    db.exec("COMMIT");
   } catch (err) {
-    db.exec('ROLLBACK');
+    db.exec("ROLLBACK");
     throw err;
   }
 }
@@ -162,9 +162,15 @@ function toCategorized(row: Row): Categorized {
 }
 
 /** Inclusive on both ends. Months are YYYY-MM, so string comparison sorts correctly. */
-export function queryRange(db: DatabaseSync, fromMonth: string, toMonth: string): Categorized[] {
+export function queryRange(
+  db: DatabaseSync,
+  fromMonth: string,
+  toMonth: string,
+): Categorized[] {
   const rows = db
-    .prepare('SELECT * FROM transactions WHERE month >= ? AND month <= ? ORDER BY month, date, id')
+    .prepare(
+      "SELECT * FROM transactions WHERE month >= ? AND month <= ? ORDER BY month, date, id",
+    )
     .all(fromMonth, toMonth) as unknown as Row[];
   return rows.map(toCategorized);
 }
@@ -175,14 +181,14 @@ export function queryRange(db: DatabaseSync, fromMonth: string, toMonth: string)
  * month) — the caller re-derives `rows` from data/raw/ before calling this.
  */
 export function rebuild(db: DatabaseSync, rows: Categorized[]): void {
-  db.exec('BEGIN');
+  db.exec("BEGIN");
   try {
-    db.exec('DELETE FROM transactions');
+    db.exec("DELETE FROM transactions");
     const stmt = db.prepare(UPSERT);
     for (const row of rows) stmt.run(...bindParams(row));
-    db.exec('COMMIT');
+    db.exec("COMMIT");
   } catch (err) {
-    db.exec('ROLLBACK');
+    db.exec("ROLLBACK");
     throw err;
   }
 }

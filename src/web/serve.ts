@@ -19,12 +19,12 @@
  * counted so a dead token did not retry forever. Not having the path at all is
  * the same guarantee for none of the code.
  */
-import { createServer } from 'node:http';
-import { existsSync, readFileSync } from 'node:fs';
-import { openDb, queryRange } from '../core/db.ts';
-import { DB_FILE } from '../core/pipeline.ts';
+import { existsSync, readFileSync } from "node:fs";
+import { createServer } from "node:http";
+import { openDb, queryRange } from "../core/db.ts";
+import { DB_FILE } from "../core/pipeline.ts";
 
-const CATEGORY_NAMES = 'rules/categories.json';
+const CATEGORY_NAMES = "rules/categories.json";
 
 /**
  * Every row, plus the names for the category slugs that are ours to name.
@@ -41,8 +41,10 @@ function payload(): string {
   const db = openDb(DB_FILE);
   try {
     return JSON.stringify({
-      txns: queryRange(db, '0000-00', '9999-99'),
-      names: existsSync(CATEGORY_NAMES) ? JSON.parse(readFileSync(CATEGORY_NAMES, 'utf8')) : {},
+      txns: queryRange(db, "0000-00", "9999-99"),
+      names: existsSync(CATEGORY_NAMES)
+        ? JSON.parse(readFileSync(CATEGORY_NAMES, "utf8"))
+        : {},
     });
   } finally {
     db.close();
@@ -52,18 +54,18 @@ function payload(): string {
 export async function serve(port: number): Promise<void> {
   // Imported here rather than at the top: `pnpm sb1 rebuild` loads this module's
   // siblings and has no business paying for Vite's startup.
-  const { createServer: createViteServer } = await import('vite');
+  const { createServer: createViteServer } = await import("vite");
   const vite = await createViteServer({
-    configFile: 'vite.config.ts',
+    configFile: "vite.config.ts",
     // The HMR socket is a second listener and it does not follow `--port`: two
     // dev servers both want Vite's default 24678, and the loser boots with hot
     // reload silently dead. Derive it from the port, so `--port` moves both.
     server: { middlewareMode: true, ws: { port: port + 20000 } },
-    appType: 'spa',
+    appType: "spa",
   });
 
   const server = createServer((req, res) => {
-    if (req.url !== '/api/txns') {
+    if (req.url !== "/api/txns") {
       vite.middlewares(req, res);
       return;
     }
@@ -73,13 +75,13 @@ export async function serve(port: number): Promise<void> {
       // makes the catch below unable to answer with anything at all.
       const body = payload();
       res.writeHead(200, {
-        'Content-Type': 'application/json; charset=utf-8',
+        "Content-Type": "application/json; charset=utf-8",
         // Always fresh; a cached copy of the data is the opposite of the point.
-        'Cache-Control': 'no-store',
+        "Cache-Control": "no-store",
       });
       res.end(body);
     } catch (e) {
-      res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
       res.end(`${e instanceof Error ? e.message : e}\n`);
     }
   });
@@ -87,16 +89,22 @@ export async function serve(port: number): Promise<void> {
   // Without this the port clash is an unhandled 'error' event: a stack trace in
   // whatever log the process was started under, while a curl to the same port is
   // happily answered by the server that already had it. Say which port and how.
-  server.on('error', (e: NodeJS.ErrnoException) => {
-    if (e.code !== 'EADDRINUSE') throw e;
-    console.error(`port ${port} is already in use — another \`pnpm dev\` has it`);
+  server.on("error", (e: NodeJS.ErrnoException) => {
+    if (e.code !== "EADDRINUSE") throw e;
+    console.error(
+      `port ${port} is already in use — another \`pnpm dev\` has it`,
+    );
     console.error(`run \`pnpm dev --port ${port + 1}\` to serve alongside it`);
     process.exit(1);
   });
 
-  server.listen(port, '127.0.0.1', () => {
+  server.listen(port, "127.0.0.1", () => {
     console.error(`http://localhost:${port}`);
-    console.error('offline — run `pnpm sb1 sync` then `pnpm sb1 rebuild` to bring the data forward');
-    console.error('local only, and it holds every transaction — do not expose this port');
+    console.error(
+      "offline — run `pnpm sb1 sync` then `pnpm sb1 rebuild` to bring the data forward",
+    );
+    console.error(
+      "local only, and it holds every transaction — do not expose this port",
+    );
   });
 }

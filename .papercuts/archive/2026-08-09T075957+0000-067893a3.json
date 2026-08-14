@@ -2,10 +2,7 @@
   "id": "067893a3",
   "ts": "2026-08-09T07:59:57+00:00",
   "text": "pnpm sb1 rebuild dies with a bare 'Cannot read properties of undefined (reading includes)' \u2014 no file, no row, no month. DEBUG=1 is needed just to get a stack, and even then it points at exclude.ts rather than the raw file that produced the bad row.",
-  "tags": [
-    "cli",
-    "errors"
-  ],
+  "tags": ["cli", "errors"],
   "who": "agent",
   "where": "src/cli.ts"
 }

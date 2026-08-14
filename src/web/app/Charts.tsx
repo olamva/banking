@@ -7,10 +7,21 @@
  * Nothing here sums anything — every number arrives already aggregated by
  * src/core/stats.ts.
  */
-import { useId, useState, type ReactNode } from 'react';
-import { spendTrend, withGaps, type CategoryDelta, type SeriesPoint } from '../../core/stats.ts';
-import { fmtNOK, monthLabel, niceStep, pointLabel, useWidth } from './format.ts';
-import { ExpandIcon, Icon } from './icons.ts';
+import { useId, useState, type ReactNode } from "react";
+import {
+  spendTrend,
+  withGaps,
+  type CategoryDelta,
+  type SeriesPoint,
+} from "../../core/stats.ts";
+import {
+  fmtNOK,
+  monthLabel,
+  niceStep,
+  pointLabel,
+  useWidth,
+} from "./format.ts";
+import { ExpandIcon, Icon } from "./icons.ts";
 
 interface TipState {
   x: number;
@@ -23,7 +34,8 @@ const useTooltip = () => {
   const [tip, setTip] = useState<TipState | null>(null);
 
   /** For a chart whose content depends on where the pointer is, not on what it is over. */
-  const show = (e: React.PointerEvent, content: ReactNode) => setTip({ x: e.clientX, y: e.clientY, content });
+  const show = (e: React.PointerEvent, content: ReactNode) =>
+    setTip({ x: e.clientX, y: e.clientY, content });
   const hide = () => setTip(null);
 
   const bind = (content: ReactNode) => ({
@@ -36,7 +48,10 @@ const useTooltip = () => {
       /* Wide enough for two years of running totals side by side — six figures
          in three columns is wider than a wrapped merchant name ever was. */
       className="pointer-events-none fixed z-10 max-w-72 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-ink shadow-lg"
-      style={{ left: Math.min(tip.x + 14, window.innerWidth - 300), top: Math.min(tip.y + 14, window.innerHeight - 100) }}
+      style={{
+        left: Math.min(tip.x + 14, window.innerWidth - 300),
+        top: Math.min(tip.y + 14, window.innerHeight - 100),
+      }}
     >
       {tip.content}
     </div>
@@ -49,12 +64,14 @@ interface EmptyProps {
   children: ReactNode;
 }
 
-const Empty = ({ children }: EmptyProps) => <div className="py-10 text-center text-ink-muted">{children}</div>;
+const Empty = ({ children }: EmptyProps) => (
+  <div className="py-10 text-center text-ink-muted">{children}</div>
+);
 
 /** SVG has no text-overflow; 11px system-ui averages ~5.6px a character. */
 const ellipsis = (s: string, px: number) => {
   const max = Math.max(Math.floor(px / 5.6), 3);
-  return s.length > max ? s.slice(0, max - 1) + '…' : s;
+  return s.length > max ? s.slice(0, max - 1) + "…" : s;
 };
 
 export interface BarItem {
@@ -90,8 +107,8 @@ export interface BarItem {
  * green one ever had to be told apart side by side. They never do.
  */
 const TONE = {
-  spend: ['bg-critical-strong', 'bg-critical-strong/50'],
-  income: ['bg-good-strong', 'bg-good-strong/50'],
+  spend: ["bg-critical-strong", "bg-critical-strong/50"],
+  income: ["bg-good-strong", "bg-good-strong/50"],
 } as const;
 
 interface HorizontalBarsProps {
@@ -137,7 +154,7 @@ export const HorizontalBars = ({
   items,
   onPick,
   onPickSub,
-  tone = 'spend',
+  tone = "spend",
   max = 10,
 }: HorizontalBarsProps) => {
   const { bind, node } = useTooltip();
@@ -161,7 +178,11 @@ export const HorizontalBars = ({
       return next;
     });
 
-  const bar = (item: BarItem, depth: number, pick?: (key: string, meta: boolean) => void) => {
+  const bar = (
+    item: BarItem,
+    depth: number,
+    pick?: (key: string, meta: boolean) => void,
+  ) => {
     const id = item.key ?? item.label;
     const row = (
       <>
@@ -192,11 +213,12 @@ export const HorizontalBars = ({
         <div className="text-ink-soft">{item.label}</div>
         <div className="font-semibold">
           {fmtNOK(item.total)}
-          {item.count ? ` · ${item.count} txns` : ''}
+          {item.count ? ` · ${item.count} txns` : ""}
         </div>
       </>,
     );
-    const shared = 'flex h-[26px] min-w-0 flex-1 items-center gap-2 rounded-md text-[11px]';
+    const shared =
+      "flex h-[26px] min-w-0 flex-1 items-center gap-2 rounded-md text-[11px]";
     return pick ? (
       <button
         type="button"
@@ -230,16 +252,16 @@ export const HorizontalBars = ({
                     type="button"
                     onClick={() => toggle(id)}
                     aria-expanded={expanded}
-                    aria-label={`${expanded ? 'Hide' : 'Show'} ${item.label} breakdown`}
+                    aria-label={`${expanded ? "Hide" : "Show"} ${item.label} breakdown`}
                     /* Same as the picker's triangle: 12px is a column, not a
                        touch target, so the hit area is widened around it. */
-                    className="relative mr-0.5 flex h-[26px] w-3 shrink-0 items-center justify-center text-ink-soft before:absolute before:-inset-2 before:content-[''] hover:text-ink"
+                    className="relative mr-0.5 flex h-6.5 w-3 shrink-0 items-center justify-center text-ink-soft before:absolute before:-inset-2 before:content-[''] hover:text-ink"
                   >
                     <Icon
                       aria-hidden
                       icon={ExpandIcon}
                       size={12}
-                      className={`transition-transform ${expanded ? 'rotate-90' : ''}`}
+                      className={`transition-transform ${expanded ? "rotate-90" : ""}`}
                     />
                   </button>
                 ) : (
@@ -269,15 +291,15 @@ export const HorizontalBars = ({
           type="button"
           onClick={() => setShowAll((s) => !s)}
           aria-expanded={showAll}
-          className="mt-1 flex h-[26px] w-full items-center justify-center gap-1 rounded-md text-[11px] text-ink-muted hover:bg-hover hover:text-ink"
+          className="mt-1 flex h-6.5 w-full items-center justify-center gap-1 rounded-md text-[11px] text-ink-muted hover:bg-hover hover:text-ink"
         >
           <Icon
             aria-hidden
             icon={ExpandIcon}
             size={12}
-            className={`transition-transform ${showAll ? '-rotate-90' : 'rotate-90'}`}
+            className={`transition-transform ${showAll ? "-rotate-90" : "rotate-90"}`}
           />
-          {showAll ? 'Show less' : `Show ${hidden} more`}
+          {showAll ? "Show less" : `Show ${hidden} more`}
         </button>
       )}
       {node}
@@ -300,7 +322,10 @@ interface DivergingBarsProps {
 }
 
 /** Red spent more, green spent less. Diverging, because zero is the meaningful middle. */
-export const DivergingBars = ({ deltas: shown, onPick }: DivergingBarsProps) => {
+export const DivergingBars = ({
+  deltas: shown,
+  onPick,
+}: DivergingBarsProps) => {
   const [ref, width] = useWidth();
   const { bind, node } = useTooltip();
 
@@ -338,35 +363,40 @@ export const DivergingBars = ({ deltas: shown, onPick }: DivergingBarsProps) => 
                   height={16}
                   rx={4}
                   onClick={onPick && ((e) => onPick(d.category, e.metaKey))}
-                  className={`hover:opacity-85 ${onPick ? 'cursor-pointer' : 'cursor-default'} ${positive ? 'fill-critical-strong' : 'fill-good-strong'}`}
+                  className={`hover:opacity-85 ${onPick ? "cursor-pointer" : "cursor-default"} ${positive ? "fill-critical-strong" : "fill-good-strong"}`}
                   {...bind(
                     <>
                       <div className="text-ink-soft">{d.category}</div>
                       <div className="font-semibold">
-                        {positive ? '+' : ''}
+                        {positive ? "+" : ""}
                         {fmtNOK(d.delta)}
                       </div>
-                      <div className="text-ink-soft">was {fmtNOK(d.previous)}</div>
+                      <div className="text-ink-soft">
+                        was {fmtNOK(d.previous)}
+                      </div>
                     </>,
                   )}
                 />
                 <text
                   x={positive ? mid - w - 8 : mid + w + 8}
                   y={y + 16}
-                  textAnchor={positive ? 'end' : 'start'}
+                  textAnchor={positive ? "end" : "start"}
                   className="fill-ink-soft text-[11px]"
                 >
                   <title>{d.category}</title>
-                  {ellipsis(d.category, (positive ? mid - w : width - mid - w) - 8)}
+                  {ellipsis(
+                    d.category,
+                    (positive ? mid - w : width - mid - w) - 8,
+                  )}
                 </text>
                 {/* The exact number at the bar's own end — the gridlines are for comparing, this is for reading. */}
                 <text
                   x={positive ? mid + w + 6 : mid - w - 6}
                   y={y + 16}
-                  textAnchor={positive ? 'start' : 'end'}
+                  textAnchor={positive ? "start" : "end"}
                   className="fill-ink text-[11px] font-semibold"
                 >
-                  {positive ? '+' : ''}
+                  {positive ? "+" : ""}
                   {fmtNOK(d.delta)}
                 </text>
               </g>
@@ -396,7 +426,7 @@ const runsOf = <T,>(dense: (T | null)[]): { m: T; i: number }[][] => {
   return runs;
 };
 
-export type Bucket = 'day' | 'month';
+export type Bucket = "day" | "month";
 
 /**
  * A thing the legend keys, and so a thing it can switch off.
@@ -406,7 +436,7 @@ export type Bucket = 'day' | 'month';
  * the two lines rather than a mark of its own, and red above green needs no
  * telling apart from red and green. It draws whenever the grain supports it.
  */
-type Mark = 'out' | 'in' | 'compare' | 'trend';
+type Mark = "out" | "in" | "compare" | "trend";
 
 interface SpendLinesProps {
   /** Already in the bucket it says it is in — see `dailySeries` / `monthlySeries`. */
@@ -501,7 +531,10 @@ export const SpendLines = ({
   const plotH = height - padB - padT;
   // Over both series: a compared point that outspent every current one would
   // otherwise draw off the top of the plot.
-  const maxVal = Math.max(...[...series, ...compare].map((p) => Math.max(p.totalIn, p.totalOut)), 1);
+  const maxVal = Math.max(
+    ...[...series, ...compare].map((p) => Math.max(p.totalIn, p.totalOut)),
+    1,
+  );
   const step = niceStep(maxVal);
   const gridMax = Math.ceil(maxVal / step) * step;
 
@@ -515,7 +548,7 @@ export const SpendLines = ({
    * zeros rather than holes, so putting it through the same call would find
    * nothing to do.
    */
-  const dense = bucket === 'month' ? withGaps(series) : series;
+  const dense = bucket === "month" ? withGaps(series) : series;
   const clusterW = plotW / Math.max(dense.length, 1);
   const px = (i: number) => padL + i * clusterW + clusterW / 2;
 
@@ -529,7 +562,9 @@ export const SpendLines = ({
    * it off has to know there was anything to turn off.
    */
   const trend = offersTrend ? spendTrend(dense) : null;
-  const ends = trend ? [0, dense.length - 1].map((x) => trend.intercept + trend.slope * x) : [];
+  const ends = trend
+    ? [0, dense.length - 1].map((x) => trend.intercept + trend.slope * x)
+    : [];
 
   /**
    * The axis floor, which is zero until the trend needs it not to be. Spending
@@ -544,7 +579,8 @@ export const SpendLines = ({
     { length: Math.round((gridMax - gridMin) / step) + 1 },
     (_, i) => gridMin + i * step,
   );
-  const py = (v: number) => padT + plotH - ((v - gridMin) / (gridMax - gridMin)) * plotH;
+  const py = (v: number) =>
+    padT + plotH - ((v - gridMin) / (gridMax - gridMin)) * plotH;
 
   /**
    * The compared window laid over the same axis, matched on where in the
@@ -558,12 +594,17 @@ export const SpendLines = ({
    * rather than read off the point: the current year missing June must not
    * stop last June being drawn.
    */
-  const cmpBy = new Map(compare.map((p) => [bucket === 'day' ? p.at.slice(5) : p.at.slice(5, 7), p]));
-  const firstMonth = Number(dense[0]?.at.slice(5, 7) ?? '1');
+  const cmpBy = new Map(
+    compare.map((p) => [
+      bucket === "day" ? p.at.slice(5) : p.at.slice(5, 7),
+      p,
+    ]),
+  );
+  const firstMonth = Number(dense[0]?.at.slice(5, 7) ?? "1");
   const cmpKey = (i: number) =>
-    bucket === 'day'
+    bucket === "day"
       ? (dense[i]?.at.slice(5) ?? null)
-      : String(((firstMonth - 1 + i) % 12) + 1).padStart(2, '0');
+      : String(((firstMonth - 1 + i) % 12) + 1).padStart(2, "0");
   const cmp = dense.map((_, i) => {
     const key = cmpKey(i);
     return key === null ? null : (cmpBy.get(key) ?? null);
@@ -583,26 +624,35 @@ export const SpendLines = ({
    * twelve labels on a full-width card and four on a third of one.
    */
   const labels: { i: number; text: string }[] = (() => {
-    if (bucket === 'month') {
+    if (bucket === "month") {
       const every = [1, 2, 3, 4, 6, 12].find((n) => n * clusterW >= 30) ?? 12;
       return dense.flatMap((p, i) =>
-        p && (Number(p.at.slice(5)) - 1) % every === 0 ? [{ i, text: monthLabel(p.at) }] : [],
+        p && (Number(p.at.slice(5)) - 1) % every === 0
+          ? [{ i, text: monthLabel(p.at) }]
+          : [],
       );
     }
     if (new Set(series.map((p) => p.at.slice(0, 7))).size === 1) {
       const every = [1, 2, 5, 10].find((n) => n * clusterW >= 26) ?? 10;
       return series.flatMap((p, i) =>
-        (Number(p.at.slice(8)) - 1) % every === 0 ? [{ i, text: String(Number(p.at.slice(8))) }] : [],
+        (Number(p.at.slice(8)) - 1) % every === 0
+          ? [{ i, text: String(Number(p.at.slice(8))) }]
+          : [],
       );
     }
     // The slot each month starts on, which is not always its 1st: the archive
     // opens partway through a month, and that month still wants naming.
     const starts = series.flatMap((p, i) =>
-      i === 0 || p.at.slice(0, 7) !== series[i - 1]!.at.slice(0, 7) ? [{ i, at: p.at }] : [],
+      i === 0 || p.at.slice(0, 7) !== series[i - 1]!.at.slice(0, 7)
+        ? [{ i, at: p.at }]
+        : [],
     );
-    const every = [1, 2, 3, 4, 6, 12].find((n) => n * clusterW * 30 >= 34) ?? 12;
+    const every =
+      [1, 2, 3, 4, 6, 12].find((n) => n * clusterW * 30 >= 34) ?? 12;
     return starts.flatMap(({ i, at }) =>
-      (Number(at.slice(5, 7)) - 1) % every === 0 ? [{ i, text: monthLabel(at) }] : [],
+      (Number(at.slice(5, 7)) - 1) % every === 0
+        ? [{ i, text: monthLabel(at) }]
+        : [],
     );
   })();
 
@@ -614,7 +664,11 @@ export const SpendLines = ({
    */
   const years = !multiYear
     ? []
-    : [...new Set(dense.filter((p) => p !== null).map((p) => p.at.slice(0, 4)))].map((y) => {
+    : [
+        ...new Set(
+          dense.filter((p) => p !== null).map((p) => p.at.slice(0, 4)),
+        ),
+      ].map((y) => {
         const at = dense.flatMap((p, i) => (p?.at.startsWith(y) ? [i] : []));
         return { y, x: (px(at[0]!) + px(at.at(-1)!)) / 2 };
       });
@@ -629,8 +683,10 @@ export const SpendLines = ({
 
   const runs = runsOf(dense);
 
-  const pts = (run: { m: SeriesPoint; i: number }[], pick: (p: SeriesPoint) => number) =>
-    run.map(({ m, i }) => `${px(i)},${py(pick(m))}`);
+  const pts = (
+    run: { m: SeriesPoint; i: number }[],
+    pick: (p: SeriesPoint) => number,
+  ) => run.map(({ m, i }) => `${px(i)},${py(pick(m))}`);
 
   const clip = useId();
 
@@ -646,7 +702,7 @@ export const SpendLines = ({
    */
   const tipFor = (p: SeriesPoint, was: SeriesPoint | null) => (
     <div
-      className={`grid gap-x-3 tabular-nums ${was ? 'grid-cols-[auto_1fr_1fr]' : 'grid-cols-[auto_1fr]'}`}
+      className={`grid gap-x-3 tabular-nums ${was ? "grid-cols-[auto_1fr_1fr]" : "grid-cols-[auto_1fr]"}`}
     >
       {/* The corner of the table names the point, so the heading row carries
           it rather than a title line above repeating what the first column
@@ -658,7 +714,9 @@ export const SpendLines = ({
       {was ? (
         <>
           <span className="text-right text-ink-muted">{p.at.slice(0, 4)}</span>
-          <span className="text-right text-ink-muted">{was.at.slice(0, 4)}</span>
+          <span className="text-right text-ink-muted">
+            {was.at.slice(0, 4)}
+          </span>
         </>
       ) : (
         <span />
@@ -667,14 +725,22 @@ export const SpendLines = ({
         <>
           <span className="text-ink-soft">Spent</span>
           <span className="text-right">{fmtNOK(p.totalOut)}</span>
-          {was && <span className="text-right text-ink-muted">{fmtNOK(was.totalOut)}</span>}
+          {was && (
+            <span className="text-right text-ink-muted">
+              {fmtNOK(was.totalOut)}
+            </span>
+          )}
         </>
       )}
       {hasIncome && (
         <>
           <span className="text-ink-soft">Income</span>
           <span className="text-right">{fmtNOK(p.totalIn)}</span>
-          {was && <span className="text-right text-ink-muted">{fmtNOK(was.totalIn)}</span>}
+          {was && (
+            <span className="text-right text-ink-muted">
+              {fmtNOK(was.totalIn)}
+            </span>
+          )}
         </>
       )}
     </div>
@@ -734,10 +800,17 @@ export const SpendLines = ({
                   x2={width - 8}
                   y1={gy}
                   y2={gy}
-                  className={v === 0 && gridMin < 0 ? 'stroke-axis' : 'stroke-grid'}
+                  className={
+                    v === 0 && gridMin < 0 ? "stroke-axis" : "stroke-grid"
+                  }
                 />
-                <text x={padL - 8} y={gy + 3} textAnchor="end" className="fill-ink-muted text-[11px]">
-                  {fmtNOK(v).replace(' kr', '')}
+                <text
+                  x={padL - 8}
+                  y={gy + 3}
+                  textAnchor="end"
+                  className="fill-ink-muted text-[11px]"
+                >
+                  {fmtNOK(v).replace(" kr", "")}
                 </text>
               </g>
             );
@@ -747,7 +820,9 @@ export const SpendLines = ({
               the year break is the one landmark on it. Drawn before the bands,
               so it reads as ground rather than data. */}
           {dense.map((p, i) =>
-            p && i > 0 && p.at.slice(4) === (bucket === 'day' ? '-01-01' : '-01') ? (
+            p &&
+            i > 0 &&
+            p.at.slice(4) === (bucket === "day" ? "-01-01" : "-01") ? (
               <line
                 key={`year-${p.at}`}
                 x1={px(i) - clusterW / 2}
@@ -762,12 +837,12 @@ export const SpendLines = ({
               band and no dots. The band is this period's finding, and a second
               set of dots is ink for a series that is there to be glanced at
               rather than read off. */}
-          {shows('compare') &&
+          {shows("compare") &&
             runsOf(cmp).map((run) => (
               <g key={`cmp-${run[0]!.i}`} className="opacity-40">
                 {hasSpend && (
                   <polyline
-                    points={pts(run, (p) => p.totalOut).join(' ')}
+                    points={pts(run, (p) => p.totalOut).join(" ")}
                     strokeWidth={1.5}
                     strokeDasharray="4 3"
                     className="fill-none stroke-critical-strong"
@@ -775,7 +850,7 @@ export const SpendLines = ({
                 )}
                 {hasIncome && (
                   <polyline
-                    points={pts(run, (p) => p.totalIn).join(' ')}
+                    points={pts(run, (p) => p.totalIn).join(" ")}
                     strokeWidth={1.5}
                     strokeDasharray="4 3"
                     className="fill-none stroke-good-strong"
@@ -788,9 +863,16 @@ export const SpendLines = ({
               the first one's income edge. */}
           {runs.map((run, r) => {
             const income = pts(run, (p) => p.totalIn);
-            const band = [...income, ...pts(run, (p) => p.totalOut).reverse()].join(' ');
+            const band = [
+              ...income,
+              ...pts(run, (p) => p.totalOut).reverse(),
+            ].join(" ");
             const edge = (y: number) =>
-              [`${px(run[0]!.i)},${y}`, ...income, `${px(run.at(-1)!.i)},${y}`].join(' ');
+              [
+                `${px(run[0]!.i)},${y}`,
+                ...income,
+                `${px(run.at(-1)!.i)},${y}`,
+              ].join(" ");
             return (
               <g key={run[0]!.m.at}>
                 {/* The shading has no key of its own, so it follows the lines
@@ -798,7 +880,7 @@ export const SpendLines = ({
                     and shading up to an edge that is not on the chart claims a
                     surplus against nothing. Both, because either line missing
                     leaves the polygon with an invisible side. */}
-                {hasBand && shows('in') && shows('out') && (
+                {hasBand && shows("in") && shows("out") && (
                   <>
                     <defs>
                       <clipPath id={`${clip}-over-${r}`}>
@@ -808,15 +890,31 @@ export const SpendLines = ({
                         <polygon points={edge(padT + plotH)} />
                       </clipPath>
                     </defs>
-                    <polygon points={band} clipPath={`url(#${clip}-over-${r})`} className="fill-critical-strong opacity-20" />
-                    <polygon points={band} clipPath={`url(#${clip}-under-${r})`} className="fill-good-strong opacity-20" />
+                    <polygon
+                      points={band}
+                      clipPath={`url(#${clip}-over-${r})`}
+                      className="fill-critical-strong opacity-20"
+                    />
+                    <polygon
+                      points={band}
+                      clipPath={`url(#${clip}-under-${r})`}
+                      className="fill-good-strong opacity-20"
+                    />
                   </>
                 )}
-                {hasSpend && shows('out') && (
-                  <polyline points={pts(run, (p) => p.totalOut).join(' ')} strokeWidth={2} className="fill-none stroke-critical-strong" />
+                {hasSpend && shows("out") && (
+                  <polyline
+                    points={pts(run, (p) => p.totalOut).join(" ")}
+                    strokeWidth={2}
+                    className="fill-none stroke-critical-strong"
+                  />
                 )}
-                {hasIncome && shows('in') && (
-                  <polyline points={income.join(' ')} strokeWidth={2} className="fill-none stroke-good-strong" />
+                {hasIncome && shows("in") && (
+                  <polyline
+                    points={income.join(" ")}
+                    strokeWidth={2}
+                    className="fill-none stroke-good-strong"
+                  />
                 )}
               </g>
             );
@@ -824,7 +922,7 @@ export const SpendLines = ({
           {/* Clipped to the plot rather than clamped to it: the axis already
               stretched to hold both ends, and clamping a line is how a slope
               gets flattened into a claim nobody made. */}
-          {trend && shows('trend') && (
+          {trend && shows("trend") && (
             <>
               <defs>
                 <clipPath id={`${clip}-plot`}>
@@ -844,18 +942,35 @@ export const SpendLines = ({
             </>
           )}
           {near !== null && (
-            <line x1={px(near)} x2={px(near)} y1={padT} y2={padT + plotH} strokeDasharray="3 3" className="stroke-ink-muted" />
+            <line
+              x1={px(near)}
+              x2={px(near)}
+              y1={padT}
+              y2={padT + plotH}
+              strokeDasharray="3 3"
+              className="stroke-ink-muted"
+            />
           )}
           {dots &&
             dense.map((p, i) =>
               p === null ? null : (
                 <g key={p.at}>
                   {/* A stretch of one point draws no polyline, so the dots are what carries it. */}
-                  {hasSpend && shows('out') && (
-                    <circle cx={px(i)} cy={py(p.totalOut)} r={near === i ? 5 : 3} className="fill-critical-strong" />
+                  {hasSpend && shows("out") && (
+                    <circle
+                      cx={px(i)}
+                      cy={py(p.totalOut)}
+                      r={near === i ? 5 : 3}
+                      className="fill-critical-strong"
+                    />
                   )}
-                  {hasIncome && shows('in') && (
-                    <circle cx={px(i)} cy={py(p.totalIn)} r={near === i ? 5 : 3} className="fill-good-strong" />
+                  {hasIncome && shows("in") && (
+                    <circle
+                      cx={px(i)}
+                      cy={py(p.totalIn)}
+                      r={near === i ? 5 : 3}
+                      className="fill-good-strong"
+                    />
                   )}
                 </g>
               ),
@@ -865,11 +980,21 @@ export const SpendLines = ({
               it to say which point it landed on. */}
           {!dots && near !== null && dense[near] && (
             <g>
-              {hasSpend && shows('out') && (
-                <circle cx={px(near)} cy={py(dense[near].totalOut)} r={4} className="fill-critical-strong" />
+              {hasSpend && shows("out") && (
+                <circle
+                  cx={px(near)}
+                  cy={py(dense[near].totalOut)}
+                  r={4}
+                  className="fill-critical-strong"
+                />
               )}
-              {hasIncome && shows('in') && (
-                <circle cx={px(near)} cy={py(dense[near].totalIn)} r={4} className="fill-good-strong" />
+              {hasIncome && shows("in") && (
+                <circle
+                  cx={px(near)}
+                  cy={py(dense[near].totalIn)}
+                  r={4}
+                  className="fill-good-strong"
+                />
               )}
             </g>
           )}
@@ -879,18 +1004,40 @@ export const SpendLines = ({
               x={px(i)}
               y={padT + plotH + 18}
               textAnchor="middle"
-              className={near === i ? 'fill-ink text-[11px] font-semibold' : 'fill-ink-muted text-[11px]'}
+              className={
+                near === i
+                  ? "fill-ink text-[11px] font-semibold"
+                  : "fill-ink-muted text-[11px]"
+              }
             >
               {text}
             </text>
           ))}
           {years.map(({ y, x }) => (
-            <text key={y} x={x} y={height - 5} textAnchor="middle" className="fill-ink-soft text-[11px] font-semibold">
+            <text
+              key={y}
+              x={x}
+              y={height - 5}
+              textAnchor="middle"
+              className="fill-ink-soft text-[11px] font-semibold"
+            >
               {y}
             </text>
           ))}
-          <line x1={padL} x2={padL} y1={padT} y2={padT + plotH} className="stroke-axis" />
-          <line x1={padL} x2={width - 8} y1={padT + plotH} y2={padT + plotH} className="stroke-axis" />
+          <line
+            x1={padL}
+            x2={padL}
+            y1={padT}
+            y2={padT + plotH}
+            className="stroke-axis"
+          />
+          <line
+            x1={padL}
+            x2={width - 8}
+            y1={padT + plotH}
+            y2={padT + plotH}
+            className="stroke-axis"
+          />
           {/* Last, so it sits over everything it is meant to catch pointers for.
               `onPointerDown` as well as move, for touch: a tap on a phone is a
               down and an up with no move between them, so a move-only chart had
@@ -948,27 +1095,37 @@ const LegendKey = ({ on, onToggle, name, children }: LegendKeyProps) => (
     type="button"
     onClick={onToggle}
     aria-pressed={on}
-    title={`${on ? 'Hide' : 'Show'} ${name}`}
-    className={`inline-flex items-center gap-1.5 rounded-sm hover:text-ink ${on ? '' : 'opacity-40'}`}
+    title={`${on ? "Hide" : "Show"} ${name}`}
+    className={`inline-flex items-center gap-1.5 rounded-sm hover:text-ink ${on ? "" : "opacity-40"}`}
   >
     {children}
   </button>
 );
 
 /** Drawn by `SpendLines` itself — it is the only chart with more than one series. */
-const ChartLegend = ({ income, spend, trend, compareLabel, hidden, onToggle }: ChartLegendProps) => {
-  const key = (mark: Mark) => ({ on: !hidden.has(mark), onToggle: () => onToggle(mark) });
+const ChartLegend = ({
+  income,
+  spend,
+  trend,
+  compareLabel,
+  hidden,
+  onToggle,
+}: ChartLegendProps) => {
+  const key = (mark: Mark) => ({
+    on: !hidden.has(mark),
+    onToggle: () => onToggle(mark),
+  });
   return (
     <div className="mb-2 flex flex-wrap gap-3.5 text-xs text-ink-soft">
       {spend && (
-        <LegendKey {...key('out')} name="the spending line">
-          <span className="inline-block h-[3px] w-3 rounded-sm bg-critical-strong" />
+        <LegendKey {...key("out")} name="the spending line">
+          <span className="inline-block h-0.75 w-3 rounded-sm bg-critical-strong" />
           Spent
         </LegendKey>
       )}
       {income && (
-        <LegendKey {...key('in')} name="the income line">
-          <span className="inline-block h-[3px] w-3 rounded-sm bg-good-strong" />
+        <LegendKey {...key("in")} name="the income line">
+          <span className="inline-block h-0.75 w-3 rounded-sm bg-good-strong" />
           Income
         </LegendKey>
       )}
@@ -985,9 +1142,17 @@ const ChartLegend = ({ income, spend, trend, compareLabel, hidden, onToggle }: C
           "spending drifts this way over this window", which is the whole of
           what a least-squares fit knows. */}
       {trend && (
-        <LegendKey {...key('trend')} name="the fitted trend">
+        <LegendKey {...key("trend")} name="the fitted trend">
           <svg aria-hidden width={16} height={3} className="shrink-0">
-            <line x1={0} x2={16} y1={1.5} y2={1.5} strokeWidth={3} strokeDasharray="7 5" className="stroke-series-1" />
+            <line
+              x1={0}
+              x2={16}
+              y1={1.5}
+              y2={1.5}
+              strokeWidth={3}
+              strokeDasharray="7 5"
+              className="stroke-series-1"
+            />
           </svg>
           Trend
         </LegendKey>
@@ -1001,10 +1166,23 @@ const ChartLegend = ({ income, spend, trend, compareLabel, hidden, onToggle }: C
           for. Same stroke and same gap as the chart, so the key and the line it
           explains are the same mark. */}
       {compareLabel && (
-        <LegendKey {...key('compare')} name={compareLabel}>
-          <svg aria-hidden width={16} height={income && spend ? 9 : 3} className="shrink-0 opacity-40">
+        <LegendKey {...key("compare")} name={compareLabel}>
+          <svg
+            aria-hidden
+            width={16}
+            height={income && spend ? 9 : 3}
+            className="shrink-0 opacity-40"
+          >
             {spend && (
-              <line x1={0} x2={16} y1={1.5} y2={1.5} strokeWidth={3} strokeDasharray="4 3" className="stroke-critical-strong" />
+              <line
+                x1={0}
+                x2={16}
+                y1={1.5}
+                y2={1.5}
+                strokeWidth={3}
+                strokeDasharray="4 3"
+                className="stroke-critical-strong"
+              />
             )}
             {income && (
               <line

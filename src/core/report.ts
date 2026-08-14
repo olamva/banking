@@ -24,8 +24,8 @@ import {
   splitCategory,
   type Overrides,
   type Subscriptions,
-} from './categorize.ts';
-import type { Categorized } from './types.ts';
+} from "./categorize.ts";
+import type { Categorized } from "./types.ts";
 
 /**
  * - `unused` — matches nothing on record. Delete it, or find out why it misses.
@@ -44,7 +44,8 @@ import type { Categorized } from './types.ts';
  *   Keep it. `"sit kafe"` is one: without it a canteen reads as rent.
  * - `mixed` — some rows keep it and some do not. Read the outcomes.
  */
-export type Verdict = 'unused' | 'redundant' | 'rewrite' | 'diverges' | 'load-bearing' | 'mixed';
+export type Verdict =
+  "unused" | "redundant" | "rewrite" | "diverges" | "load-bearing" | "mixed";
 
 /** What the rest of the chain says about one group of a pattern's rows. */
 export type Outcome = {
@@ -139,14 +140,19 @@ function meaning(rows: Categorized[]): Meaning {
  * a Tokyo transit card as a flight.
  */
 function sameClaim(ours: string, suggest: string, m: Meaning): boolean {
-  if (m.mains.has(ours)) return suggest.split('/')[0] === ours;
+  if (m.mains.has(ours)) return suggest.split("/")[0] === ours;
   return suggest === m.aliasOf.get(ours);
 }
 
-
 /** Every row this pattern is the *first* override match for — what `categorize` gives it. */
-function claimed(rows: Categorized[], patterns: string[]): Map<string, Categorized[]> {
-  const compiled = patterns.map((p) => ({ pattern: p, matches: compile(p, 'rules/overrides.json') }));
+function claimed(
+  rows: Categorized[],
+  patterns: string[],
+): Map<string, Categorized[]> {
+  const compiled = patterns.map((p) => ({
+    pattern: p,
+    matches: compile(p, "rules/overrides.json"),
+  }));
   const out = new Map<string, Categorized[]>(patterns.map((p) => [p, []]));
   for (const t of rows) {
     // An excluded row never reaches an override — `categorize` returns the
@@ -160,8 +166,10 @@ function claimed(rows: Categorized[], patterns: string[]): Map<string, Categoriz
 }
 
 /** `main/sub`, or the main alone where there is no second level. */
-export const pairText = (p: { category: string; subcategory: string | null }): string =>
-  p.subcategory ? `${p.category}/${p.subcategory}` : p.category;
+export const pairText = (p: {
+  category: string;
+  subcategory: string | null;
+}): string => (p.subcategory ? `${p.category}/${p.subcategory}` : p.category);
 
 /**
  * Would deleting the line leave this row where the line put it?
@@ -177,23 +185,32 @@ export const pairText = (p: { category: string; subcategory: string | null }): s
  * set a sub. The moment a rule value could carry one, it silently deleted
  * `"barrock"` and moved two rows.
  */
-function survives(after: Categorized, ours: string, sub: string | null): boolean {
+function survives(
+  after: Categorized,
+  ours: string,
+  sub: string | null,
+): boolean {
   if (after.category !== ours) return false;
   return sub === null || after.subcategory === sub;
 }
 
-function group(rows: Categorized[], fallbacks: Categorized[], ours: string, sub: string | null): Outcome[] {
+function group(
+  rows: Categorized[],
+  fallbacks: Categorized[],
+  ours: string,
+  sub: string | null,
+): Outcome[] {
   const acc = new Map<string, Outcome>();
   rows.forEach((t, i) => {
     const after = fallbacks[i]!;
-    const pair = t.bankCategory ? `${t.bankCategory}/${t.bankSub ?? ''}` : '';
+    const pair = t.bankCategory ? `${t.bankCategory}/${t.bankSub ?? ""}` : "";
     const fallback = pairText(after);
     const bank = bankPair(t);
     const key = `${fallback} | ${pair}`;
     const o = acc.get(key) ?? {
       fallback,
       bankPair: pair,
-      bankName: [t.bankCategoryName, t.bankSubName].filter(Boolean).join(' > '),
+      bankName: [t.bankCategoryName, t.bankSubName].filter(Boolean).join(" > "),
       confidence: t.bankConfidence ?? 0,
       rows: 0,
       same: survives(after, ours, sub),
@@ -205,7 +222,8 @@ function group(rows: Categorized[], fallbacks: Categorized[], ours: string, sub:
     o.rows++;
     o.confidence = Math.min(o.confidence, t.bankConfidence ?? 0);
     const name = t.counterparty ?? t.description;
-    if (o.examples.length < EXAMPLES && !o.examples.includes(name)) o.examples.push(name);
+    if (o.examples.length < EXAMPLES && !o.examples.includes(name))
+      o.examples.push(name);
     acc.set(key, o);
   });
   return [...acc.values()].sort((a, b) => b.rows - a.rows);
@@ -242,28 +260,35 @@ export function overrideReport(
       const without = { ...overrides };
       delete without[pattern];
       const fallbacks = categorize(mine, without, subscriptions, giro, cards);
-      const outcomes = group(mine, fallbacks, ours, splitCategory(value).subcategory);
+      const outcomes = group(
+        mine,
+        fallbacks,
+        ours,
+        splitCategory(value).subcategory,
+      );
       const kept = outcomes.reduce((n, o) => n + (o.same ? o.rows : 0), 0);
       // Where every row the bank has an opinion on falls to one and the same
       // pair, that pair is what this line should have said in the first place.
       // More than one, and there is nothing to suggest — the group is really
       // two groups and the person editing has to see that rather than be told a
       // number that fits neither half.
-      const banked = [...new Set(outcomes.filter((o) => o.fromBank).map((o) => o.fallback))];
+      const banked = [
+        ...new Set(outcomes.filter((o) => o.fromBank).map((o) => o.fallback)),
+      ];
       const suggest = banked.length === 1 ? banked[0]! : null;
       const allBank = suggest !== null && outcomes.every((o) => o.fromBank);
       const verdict: Verdict =
         mine.length === 0
-          ? 'unused'
+          ? "unused"
           : kept === mine.length
-            ? 'redundant'
+            ? "redundant"
             : kept === 0 && allBank
               ? sameClaim(ours, suggest, m)
-                ? 'rewrite'
-                : 'diverges'
+                ? "rewrite"
+                : "diverges"
               : kept === 0
-                ? 'load-bearing'
-                : 'mixed';
+                ? "load-bearing"
+                : "mixed";
       return {
         pattern,
         value,
@@ -296,11 +321,16 @@ export type PairUse = {
  * `sparing/sparing` land there is how you check that the design still holds.
  */
 export function pairUse(rows: Categorized[]): PairUse[] {
-  const acc = new Map<string, { name: string; rows: number; ours: Map<string, number> }>();
+  const acc = new Map<
+    string,
+    { name: string; rows: number; ours: Map<string, number> }
+  >();
   for (const t of rows) {
-    const pair = t.bankCategory ? `${t.bankCategory}/${t.bankSub ?? ''}` : '(none)';
+    const pair = t.bankCategory
+      ? `${t.bankCategory}/${t.bankSub ?? ""}`
+      : "(none)";
     const a = acc.get(pair) ?? {
-      name: [t.bankCategoryName, t.bankSubName].filter(Boolean).join(' > '),
+      name: [t.bankCategoryName, t.bankSubName].filter(Boolean).join(" > "),
       rows: 0,
       ours: new Map<string, number>(),
     };
@@ -336,19 +366,25 @@ export function pairUse(rows: Categorized[]): PairUse[] {
  * `kafe_og_restaurant/utesteder` and agrees on 155 of its rows. `overfoering`
  * and `linjeforening_kiosk` have no bank pair at all and must take the first.
  */
-export function unnamed(rows: Categorized[]): { slug: string; level: 'category' | 'subcategory'; rows: number }[] {
+export function unnamed(
+  rows: Categorized[],
+): { slug: string; level: "category" | "subcategory"; rows: number }[] {
   const mains = new Set(rows.map((t) => t.bankCategory).filter(Boolean));
   const subs = new Set(rows.map((t) => t.bankSub).filter(Boolean));
-  const acc = new Map<string, { slug: string; level: 'category' | 'subcategory'; rows: number }>();
-  const note = (slug: string, level: 'category' | 'subcategory') => {
+  const acc = new Map<
+    string,
+    { slug: string; level: "category" | "subcategory"; rows: number }
+  >();
+  const note = (slug: string, level: "category" | "subcategory") => {
     const key = `${level} ${slug}`;
     const a = acc.get(key) ?? { slug, level, rows: 0 };
     a.rows++;
     acc.set(key, a);
   };
   for (const t of rows) {
-    if (!mains.has(t.category)) note(t.category, 'category');
-    if (t.subcategory && !subs.has(t.subcategory)) note(t.subcategory, 'subcategory');
+    if (!mains.has(t.category)) note(t.category, "category");
+    if (t.subcategory && !subs.has(t.subcategory))
+      note(t.subcategory, "subcategory");
   }
   return [...acc.values()].sort((a, b) => b.rows - a.rows);
 }
@@ -392,7 +428,10 @@ export type Overlap = {
  */
 export function overlaps(rows: Categorized[], overrides: Overrides): Overlap[] {
   const patterns = Object.keys(overrides);
-  const compiled = patterns.map((p) => ({ pattern: p, matches: compile(p, 'rules/overrides.json') }));
+  const compiled = patterns.map((p) => ({
+    pattern: p,
+    matches: compile(p, "rules/overrides.json"),
+  }));
   const acc = new Map<string, Overlap>();
 
   for (const t of rows) {
@@ -411,17 +450,22 @@ export function overlaps(rows: Categorized[], overrides: Overrides): Overlap[] {
         loser: loser.pattern,
         loserValue: overrides[loser.pattern]!,
         rows: 0,
-        harmless: overrides[winner!.pattern]!.split('/')[0] === overrides[loser.pattern]!.split('/')[0],
+        harmless:
+          overrides[winner!.pattern]!.split("/")[0] ===
+          overrides[loser.pattern]!.split("/")[0],
         examples: [],
       };
       o.rows++;
       const name = t.counterparty ?? t.description;
-      if (o.examples.length < EXAMPLES && !o.examples.includes(name)) o.examples.push(name);
+      if (o.examples.length < EXAMPLES && !o.examples.includes(name))
+        o.examples.push(name);
       acc.set(key, o);
     }
   }
   // The ones that change a category first, and the biggest of those first.
-  return [...acc.values()].sort((a, b) => Number(a.harmless) - Number(b.harmless) || b.rows - a.rows);
+  return [...acc.values()].sort(
+    (a, b) => Number(a.harmless) - Number(b.harmless) || b.rows - a.rows,
+  );
 }
 
 /** One pattern, everything that outranks it, and the form that would not need the ranking. */
@@ -441,7 +485,8 @@ export type Narrowing = {
 /** A pattern as a regex body: `/\bsit\b/` -> `\bsit\b`, `sit kafe` -> `sit kafe` escaped. */
 function body(pattern: string): string | null {
   const asRegex = /^\/(.+)\/([a-z]*)$/.exec(pattern);
-  if (!asRegex) return pattern.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (!asRegex)
+    return pattern.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   // An anchor means the body is positional, and dropping it into a lookahead
   // moves what it anchors to. Rare enough to hand back rather than guess at.
   return /[$^]/.test(asRegex[1]!) ? null : asRegex[1]!;
@@ -463,11 +508,19 @@ function body(pattern: string): string | null {
  * decides nothing there, and rewriting a rule that is already correct is how a
  * working file gets broken.
  */
-export function narrowings(rows: Categorized[], overrides: Overrides): Narrowing[] {
+export function narrowings(
+  rows: Categorized[],
+  overrides: Overrides,
+): Narrowing[] {
   const byLoser = new Map<string, Narrowing>();
   for (const c of overlaps(rows, overrides)) {
     if (c.harmless) continue;
-    const n = byLoser.get(c.loser) ?? { pattern: c.loser, value: c.loserValue, beaten: [], suggest: '' };
+    const n = byLoser.get(c.loser) ?? {
+      pattern: c.loser,
+      value: c.loserValue,
+      beaten: [],
+      suggest: "",
+    };
     n.beaten.push({ pattern: c.winner, value: c.winnerValue, rows: c.rows });
     byLoser.set(c.loser, n);
   }
@@ -476,9 +529,13 @@ export function narrowings(rows: Categorized[], overrides: Overrides): Narrowing
     const mine = body(n.pattern);
     const theirs = n.beaten.map((b) => body(b.pattern));
     n.suggest =
-      mine && theirs.every(Boolean) ? `/^(?!.*(?:${theirs.join('|')}))(?=.*${mine})/` : '';
+      mine && theirs.every(Boolean)
+        ? `/^(?!.*(?:${theirs.join("|")}))(?=.*${mine})/`
+        : "";
   }
   return [...byLoser.values()].sort(
-    (a, b) => b.beaten.reduce((n, x) => n + x.rows, 0) - a.beaten.reduce((n, x) => n + x.rows, 0),
+    (a, b) =>
+      b.beaten.reduce((n, x) => n + x.rows, 0) -
+      a.beaten.reduce((n, x) => n + x.rows, 0),
   );
 }

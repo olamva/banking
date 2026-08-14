@@ -2,10 +2,7 @@
   "id": "9d826f04",
   "ts": "2026-08-14T10:58:13+00:00",
   "text": "bg worktree isolation forces a worktree even when the only edit is a gitignored file (rules/payees.json) \u2014 had to copy rules/, data/raw, banking.db and .env.local in by hand, then copy the result back out",
-  "tags": [
-    "harness",
-    "worktree"
-  ],
+  "tags": ["harness", "worktree"],
   "who": "agent",
   "model": "opus-5",
   "session": "202d7960",

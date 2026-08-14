@@ -6,17 +6,17 @@
  * `root` is the app only. Everything it imports from `src/core/` is above the
  * root, which `fs.allow` has to permit explicitly.
  */
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import tailwindcss from '@tailwindcss/vite';
+import tailwindcss from "@tailwindcss/vite";
+import react from "@vitejs/plugin-react";
+import { defineConfig } from "vite";
 
 export default defineConfig({
-  root: 'src/web/app',
+  root: "src/web/app",
   plugins: [react(), tailwindcss()],
   server: {
     // Local file server. It reaches into src/, and nothing here should ever be
     // reachable from another machine.
-    host: '127.0.0.1',
+    host: "127.0.0.1",
     // Absolute, and the repo root rather than `root`: `fs.allow` resolves
     // relative to the Vite root, so anything shorter silently denies
     // `src/core/`. It looks like it works anyway, because Vite serves modules

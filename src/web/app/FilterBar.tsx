@@ -164,7 +164,9 @@ const Picker = ({
         (o) =>
           hitsQuery(label(o)) ||
           picked.includes(o) ||
-          childrenOf(o).some((c) => hitsQuery(subLabel(c)) || picked.includes(c)),
+          childrenOf(o).some(
+            (c) => hitsQuery(subLabel(c)) || picked.includes(c),
+          ),
       )
     : options;
 
@@ -182,7 +184,9 @@ const Picker = ({
     // `diverse` — the row you asked for, buried among seven you did not.
     // Whatever is checked stays, for the same reason it does at the top level.
     const kids =
-      q === "" ? all : all.filter((c) => hitsQuery(subLabel(c)) || picked.includes(c));
+      q === ""
+        ? all
+        : all.filter((c) => hitsQuery(subLabel(c)) || picked.includes(c));
     // A search that matched a child opens its parent: the row you were looking
     // for should be on screen, not one click behind a triangle. A parent that
     // matched on its *own* name keeps its children folded away.
@@ -252,7 +256,8 @@ const Picker = ({
       const row = rows[at];
       if (row && !row.sub && childrenOf(row.value).length > 1) {
         e.preventDefault();
-        if (expanded.has(row.value) === (e.key === "ArrowLeft")) toggleOpen(row.value);
+        if (expanded.has(row.value) === (e.key === "ArrowLeft"))
+          toggleOpen(row.value);
         return;
       }
     }
@@ -261,9 +266,7 @@ const Picker = ({
       // Clamped, not wrapped: running off the end of a long list and landing
       // back at the top is a good way to lose track of where you were.
       // From nothing, either arrow lands on the first row rather than off the end.
-      setActive(
-        at < 0 ? 0 : Math.max(0, Math.min(at + step, rows.length - 1)),
-      );
+      setActive(at < 0 ? 0 : Math.max(0, Math.min(at + step, rows.length - 1)));
     } else if (e.key === "Enter") {
       // The mode toggle is in here too, and Enter on a button means that button.
       if (e.target instanceof HTMLButtonElement) return;
@@ -339,27 +342,27 @@ const Picker = ({
               inside the panel — without it the categories menu opened with focus
               still on the summary and the arrows scrolled the page instead. */}
           <div className="relative mb-1.5 shrink-0">
-              <Icon
-                aria-hidden
-                icon={SearchIcon}
-                size={14}
-                className="pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-ink-muted"
-              />
-              <input
-                /* Right this time: the box now mounts with the panel, and opening
+            <Icon
+              aria-hidden
+              icon={SearchIcon}
+              size={14}
+              className="pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-ink-muted"
+            />
+            <input
+              /* Right this time: the box now mounts with the panel, and opening
                  a searchable list is asking to type in it. */
-                autoFocus
-                type="search"
-                className="w-full rounded-md border border-line bg-page py-1 pr-2 pl-7 text-xs text-ink"
-                placeholder={`Search ${title.toLowerCase()}…`}
-                value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value);
-                  // The list changes under the cursor, so the row it was on is
-                  // no longer the row you meant — and it hands space back to the
-                  // box you are typing in.
-                  setActive(null);
-                }}
+              autoFocus
+              type="search"
+              className="w-full rounded-md border border-line bg-page py-1 pr-2 pl-7 text-xs text-ink"
+              placeholder={`Search ${title.toLowerCase()}…`}
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                // The list changes under the cursor, so the row it was on is
+                // no longer the row you meant — and it hands space back to the
+                // box you are typing in.
+                setActive(null);
+              }}
               aria-label={`Search ${title.toLowerCase()}`}
             />
           </div>
@@ -375,11 +378,14 @@ const Picker = ({
                 const kids = row.sub ? [] : childrenOf(row.value);
                 const openHere = expanded.has(row.value);
                 return (
-                  <div key={`${row.sub ? "sub:" : ""}${row.value}`} className="flex items-center">
+                  <div
+                    key={`${row.sub ? "sub:" : ""}${row.value}`}
+                    className="flex items-center"
+                  >
                     {row.sub ? (
                       // Two spacers, so a child lines up under its parent's label
                       // rather than under its triangle.
-                      <span className="w-[26px] shrink-0" />
+                      <span className="w-6.5 shrink-0" />
                     ) : kids.length > 1 ? (
                       <button
                         type="button"
@@ -391,7 +397,7 @@ const Picker = ({
                         /* 13px wide is a column, not a target. The pseudo-element
                            widens what a finger has to hit to ~29x40 without
                            moving the triangle or the label lined up beside it. */
-                        className="relative flex h-6 w-[13px] shrink-0 items-center justify-center text-ink-muted before:absolute before:-inset-2 before:content-[''] hover:text-ink"
+                        className="relative flex h-6 w-3.25 shrink-0 items-center justify-center text-ink-muted before:absolute before:-inset-2 before:content-[''] hover:text-ink"
                       >
                         <Icon
                           aria-hidden
@@ -402,7 +408,7 @@ const Picker = ({
                       </button>
                     ) : (
                       // Holds the column so every label starts at the same x.
-                      <span className="w-[13px] shrink-0" />
+                      <span className="w-3.25 shrink-0" />
                     )}
                     <label
                       // Keeps the arrowed-to row in the scroller. `nearest` so it only
@@ -424,7 +430,9 @@ const Picker = ({
                         onFocus={() => setActive(i)}
                       />
                       <span className="truncate">
-                        {row.sub || row.value.includes("/") ? subLabel(row.value) : label(row.value)}
+                        {row.sub || row.value.includes("/")
+                          ? subLabel(row.value)
+                          : label(row.value)}
                       </span>
                     </label>
                   </div>
@@ -483,7 +491,9 @@ export const FilterBar = ({
   // A pair is `category/sub`, so its own category is its prefix — no second
   // grouping to keep in step with the list the picker was handed.
   const subsOf = (category: string) =>
-    subcategories.filter((pair) => pair.slice(0, pair.indexOf("/")) === category);
+    subcategories.filter(
+      (pair) => pair.slice(0, pair.indexOf("/")) === category,
+    );
   const toggleMerchant = toggle("merchants");
   const toggleAccount = toggle("accounts");
 
@@ -492,7 +502,9 @@ export const FilterBar = ({
   const excludingAccounts = filters.accountMode === "exclude";
 
   const picked =
-    filters.categories.length + filters.merchants.length + filters.accounts.length;
+    filters.categories.length +
+    filters.merchants.length +
+    filters.accounts.length;
 
   /**
    * The three lists and the search as one number, so what is on reads as a whole

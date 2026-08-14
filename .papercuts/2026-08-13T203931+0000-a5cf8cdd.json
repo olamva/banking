@@ -2,10 +2,7 @@
   "id": "a5cf8cdd",
   "ts": "2026-08-13T20:39:31+00:00",
   "text": "Bash tool in a worktree session refuses a heredoc + gh compound command as 'too complex to verify'; had to write the PR body with the Write tool first",
-  "tags": [
-    "tools",
-    "worktree"
-  ],
+  "tags": ["tools", "worktree"],
   "who": "agent",
   "where": "/Users/olavassbotn/Documents/banking/.claude/worktrees/chart-empty-series"
 }

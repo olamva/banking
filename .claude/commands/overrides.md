@@ -47,7 +47,7 @@ pair and the doubled `Vipps*Vipps*` marker each settle it on their own.
   a merchant string changed.
 - **A pattern that is too broad** — it also catches merchants below it that
   should land elsewhere. Order matters, so also flag a specific pattern sitting
-  *after* a general one that swallows it.
+  _after_ a general one that swallows it.
 
 Ignore: person-to-person names, one-off travel merchants, anything under a few
 hundred kroner in total. A pattern per transaction is worse than no pattern.

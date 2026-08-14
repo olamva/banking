@@ -2,10 +2,7 @@
   "id": "c2756eba",
   "ts": "2026-08-13T21:18:43+00:00",
   "text": "a fresh git worktree cannot run pnpm dev: data/, rules/ and .env.local are gitignored, so every new worktree needs node_modules installed and those three linked by hand before the dashboard will start",
-  "tags": [
-    "dx",
-    "worktree"
-  ],
+  "tags": ["dx", "worktree"],
   "who": "agent",
   "where": ".claude/worktrees"
 }

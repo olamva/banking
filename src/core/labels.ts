@@ -18,7 +18,7 @@
  * slug can be both and mean different things: `dagligvarer` is a main the bank
  * calls `Dagligvarer` and a sub under itself that it calls `Matvarer`.
  */
-import type { Categorized } from './types.ts';
+import type { Categorized } from "./types.ts";
 
 /**
  * rules/categories.json: `{ "<category>": "<name>", "<category>/<sub>": "<name>" }`
@@ -41,12 +41,12 @@ export type Labels = {
  * would be wrong for `Medlemskap og veldedighet` in a way nobody would type.
  */
 export function tidy(slug: string): string {
-  const words = slug.replace(/_/g, ' ').trim();
+  const words = slug.replace(/_/g, " ").trim();
   return words ? words[0]!.toUpperCase() + words.slice(1) : slug;
 }
 
 /** A row with no second level at all — the bank had none and no rule named one. */
-export const NO_SUB = 'Annet';
+export const NO_SUB = "Annet";
 
 export function buildLabels(txns: Categorized[], names: Names = {}): Labels {
   // The bank names itself, so this is learned rather than listed. Two maps, not
@@ -71,7 +71,12 @@ export function buildLabels(txns: Categorized[], names: Names = {}): Labels {
       // main renames (`faste_boutgifter` -> `faste_utgifter`) leave the pair key
       // unfindable while the sub underneath is still the bank's own.
       const anywhere = [...subs].find(([k]) => k.endsWith(`/${sub}`));
-      return names[`${category}/${sub}`] ?? subs.get(`${category}/${sub}`) ?? anywhere?.[1] ?? tidy(sub);
+      return (
+        names[`${category}/${sub}`] ??
+        subs.get(`${category}/${sub}`) ??
+        anywhere?.[1] ??
+        tidy(sub)
+      );
     },
   };
 }

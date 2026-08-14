@@ -337,12 +337,13 @@ Notes from the real data, not the plan:
 
   **The bars are red for spending and green for income** — `TONE` in
   `Charts.tsx`, the same `critical-strong`/`good-strong` pair `DivergingBars`
-  diverges across. Judged as a *categorical* palette that pair fails deutan
+  diverges across. Judged as a _categorical_ palette that pair fails deutan
   separation on the dark surface (ΔE 3.8), and it is fine here for the reason
   that check does not apply: one card is one direction, its title says which in
   words, and a red bar and a green one never sit side by side needing to be told
   apart. Keep it that way — the moment both tones share one chart, the colour is
   carrying identity alone and needs re-picking.
+
 - Much of `rules/overrides.json` predates knowing the sub existed and
   re-derives it by hand. `pnpm sb1 categories` measures that by counterfactual —
   it deletes each line, re-runs the real `categorize` over that line's own rows,

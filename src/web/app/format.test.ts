@@ -1,6 +1,6 @@
-import assert from 'node:assert/strict';
-import test from 'node:test';
-import type { Categorized } from '../../core/types.ts';
+import assert from "node:assert/strict";
+import test from "node:test";
+import type { Categorized } from "../../core/types.ts";
 import {
   ID_FIELD,
   bankLabel,
@@ -9,125 +9,129 @@ import {
   fmtNOKExact,
   setCategoryHues,
   txnFields,
-} from './format.ts';
+} from "./format.ts";
 
 const row: Categorized = {
-  id: 'row-1',
-  accountKey: 'secret-key',
-  account: 'Brukskonto',
-  date: '2026-07-04',
+  id: "row-1",
+  accountKey: "secret-key",
+  account: "Brukskonto",
+  date: "2026-07-04",
   amount: -249.5,
-  description: 'a description',
+  description: "a description",
   counterparty: null,
-  bankCategory: 'dagligvarer',
-  bankSub: 'andre_dagligvarer',
-  bankCategoryName: 'Dagligvarer',
-  bankSubName: 'Andre dagligvarer',
+  bankCategory: "dagligvarer",
+  bankSub: "andre_dagligvarer",
+  bankCategoryName: "Dagligvarer",
+  bankSubName: "Andre dagligvarer",
   bankConfidence: 100,
   remoteAccountNumber: null,
-  typeText: 'VISA Varekjøp',
+  typeText: "VISA Varekjøp",
   isRecurring: false,
   isSubscription: false,
   excluded: false,
   reason: null,
-  category: 'dagligvarer',
+  category: "dagligvarer",
   subcategory: null,
 };
 
-test('txnFields never shows the account key', () => {
+test("txnFields never shows the account key", () => {
   const names = txnFields(row).map(([name]) => name);
-  assert.ok(!names.includes('Account key'));
-  assert.ok(!txnFields(row).some(([, value]) => value === 'secret-key'));
+  assert.ok(!names.includes("Account key"));
+  assert.ok(!txnFields(row).some(([, value]) => value === "secret-key"));
 });
 
-test('txnFields drops the fields the bank sent nothing for', () => {
+test("txnFields drops the fields the bank sent nothing for", () => {
   const names = txnFields(row).map(([name]) => name);
-  assert.ok(!names.includes('Merchant'), 'a null counterparty is no row');
-  assert.ok(!names.includes('Excluded because'), 'a null reason is no row');
+  assert.ok(!names.includes("Merchant"), "a null counterparty is no row");
+  assert.ok(!names.includes("Excluded because"), "a null reason is no row");
   assert.deepEqual(
-    txnFields(row).find(([name]) => name === 'Excluded'),
-    ['Excluded', 'No'],
-    'a false boolean is still a row',
+    txnFields(row).find(([name]) => name === "Excluded"),
+    ["Excluded", "No"],
+    "a false boolean is still a row",
   );
 });
 
-test('txnFields keeps the øre, unlike every summed figure', () => {
-  const amount = txnFields(row).find(([name]) => name === 'Amount');
+test("txnFields keeps the øre, unlike every summed figure", () => {
+  const amount = txnFields(row).find(([name]) => name === "Amount");
   assert.equal(amount?.[1], fmtNOKExact(-249.5));
   assert.match(amount![1], /50/);
 });
 
-test('txnFields drops what the caller already shows itself', () => {
-  const names = txnFields(row, ['amount', 'date']).map(([name]) => name);
-  assert.ok(!names.includes('Amount'));
-  assert.ok(!names.includes('Date'));
-  assert.ok(names.includes('Description'), 'and nothing else');
+test("txnFields drops what the caller already shows itself", () => {
+  const names = txnFields(row, ["amount", "date"]).map(([name]) => name);
+  assert.ok(!names.includes("Amount"));
+  assert.ok(!names.includes("Date"));
+  assert.ok(names.includes("Description"), "and nothing else");
 });
 
-test('bankLabel reads as a name and pastes as a rule', () => {
+test("bankLabel reads as a name and pastes as a rule", () => {
   assert.deepEqual(bankLabel(row), [
-    'Dagligvarer / Andre dagligvarer',
-    'dagligvarer/andre_dagligvarer',
+    "Dagligvarer / Andre dagligvarer",
+    "dagligvarer/andre_dagligvarer",
   ]);
 });
 
-test('bankLabel keeps a main the bank sent no sub for whole', () => {
+test("bankLabel keeps a main the bank sent no sub for whole", () => {
   const [name, slug] = bankLabel({ ...row, bankSub: null, bankSubName: null })!;
-  assert.equal(name, 'Dagligvarer', 'no trailing slash in the name');
-  assert.equal(slug, 'dagligvarer', 'nor in the slug a rule is written against');
+  assert.equal(name, "Dagligvarer", "no trailing slash in the name");
+  assert.equal(
+    slug,
+    "dagligvarer",
+    "nor in the slug a rule is written against",
+  );
   assert.equal(bankLabel({ ...row, bankCategory: null }), null);
 });
 
-test('fmtDate reads the date as the Oslo day it already is', () => {
+test("fmtDate reads the date as the Oslo day it already is", () => {
   // Midnight Oslo-local: UTC would push it back to the 30th, and the 1st of a
   // month back into the previous one.
-  assert.equal(fmtDate('2026-07-01'), '1. juli 2026');
+  assert.equal(fmtDate("2026-07-01"), "1. juli 2026");
 });
 
-test('txnFields names a field after its key when it reads as one', () => {
+test("txnFields names a field after its key when it reads as one", () => {
   const names = txnFields(row).map(([name]) => name);
-  assert.ok(names.includes('Bank confidence'));
+  assert.ok(names.includes("Bank confidence"));
   // The name the dialog truncates on, so a rename cannot quietly stop it.
-  assert.ok(names.includes(ID_FIELD), 'and after FIELD_NAMES when not');
+  assert.ok(names.includes(ID_FIELD), "and after FIELD_NAMES when not");
 });
 
 // The 17 mains on record. A hash over these put two pairs on the same hue,
 // which is why the hue is positional — these are the checks that keep it so.
 const MAINS = [
-  'annet_lan_og_gjeld',
-  'bil_og_transport',
-  'dagligvarer',
-  'diverse',
-  'faste_utgifter',
-  'forsikring',
-  'helse_og_velvaere',
-  'hjem_og_hage',
-  'hobby_og_fritid',
-  'innskudd',
-  'kafe_og_restaurant',
-  'klaer_og_utstyr',
-  'medier_og_underholdning',
-  'overfoering',
-  'reise',
-  'sparing',
-  'ukategorisert',
+  "annet_lan_og_gjeld",
+  "bil_og_transport",
+  "dagligvarer",
+  "diverse",
+  "faste_utgifter",
+  "forsikring",
+  "helse_og_velvaere",
+  "hjem_og_hage",
+  "hobby_og_fritid",
+  "innskudd",
+  "kafe_og_restaurant",
+  "klaer_og_utstyr",
+  "medier_og_underholdning",
+  "overfoering",
+  "reise",
+  "sparing",
+  "ukategorisert",
 ];
 
-test('every category gets a colour of its own', () => {
+test("every category gets a colour of its own", () => {
   setCategoryHues(MAINS);
   const colours = MAINS.map(categoryColor);
-  assert.equal(new Set(colours).size, MAINS.length, 'no two mains share a hue');
-  assert.ok(colours.every((c) => c.startsWith('oklch(')));
+  assert.equal(new Set(colours).size, MAINS.length, "no two mains share a hue");
+  assert.ok(colours.every((c) => c.startsWith("oklch(")));
 });
 
-test('a colour does not depend on the order the categories arrive in', () => {
+test("a colour does not depend on the order the categories arrive in", () => {
   setCategoryHues(MAINS);
   const before = MAINS.map(categoryColor);
   setCategoryHues([...MAINS].reverse());
-  assert.deepEqual(MAINS.map(categoryColor), before, 'sorted, not as given');
+  assert.deepEqual(MAINS.map(categoryColor), before, "sorted, not as given");
 });
 
-test('a category nobody registered keeps the ordinary text colour', () => {
+test("a category nobody registered keeps the ordinary text colour", () => {
   setCategoryHues(MAINS);
-  assert.equal(categoryColor('a_main_from_next_month'), 'var(--color-ink)');
+  assert.equal(categoryColor("a_main_from_next_month"), "var(--color-ink)");
 });

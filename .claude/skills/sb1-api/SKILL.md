@@ -15,10 +15,10 @@ only other implementation that has run these endpoints for real.
 
 ## Auth
 
-| | |
-|---|---|
-| Authorize | `https://api.sparebank1.no/oauth/authorize` |
-| Token | `https://api.sparebank1.no/oauth/token` |
+|                 |                                                                                                                                                    |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Authorize       | `https://api.sparebank1.no/oauth/authorize`                                                                                                        |
+| Token           | `https://api.sparebank1.no/oauth/token`                                                                                                            |
 | Grants accepted | `authorization_code`, `refresh_token` (also `client_credentials` and `jwt-bearer`, but **not for personal clients** — 400 `Could not issue token`) |
 
 `client_id` + `client_secret` go on **every** token request, including refreshes.
@@ -48,18 +48,18 @@ in the catalog is not the media type version, and v5 is not accepted.
 
 ## Endpoints
 
-| Endpoint | Notes |
-|---|---|
-| `GET /accounts` | `includeCreditCardAccounts`, `includeBsuAccounts`, `includeAskAccounts`, `includePensionAccounts`, `includeCurrencyAccounts` — all default false |
-| `GET /accounts/{key}` | |
-| `GET /accounts/{key}/details` | loose schema |
-| `GET /accounts/{key}/roles` | |
-| `POST /accounts/balance` | body `{accountNumber}` |
-| `GET /transactions` | `accountKey` (**repeatable**), `fromDate`, `toDate`, `rowLimit` |
-| `GET /transactions/classified` | same params, different envelope — see below |
-| `GET /transactions/{id}/details` | also `/details/classified` |
-| `GET /transactions/export` | CSV, needs the CSV Accept header |
-| `GET /common/helloworld` | **404s** under `/personal/banking` — path unconfirmed, do not reach for it |
+| Endpoint                         | Notes                                                                                                                                            |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GET /accounts`                  | `includeCreditCardAccounts`, `includeBsuAccounts`, `includeAskAccounts`, `includePensionAccounts`, `includeCurrencyAccounts` — all default false |
+| `GET /accounts/{key}`            |                                                                                                                                                  |
+| `GET /accounts/{key}/details`    | loose schema                                                                                                                                     |
+| `GET /accounts/{key}/roles`      |                                                                                                                                                  |
+| `POST /accounts/balance`         | body `{accountNumber}`                                                                                                                           |
+| `GET /transactions`              | `accountKey` (**repeatable**), `fromDate`, `toDate`, `rowLimit`                                                                                  |
+| `GET /transactions/classified`   | same params, different envelope — see below                                                                                                      |
+| `GET /transactions/{id}/details` | also `/details/classified`                                                                                                                       |
+| `GET /transactions/export`       | CSV, needs the CSV Accept header                                                                                                                 |
+| `GET /common/helloworld`         | **404s** under `/personal/banking` — path unconfirmed, do not reach for it                                                                       |
 
 `accountKey` being repeatable means all accounts can be fetched in one request.
 `rowLimit` exists, so there is an unverified pagination ceiling — if a month ever
@@ -133,7 +133,7 @@ card. A pending row has a date like any other, but its `id` is reissued when it
 books.
 
 **Only `/details` carries a booking date.** The list endpoints have the single
-`date` field, which on a card row is the *purchase* date; `/details` adds
+`date` field, which on a card row is the _purchase_ date; `/details` adds
 `bookedDate`, `postingDate` and `valueDate` alongside it, one request per
 transaction. `canShowDetails: false` on a card row does not stop `/details`
 answering for it.
@@ -145,7 +145,7 @@ a summer month reads `22:00Z` (CEST is UTC+2). Formatting it as UTC shifts every
 transaction back a day and pushes the 1st into the previous month.
 
 ```ts
-new Date(ms).toLocaleDateString('en-CA', { timeZone: 'Europe/Oslo' })  // YYYY-MM-DD
+new Date(ms).toLocaleDateString("en-CA", { timeZone: "Europe/Oslo" }); // YYYY-MM-DD
 ```
 
 ## Terms
@@ -154,9 +154,9 @@ Personal use only. Rate limits are enforced — one request per call, no retry
 loops, surface 429 rather than working around it.
 
 **The quota is 60 requests an hour, and it is stated — in the FAQ, not the
-reference.** Verbatim: *"Each API you have access to has a quota for how many
+reference.** Verbatim: _"Each API you have access to has a quota for how many
 requests you can make. Normally this quota is 60 API requests each hour. If you
-make more requests than this limit you will get an HTTP 429 response."* Note
+make more requests than this limit you will get an HTTP 429 response."_ Note
 **per API**: the quota is not shared between the token endpoint and
 `/transactions`.
 
