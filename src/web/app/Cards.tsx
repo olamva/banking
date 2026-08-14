@@ -747,7 +747,10 @@ export const TransactionsCard = ({
           columns={[
             head("Date", "date", { min: true }),
             head("Merchant / description", "merchant"),
-            head("Subcategory", "subcategory", {
+            /* "Category", not "Subcategory": the column is the one category
+               column now, and which level its text is at is not a distinction
+               the header has to make — the colour carries the main. */
+            head("Category", "subcategory", {
               min: true,
               sizer: subcategorySizes,
             }),
