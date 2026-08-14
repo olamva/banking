@@ -6,18 +6,16 @@
  * being a `<select multiple>` — ctrl-clicking a multi-select is not something
  * anyone should have to do.
  *
- * What is on is a count on one button, not a row of chips: ten active filters
- * wrapped onto three lines and pushed the dashboard down the page, which is the
- * opposite of what a filter bar is for. The chips still exist, inside that
- * button's panel — a filter you cannot see is a filter you cannot turn off, so
- * the count says how many and the panel is the one click to any of them.
+ * What is on is a count, not a row of chips: ten active filters wrapped onto
+ * three lines and pushed the dashboard down the page, which is the opposite of
+ * what a filter bar is for. The count says how many; the pickers say which, and
+ * are where one is turned off again.
  */
 import { useEffect, useRef, useState } from "react";
 import type { Axis, Filters, Mode, PeriodKind } from "../../core/select.ts";
 import { NO_FILTERS } from "../../core/select.ts";
-import { chipLabel, pairLabel, splitPair, treeLabel } from "./format.ts";
+import { pairLabel, treeLabel } from "./format.ts";
 import {
-  CloseIcon,
   DropdownIcon,
   ExpandIcon,
   Icon,
@@ -51,29 +49,6 @@ interface FilterBarProps {
 const CONTROL =
   "rounded-md border border-line bg-page px-2 py-1.5 text-[13px] text-ink";
 
-/**
- * `details` opens itself and closes itself on its own summary, but nothing else
- * — Escape and a click elsewhere are ours. Open state stays in the DOM rather
- * than in React, so this just reads it and sets it back.
- */
-const useDismiss = (menu: React.RefObject<HTMLDetailsElement | null>) => {
-  useEffect(() => {
-    const close = (e: Event) => {
-      const el = menu.current;
-      if (!el?.open) return;
-      if (e instanceof KeyboardEvent && e.key !== "Escape") return;
-      if (e.type === "pointerdown" && el.contains(e.target as Node)) return;
-      el.open = false;
-    };
-    document.addEventListener("keydown", close);
-    document.addEventListener("pointerdown", close);
-    return () => {
-      document.removeEventListener("keydown", close);
-      document.removeEventListener("pointerdown", close);
-    };
-  }, [menu]);
-};
-
 /** Spelled out, because "2026 / 07" beside a year picker reads as a second year. */
 const MONTH_NAMES = [
   "January",
@@ -89,35 +64,6 @@ const MONTH_NAMES = [
   "November",
   "December",
 ];
-
-interface ChipProps {
-  label: string;
-  /** An excluding chip is doing the opposite of an including one; it should not look identical. */
-  tone?: "include" | "exclude";
-  onRemove: () => void;
-}
-
-/** An active filter, and the way to drop it. */
-const Chip = ({ label, tone = "include", onRemove }: ChipProps) => (
-  <button
-    type="button"
-    onClick={onRemove}
-    className={`flex items-center gap-1 rounded-full border py-1 pr-1.5 pl-2.5 text-xs text-white ${
-      tone === "exclude"
-        ? "border-critical-strong bg-critical-strong"
-        : "border-series-1 bg-series-1"
-    }`}
-  >
-    {label}
-    <Icon
-      role="img"
-      aria-label={`Remove ${label}`}
-      icon={CloseIcon}
-      size={12}
-      className="shrink-0 opacity-80"
-    />
-  </button>
-);
 
 interface PickerProps {
   /** What the summary says, before the count. */
@@ -183,8 +129,27 @@ const Picker = ({
    * costing that.
    */
   const [open, setOpen] = useState(false);
-  useDismiss(menu);
-  useEffect(() => () => clearTimeout(reset.current), []);
+  /**
+   * `details` opens itself and closes itself on its own summary, but nothing
+   * else — Escape and a click elsewhere are ours. Open state stays in the DOM
+   * rather than in React, so this just reads it and sets it back.
+   */
+  useEffect(() => {
+    const close = (e: Event) => {
+      const el = menu.current;
+      if (!el?.open) return;
+      if (e instanceof KeyboardEvent && e.key !== "Escape") return;
+      if (e.type === "pointerdown" && el.contains(e.target as Node)) return;
+      el.open = false;
+    };
+    document.addEventListener("keydown", close);
+    document.addEventListener("pointerdown", close);
+    return () => {
+      document.removeEventListener("keydown", close);
+      document.removeEventListener("pointerdown", close);
+      clearTimeout(reset.current);
+    };
+  }, []);
 
   const q = query.trim().toLowerCase();
   const childrenOf = (o: string) => subs?.(o) ?? [];
@@ -477,9 +442,6 @@ export const FilterBar = ({
   filters,
   onFilters,
 }: FilterBarProps) => {
-  /** The active-filter panel closes on Escape and on a click outside it, like the pickers. */
-  const active = useRef<HTMLDetailsElement>(null);
-  useDismiss(active);
   // A month period is a year with a month in it, so the year picker reads the
   // front of the same string rather than being state of its own — two selects,
   // still one value, and nothing to keep in sync.
@@ -518,52 +480,20 @@ export const FilterBar = ({
   const excludingMerchants = filters.merchantMode === "exclude";
   const excludingAccounts = filters.accountMode === "exclude";
 
-  // The search box is on the transactions table, in plain sight — a chip for it
-  // there would only be a second copy that shoves the page down as you type.
-  const searchChip = filters.search !== "" && view !== "transactions";
   const picked =
     filters.categories.length + filters.merchants.length + filters.accounts.length;
 
   /**
-   * The three lists and the search as one array: one count on one button, so
-   * they are counted and listed as a whole rather than three counts to add up.
-   * The per-list counts are still on the pickers themselves.
+   * The three lists and the search as one number, so what is on reads as a whole
+   * rather than three counts to add up. The per-list counts are still on the
+   * pickers themselves, which is where one is turned off again.
+   *
+   * The search counts only where it is not already on screen: the transactions
+   * table has the box in plain sight, and a number saying the same thing is a
+   * second copy of it.
    */
-  const chips = [
-    ...filters.categories.map((c) => {
-      const name = chipLabel(c, subsOf(splitPair(c)[0]));
-      return {
-        key: `category:${c}`,
-        label: excluding ? `Not ${name}` : name,
-        tone: excluding ? ("exclude" as const) : ("include" as const),
-        onRemove: () => toggleCategory(c),
-      };
-    }),
-    ...filters.merchants.map((m) => ({
-      key: `merchant:${m}`,
-      label: excludingMerchants ? `Not ${m}` : m,
-      tone: excludingMerchants ? ("exclude" as const) : ("include" as const),
-      onRemove: () => toggleMerchant(m),
-    })),
-    ...filters.accounts.map((a) => ({
-      key: `account:${a}`,
-      label: excludingAccounts ? `Not ${a}` : a,
-      tone: excludingAccounts ? ("exclude" as const) : ("include" as const),
-      onRemove: () => toggleAccount(a),
-    })),
-    // On the dashboards there is no search box, so without this a search set
-    // from a bar click would be a filter with nothing to clear it.
-    ...(searchChip
-      ? [
-          {
-            key: "search",
-            label: `“${filters.search}”`,
-            tone: "include" as const,
-            onRemove: () => onFilters({ ...filters, search: "" }),
-          },
-        ]
-      : []),
-  ];
+  const active =
+    picked + (filters.search !== "" && view !== "transactions" ? 1 : 0);
   const dirty =
     picked > 0 ||
     filters.search !== "" ||
@@ -676,41 +606,13 @@ export const FilterBar = ({
         Excluded rows
       </button>
 
-      {/* What is on, as a number rather than a row — the chips are in the panel.
-          Its own control, not a count on the three pickers, because the search
-          is a filter too and has no picker to sit on. */}
-      {chips.length > 0 && (
-        <details ref={active} className="group relative">
-          <summary
-            className={`${CONTROL} flex list-none items-center gap-1.5 marker:content-none`}
-          >
-            {`${chips.length} filter${chips.length === 1 ? "" : "s"}`}
-            <Icon
-              aria-hidden
-              icon={DropdownIcon}
-              size={14}
-              className="shrink-0 text-ink-muted transition-transform group-open:rotate-180"
-            />
-          </summary>
-          {/* One click from the count to any single filter being gone. The
-              panel stays open as they go, so several in a row is several
-              clicks and no reopening. The mode is invisible once a picker
-              closes, so the chips still carry it in their colour. */}
-          <div
-            className="absolute z-20 mt-1 flex max-h-72 w-64 flex-col items-start gap-1.5 overflow-y-auto rounded-md border border-line bg-surface p-1.5 shadow-lg"
-            role="group"
-            aria-label="Active filters"
-          >
-            {chips.map((chip) => (
-              <Chip
-                key={chip.key}
-                label={chip.label}
-                tone={chip.tone}
-                onRemove={chip.onRemove}
-              />
-            ))}
-          </div>
-        </details>
+      {/* What is on, as a number and nothing more. Not a control: it opens
+          nothing and clears nothing, so it is text — the pickers turn one
+          filter off and Reset turns them all off. */}
+      {active > 0 && (
+        <span className="px-1 text-[13px] text-ink-soft">
+          {`${active} filter${active === 1 ? "" : "s"}`}
+        </span>
       )}
 
       {dirty && (
