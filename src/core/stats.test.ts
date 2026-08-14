@@ -477,3 +477,34 @@ test('income and excluded rows stay out of the subcategory totals, as they do th
     { category: 'dagligvarer', subcategory: 'dagligvarer', total: 100, share: 1 },
   ]);
 });
+
+test('the income breakdowns are the spending ones over the other sign, and the two never mix', () => {
+  const s = monthStats('2026-07', [
+    txn({ id: '1', amount: -100, category: 'dagligvarer', subcategory: 'dagligvarer' }),
+    txn({ id: '2', amount: 5000, account: 'Brukskonto', counterparty: 'Arbeidsgiver', category: 'innskudd', subcategory: 'lonn' }),
+    txn({ id: '3', amount: 1000, account: 'Sparekonto', counterparty: 'Mor', category: 'innskudd', subcategory: 'familie' }),
+    // Excluded rows are out of both directions, exactly as they are of the totals.
+    txn({ id: '4', amount: 900, category: 'overfoering', excluded: true, reason: 'internal transfer' }),
+  ]);
+
+  assert.deepEqual(s.incomeCategories, [{ category: 'innskudd', total: 6000, share: 1 }]);
+  assert.deepEqual(s.incomeSubcategories, [
+    { category: 'innskudd', subcategory: 'lonn', total: 5000, share: 0.8333 },
+    { category: 'innskudd', subcategory: 'familie', total: 1000, share: 0.1667 },
+  ]);
+  assert.deepEqual(s.incomeAccounts, [
+    { account: 'Brukskonto', total: 5000, share: 0.8333 },
+    { account: 'Sparekonto', total: 1000, share: 0.1667 },
+  ]);
+  assert.deepEqual(
+    s.topIncomeCounterparties.map((c) => [c.counterparty, c.total, c.count]),
+    [['Arbeidsgiver', 5000, 1], ['Mor', 1000, 1]],
+  );
+
+  // The spending side sees none of it, and the totals are unmoved.
+  assert.deepEqual(s.categories, [{ category: 'dagligvarer', total: 100, share: 1 }]);
+  assert.deepEqual(s.accounts, [{ account: 'Brukskonto', total: 100, share: 1 }]);
+  assert.equal(s.topIncomeCounterparties.some((c) => c.counterparty === 'Kiwi'), false);
+  assert.equal(s.totalIn, 6000);
+  assert.equal(s.totalOut, 100);
+});

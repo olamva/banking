@@ -303,13 +303,46 @@ Notes from the real data, not the plan:
   `kontantuttak`, `skatt` — were deliberately left alone: they read better than
   `diverse` does until a display name exists.
 - **Income and spending split on the sign, not on the category** —
-  `aggregateCents` is `if (cents > 0) inCents += cents`. So no
+  `aggregateCents` picks the side with `cents > 0 ? agg.in : agg.out` and adds
+  the magnitude to it. So no
   category can move money between the two totals, and filing Lånekassen as
   `annet_lan_og_gjeld/studielan` labels 618 915 kr as debt while the income
   total still counts every øre of it. Taking something out of income means
   excluding it in `exclude.ts`, which is a money change with a netting invariant
   — not a rules edit. Decided 2026-08-13 to leave Lånekassen in income: the
   money did arrive and it did get spent.
+- The dashboard draws that split as **six cards, three per direction**, named
+  `Spending by …` and `Income by …` over category, merchant and account.
+  `monthStats` carries both sides because `aggregateCents` now keeps a `SideAgg`
+  per sign rather than spending alone, and the income breakdowns are the same
+  three functions over the other map. So a **spending category with income in
+  it is expected, not a bug**: 14 of the mains have some, because a merchant
+  refund is money in filed where it went out, and `Income by category` says so
+  rather than hiding it. Both sides reconcile — the income categories and the
+  income accounts each sum to `totalIn` to the øre.
+
+  **`merchant` is the page's word, `counterparty` is the data's**, and the two
+  are not being reconciled: `Txn.counterparty`, `CounterpartyTotal` and
+  `topCounterparties` keep the name this file uses for the other party of a row,
+  while the card titles, `merchantOf` and `filters.merchants` keep the one the
+  filter bar already said. Renaming either to match the other would rename the
+  data model to suit a card title, or a card title to a word the filter beside
+  it does not use.
+
+  `HorizontalBars` draws **10 rows and opens to the rest on one click**, all of
+  it at once rather than ten more at a time. `topCounterparties` therefore
+  returns 25 rather than 10 — a limit equal to what is drawn is a card whose
+  "show more" can never appear. Its scale is taken off the whole list, not the
+  visible slice, so opening the tail cannot rescale the bars already on screen.
+
+  **The bars are red for spending and green for income** — `TONE` in
+  `Charts.tsx`, the same `critical-strong`/`good-strong` pair `DivergingBars`
+  diverges across. Judged as a *categorical* palette that pair fails deutan
+  separation on the dark surface (ΔE 3.8), and it is fine here for the reason
+  that check does not apply: one card is one direction, its title says which in
+  words, and a red bar and a green one never sit side by side needing to be told
+  apart. Keep it that way — the moment both tones share one chart, the colour is
+  carrying identity alone and needs re-picking.
 - Much of `rules/overrides.json` predates knowing the sub existed and
   re-derives it by hand. `pnpm sb1 categories` measures that by counterfactual —
   it deletes each line, re-runs the real `categorize` over that line's own rows,
