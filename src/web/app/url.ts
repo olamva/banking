@@ -21,10 +21,18 @@ export type UrlState = {
   period: string | null;
   grain: Grain;
   /**
+   * Which year the window in view is compared against, or null for the year
+   * back that every window defaults to. Kept raw like `period`: a year the
+   * window in view cannot compare against — held over from another period, or
+   * typed into the URL — is ignored by `period()` rather than forgotten, so
+   * stepping through such a window and back keeps the choice.
+   */
+  vsYear: string | null;
+  /**
    * Whether the window being compared against is restated in the money of the
-   * window in view. Not a filter — it changes no row's membership, only what
-   * the previous window's amounts are worth — so it sits beside them rather
-   * than in `Filters`.
+   * window in view. It changes no row's membership, only what the previous
+   * window's amounts are worth, so it is no part of `Filters` — it is drawn in
+   * the filter bar beside the period it belongs to, and lives here.
    */
   inflation: boolean;
   filters: Filters;
@@ -75,6 +83,7 @@ export const toParams = (s: UrlState): string => {
   // and offers nothing else, so naming it there would record a choice that was
   // never on offer.
   if (s.grain !== grainsFor(s.period)[0]) p.set('g', s.grain);
+  if (s.vsYear) p.set('vs', s.vsYear);
   if (s.inflation) p.set('infl', '1');
   if (s.filters.categories.length) p.set('cat', s.filters.categories.join(','));
   if (s.filters.categoryMode !== 'include') p.set('cat_mode', s.filters.categoryMode);
@@ -101,6 +110,9 @@ export const fromParams = (p: URLSearchParams): UrlState => ({
   view: VIEWS.find((v) => v === p.get('view')) ?? 'dashboard',
   period: p.get('p') || null,
   grain: ALL_GRAINS.find((g) => g === p.get('g')) ?? grainsFor(p.get('p') || null)[0]!,
+  // A year and nothing else: `period()` reads it with `Number`, where anything
+  // else is a NaN that compares false against every year and silently defaults.
+  vsYear: /^\d{4}$/.test(p.get('vs') ?? '') ? p.get('vs') : null,
   inflation: p.get('infl') === '1',
   filters: {
     categories: p.get('cat')?.split(',').filter(Boolean) ?? [],

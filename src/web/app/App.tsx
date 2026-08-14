@@ -229,9 +229,11 @@ interface DashboardProps {
   grain: Grain;
   offered: Grain[];
   onGrain: (grain: Grain) => void;
-  /** Whether the previous window is restated in the money of the one in view. */
+  /**
+   * Whether the previous window is restated in the money of the one in view.
+   * Set in the filter bar, beside the period the comparison is of.
+   */
   inflation: boolean;
-  onInflation: (inflation: boolean) => void;
 }
 
 /**
@@ -253,7 +255,6 @@ const Dashboard = ({
   offered,
   onGrain,
   inflation,
-  onInflation,
 }: DashboardProps) => {
   const all = txns.filter((t) => inRange(t, p.from, p.to));
   const shown = all.filter((t) => matchesFilters(t, filters));
@@ -290,7 +291,10 @@ const Dashboard = ({
         .filter((t) => inRange(t, vs.from, vs.to))
         .filter((t) => matchesFilters(t, filters))
     : [];
-  const previous = inflation ? inflate(before, year) : before;
+  // From the compared window's own year, not from a fixed year back: the year
+  // picker can put it three years away, and three years of inflation is not
+  // three times one year of it.
+  const previous = inflation && vs ? inflate(before, vs.from.slice(0, 4), year) : before;
 
   /** The tiles and the changes card say which money they are comparing in. */
   const vsLabel = vs && (inflation ? `${vs.label}, in ${year} kr` : vs.label);
@@ -392,22 +396,6 @@ const Dashboard = ({
   // zero and "net" is the spend again with a minus sign; both are noise.
   return (
     <>
-      {/* Not in the filter bar: it filters nothing, and it means nothing in a
-          window with no window before it — every period that has one draws the
-          control, and all time draws no control rather than a dead one. */}
-      {vs && (
-        <div className="mb-3 flex justify-end">
-          <button
-            type="button"
-            aria-pressed={inflation}
-            onClick={() => onInflation(!inflation)}
-            className={`rounded-md border border-line px-2 py-1 text-[11px] ${inflation ? "bg-series-1 text-white" : "bg-page text-ink-soft"}`}
-          >
-            Adjust {vs.label} for inflation
-          </button>
-        </div>
-      )}
-
       <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
         {stats.totalOut > 0 && (
           <StatTile
@@ -569,6 +557,7 @@ export const App = () => {
   const [chosen, setChosen] = useState<string | null>(initial.period);
   const [filters, setFilters] = useState<Filters>(initial.filters);
   const [chosenGrain, setChosenGrain] = useState<Grain>(initial.grain);
+  const [chosenVs, setChosenVs] = useState<string | null>(initial.vsYear);
   const [inflation, setInflation] = useState(initial.inflation);
   const [theme, onTheme] = useState<Theme>(readTheme);
 
@@ -589,7 +578,10 @@ export const App = () => {
     chosen && offered.includes(chosen)
       ? chosen
       : (months[months.length - 1] ?? "all");
-  const p = useMemo(() => period(active), [active]);
+  // The comparison year goes in raw: `period` ignores one the window in view
+  // cannot compare against, so a choice held over from another period survives
+  // the trip rather than being narrowed away here.
+  const p = useMemo(() => period(active, undefined, chosenVs), [active, chosenVs]);
 
   /**
    * The same narrowing one line down, and for the same reason: a window draws
@@ -600,6 +592,17 @@ export const App = () => {
    */
   const grains = GRAINS[p.kind];
   const grain = grains.includes(chosenGrain) ? chosenGrain : grains[0]!;
+
+  /**
+   * The year actually compared against, which `period` has already narrowed:
+   * anything that is not a year before this one has fallen back to the year
+   * back by now. Read off the window rather than off the choice, so the picker
+   * and the tiles can never disagree.
+   */
+  const compared = p.prev?.from.slice(0, 4) ?? null;
+  /** Null at the default, so an untouched window names no year — see the grain. */
+  const vsYear =
+    compared && compared !== `${Number(p.from!.slice(0, 4)) - 1}` ? compared : null;
 
   /**
    * The period goes in raw and the grain goes in derived, which looks
@@ -613,8 +616,8 @@ export const App = () => {
    * month returns to per day rather than to the default.
    */
   useEffect(
-    () => writeUrl({ view, period: chosen, grain, inflation, filters }),
-    [view, chosen, grain, inflation, filters],
+    () => writeUrl({ view, period: chosen, grain, vsYear, inflation, filters }),
+    [view, chosen, grain, vsYear, inflation, filters],
   );
 
   /**
@@ -729,6 +732,10 @@ export const App = () => {
         subcategories={subcategories}
         merchants={merchants}
         accounts={accounts}
+        compareYear={compared}
+        onCompareYear={setChosenVs}
+        inflation={inflation}
+        onInflation={setInflation}
         filters={filters}
         onFilters={setFilters}
       />
@@ -765,7 +772,6 @@ export const App = () => {
           offered={grains}
           onGrain={setChosenGrain}
           inflation={inflation}
-          onInflation={setInflation}
         />
       )}
       {load.status === "ready" && txns.length > 0 && view === "transactions" && (

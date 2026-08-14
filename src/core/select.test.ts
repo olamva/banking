@@ -225,6 +225,42 @@ test('inRange is inclusive at both ends, and an open end bounds nothing', () => 
   assert.equal(inRange(t, '2025-12-31', '2026-12-31'), true);
 });
 
+/**
+ * The chosen year moves the window and never its length: two Julys stay two
+ * Julys three years apart, or the deltas would be comparing a month against a
+ * quarter.
+ */
+test('period: a chosen year is compared against instead of the year back', () => {
+  assert.deepEqual(period('2026-07', '2026-08-09', '2023').prev, {
+    from: '2023-07-01',
+    to: '2023-07-31',
+    label: '2023',
+  });
+  assert.deepEqual(period('2026', '2027-03-04', '2022').prev, {
+    from: '2022-01-01',
+    to: '2022-12-31',
+    label: '2022',
+  });
+
+  // A period still running is still cut to the same point in the chosen year.
+  assert.deepEqual(period('2026-08', '2026-08-09', '2023').prev, {
+    from: '2023-08-01',
+    to: '2023-08-09',
+    label: 'this time in 2023',
+  });
+
+  // The year back keeps the relative wording, however it was arrived at.
+  assert.equal(period('2026-07', '2026-08-09', '2025').prev!.label, 'last year');
+
+  // Not a year before the one in view — the window itself, one ahead of it, or
+  // not a year at all — is no comparison, so it falls back to the year back
+  // rather than drawing a window that is not behind the period.
+  for (const bad of ['2026', '2027', 'last', '']) {
+    assert.equal(period('2026-07', '2026-08-09', bad).prev!.from, '2025-07-01');
+  }
+  assert.equal(period('all', '2026-08-09', '2023').prev, null);
+});
+
 test('a month in January compares against January the year before', () => {
   assert.deepEqual(period('2026-01', '2026-08-09').prev, {
     from: '2025-01-01',

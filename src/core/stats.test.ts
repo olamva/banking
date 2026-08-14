@@ -446,8 +446,9 @@ test('inflate restates the comparison window, and leaves the rows it was given a
     txn({ id: '1', amount: -1000, date: '2025-07-04' }),
     txn({ id: '2', amount: 5000, date: '2025-07-20', category: 'innskudd' }),
   ];
-  // Keyed on 2026 — the year being compared *into*, never the year the rows are from.
-  const adjusted = inflate(rows, '2026');
+  // From the rows' own year into the year in view — the second key is the year
+  // being compared *into*, never the year the rows are from.
+  const adjusted = inflate(rows, '2025', '2026');
   assert.equal(adjusted[0]!.amount, -1030);
   assert.equal(adjusted[1]!.amount, 5150);
 
@@ -457,7 +458,22 @@ test('inflate restates the comparison window, and leaves the rows it was given a
   assert.equal(adjusted[0]!.date, '2025-07-04');
 
   // A year the table does not name takes the flat fallback, never zero.
-  assert.equal(inflate([txn({ id: '3', amount: -200 })], '1999')[0]!.amount, -206);
+  assert.equal(inflate([txn({ id: '3', amount: -200 })], '1998', '1999')[0]!.amount, -206);
+});
+
+/**
+ * The year picker can put the comparison three years back, and three years of
+ * inflation is not three times one year of it — 1.031 · 1.03 · 1.03, compounded
+ * year by year, against 1 + 3 × 0.03 done flat.
+ */
+test('inflate compounds every year between the two, and scales nothing over no years', () => {
+  const rows = [txn({ id: '1', amount: -1000, date: '2023-07-04' })];
+  assert.equal(inflate(rows, '2023', '2026')[0]!.amount, -1093.79);
+
+  // A window in the year in view is not behind it, so there is nothing to
+  // restate — and neither is one somehow ahead of it.
+  assert.equal(inflate(rows, '2026', '2026')[0]!.amount, -1000);
+  assert.equal(inflate(rows, '2026', '2023')[0]!.amount, -1000);
 });
 
 /** The whole point of the toggle: a rise smaller than inflation is a real fall. */
@@ -465,5 +481,5 @@ test('inflate feeds the deltas', () => {
   const now = [txn({ id: '1', amount: -1020, date: '2026-07-04' })];
   const before = [txn({ id: '2', amount: -1000, date: '2025-07-04' })];
   assert.equal(monthStats('2026-07', now, before).delta!.totalOut, 20);
-  assert.equal(monthStats('2026-07', now, inflate(before, '2026')).delta!.totalOut, -10);
+  assert.equal(monthStats('2026-07', now, inflate(before, '2025', '2026')).delta!.totalOut, -10);
 });

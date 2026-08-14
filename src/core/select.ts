@@ -152,6 +152,22 @@ const yearBounds = (y: number) => ({ from: `${y}-01-01`, to: `${y}-12-31` });
 export const todayOslo = (): string => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Oslo' });
 
 /**
+ * What the window being compared against is called.
+ *
+ * The year back — every window's default — keeps the relative wording it has
+ * always had. Any other choice names itself instead, because "last year" over a
+ * window three years back is simply false, and the tiles quote this string.
+ */
+const prevLabel = (back: number, y: number, partial: boolean): string =>
+  back === y - 1
+    ? partial
+      ? 'this time last year'
+      : 'last year'
+    : partial
+      ? `this time in ${back}`
+      : String(back);
+
+/**
  * The one period the whole page runs on: a month `2026-07`, a year `2026`, or
  * anything else meaning all time.
  *
@@ -172,22 +188,33 @@ export const todayOslo = (): string => new Date().toLocaleDateString('en-CA', { 
  * The cut is a string bound, so a day the previous window does not have needs
  * no special case — `2025-02-30` sorts after every February date and before
  * every March one, which is exactly "all of February".
+ *
+ * `vs` names the year to compare against instead of the year back — the same
+ * month of it, or the whole of it for a year period. It is the window that
+ * moves, never the length: two Julys stay two Julys however far apart they sit,
+ * which is what keeps the deltas and the comparison line meaning one thing. A
+ * year that is not before the one in view is no comparison at all, so it falls
+ * back to the default rather than drawing a window ahead of the period.
  */
-export function period(p: string, now = todayOslo()): Period {
+export function period(p: string, now = todayOslo(), vs: string | null = null): Period {
+  const backYear = (y: number) => (vs && Number(vs) < y ? Number(vs) : y - 1);
   if (/^\d{4}-\d{2}$/.test(p)) {
-    const back = `${Number(p.slice(0, 4)) - 1}-${p.slice(5)}`;
+    const y = Number(p.slice(0, 4));
+    const b = backYear(y);
+    const back = `${b}-${p.slice(5)}`;
     const prev =
       now.slice(0, 7) === p
-        ? { from: `${back}-01`, to: `${back}-${now.slice(8)}`, label: 'this time last year' }
-        : { ...monthBounds(back), label: 'last year' };
+        ? { from: `${back}-01`, to: `${back}-${now.slice(8)}`, label: prevLabel(b, y, true) }
+        : { ...monthBounds(back), label: prevLabel(b, y, false) };
     return { kind: 'month', ...monthBounds(p), label: p, prev };
   }
   if (/^\d{4}$/.test(p)) {
     const y = Number(p);
+    const b = backYear(y);
     const prev =
       now.slice(0, 4) === p
-        ? { from: `${y - 1}-01-01`, to: `${y - 1}-${now.slice(5)}`, label: 'this time last year' }
-        : { ...yearBounds(y - 1), label: 'last year' };
+        ? { from: `${b}-01-01`, to: `${b}-${now.slice(5)}`, label: prevLabel(b, y, true) }
+        : { ...yearBounds(b), label: prevLabel(b, y, false) };
     return { kind: 'year', ...yearBounds(y), label: p, prev };
   }
   return { kind: 'all', from: null, to: null, label: 'All time', prev: null };
