@@ -1,0 +1,13 @@
+{
+  "id": "0524b6f7",
+  "ts": "2026-08-14T16:28:47+00:00",
+  "text": "budget.test.ts 'recording the zero from a 429 starts the refill clock' fails intermittently \u2014 time-dependent, passes on re-run",
+  "tags": [
+    "flaky",
+    "tests"
+  ],
+  "who": "agent",
+  "model": "opus-5",
+  "session": "125e97b2",
+  "where": "src/net/budget.test.ts"
+}
