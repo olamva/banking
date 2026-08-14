@@ -465,3 +465,91 @@ test("an account with no number falls back to the amount+date rule", () => {
     ["internal transfer", "internal transfer"],
   );
 });
+
+/**
+ * A deposit machine stamps `remoteAccountNumber` with an account of mine, and
+ * which one is arbitrary — it records the card fed into the terminal. Reading it
+ * as a counterparty excluded a 27 950 kr cash deposit against a second leg that
+ * exists nowhere in 284 months of record.
+ */
+test("a cash deposit is income, whichever of my accounts the machine stamped", () => {
+  const numbered = {
+    a: { mine: true, number: "11" },
+    b: { mine: true, number: "22" },
+  };
+  const out = exclude(
+    [
+      // Stamped with account b while sitting on account a — the shape the old
+      // guard missed, because it only ignored the row's *own* number.
+      txn({
+        id: "1",
+        accountKey: "a",
+        amount: 27950,
+        typeText: "Innskudd automat",
+        remoteAccountNumber: "22",
+      }),
+      // Stamped with its own account — the shape the old guard did catch.
+      txn({
+        id: "2",
+        accountKey: "a",
+        amount: 4800,
+        typeText: "Innskudd automat",
+        remoteAccountNumber: "11",
+      }),
+      // The over-the-counter wording of the same thing.
+      txn({
+        id: "3",
+        accountKey: "b",
+        amount: 219,
+        typeText: "Kontantinnskudd",
+        remoteAccountNumber: "11",
+      }),
+    ],
+    numbered,
+  );
+  assert.deepEqual(
+    out.map((r) => r.excluded),
+    [false, false, false],
+  );
+});
+
+/**
+ * A leg may be spent once. Two same-day +200 rows and a single −200 all used to
+ * answer yes to "does an opposite leg exist?", so 200 kr left the totals against
+ * a counterpart that was already taken.
+ */
+test("one counterpart pairs with one leg, not with every leg of that amount", () => {
+  const out = exclude(
+    [
+      leg({ id: "1", accountKey: "a", amount: 200, date: "2026-07-01" }),
+      leg({ id: "2", accountKey: "a", amount: 200, date: "2026-07-01" }),
+      leg({ id: "3", accountKey: "b", amount: -200, date: "2026-07-01" }),
+    ],
+    accounts,
+  );
+  const flagged = out.filter((r) => r.excluded);
+  assert.equal(flagged.length, 2, "exactly one pair, not all three rows");
+  // The pair nets to zero, which is the invariant the whole scheme rests on.
+  assert.equal(
+    flagged.reduce((n, r) => n + r.amount, 0),
+    0,
+  );
+  // The unpaired 200 is real money and stays counted.
+  assert.equal(out.filter((r) => !r.excluded).length, 1);
+});
+
+test("a transfer still needs its counterpart on a different account", () => {
+  // Equal and opposite on one account: nothing moved between two accounts, so
+  // neither row is a transfer leg.
+  const out = exclude(
+    [
+      leg({ id: "1", accountKey: "a", amount: 300, date: "2026-07-01" }),
+      leg({ id: "2", accountKey: "a", amount: -300, date: "2026-07-01" }),
+    ],
+    accounts,
+  );
+  assert.deepEqual(
+    out.map((r) => r.excluded),
+    [false, false],
+  );
+});
