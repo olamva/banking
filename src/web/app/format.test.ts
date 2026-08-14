@@ -3,7 +3,9 @@ import test from 'node:test';
 import type { Categorized } from '../../core/types.ts';
 import {
   ID_FIELD,
+  bankLabel,
   categoryColor,
+  fmtDate,
   fmtNOKExact,
   setCategoryHues,
   txnFields,
@@ -53,6 +55,33 @@ test('txnFields keeps the øre, unlike every summed figure', () => {
   const amount = txnFields(row).find(([name]) => name === 'Amount');
   assert.equal(amount?.[1], fmtNOKExact(-249.5));
   assert.match(amount![1], /50/);
+});
+
+test('txnFields drops what the caller already shows itself', () => {
+  const names = txnFields(row, ['amount', 'date']).map(([name]) => name);
+  assert.ok(!names.includes('Amount'));
+  assert.ok(!names.includes('Date'));
+  assert.ok(names.includes('Description'), 'and nothing else');
+});
+
+test('bankLabel reads as a name and pastes as a rule', () => {
+  assert.deepEqual(bankLabel(row), [
+    'Dagligvarer / Andre dagligvarer',
+    'dagligvarer/andre_dagligvarer',
+  ]);
+});
+
+test('bankLabel keeps a main the bank sent no sub for whole', () => {
+  const [name, slug] = bankLabel({ ...row, bankSub: null, bankSubName: null })!;
+  assert.equal(name, 'Dagligvarer', 'no trailing slash in the name');
+  assert.equal(slug, 'dagligvarer', 'nor in the slug a rule is written against');
+  assert.equal(bankLabel({ ...row, bankCategory: null }), null);
+});
+
+test('fmtDate reads the date as the Oslo day it already is', () => {
+  // Midnight Oslo-local: UTC would push it back to the 30th, and the 1st of a
+  // month back into the previous one.
+  assert.equal(fmtDate('2026-07-01'), '1. juli 2026');
 });
 
 test('txnFields names a field after its key when it reads as one', () => {
