@@ -26,12 +26,15 @@ async function dump(file: string, data: unknown): Promise<void> {
  * fetching one would spend a request on a 404. They still earn their entry:
  * `exclude` matches on the *number*.
  *
- * `from` is the month the account opened, and asking for a month before it is
- * a request spent to be told the account was empty — 220 of them across the
- * record, since a sweep costs one request per account per month whether the
- * account existed or not. The card alone accounts for 35 of them: it opened in
- * 2026-02 and the raw goes back to 2018-09. An account with no `from` has no
- * floor and is fetched for every month asked for.
+ * `from` is the month the account first saw activity, and asking for a month
+ * before it is a question whose answer is already known to be nothing. The raw
+ * now reaches back to 2003-01 and the accounts open across thirteen years of
+ * it, so most of that rectangle is empty: **1 386 of 1 988 account-months**, and
+ * the whole of 2003-01..2007-12 is a span with no account in it at all, which
+ * costs no request whatsoever.
+ *
+ * An account with no `from` has no floor and is fetched for every month asked
+ * for.
  */
 export async function accountKeys(month?: string): Promise<string[]> {
   const accounts: Accounts = JSON.parse(
