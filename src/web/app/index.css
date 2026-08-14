@@ -31,6 +31,13 @@
 @layer base {
   :root {
     color-scheme: light;
+    /*
+     * The lightness half of a category colour; the hue comes off the row, one
+     * per main category. Not a `@theme` colour because it is a component of
+     * many colours rather than one of them — and it is the only half that
+     * changes between the themes.
+     */
+    --cat-l: 0.5;
   }
 
   /*
@@ -60,6 +67,7 @@
       --color-hover: #262624;
       --color-good: #5faa68;
       --color-critical: #d1706c;
+      --cat-l: 0.8;
     }
   }
 
@@ -80,6 +88,7 @@
     --color-hover: #262624;
     --color-good: #5faa68;
     --color-critical: #d1706c;
+    --cat-l: 0.8;
   }
 
   body {

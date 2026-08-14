@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { Categorized } from '../../core/types.ts';
-import { ID_FIELD, fmtNOKExact, txnFields } from './format.ts';
+import {
+  ID_FIELD,
+  categoryColor,
+  fmtNOKExact,
+  setCategoryHues,
+  txnFields,
+} from './format.ts';
 
 const row: Categorized = {
   id: 'row-1',
@@ -54,4 +60,45 @@ test('txnFields names a field after its key when it reads as one', () => {
   assert.ok(names.includes('Bank confidence'));
   // The name the dialog truncates on, so a rename cannot quietly stop it.
   assert.ok(names.includes(ID_FIELD), 'and after FIELD_NAMES when not');
+});
+
+// The 17 mains on record. A hash over these put two pairs on the same hue,
+// which is why the hue is positional — these are the checks that keep it so.
+const MAINS = [
+  'annet_lan_og_gjeld',
+  'bil_og_transport',
+  'dagligvarer',
+  'diverse',
+  'faste_utgifter',
+  'forsikring',
+  'helse_og_velvaere',
+  'hjem_og_hage',
+  'hobby_og_fritid',
+  'innskudd',
+  'kafe_og_restaurant',
+  'klaer_og_utstyr',
+  'medier_og_underholdning',
+  'overfoering',
+  'reise',
+  'sparing',
+  'ukategorisert',
+];
+
+test('every category gets a colour of its own', () => {
+  setCategoryHues(MAINS);
+  const colours = MAINS.map(categoryColor);
+  assert.equal(new Set(colours).size, MAINS.length, 'no two mains share a hue');
+  assert.ok(colours.every((c) => c.startsWith('oklch(')));
+});
+
+test('a colour does not depend on the order the categories arrive in', () => {
+  setCategoryHues(MAINS);
+  const before = MAINS.map(categoryColor);
+  setCategoryHues([...MAINS].reverse());
+  assert.deepEqual(MAINS.map(categoryColor), before, 'sorted, not as given');
+});
+
+test('a category nobody registered keeps the ordinary text colour', () => {
+  setCategoryHues(MAINS);
+  assert.equal(categoryColor('a_main_from_next_month'), 'var(--color-ink)');
 });
