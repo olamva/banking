@@ -80,23 +80,6 @@ export const treeLabel = (category: string, pairs: string[]): string =>
     : categoryLabel(category);
 
 /**
- * What a chip says for one filter value, at either level.
- *
- * A subcategory is qualified by its parent, because "Kafe" on its own leaves you
- * wondering whose. The exception is a category's *only* named child: everything
- * under `annet_lan_og_gjeld` is a student loan, so "Annet lån og gjeld ›
- * Studielån" says the same thing twice and the row it came from already reads
- * as plain "Studielån".
- */
-export const chipLabel = (value: string, siblings: string[]): string => {
-  const [category, sub] = splitPair(value);
-  if (sub === null && !value.includes("/")) return treeLabel(category, siblings);
-  return siblings.length === 1
-    ? pairLabel(value)
-    : `${categoryLabel(category)} › ${pairLabel(value)}`;
-};
-
-/**
  * The four field names camel-casing does not tidy into something readable. Every
  * other key reads as itself — `bankConfidence` -> `Bank confidence` — which is
  * what keeps this map from having to list `Txn` twice, and what makes a widened

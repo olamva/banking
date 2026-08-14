@@ -1,0 +1,13 @@
+{
+  "id": "0a077110",
+  "ts": "2026-08-14T01:14:06+00:00",
+  "text": "pnpm dev in a fresh worktree needs .env.local, data/ and rules/ \u2014 all gitignored, so it dies on 'node: .env.local: not found' and there is no documented way to point at the main checkout's copies; symlinking the three is the only route",
+  "tags": [
+    "docs",
+    "worktree"
+  ],
+  "who": "agent",
+  "model": "opus-5",
+  "session": "3381f2b1",
+  "where": "src/web/serve.ts"
+}
