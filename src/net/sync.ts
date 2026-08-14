@@ -8,6 +8,7 @@
 import { existsSync, statSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import type { Accounts } from "../core/exclude.ts";
+import { osloDate } from "../core/normalize.ts";
 import { RAW } from "../core/pipeline.ts";
 import { BudgetExhausted, remaining } from "./budget.ts";
 import { get, monthRange, RateLimited } from "./sb1.ts";
@@ -25,12 +26,15 @@ async function dump(file: string, data: unknown): Promise<void> {
  * fetching one would spend a request on a 404. They still earn their entry:
  * `exclude` matches on the *number*.
  *
- * `from` is the month the account opened, and asking for a month before it is
- * a request spent to be told the account was empty — 220 of them across the
- * record, since a sweep costs one request per account per month whether the
- * account existed or not. The card alone accounts for 35 of them: it opened in
- * 2026-02 and the raw goes back to 2018-09. An account with no `from` has no
- * floor and is fetched for every month asked for.
+ * `from` is the month the account first saw activity, and asking for a month
+ * before it is a question whose answer is already known to be nothing. The raw
+ * now reaches back to 2003-01 and the accounts open across thirteen years of
+ * it, so most of that rectangle is empty: **1 386 of 1 988 account-months**, and
+ * the whole of 2003-01..2007-12 is a span with no account in it at all, which
+ * costs no request whatsoever.
+ *
+ * An account with no `from` has no floor and is fetched for every month asked
+ * for.
  */
 export async function accountKeys(month?: string): Promise<string[]> {
   const accounts: Accounts = JSON.parse(
@@ -59,6 +63,13 @@ export function rangeToDate(
   return { from, to: to > iso ? iso : to };
 }
 
+/**
+ * The month we are standing in. The default end of a sweep, and the clamp
+ * `monthsBetween` applies to whatever end it is given.
+ */
+export const thisMonth = (today = new Date()): string =>
+  `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+
 /** Where one account's month lands. The one place that path is spelled out. */
 const fileFor = (month: string, key: string) => `${RAW}/${month}/${key}.json`;
 
@@ -85,19 +96,39 @@ const fresh = (file: string, force: Force): boolean => {
  * A month whose files are all present costs nothing without `--force`, so the
  * honest number for a resumed sweep is the missing files and not the months.
  *
- * The keys are asked for per month, not once: an account that had not opened
- * yet is not part of the bill for that month either.
+ * This is the count of **files**, which is no longer the count of requests —
+ * see `syncSpan`. It is still what the pre-flight message reports as the work,
+ * because a file is the unit that either lands or doesn't.
  */
 export async function rangeCost(
   months: string[],
   force: Force,
 ): Promise<number> {
-  let n = 0;
+  const plan = await spanPlan(months, force);
+  return [...plan.values()].reduce((n, ms) => n + ms.length, 0);
+}
+
+/**
+ * Which files a span still owes, as account key -> the months missing it.
+ *
+ * The keys are asked for per month, not once: an account that had not opened
+ * yet is not part of the bill for that month either. An account that owes
+ * nothing is absent entirely, which is what keeps it out of the request.
+ */
+async function spanPlan(
+  months: string[],
+  force: Force,
+): Promise<Map<string, string[]>> {
+  const plan = new Map<string, string[]>();
   for (const month of months) {
-    const keys = await accountKeys(month);
-    n += keys.filter((key) => !fresh(fileFor(month, key), force)).length;
+    for (const key of await accountKeys(month)) {
+      if (fresh(fileFor(month, key), force)) continue;
+      const owed = plan.get(key);
+      if (owed) owed.push(month);
+      else plan.set(key, [month]);
+    }
   }
-  return n;
+  return plan;
 }
 
 /**
@@ -119,7 +150,7 @@ export function monthsBetween(
   };
   const index = (m: string) =>
     Number(m.slice(0, 4)) * 12 + Number(m.slice(5)) - 1;
-  const now = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+  const now = thisMonth(today);
   const start = index(bound(from, false));
   const stop = Math.min(index(bound(to, true)), index(now));
 
@@ -131,22 +162,172 @@ export function monthsBetween(
 }
 
 /**
+ * The bank refuses `fromDate`..`toDate` longer than five years — a
+ * `400 BadRequest`, `Date interval cannot exceed 5 years`. It is a range check
+ * and says nothing about rows, so it is the only reason a sweep is cut up at
+ * all.
+ */
+const SPAN_MONTHS = 60;
+
+/**
+ * Only the two fields the split reads. Every row is written back into its file
+ * exactly as it arrived, so nothing here may narrow what a row *is* — the
+ * shape that matters is `normalize`'s, and this must not become a second,
+ * drifting copy of it.
+ */
+type SpanRow = { transaction: { date: number; accountKey: string } };
+type SpanResponse = { transactions?: SpanRow[]; errors?: unknown[] };
+
+/**
+ * An explicit ceiling on the rows one response may carry, so a truncated answer
+ * is something we notice rather than something we write to disk.
+ *
+ * `rowLimit` is a documented parameter whose default nobody outside the bank
+ * knows. It has never mattered while a request covered one account for one
+ * month — about 80 rows at the worst — but a five-year span across every
+ * account is a different size of question, and a silently truncated response
+ * would be written into `data/raw/` as a complete month and then be `fresh`
+ * forever after. **A 4 671-row response has been verified to come back whole**;
+ * this is the guard for the day one does not.
+ */
+const ROW_LIMIT = 50_000;
+
+/**
+ * A span response grouped into the files it becomes, keyed `<month>/<key>`.
+ *
+ * The month is the row's **Oslo** month, because that is the cut
+ * `normalizeMonth` reads back: SB1 dates a row at Norwegian midnight, so every
+ * summer timestamp is `22:00Z` and a UTC month would file every row dated the
+ * 1st into the previous directory. Splitting one way and reading the other is
+ * the same bug the whole repo formats dates in `Europe/Oslo` to avoid, except
+ * that here it would be written into `data/raw/` and outlive the mistake.
+ */
+export function splitSpan(rows: SpanRow[]): Map<string, SpanRow[]> {
+  const byFile = new Map<string, SpanRow[]>();
+  for (const row of rows) {
+    const key = `${osloDate(row.transaction.date).slice(0, 7)}/${row.transaction.accountKey}`;
+    const bucket = byFile.get(key);
+    if (bucket) bucket.push(row);
+    else byFile.set(key, [row]);
+  }
+  return byFile;
+}
+
+/** Consecutive runs of at most `size` months, oldest first. */
+export function spans(months: string[], size = SPAN_MONTHS): string[][] {
+  const out: string[][] = [];
+  for (let i = 0; i < months.length; i += size)
+    out.push(months.slice(i, i + size));
+  return out;
+}
+
+/**
+ * One request for a whole span, split back into the per-month files the rest of
+ * the repo already reads.
+ *
+ * **`accountKey` is repeatable**, and `fromDate`..`toDate` may cover five
+ * years, so the smallest honest unit of fetching is not a month for one account
+ * — it is every account for five years, in a single call. Sweeping 2018-09 to
+ * 2026-08 a month at a time costs 455 requests against a 60-an-hour quota,
+ * which is eight hours of waiting; the same sweep as two spans costs two.
+ *
+ * What lands on disk is unchanged: `data/raw/<month>/<key>.json`, one file per
+ * account per month, same envelope. That is deliberate — `normalizeMonth`
+ * reads a month directory, `fresh` skips a file that is already there, and
+ * `rebuild` reconstructs from the month directories alone. A span-shaped file
+ * would have meant touching all three, and worse, would have let a span file
+ * and a month file cover the same rows at once: `normalizeMonth` concatenates
+ * whatever it finds without deduplicating, so the overlap would be counted
+ * twice. **Splitting the response is what keeps a wider request invisible
+ * downstream.**
+ *
+ * Raw stays immutable: only the files the plan says are missing get written, so
+ * a re-run without `--force` still never rewrites a month already on disk even
+ * though the response held it.
+ *
+ * A month with no rows for an account is still written, as an empty envelope,
+ * exactly as the month-at-a-time sweep wrote it. It is the record that the
+ * question was asked and the answer was nothing — without it the file is owed
+ * forever and every later sweep re-requests the span to fill it.
+ */
+export async function syncSpan(
+  months: string[],
+  force: Force = false,
+  onFile?: () => void,
+): Promise<number> {
+  const plan = await spanPlan(months, force);
+  if (!plan.size) {
+    console.error(`skip ${months[0]}..${months.at(-1)} — nothing owed`);
+    return 0;
+  }
+
+  const from = monthRange(months[0]).from;
+  const to = rangeToDate(months.at(-1)!).to;
+  const q = [...plan.keys()]
+    .map((k) => `accountKey=${encodeURIComponent(k)}`)
+    .join("&");
+  const res = (await get(
+    `/personal/banking/transactions/classified?${q}` +
+      `&fromDate=${from}&toDate=${to}&rowLimit=${ROW_LIMIT}`,
+  )) as SpanResponse;
+
+  const rows = res.transactions ?? [];
+  if (rows.length >= ROW_LIMIT)
+    throw new Error(
+      `${from}..${to} came back with ${rows.length} rows, at the ${ROW_LIMIT} ceiling — ` +
+        `it is probably truncated. Sync a narrower span rather than writing this to data/raw.`,
+    );
+  if (res.errors?.length)
+    console.error(`warning: the bank reported ${res.errors.length} error(s)`);
+
+  const byFile = splitSpan(rows);
+
+  let fetched = 0;
+  for (const [key, owed] of plan) {
+    for (const month of owed) {
+      await dump(fileFor(month, key), {
+        transactions: byFile.get(`${month}/${key}`) ?? [],
+        errors: res.errors ?? [],
+      });
+      byFile.delete(`${month}/${key}`);
+      fetched++;
+      onFile?.();
+    }
+  }
+
+  // Anything left is a row the bank sent for a file the plan never meant to
+  // write — a month already on disk (ordinary, and left alone because raw is
+  // immutable), or a month before the account's `from`, which would mean that
+  // date is wrong and the floor is hiding real transactions.
+  for (const [key] of byFile) {
+    const [month, account] = key.split("/");
+    if (!months.includes(month)) continue;
+    if (fresh(fileFor(month, account), force)) continue;
+    console.error(
+      `warning: ${byFile.get(key)!.length} row(s) came back for ${key}, which was not requested — ` +
+        `check the account's "from" in rules/accounts.json.`,
+    );
+  }
+  return fetched;
+}
+
+/**
  * A whole span of months, oldest first.
  *
- * A sweep of the record costs far more than the bank allows at once — 56 months
- * times one request per account — so running out is the normal ending and not a
- * failure. **It says so before spending anything**, because the alternative is
- * finding out 33 requests in, with no idea how much further it had to go.
+ * **One request per five years, not one per account per month.** A sweep of the
+ * whole record used to cost 455 requests against a quota of 60 an hour — eight
+ * hours of waiting, stopping and resuming — and it now costs two, because
+ * `accountKey` is repeatable and the range may be five years wide. Running out
+ * of budget part way was the normal ending of a sweep; it is now close to
+ * unreachable.
  *
- * Two different things can stop it and both are handled the same way: the
+ * Two different things can still stop it and both are handled the same way: the
  * ledger counting down to zero from what the bank last reported, or the bank
  * answering 429 itself. The first is a cached figure and the second is the
  * truth — see `RateLimited`.
  *
- * The ledger is the bank's counter, not this run's, so what is left already
- * counts whatever else has been fetched since — and the bank refills it as the
- * sweep goes, which is why a run can outlast its own estimate. Months on disk
- * cost nothing without `--force`, which is what makes re-running it a resume.
+ * A span whose files are all on disk costs **no request at all**, which is what
+ * still makes re-running a range a resume rather than a repeat.
  */
 export async function syncRange(
   from: string,
@@ -154,34 +335,42 @@ export async function syncRange(
   force: Force = false,
 ): Promise<void> {
   const months = monthsBetween(from, to);
-  const cost = await rangeCost(months, force);
+  const parts = spans(months);
+  const files = await rangeCost(months, force);
+  // A span with nothing owed is skipped without a request, so the bill is the
+  // spans that have work in them and not the spans the range covers.
+  const costs = await Promise.all(
+    parts.map(
+      async (part) => ((await rangeCost(part, force)) ? 1 : 0) as number,
+    ),
+  );
+  const cost = costs.reduce((a, b) => a + b, 0);
   const left = remaining();
   console.error(
-    `${months.length} months, ${months[0]} to ${months.at(-1)}: ${cost} requests`,
+    `${months.length} months, ${months[0]} to ${months.at(-1)}: ` +
+      `${cost} request${cost === 1 ? "" : "s"}, ${files} files`,
   );
   // `null` is "the bank has not said recently", not "nothing left" — in that
   // case there is no estimate to give and the first response will supply one.
   if (left !== null && cost > left) {
-    const perMonth = Math.max(1, Math.round(cost / months.length));
     console.error(
-      `SB1 last reported only ${left} left — expect to stop after about ` +
-        `${Math.floor(left / perMonth)} of them, then re-run to carry on.`,
+      `SB1 last reported only ${left} left — expect to stop after ${left} of ` +
+        `them, then re-run to carry on.`,
     );
   }
 
   let fetched = 0;
-  for (const month of months) {
+  for (const part of parts) {
     try {
-      // Counted as they land, not per month: a month that dies half way through
-      // still fetched what it fetched, and reporting the whole month as nothing
-      // is how 32 files got announced as 28.
-      await syncMonth(month, force, () => fetched++);
+      // Counted as they land, not per span: a span that dies before its request
+      // still wrote whatever earlier spans wrote.
+      await syncSpan(part, force, () => fetched++);
     } catch (e) {
       if (!(e instanceof BudgetExhausted) && !(e instanceof RateLimited))
         throw e;
       console.error(`\n${e.message}`);
       console.error(
-        `stopped part way through ${month}. ${fetched} files fetched — re-run to carry on.`,
+        `stopped at ${part[0]}..${part.at(-1)}. ${fetched} files fetched — re-run to carry on.`,
       );
       return;
     }
@@ -190,9 +379,15 @@ export async function syncRange(
 }
 
 /**
- * One file per account per month. Skips files already on disk unless forced.
+ * One month, which is a span of one — and so **one request, not one per
+ * account**. `pnpm sb1 sync --month` cost seven; it costs one.
  *
- * `onFile` fires as each one lands, so a caller can count what a run got
+ * There is nothing left for this to do that `syncSpan` does not, and the loop
+ * that used to live here was the same fetch-and-write a request at a time. Its
+ * one advantage was that a month dying half way still kept the files it had
+ * written, and a single request cannot half-fail, so that is gone with it.
+ *
+ * `onFile` fires as each file lands, so a caller can count what a run got
  * through even when the next request is the one that runs out of budget.
  */
 export async function syncMonth(
@@ -200,21 +395,5 @@ export async function syncMonth(
   force: Force = false,
   onFile?: () => void,
 ): Promise<number> {
-  const { from, to } = rangeToDate(month);
-  let fetched = 0;
-  for (const key of await accountKeys(month)) {
-    const file = fileFor(month, key);
-    if (fresh(file, force)) {
-      console.error(`skip ${file}`);
-      continue;
-    }
-    const q = `accountKey=${encodeURIComponent(key)}&fromDate=${from}&toDate=${to}`;
-    await dump(
-      file,
-      await get(`/personal/banking/transactions/classified?${q}`),
-    );
-    fetched++;
-    onFile?.();
-  }
-  return fetched;
+  return syncSpan([month], force, onFile);
 }

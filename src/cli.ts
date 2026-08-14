@@ -12,7 +12,7 @@ import { narrowings, overrideReport, pairUse, unnamed } from "./core/report.ts";
 import type { Categorized } from "./core/types.ts";
 import { remaining } from "./net/budget.ts";
 import { get, login } from "./net/sb1.ts";
-import { syncMonth, syncRange } from "./net/sync.ts";
+import { syncMonth, syncRange, thisMonth } from "./net/sync.ts";
 import { serve } from "./web/serve.ts";
 
 const args = process.argv.slice(2);
@@ -305,9 +305,11 @@ try {
       raise("--stale wants minutes, e.g. --stale 60");
     const force = stale === undefined ? has("force") : Number(stale);
     if (from || to) {
-      if (!from || !to)
-        raise("sync needs both --from and --to, as YYYY or YYYY-MM");
-      await syncRange(from!, to!, force);
+      if (!from) raise("sync needs --from, as YYYY or YYYY-MM");
+      // A missing `--to` means "up to now", which is what a sweep almost always
+      // wants and is the only end that is not a guess. `monthsBetween` clamps to
+      // the current month anyway, so this only decides what gets printed.
+      await syncRange(from!, to ?? thisMonth(), force);
     } else {
       await syncMonth(needMonth("sync"), force);
     }
@@ -331,7 +333,10 @@ try {
       "                | sync --month YYYY-MM [--force | --stale MINUTES]",
     );
     console.error(
-      "                | sync --from YYYY[-MM] --to YYYY[-MM] [--force | --stale MINUTES]",
+      "                | sync --from YYYY[-MM] [--to YYYY[-MM]] [--force | --stale MINUTES]",
+    );
+    console.error(
+      "                    (--to defaults to this month; one request per five years)",
     );
     console.error(
       "                | merchants  (one shop under many names -> rules/payees.json)",

@@ -59,7 +59,13 @@ type Sb1File = {
   }>;
 };
 
-function osloDate(epochMs: number): string {
+/**
+ * Exported because `sync` splits a multi-month response into month directories
+ * and has to cut it in exactly the place this reads it. A UTC month boundary
+ * would file every row dated the 1st into the previous directory, where
+ * `normalizeMonth` would then read it back under the wrong month.
+ */
+export function osloDate(epochMs: number): string {
   return new Date(epochMs).toLocaleDateString("en-CA", {
     timeZone: "Europe/Oslo",
   });
