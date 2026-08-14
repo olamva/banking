@@ -38,6 +38,9 @@ interface FilterBarProps {
   /** Its bounds, already parsed too — what the date boxes show, and what a range switched into starts as. */
   from: string | null;
   to: string | null;
+  /** The edges of the record: as far as the date boxes go, either way. */
+  earliest: string;
+  latest: string;
   onPeriod: (period: string) => void;
   /** Every value the two dropdowns offer, already narrowed to the period. */
   categories: string[];
@@ -656,6 +659,8 @@ export const FilterBar = ({
   kind,
   from,
   to,
+  earliest,
+  latest,
   onPeriod,
   categories,
   subcategories,
@@ -740,14 +745,21 @@ export const FilterBar = ({
 
       {/* Two native date boxes — no picker component, and no date library. An
           empty box is an open end, which `inRange` already means by null, so
-          clearing one is "everything up to here" rather than nothing. */}
+          clearing one is "everything up to here" rather than nothing.
+
+          Each box is bounded twice: by the record, so no day with nothing behind
+          it is offered, and by the other box, so the pair cannot cross. The
+          calendar then greys out everything unpickable, which is the whole of
+          the feature — `min` and `max` are advisory against a typed date, and
+          `inRange` gives an empty page for one either way. */}
       {kind === "custom" && (
         <>
           <input
             type="date"
             className={CONTROL}
             value={from ?? ""}
-            max={to ?? undefined}
+            min={earliest}
+            max={to ?? latest}
             onChange={(e) => onPeriod(`${e.target.value}..${to ?? ""}`)}
             aria-label="From"
           />
@@ -755,7 +767,8 @@ export const FilterBar = ({
             type="date"
             className={CONTROL}
             value={to ?? ""}
-            min={from ?? undefined}
+            min={from ?? earliest}
+            max={latest}
             onChange={(e) => onPeriod(`${from ?? ""}..${e.target.value}`)}
             aria-label="To"
           />
