@@ -125,8 +125,12 @@ export const HorizontalBars = ({ items, onPick, onPickSub }: HorizontalBarsProps
     const row = (
       <>
         <span
+          /* A share of the row once the row is narrow enough that a fixed
+             gutter would leave the bar nothing. 122px of label plus the 78px
+             held back for the value is most of a phone-width card, and a bar
+             chart whose bars are 20px wide has stopped being one. */
           className="shrink-0 truncate text-right text-ink-soft"
-          style={{ width: `${122 - depth * 12}px` }}
+          style={{ width: `min(${122 - depth * 12}px, 34%)` }}
         >
           {item.label}
         </span>
@@ -186,7 +190,9 @@ export const HorizontalBars = ({ items, onPick, onPickSub }: HorizontalBarsProps
                     onClick={() => toggle(id)}
                     aria-expanded={expanded}
                     aria-label={`${expanded ? 'Hide' : 'Show'} ${item.label} breakdown`}
-                    className="mr-0.5 flex h-[26px] w-3 shrink-0 items-center justify-center text-ink-soft hover:text-ink"
+                    /* Same as the picker's triangle: 12px is a column, not a
+                       touch target, so the hit area is widened around it. */
+                    className="relative mr-0.5 flex h-[26px] w-3 shrink-0 items-center justify-center text-ink-soft before:absolute before:-inset-2 before:content-[''] hover:text-ink"
                   >
                     <Icon
                       aria-hidden
@@ -824,8 +830,21 @@ export const SpendLines = ({
           ))}
           <line x1={padL} x2={padL} y1={padT} y2={padT + plotH} className="stroke-axis" />
           <line x1={padL} x2={width - 8} y1={padT + plotH} y2={padT + plotH} className="stroke-axis" />
-          {/* Last, so it sits over everything it is meant to catch pointers for. */}
-          <rect x={padL} y={padT} width={plotW} height={plotH} fill="transparent" onPointerMove={track} onPointerLeave={leave} />
+          {/* Last, so it sits over everything it is meant to catch pointers for.
+              `onPointerDown` as well as move, for touch: a tap on a phone is a
+              down and an up with no move between them, so a move-only chart had
+              no reading at all there. Deliberately not `touch-action: none` —
+              catching the drag would mean the plot ate the page's scroll. */}
+          <rect
+            x={padL}
+            y={padT}
+            width={plotW}
+            height={plotH}
+            fill="transparent"
+            onPointerDown={track}
+            onPointerMove={track}
+            onPointerLeave={leave}
+          />
         </svg>
       )}
       {node}
