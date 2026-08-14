@@ -355,7 +355,10 @@ const Dashboard = ({
 
   // Filtered to a spending category every point's income is zero, and a line
   // along the axis is not a finding. The chart drops it; the title follows.
+  // Both ways round: filtered to a category that only ever paid in, the spend
+  // line is the one flat on the axis.
   const anyIncome = series.some((s) => s.totalIn > 0);
+  const anySpend = series.some((s) => s.totalOut > 0);
 
   /**
    * The shading, which is a narrower question than the line above it. It reads
@@ -363,9 +366,14 @@ const Dashboard = ({
    * whole window: income lands on about a third of days, so day by day it would
    * call almost every one of them an overspend. Accumulated, or by month, the
    * gap is a surplus again and the band comes back.
+   *
+   * It needs neither line, only the grain. Where one side of the pair is empty
+   * the missing line sits on the axis, and the gap the band shades is the whole
+   * of the other one: all of the income left over, or all of the spending
+   * uncovered. Both are the same measurement against a zero that the filter
+   * made, so the band answers the same question it always did.
    */
-  const band = anyIncome && (running || bucket === "month");
-
+  const band = running || bucket === "month";
 
   // Nothing renders a box it has no rows for. Filtered to rent, "income" is a
   // zero and "net" is the spend again with a minus sign; both are noise.
@@ -409,7 +417,7 @@ const Dashboard = ({
       {series.length > 1 && (
         <div className="mb-4">
           <Card
-            title={`${anyIncome ? "Income & spend" : "Spending"}${
+            title={`${anyIncome ? (anySpend ? "Income & spend" : "Income") : "Spending"}${
               running ? ", running total" : grain === "day" ? " by day" : " by month"
             }`}
             icon={MonthlyIcon}
@@ -421,12 +429,18 @@ const Dashboard = ({
               series={series}
               bucket={bucket}
               income={anyIncome}
+              spend={anySpend}
               band={band}
               // A running total only ever climbs, so a line fitted to it is a
               // straight line drawn over one — it reports an average rate the
               // tile above already gives as a number. The legend switches it
               // off anywhere it does mean something.
-              trend={!running}
+              //
+              // And it is fitted through spending, so it goes wherever the red
+              // line goes: with nothing spent in view it is a flat line on the
+              // axis with a key naming it a trend, which is the same non-finding
+              // the line itself was dropped for.
+              trend={!running && anySpend}
               compare={compare}
               compareLabel={vs?.label}
             />
