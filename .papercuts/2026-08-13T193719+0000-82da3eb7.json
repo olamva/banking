@@ -1,0 +1,11 @@
+{
+  "id": "82da3eb7",
+  "ts": "2026-08-13T19:37:19+00:00",
+  "text": "Edit tool classifier blocks rewording a git safety rule in CLAUDE.md even when the user explicitly asked to loosen it; two attempts denied, no override path",
+  "tags": [
+    "permissions",
+    "tools"
+  ],
+  "who": "agent",
+  "where": ".claude/CLAUDE.md"
+}
