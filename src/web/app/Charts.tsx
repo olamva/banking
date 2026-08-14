@@ -340,11 +340,14 @@ interface SpendLinesProps {
   /** The same the other way round: a category that only ever paid in spent nothing. */
   spend: boolean;
   /**
-   * Whether to shade between the two lines. Separate from `income`, because the
-   * band is the thing that does not survive raw days: it reads the vertical gap
-   * as a surplus, which is only true of a whole period. Income lands on about a
-   * third of days, so day by day the shading calls almost every one of them an
-   * overspend — while the income line itself is perfectly honest and stays.
+   * Whether to shade between the two lines. Independent of `income` and `spend`
+   * both: a line the filter emptied sits on the axis, and the gap against it is
+   * still the measurement — all of the income left over, or all of the spending
+   * uncovered. What the band does not survive is raw days, which is the one
+   * thing the caller gates it on: it reads the vertical gap as a whole period's
+   * balance, and income lands on about a third of days, so day by day the
+   * shading would call almost every one of them uncovered. The lines themselves
+   * are honest at every grain and stay.
    */
   band: boolean;
   /**
@@ -755,7 +758,16 @@ const ChartLegend = ({ income, spend, under, over, compareLabel }: ChartLegendPr
         at a time, because either can be absent while the other is drawn: with
         nothing spent in view every point is left over and no stretch of the
         band is ever red. A key for a shade the chart cannot produce is a colour
-        the reader goes looking for and never finds. */}
+        the reader goes looking for and never finds.
+
+        The red half is "Not covered" and not "Overspent", which is what it said
+        first. The band is drawn wherever the grain carries it now, income in
+        view or not, and filtered to a spending category there is none — so the
+        whole of the spending is red. "Overspent" reads that as a verdict on the
+        month, when it is only an artefact of the filter: the income is elsewhere
+        on the page, not missing from the year. What the shading measures either
+        way is the spending the income in view does not cover, and against no
+        income that is all of it. */}
     {under && (
       <span className="inline-flex items-center gap-1.5">
         <span className="inline-block h-2.5 w-3 rounded-sm bg-good-strong opacity-20" />
@@ -765,7 +777,7 @@ const ChartLegend = ({ income, spend, under, over, compareLabel }: ChartLegendPr
     {over && (
       <span className="inline-flex items-center gap-1.5">
         <span className="inline-block h-2.5 w-3 rounded-sm bg-critical-strong opacity-20" />
-        Overspent
+        Not covered
       </span>
     )}
     {/* One key for both dashed lines — the dashes are what mark the period, and
