@@ -3,6 +3,7 @@ import test from 'node:test';
 import type { Categorized } from '../../core/types.ts';
 import {
   ID_FIELD,
+  bankLabel,
   categoryColor,
   fmtDate,
   fmtNOKExact,
@@ -61,6 +62,20 @@ test('txnFields drops what the caller already shows itself', () => {
   assert.ok(!names.includes('Amount'));
   assert.ok(!names.includes('Date'));
   assert.ok(names.includes('Description'), 'and nothing else');
+});
+
+test('bankLabel reads as a name and pastes as a rule', () => {
+  assert.deepEqual(bankLabel(row), [
+    'Dagligvarer / Andre dagligvarer',
+    'dagligvarer/andre_dagligvarer',
+  ]);
+});
+
+test('bankLabel keeps a main the bank sent no sub for whole', () => {
+  const [name, slug] = bankLabel({ ...row, bankSub: null, bankSubName: null })!;
+  assert.equal(name, 'Dagligvarer', 'no trailing slash in the name');
+  assert.equal(slug, 'dagligvarer', 'nor in the slug a rule is written against');
+  assert.equal(bankLabel({ ...row, bankCategory: null }), null);
 });
 
 test('fmtDate reads the date as the Oslo day it already is', () => {

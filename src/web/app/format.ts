@@ -174,6 +174,30 @@ export const txnFields = (
   });
 
 /**
+ * What the bank itself called this row, as one thing rather than five fields:
+ * the pair's names, and the pair's slugs under it. The slugs are there because
+ * they are what a line in `rules/overrides.json` is written against — the names
+ * are for reading, the slugs are for pasting.
+ *
+ * Null where the bank sent no category at all, which so far is never.
+ *
+ * Not `categorize`'s `bankPair`, which is a different question: that one applies
+ * our renames and returns null for a catch-all, because it is deciding where a
+ * row lands. This one reports what the bank literally said.
+ */
+export const bankLabel = (
+  t: Categorized,
+): [name: string, slug: string] | null => {
+  if (t.bankCategory === null) return null;
+  const name = t.bankCategoryName ?? tidy(t.bankCategory);
+  const sub = t.bankSubName ?? (t.bankSub === null ? null : tidy(t.bankSub));
+  return [
+    sub === null ? name : `${name} / ${sub}`,
+    t.bankSub === null ? t.bankCategory : `${t.bankCategory}/${t.bankSub}`,
+  ];
+};
+
+/**
  * One row's own date, spelled out: `2026-07-04` reads `4. juli 2026`. Parsed and
  * formatted as UTC, because the string is already the Oslo-local day — reading
  * it in any other zone is what moves the 1st into the previous month.
