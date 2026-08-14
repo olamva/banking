@@ -54,6 +54,42 @@ export const categoryLabel = (slug: string): string => LABELS.category(slug);
 export const subcategoryLabel = (category: string, sub: string | null): string =>
   LABELS.subcategory(category, sub);
 
+/**
+ * A hue per main category, so a subcategory can say which main it belongs to
+ * without a second column repeating the name.
+ *
+ * Assigned by position in the sorted list of every main in the *dataset*, never
+ * the filtered view: hues derived from what is on screen would repaint the
+ * table every time a filter moved, and a colour that means something different
+ * after a click means nothing. Spread evenly rather than hashed because a hash
+ * collides — the 17 mains on record put two pairs on the same hue, which is
+ * exactly the distinction this is for.
+ *
+ * Set once beside `setLabels`, and for the same reason.
+ */
+let HUES: Record<string, number> = {};
+
+export const setCategoryHues = (categories: string[]): void => {
+  const sorted = [...new Set(categories)].sort();
+  HUES = Object.fromEntries(
+    sorted.map((c, i) => [c, Math.round((i * 360) / sorted.length)]),
+  );
+};
+
+/**
+ * `oklch` so the hues are perceptually even and every category lands at the same
+ * lightness — `hsl` spends a third of its circle on greens and draws yellow far
+ * brighter than blue at the same number. Lightness is a CSS variable because the
+ * page has two themes and only that half of the colour changes between them.
+ *
+ * A category no `setCategoryHues` has seen keeps the ordinary text colour rather
+ * than borrowing the hue of whichever main sorted first.
+ */
+export const categoryColor = (category: string): string =>
+  category in HUES
+    ? `oklch(var(--cat-l) 0.13 ${HUES[category]})`
+    : "var(--color-ink)";
+
 /** Split a `category/sub` pair; an empty sub half means the row had none. */
 export const splitPair = (pair: string): [string, string | null] => {
   const cut = pair.indexOf("/");

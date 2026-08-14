@@ -10,15 +10,17 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { merchantOf } from "../../core/select.ts";
+import { merchantOf, subcategoryOf } from "../../core/select.ts";
 import { subscriptionGroups, type SubscriptionGroup } from "../../core/stats.ts";
 import type { Categorized } from "../../core/types.ts";
 import {
   ID_FIELD,
+  categoryColor,
   categoryLabel,
   fmtNOK,
   fmtNOKExact,
   fmtPct,
+  subcategoryLabel,
   txnFields,
 } from "./format.ts";
 import {
@@ -186,6 +188,8 @@ interface PickCellProps {
   label: string;
   /** What that stands for — the slug, where the label is not the filter value. */
   value?: string;
+  /** A CSS colour for the text, where the cell encodes something by colour. */
+  color?: string;
   onPick: (value: string, meta: boolean) => void;
 }
 
@@ -196,13 +200,19 @@ interface PickCellProps {
  * The click stops here: the row around it may open the details dialog, and a
  * click meant to filter to a merchant must not also open the row it sits in.
  */
-export const PickCell = ({ label, value = label, onPick }: PickCellProps) => (
+export const PickCell = ({
+  label,
+  value = label,
+  color,
+  onPick,
+}: PickCellProps) => (
   <button
     type="button"
     onClick={(e) => {
       e.stopPropagation();
       onPick(value, e.metaKey);
     }}
+    style={color ? { color } : undefined}
     className="text-left hover:underline"
   >
     {label}
@@ -428,15 +438,20 @@ const TXN_SORTS = {
   merchant: (a: Categorized, b: Categorized) =>
     merchantOf(a).localeCompare(merchantOf(b)),
   // On the label, not the slug, so the order matches the column: `Strøm` belongs
-  // under S, where it reads, and not under the `stroem` nobody sees.
-  category: (a: Categorized, b: Categorized) =>
-    categoryLabel(a.category).localeCompare(categoryLabel(b.category)),
+  // under S, where it reads, and not under the `stroem` nobody sees. By the main
+  // first, so sorting the column groups the colours — the main has no column of
+  // its own to sort by any more.
+  subcategory: (a: Categorized, b: Categorized) =>
+    categoryLabel(a.category).localeCompare(categoryLabel(b.category)) ||
+    subcategoryLabel(a.category, a.subcategory).localeCompare(
+      subcategoryLabel(b.category, b.subcategory),
+    ),
   account: (a: Categorized, b: Categorized) => a.account.localeCompare(b.account),
   amount: (a: Categorized, b: Categorized) => a.amount - b.amount,
 };
 
 export const useTxnSort = (txns: Categorized[]) =>
-  useSort(txns, TXN_SORTS, "date", ["merchant", "category", "account"]);
+  useSort(txns, TXN_SORTS, "date", ["merchant", "subcategory", "account"]);
 
 interface SearchBoxProps {
   value: string;
@@ -669,6 +684,7 @@ interface TransactionsCardProps {
   onSearch: (search: string) => void;
   /** The merchant, category and account cells filter to themselves; see `PickCell`. */
   onMerchant: (merchant: string, meta: boolean) => void;
+  /** Takes a bare category or a `category/sub` pair — one list holds both levels. */
   onCategory: (category: string, meta: boolean) => void;
   onAccount: (account: string, meta: boolean) => void;
 }
@@ -698,12 +714,14 @@ export const TransactionsCard = ({
   const { sorted, head } = useTxnSort(txns);
   const [open, setOpen] = useState<Categorized | null>(null);
   /**
-   * Every category the table can show, not the ones a screenful happens to
-   * hold. Over `txns` rather than over every category there is, so a filtered
-   * table does not hold room open for a category it can no longer show.
+   * Every subcategory the table can show, not the ones a screenful happens to
+   * hold. Over `txns` rather than over every subcategory there is, so a filtered
+   * table does not hold room open for one it can no longer show.
    */
-  const categorySizes = useMemo(
-    () => [...new Set(txns.map((t) => categoryLabel(t.category)))],
+  const subcategorySizes = useMemo(
+    () => [
+      ...new Set(txns.map((t) => subcategoryLabel(t.category, t.subcategory))),
+    ],
     [txns],
   );
 
@@ -729,7 +747,13 @@ export const TransactionsCard = ({
           columns={[
             head("Date", "date", { min: true }),
             head("Merchant / description", "merchant"),
-            head("Category", "category", { min: true, sizer: categorySizes }),
+            /* "Category", not "Subcategory": the column is the one category
+               column now, and which level its text is at is not a distinction
+               the header has to make — the colour carries the main. */
+            head("Category", "subcategory", {
+              min: true,
+              sizer: subcategorySizes,
+            }),
             head("Account", "account", { min: true }),
             head("Amount", "amount", {
               num: true,
@@ -748,9 +772,14 @@ export const TransactionsCard = ({
               {t.date}
             </button>,
             <PickCell label={merchantOf(t)} onPick={onMerchant} />,
+            /* The main category is the colour, not a column of its own: the
+               name repeated on every row said less than a hue does, and
+               `Filters.categories` holds both levels, so the pair filters on
+               the same axis the bare category used to. */
             <PickCell
-              label={categoryLabel(t.category)}
-              value={t.category}
+              label={subcategoryLabel(t.category, t.subcategory)}
+              value={subcategoryOf(t)}
+              color={categoryColor(t.category)}
               onPick={onCategory}
             />,
             <PickCell label={t.account} onPick={onAccount} />,
