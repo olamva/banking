@@ -95,7 +95,10 @@ interface StatTileProps {
 export const StatTile = ({ label, value, delta, vs, sub }: StatTileProps) => (
   <div className="rounded-[10px] border border-line bg-surface px-4 py-3.5">
     <div className="text-xs text-ink-soft">{label}</div>
-    <div className="mt-1 text-[26px] font-semibold">{value}</div>
+    {/* Smaller on a phone, where two tiles share a 375px row: `123 456 kr` at
+        26px is wider than the 128px a tile has left inside its own padding, and
+        a six-figure total is the ordinary case here rather than the outlier. */}
+    <div className="mt-1 text-[22px] font-semibold sm:text-[26px]">{value}</div>
     {sub && <div className="mt-1 text-xs text-ink-muted">{sub}</div>}
     {delta && (
       <div
@@ -127,7 +130,7 @@ interface MeterTileProps {
 export const MeterTile = ({ label, share, note }: MeterTileProps) => (
   <div className="rounded-[10px] border border-line bg-surface px-4 py-3.5">
     <div className="text-xs text-ink-soft">{label}</div>
-    <div className="mt-1 text-[26px] font-semibold">{fmtPct(share)}</div>
+    <div className="mt-1 text-[22px] font-semibold sm:text-[26px]">{fmtPct(share)}</div>
     <div className="mt-2 h-2.5 overflow-hidden rounded-md bg-series-1-track">
       <div
         className="h-full rounded-md bg-series-1"

@@ -107,9 +107,15 @@ import { GRAINS, readUrl, writeUrl, type Grain } from "./url.ts";
  * four charts pair off two and two above it. Drop one card (a year with nothing
  * before it to change against, a period with no subscriptions) and four cards
  * fill both rows exactly, which is why the span must not be unconditional.
+ *
+ * The `min(…, 100%)` is what makes the 460 a *preference* rather than a floor.
+ * Written as a bare pixel minimum the column never goes narrower than that, so
+ * on a phone it stayed 460 wide and the whole page scrolled sideways under it.
+ * `layout.test.ts` refuses the bare form anywhere in here; the mobile rules are
+ * in CLAUDE.md.
  */
 const CARD_GRID =
-  "grid grid-cols-[repeat(auto-fit,minmax(460px,1fr))] gap-4 [&>*:last-child:nth-child(odd)]:col-span-full";
+  "grid grid-cols-[repeat(auto-fit,minmax(min(460px,100%),1fr))] gap-4 [&>*:last-child:nth-child(odd)]:col-span-full";
 
 /**
  * All time: three charts across, and the table under them.
@@ -126,7 +132,7 @@ const CARD_GRID =
  * there is always something recurring for it to hold.
  */
 const CARD_GRID_3 =
-  "grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] gap-4 [&>*:last-child]:col-span-full";
+  "grid grid-cols-[repeat(auto-fit,minmax(min(300px,100%),1fr))] gap-4 [&>*:last-child]:col-span-full";
 
 const THEME_ICONS = {
   system: SystemThemeIcon,
@@ -392,7 +398,7 @@ const Dashboard = ({
   // zero and "net" is the spend again with a minus sign; both are noise.
   return (
     <>
-      <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
+      <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(min(160px,100%),1fr))] gap-3">
         {stats.totalOut > 0 && (
           <StatTile
             label="Spent"
@@ -533,7 +539,7 @@ const TransactionsView = ({
       {/* All three, always — unlike the dashboards, which hide a tile they have
           no rows for. Here the numbers move on every keystroke, and a tile that
           vanishes at zero takes the rows below it for a ride up the page. */}
-      <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
+      <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(min(160px,100%),1fr))] gap-3">
         <StatTile label="Spent" value={fmtNOK(sums.totalOut)} />
         <StatTile label="Income" value={fmtNOK(sums.totalIn)} />
         <StatTile label="Net" value={fmtNOK(sums.net)} />
@@ -790,7 +796,7 @@ export const App = () => {
   );
 
   return (
-    <div className="mx-auto max-w-295 p-6">
+    <div className="mx-auto max-w-295 p-3 sm:p-6">
       <header className="mb-4 flex flex-wrap items-baseline justify-between gap-4">
         <h1 className="text-xl font-semibold">Spending dashboard</h1>
         <div className="flex items-center gap-2">
