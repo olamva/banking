@@ -35,6 +35,12 @@ interface FilterBarProps {
   period: string;
   /** What `period` is, already parsed — the shape of the string, without a second copy of the regexes. */
   kind: PeriodKind;
+  /** Its bounds, already parsed too — what the date boxes show, and what a range switched into starts as. */
+  from: string | null;
+  to: string | null;
+  /** The edges of the record: as far as the date boxes go, either way. */
+  earliest: string;
+  latest: string;
   onPeriod: (period: string) => void;
   /** Every value the two dropdowns offer, already narrowed to the period. */
   categories: string[];
@@ -64,6 +70,44 @@ const MONTH_NAMES = [
   "November",
   "December",
 ];
+
+/**
+ * A real date, for the date boxes. A month's upper bound is `YYYY-MM-31`
+ * whatever the month has in it — deliberate, since it is only ever compared as
+ * a string — and `<input type="date">` shows nothing at all for one that never
+ * existed, so switching June into a range would open with an empty end.
+ */
+const realDate = (d: string): string => {
+  const [y, m, day] = d.split("-").map(Number) as [number, number, number];
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return day > last ? `${d.slice(0, 8)}${last}` : d;
+};
+
+/**
+ * Escape, and a click anywhere outside, close a `details` menu. Its own
+ * behaviour covers the summary and nothing else, and both menus on this bar
+ * want the same two — so it is one hook rather than the same effect twice.
+ *
+ * Open state stays in the DOM rather than in React: this reads the flag and
+ * sets it back.
+ */
+const useDismiss = (menu: React.RefObject<HTMLDetailsElement | null>) => {
+  useEffect(() => {
+    const close = (e: Event) => {
+      const el = menu.current;
+      if (!el?.open) return;
+      if (e instanceof KeyboardEvent && e.key !== "Escape") return;
+      if (e.type === "pointerdown" && el.contains(e.target as Node)) return;
+      el.open = false;
+    };
+    document.addEventListener("keydown", close);
+    document.addEventListener("pointerdown", close);
+    return () => {
+      document.removeEventListener("keydown", close);
+      document.removeEventListener("pointerdown", close);
+    };
+  }, [menu]);
+};
 
 interface PickerProps {
   /** What the summary says, before the count. */
@@ -129,27 +173,9 @@ const Picker = ({
    * costing that.
    */
   const [open, setOpen] = useState(false);
-  /**
-   * `details` opens itself and closes itself on its own summary, but nothing
-   * else — Escape and a click elsewhere are ours. Open state stays in the DOM
-   * rather than in React, so this just reads it and sets it back.
-   */
-  useEffect(() => {
-    const close = (e: Event) => {
-      const el = menu.current;
-      if (!el?.open) return;
-      if (e instanceof KeyboardEvent && e.key !== "Escape") return;
-      if (e.type === "pointerdown" && el.contains(e.target as Node)) return;
-      el.open = false;
-    };
-    document.addEventListener("keydown", close);
-    document.addEventListener("pointerdown", close);
-    return () => {
-      document.removeEventListener("keydown", close);
-      document.removeEventListener("pointerdown", close);
-      clearTimeout(reset.current);
-    };
-  }, []);
+  useDismiss(menu);
+  // The search box's own delayed reset, which outlives an unmount otherwise.
+  useEffect(() => () => clearTimeout(reset.current), []);
 
   const q = query.trim().toLowerCase();
   const childrenOf = (o: string) => subs?.(o) ?? [];
@@ -451,6 +477,179 @@ const Picker = ({
   );
 };
 
+interface PeriodMenuProps {
+  months: string[];
+  years: string[];
+  period: string;
+  kind: PeriodKind;
+  from: string | null;
+  to: string | null;
+  onPeriod: (period: string) => void;
+}
+
+/**
+ * The period, as one menu rather than two selects: years down the left, the
+ * months of one of them across the right.
+ *
+ * Two selects meant picking a year to see its months, and the record now
+ * reaches back to 2003 — 24 years against 12 months is a lopsided pair of
+ * lists, and the second one always told you less than it had room for. Here
+ * both are on screen at once and the year is a pointer at the month grid rather
+ * than a separate choice to make first.
+ *
+ * **A year is opened by hovering it and also by tapping it**, which is the
+ * whole of what makes this work on a phone: a tap on a year fills the grid
+ * beside it and selects nothing, so the second tap is always the one that
+ * decides. `Whole year` at the top of the grid is how a year is still a period
+ * of its own — the empty option in the old month select, given a name.
+ */
+const PeriodMenu = ({
+  months,
+  years,
+  period,
+  kind,
+  from,
+  to,
+  onPeriod,
+}: PeriodMenuProps) => {
+  const menu = useRef<HTMLDetailsElement>(null);
+  useDismiss(menu);
+  /**
+   * Which year's months are on show. Null is "the one in view", so the menu
+   * always opens on the period you are already looking at, and pointing at
+   * another year is a look rather than a change — it is cleared when the menu
+   * shuts, not when something is picked.
+   */
+  const [looking, setLooking] = useState<string | null>(null);
+
+  // All time and a hand-picked range sit in no year, so there is none in view to
+  // open on — the latest on record is where the page itself opens, and an empty
+  // grid beside a list of years is a menu that looks broken.
+  const inView = kind === "month" || kind === "year" ? period.slice(0, 4) : "";
+  const latest = years[years.length - 1] ?? "";
+  const shown = looking ?? (inView || latest);
+  const has = (m: number) =>
+    months.includes(`${shown}-${String(m + 1).padStart(2, "0")}`);
+
+  const choose = (next: string) => {
+    onPeriod(next);
+    if (menu.current) menu.current.open = false;
+  };
+
+  const label =
+    kind === "all"
+      ? "All time"
+      : kind === "custom"
+        ? "Custom range"
+        : kind === "year"
+          ? period
+          : `${MONTH_NAMES[Number(period.slice(5)) - 1]} ${period.slice(0, 4)}`;
+
+  /** One row of the menu, whichever column it is in. */
+  const ROW =
+    "rounded px-2 py-1 text-left text-[13px] hover:bg-hover disabled:cursor-default disabled:opacity-35 disabled:hover:bg-transparent";
+  const ON = "bg-series-1 text-white hover:bg-series-1";
+
+  return (
+    <details
+      ref={menu}
+      // Same anchoring as the pickers: the panel is positioned against this, so
+      // below `sm` it has to be the full width of the bar or it hangs off the
+      // right edge from wherever the summary wrapped to.
+      className="group relative max-sm:w-full"
+      onToggle={(e) => {
+        if (!e.currentTarget.open) setLooking(null);
+      }}
+    >
+      <summary
+        className={`${CONTROL} flex list-none items-center gap-1.5 marker:content-none`}
+      >
+        {label}
+        <Icon
+          aria-hidden
+          icon={DropdownIcon}
+          size={14}
+          className="shrink-0 text-ink-muted transition-transform group-open:rotate-180"
+        />
+      </summary>
+      <div className="absolute z-20 mt-1 w-72 rounded-md border border-line bg-surface p-1.5 shadow-lg max-sm:w-full">
+        {/* The two periods that sit inside no year, above the ones that do. */}
+        <div className="mb-1.5 flex gap-1 border-b border-line pb-1.5">
+          <button
+            type="button"
+            onClick={() => choose("all")}
+            className={`flex-1 ${ROW} ${kind === "all" ? ON : ""}`}
+          >
+            All time
+          </button>
+          <button
+            type="button"
+            // Opens on the window already in view, so narrowing a month to a
+            // few days of it is two edits and not four.
+            onClick={() => choose(`${from ?? ""}..${to ? realDate(to) : ""}`)}
+            className={`flex-1 ${ROW} ${kind === "custom" ? ON : ""}`}
+          >
+            Custom range
+          </button>
+        </div>
+
+        <div className="flex gap-1.5">
+          {/* Newest first: the year you want is nearly always one of the last
+              few, and 24 of them the other way round opens the menu two
+              decades from anything worth clicking. */}
+          <div className="flex max-h-56 w-16 shrink-0 flex-col overflow-y-auto">
+            {[...years].reverse().map((y) => (
+              <button
+                key={y}
+                type="button"
+                // Hover is the shortcut and the tap is the route: both only
+                // point the grid at a year, so neither can pick one by accident.
+                onPointerEnter={() => setLooking(y)}
+                onFocus={() => setLooking(y)}
+                onClick={() => setLooking(y)}
+                aria-expanded={y === shown}
+                className={`${ROW} shrink-0 ${y === shown ? "bg-hover font-medium text-ink" : "text-ink-soft"}`}
+              >
+                {y}
+              </button>
+            ))}
+          </div>
+
+          <div className="min-w-0 flex-1 border-l border-line pl-1.5">
+            <button
+              type="button"
+              onClick={() => choose(shown)}
+              className={`mb-1 w-full ${ROW} ${period === shown ? ON : ""}`}
+            >
+              Whole year
+            </button>
+            {/* All twelve, disabled where there is nothing — a grid with the
+                empty months missing loses the shape that makes it readable at
+                a glance. */}
+            <div className="grid grid-cols-3 gap-0.5">
+              {MONTH_NAMES.map((name, i) => {
+                const m = `${shown}-${String(i + 1).padStart(2, "0")}`;
+                return (
+                  <button
+                    key={name}
+                    type="button"
+                    disabled={!has(i)}
+                    onClick={() => choose(m)}
+                    aria-label={`${name} ${shown}`}
+                    className={`${ROW} text-center ${period === m ? ON : ""}`}
+                  >
+                    {name.slice(0, 3)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    </details>
+  );
+};
+
 export const FilterBar = ({
   view,
   onView,
@@ -458,6 +657,10 @@ export const FilterBar = ({
   years,
   period,
   kind,
+  from,
+  to,
+  earliest,
+  latest,
   onPeriod,
   categories,
   subcategories,
@@ -466,23 +669,6 @@ export const FilterBar = ({
   filters,
   onFilters,
 }: FilterBarProps) => {
-  // A month period is a year with a month in it, so the year picker reads the
-  // front of the same string rather than being state of its own — two selects,
-  // still one value, and nothing to keep in sync.
-  const year = kind === "all" ? period : period.slice(0, 4);
-  const monthsOfYear = months.filter((m) => m.startsWith(`${year}-`));
-
-  /**
-   * Changing the year keeps the month when the new year has one, so stepping
-   * back a year lands on the same month rather than dumping you at the top of
-   * it. All time has no month at all and is passed straight through.
-   */
-  const changeYear = (next: string) => {
-    if (!years.includes(next)) return onPeriod(next);
-    const mm = kind === "month" ? period.slice(5) : "";
-    onPeriod(mm && months.includes(`${next}-${mm}`) ? `${next}-${mm}` : next);
-  };
-
   /** Ticking a box in any of the three menus is the same edit over a different pair of fields. */
   const toggle = (key: Axis) => (value: string) =>
     onFilters({
@@ -546,44 +732,47 @@ export const FilterBar = ({
         ))}
       </div>
 
-      {/* Year, then month within it. One list of every month would grow a row
-          per month forever; these two stay twelve long and three long however
-          many years pile up. */}
-      <select
-        className={CONTROL}
-        value={year}
-        onChange={(e) => changeYear(e.target.value)}
-        aria-label="Year"
-      >
-        {/* Above the group, not in it — all time is not one of the years, and
-            it is the only period that is not inside one. */}
-        <option value="all">All time</option>
-        <optgroup label="Years">
-          {years.map((y) => (
-            <option key={y} value={y}>
-              {y}
-            </option>
-          ))}
-        </optgroup>
-      </select>
+      {/* One menu: the years, and the months of whichever one is pointed at. */}
+      <PeriodMenu
+        months={months}
+        years={years}
+        period={period}
+        kind={kind}
+        from={from}
+        to={to}
+        onPeriod={onPeriod}
+      />
 
-      {/* All time is not inside a year, so there is no month to pick. */}
-      {kind !== "all" && (
-        <select
-          className={CONTROL}
-          value={kind === "month" ? period : ""}
-          onChange={(e) => onPeriod(e.target.value || year)}
-          aria-label="Month"
-        >
-          {/* The empty value is the year itself — the whole of it is what you
-              get by not narrowing to a month, not a separate kind of period. */}
-          <option value="">-</option>
-          {monthsOfYear.map((m) => (
-            <option key={m} value={m}>
-              {MONTH_NAMES[Number(m.slice(5)) - 1]}
-            </option>
-          ))}
-        </select>
+      {/* Two native date boxes — no picker component, and no date library. An
+          empty box is an open end, which `inRange` already means by null, so
+          clearing one is "everything up to here" rather than nothing.
+
+          Each box is bounded twice: by the record, so no day with nothing behind
+          it is offered, and by the other box, so the pair cannot cross. The
+          calendar then greys out everything unpickable, which is the whole of
+          the feature — `min` and `max` are advisory against a typed date, and
+          `inRange` gives an empty page for one either way. */}
+      {kind === "custom" && (
+        <>
+          <input
+            type="date"
+            className={CONTROL}
+            value={from ?? ""}
+            min={earliest}
+            max={to ?? latest}
+            onChange={(e) => onPeriod(`${e.target.value}..${to ?? ""}`)}
+            aria-label="From"
+          />
+          <input
+            type="date"
+            className={CONTROL}
+            value={to ?? ""}
+            min={from ?? earliest}
+            max={latest}
+            onChange={(e) => onPeriod(`${from ?? ""}..${e.target.value}`)}
+            aria-label="To"
+          />
+        </>
       )}
 
       {/* A tree: each category opens into the subcategories the bank names under

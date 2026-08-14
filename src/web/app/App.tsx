@@ -650,13 +650,27 @@ export const App = () => {
   const months = useMemo(() => distinctMonths(txns), [txns]);
   const years = useMemo(() => distinctYears(txns), [txns]);
 
+  /**
+   * The edges of the record, which is as far as the date boxes will go. Nothing
+   * is on either side of it: a range starting in 1998 draws an empty page and
+   * says nothing about why.
+   *
+   * `axisBounds` over all time already answers exactly this — the first row, and
+   * today or the last row where the bank has booked ahead of it — so the far end
+   * moves with the archive rather than with the calendar.
+   */
+  const record = useMemo(() => axisBounds(txns, period("all")), [txns]);
+
   // Latest month, until something is picked. Derived rather than stored, so the
   // first render after the fetch lands is already on the right month. Anything
   // the picker does not offer falls back to it too, so a hand-edited URL cannot
   // leave the select showing one period while the page renders another.
+  // A hand-picked range is offered by the date boxes rather than by a list, so
+  // it is checked by shape instead — `period` reads anything it does not
+  // recognise as all time, so an unparseable one still falls back.
   const offered = [...months, ...years, "all"];
   const active =
-    chosen && offered.includes(chosen)
+    chosen && (offered.includes(chosen) || period(chosen).kind === "custom")
       ? chosen
       : (months[months.length - 1] ?? "all");
   const p = useMemo(() => period(active), [active]);
@@ -933,6 +947,10 @@ export const App = () => {
         years={years}
         period={active}
         kind={p.kind}
+        from={p.from}
+        to={p.to}
+        earliest={record.from}
+        latest={record.to}
         onPeriod={setChosen}
         categories={categories}
         subcategories={subcategories}
