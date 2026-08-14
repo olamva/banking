@@ -1,0 +1,13 @@
+{
+  "id": "9479fbd2",
+  "ts": "2026-08-14T10:53:13+00:00",
+  "text": "Bash tool refuses any compound command containing a shell redirect while in a worktree session ('too complex to verify it stays inside the worktree'), even for writes to $CLAUDE_JOB_DIR/tmp \u2014 forces splitting every curl+redirect into separate calls",
+  "tags": [
+    "tools",
+    "worktree"
+  ],
+  "who": "agent",
+  "model": "opus-5",
+  "session": "f31b8dfa",
+  "where": "/Users/olavassbotn/Documents/banking/.claude/worktrees/mobile-friendly"
+}
