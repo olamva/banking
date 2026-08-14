@@ -431,6 +431,16 @@ const Dashboard = ({
               income={anyIncome}
               spend={anySpend}
               band={band}
+              // A running total only ever climbs, so a line fitted to it is a
+              // straight line drawn over one — it reports an average rate the
+              // tile above already gives as a number. The legend switches it
+              // off anywhere it does mean something.
+              //
+              // And it is fitted through spending, so it goes wherever the red
+              // line goes: with nothing spent in view it is a flat line on the
+              // axis with a key naming it a trend, which is the same non-finding
+              // the line itself was dropped for.
+              trend={!running && anySpend}
               compare={compare}
               compareLabel={vs?.label}
             />

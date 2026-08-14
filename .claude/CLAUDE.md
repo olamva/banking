@@ -336,9 +336,10 @@ Notes from the real data, not the plan:
 - **`rules/overrides.json` used to depend on its own line order**, invisibly.
   It no longer may — see the location-agnostic rule above, which is where the
   mechanism and the fix are written down. The file is now **grouped by the
-  category it assigns**: sorted by main, then subcategory, then pattern, with a
-  blank line at every change of main. That grouping is only safe because the
-  order means nothing, and it is the reason to keep it meaning nothing.
+  category it assigns**: sorted by main, then subcategory, then pattern, with
+  one blank line at every change of subcategory and two at every change of
+  main. That grouping is only safe because the order means nothing, and it is
+  the reason to keep it meaning nothing.
 - Card rows are roughly 40% of monthly spending and arrive fully classified —
   merchant, category and MCC on every one — so there is no separate card bucket
   and no card-shaped hole. `diverse` and `ukategorisert` are still ~17% of them.
