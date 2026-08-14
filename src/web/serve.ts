@@ -55,7 +55,10 @@ export async function serve(port: number): Promise<void> {
   const { createServer: createViteServer } = await import('vite');
   const vite = await createViteServer({
     configFile: 'vite.config.ts',
-    server: { middlewareMode: true },
+    // The HMR socket is a second listener and it does not follow `--port`: two
+    // dev servers both want Vite's default 24678, and the loser boots with hot
+    // reload silently dead. Derive it from the port, so `--port` moves both.
+    server: { middlewareMode: true, ws: { port: port + 20000 } },
     appType: 'spa',
   });
 
@@ -79,6 +82,16 @@ export async function serve(port: number): Promise<void> {
       res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
       res.end(`${e instanceof Error ? e.message : e}\n`);
     }
+  });
+
+  // Without this the port clash is an unhandled 'error' event: a stack trace in
+  // whatever log the process was started under, while a curl to the same port is
+  // happily answered by the server that already had it. Say which port and how.
+  server.on('error', (e: NodeJS.ErrnoException) => {
+    if (e.code !== 'EADDRINUSE') throw e;
+    console.error(`port ${port} is already in use — another \`pnpm dev\` has it`);
+    console.error(`run \`pnpm dev --port ${port + 1}\` to serve alongside it`);
+    process.exit(1);
   });
 
   server.listen(port, '127.0.0.1', () => {

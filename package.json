@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "sb1": "node --env-file=.env.local src/cli.ts",
-    "dev": "node --env-file=.env.local src/cli.ts dev",
+    "dev": "node --env-file-if-exists=.env.local src/cli.ts dev",
     "test": "node --test 'src/**/*.test.ts'",
     "typecheck": "tsc --noEmit"
   },
