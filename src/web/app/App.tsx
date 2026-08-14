@@ -470,7 +470,12 @@ const Dashboard = ({
             period, on exactly the same emptiness rules as the spending half. */}
         {!single && cats.length > 0 && (
           <Card title="Spending by category" icon={CategoryIcon}>
-            <HorizontalBars items={cats} onPick={onCategory} onPickSub={onSubcategory} />
+            <HorizontalBars
+              items={cats}
+              onPick={onCategory}
+              onPickSub={onSubcategory}
+              tone="spend"
+            />
           </Card>
         )}
 
@@ -484,32 +489,37 @@ const Dashboard = ({
         )}
 
         {cps.length > 0 && (
-          <Card title="Spending by counterparty" icon={CounterpartyIcon}>
-            <HorizontalBars items={cps} onPick={onMerchant} />
+          <Card title="Spending by merchant" icon={CounterpartyIcon}>
+            <HorizontalBars items={cps} onPick={onMerchant} tone="spend" />
           </Card>
         )}
 
         {accounts.length > 1 && (
           <Card title="Spending by account" icon={AccountIcon}>
-            <HorizontalBars items={accounts} onPick={onAccount} />
+            <HorizontalBars items={accounts} onPick={onAccount} tone="spend" />
           </Card>
         )}
 
         {!single && inCats.length > 0 && (
           <Card title="Income by category" icon={CategoryIcon}>
-            <HorizontalBars items={inCats} onPick={onCategory} onPickSub={onSubcategory} />
+            <HorizontalBars
+              items={inCats}
+              onPick={onCategory}
+              onPickSub={onSubcategory}
+              tone="income"
+            />
           </Card>
         )}
 
         {inCps.length > 0 && (
-          <Card title="Income by counterparty" icon={CounterpartyIcon}>
-            <HorizontalBars items={inCps} onPick={onMerchant} />
+          <Card title="Income by merchant" icon={CounterpartyIcon}>
+            <HorizontalBars items={inCps} onPick={onMerchant} tone="income" />
           </Card>
         )}
 
         {inAccounts.length > 1 && (
           <Card title="Income by account" icon={AccountIcon}>
-            <HorizontalBars items={inAccounts} onPick={onAccount} />
+            <HorizontalBars items={inAccounts} onPick={onAccount} tone="income" />
           </Card>
         )}
 
