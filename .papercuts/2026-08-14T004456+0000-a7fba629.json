@@ -1,0 +1,13 @@
+{
+  "id": "a7fba629",
+  "ts": "2026-08-14T00:44:56+00:00",
+  "text": "pnpm dev dies in a fresh worktree: .env.local is gitignored, so 'node --env-file=.env.local' exits 9 before Vite starts. data/ and rules/ are missing there too, so the page has nothing to render even once it boots.",
+  "tags": [
+    "setup",
+    "worktree"
+  ],
+  "who": "agent",
+  "model": "opus-5",
+  "session": "f3e83340",
+  "where": "package.json"
+}

@@ -571,7 +571,8 @@ export const SpendLines = ({
         <ChartLegend
           income={hasIncome}
           spend={hasSpend}
-          band={hasBand}
+          under={hasBand && series.some((p) => p.totalIn > p.totalOut)}
+          over={hasBand && series.some((p) => p.totalOut > p.totalIn)}
           compareLabel={compare.length > 0 ? compareLabel : undefined}
         />
       )}
@@ -723,14 +724,19 @@ export const SpendLines = ({
 interface ChartLegendProps {
   income: boolean;
   spend: boolean;
-  /** Whether the shading is drawn — it is keyed only where it exists. */
-  band: boolean;
+  /**
+   * The two halves of the shading, each true only where that colour is actually
+   * drawn — green under, where income leads, and red over, where spend does.
+   * Both false is the band not being drawn at all.
+   */
+  under: boolean;
+  over: boolean;
   /** Named when a compared period is drawn; the dashes are the same for both its lines. */
   compareLabel?: string;
 }
 
 /** Drawn by `SpendLines` itself — it is the only chart with more than one series. */
-const ChartLegend = ({ income, spend, band, compareLabel }: ChartLegendProps) => (
+const ChartLegend = ({ income, spend, under, over, compareLabel }: ChartLegendProps) => (
   <div className="mb-2 flex flex-wrap gap-3.5 text-xs text-ink-soft">
     {spend && (
       <span className="inline-flex items-center gap-1.5">
@@ -744,19 +750,23 @@ const ChartLegend = ({ income, spend, band, compareLabel }: ChartLegendProps) =>
         Income
       </span>
     )}
-    {band && (
-      <>
-        {/* The band is the point of the chart where it is drawn, so it gets keys
-            of its own — and none at all where it is not. */}
-        <span className="inline-flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-3 rounded-sm bg-good-strong opacity-20" />
-          Left over
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-3 rounded-sm bg-critical-strong opacity-20" />
-          Overspent
-        </span>
-      </>
+    {/* The band is the point of the chart where it is drawn, so it gets keys of
+        its own — and none at all where it is not. Its two halves are keyed one
+        at a time, because either can be absent while the other is drawn: with
+        nothing spent in view every point is left over and no stretch of the
+        band is ever red. A key for a shade the chart cannot produce is a colour
+        the reader goes looking for and never finds. */}
+    {under && (
+      <span className="inline-flex items-center gap-1.5">
+        <span className="inline-block h-2.5 w-3 rounded-sm bg-good-strong opacity-20" />
+        Left over
+      </span>
+    )}
+    {over && (
+      <span className="inline-flex items-center gap-1.5">
+        <span className="inline-block h-2.5 w-3 rounded-sm bg-critical-strong opacity-20" />
+        Overspent
+      </span>
     )}
     {/* One key for both dashed lines — the dashes are what mark the period, and
         the colours mean the same here as they do above.

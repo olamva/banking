@@ -1,0 +1,13 @@
+{
+  "id": "61e8f440",
+  "ts": "2026-08-14T00:44:20+00:00",
+  "text": "Bash tool refuses a heredoc+python one-liner inside a worktree session as 'too complex to verify'; had to fall back to Read+Edit for an append",
+  "tags": [
+    "tools",
+    "worktree"
+  ],
+  "who": "agent",
+  "model": "opus-5",
+  "session": "a82bf729",
+  "where": "/Users/olavassbotn/Documents/banking/.claude/worktrees/worktree-txn-subcategory-column"
+}
