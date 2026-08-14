@@ -75,6 +75,25 @@ export interface BarItem {
   subs?: BarItem[];
 }
 
+/**
+ * Which direction the money went, as a colour. Red spent, green received — the
+ * same pair `DivergingBars` diverges across, and the same meaning.
+ *
+ * Written out at both depths rather than composed from a stem, because Tailwind
+ * scans source for whole class names and a string built at runtime is a class it
+ * never emits.
+ *
+ * The two never share a chart: one card is one direction and its title says
+ * which in words, so nothing here is identified by colour alone. That is what
+ * makes the pair legitimate — judged as a *categorical* palette it fails deutan
+ * separation on the dark surface (ΔE 3.8), which would matter if a red bar and a
+ * green one ever had to be told apart side by side. They never do.
+ */
+const TONE = {
+  spend: ['bg-critical-strong', 'bg-critical-strong/50'],
+  income: ['bg-good-strong', 'bg-good-strong/50'],
+} as const;
+
 interface HorizontalBarsProps {
   items: BarItem[];
   /**
@@ -88,6 +107,14 @@ interface HorizontalBarsProps {
   onPick?: (key: string, meta: boolean) => void;
   /** The same, for a row's children. Omit it and children are plain text. */
   onPickSub?: (key: string, meta: boolean) => void;
+  tone?: keyof typeof TONE;
+  /**
+   * How many rows before the list cuts off, the rest one click away. All of them
+   * at once, deliberately: a card that opens to fourteen rows and one that opens
+   * to a hundred are the same gesture, and paging ten at a time would make the
+   * long one worse for nothing.
+   */
+  max?: number;
 }
 
 /**
@@ -106,12 +133,26 @@ interface HorizontalBarsProps {
  * reads as that bar cut up — renormalising would draw the largest child as wide
  * as its parent and say the opposite.
  */
-export const HorizontalBars = ({ items, onPick, onPickSub }: HorizontalBarsProps) => {
+export const HorizontalBars = ({
+  items,
+  onPick,
+  onPickSub,
+  tone = 'spend',
+  max = 10,
+}: HorizontalBarsProps) => {
   const { bind, node } = useTooltip();
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
+  const [showAll, setShowAll] = useState(false);
+  // Off the whole list, not the visible slice, so opening the tail does not
+  // rescale the bars already on screen. The rows are sorted biggest first, so
+  // the two agree today — but only by accident of the sort, and a bar that
+  // changed width on expand would be reporting a different number.
   const maxVal = Math.max(...items.map((i) => i.total), 1);
 
   if (items.length === 0) return <Empty>Nothing in this range.</Empty>;
+
+  const visible = showAll ? items : items.slice(0, max);
+  const hidden = items.length - visible.length;
 
   const toggle = (key: string) =>
     setOpen((prev) => {
@@ -135,7 +176,7 @@ export const HorizontalBars = ({ items, onPick, onPickSub }: HorizontalBarsProps
               full-width bar would otherwise push the number off the edge.
               `min-w-px` keeps the smallest total visible as a sliver. */}
           <span
-            className={`h-4 min-w-px rounded ${depth ? 'bg-series-1/50' : 'bg-series-1'}`}
+            className={`h-4 min-w-px rounded ${TONE[tone][depth ? 1 : 0]}`}
             style={{ width: `calc((100% - 78px) * ${item.total / maxVal})` }}
           />
           <span className="shrink-0 font-semibold">{fmtNOK(item.total)}</span>
@@ -171,7 +212,7 @@ export const HorizontalBars = ({ items, onPick, onPickSub }: HorizontalBarsProps
   return (
     <>
       <div className="flex flex-col">
-        {items.map((item) => {
+        {visible.map((item) => {
           const id = item.key ?? item.label;
           // One child is the parent again with an extra indent, so it is not a
           // breakdown and gets no chevron.
@@ -213,6 +254,26 @@ export const HorizontalBars = ({ items, onPick, onPickSub }: HorizontalBarsProps
           );
         })}
       </div>
+      {/* Gated on the whole list, not on what is still hidden: a filter can
+          shrink the list under the cut while it is open, and `hidden > 0` would
+          then leave a "Show less" that closes nothing. A list of nine keeps no
+          button in either state. */}
+      {items.length > max && (
+        <button
+          type="button"
+          onClick={() => setShowAll((s) => !s)}
+          aria-expanded={showAll}
+          className="mt-1 flex h-[26px] w-full items-center justify-center gap-1 rounded-md text-[11px] text-ink-muted hover:bg-hover hover:text-ink"
+        >
+          <Icon
+            aria-hidden
+            icon={ExpandIcon}
+            size={12}
+            className={`transition-transform ${showAll ? '-rotate-90' : 'rotate-90'}`}
+          />
+          {showAll ? 'Show less' : `Show ${hidden} more`}
+        </button>
+      )}
       {node}
     </>
   );

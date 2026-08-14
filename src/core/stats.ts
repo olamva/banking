@@ -61,12 +61,12 @@ export type MonthStats = {
   categories: CategoryTotal[];
   /** The second level of `categories`, shares within each parent. */
   subcategories: SubcategoryTotal[];
-  /** Top 10 by spend. */
+  /** Top 25 by spend; the card draws 10 of them until it is opened. */
   topCounterparties: CounterpartyTotal[];
   /** The same three breakdowns over the money that came *in*. Empty where nothing did. */
   incomeCategories: CategoryTotal[];
   incomeSubcategories: SubcategoryTotal[];
-  /** Top 10 by income. */
+  /** Top 25 by income; the card draws 10 of them until it is opened. */
   topIncomeCounterparties: CounterpartyTotal[];
   incomeAccounts: AccountTotal[];
   subscriptions: Categorized[];
@@ -247,11 +247,18 @@ export function totals(txns: Categorized[]): Totals {
   };
 }
 
-/** `dir` is the sign the row must have: `out` is money spent, `in` is money received. */
+/**
+ * `dir` is the sign the row must have: `out` is money spent, `in` is money
+ * received.
+ *
+ * 25 rather than the 10 the card draws, because the card now opens: a limit
+ * equal to what is shown is a card whose "show more" can never appear, and the
+ * cut has to sit above the fold rather than on it.
+ */
 function topCounterparties(
   txns: Categorized[],
   dir: 'in' | 'out',
-  limit = 10,
+  limit = 25,
 ): CounterpartyTotal[] {
   const byCp = new Map<string, { cents: number; count: number }>();
   for (const t of txns) {
