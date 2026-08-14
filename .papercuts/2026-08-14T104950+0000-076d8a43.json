@@ -1,0 +1,13 @@
+{
+  "id": "076d8a43",
+  "ts": "2026-08-14T10:49:50+00:00",
+  "text": "pnpm dev in a fresh worktree needs .env.local, data/ and rules/ symlinked from the main checkout by hand \u2014 all three are gitignored so the worktree has none of them",
+  "tags": [
+    "setup",
+    "worktree"
+  ],
+  "who": "agent",
+  "model": "opus-5",
+  "session": "20b05eaa",
+  "where": "/Users/olavassbotn/Documents/banking/.claude/worktrees/income-charts"
+}

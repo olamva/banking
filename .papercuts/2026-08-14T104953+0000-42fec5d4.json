@@ -1,0 +1,13 @@
+{
+  "id": "42fec5d4",
+  "ts": "2026-08-14T10:49:53+00:00",
+  "text": "pnpm dev hardcodes port 4000, so a worktree agent collides with the user's own running server; --port exists but only pnpm sb1 dev takes it, not pnpm dev",
+  "tags": [
+    "dx",
+    "worktree"
+  ],
+  "who": "agent",
+  "model": "opus-5",
+  "session": "20b05eaa",
+  "where": "/Users/olavassbotn/Documents/banking/.claude/worktrees/income-charts"
+}

@@ -95,11 +95,12 @@ import { GRAINS, readUrl, writeUrl, type Grain } from "./url.ts";
  * when it would otherwise be the odd one out** sitting alone in half of one.
  *
  * That `nth-child(odd)` is doing real work, and both ways round. A month or a
- * year normally shows five — category, changes, merchants, accounts, and the
- * subscriptions table — so the table is the fifth, lands full width, and the
- * four charts pair off two and two above it. Drop one card (a year with nothing
- * before it to change against, a period with no subscriptions) and four cards
- * fill both rows exactly, which is why the span must not be unconditional.
+ * year normally shows eight — four spending charts (category, changes,
+ * counterparties, accounts), three income ones, and the subscriptions table —
+ * so the table is the eighth and pairs off with the last chart. Drop one card
+ * (a year with nothing before it to change against, a period with no income,
+ * one account) and the count goes odd, which is when the span has to fire.
+ * Either parity happens in practice, which is why it must not be unconditional.
  */
 const CARD_GRID =
   "grid grid-cols-[repeat(auto-fit,minmax(460px,1fr))] gap-4 [&>*:last-child:nth-child(odd)]:col-span-full";
@@ -108,11 +109,11 @@ const CARD_GRID =
  * All time: three charts across, and the table under them.
  *
  * All time is the one period with **no** changes card — nothing precedes it to
- * compare against — so it has three charts rather than four, and two columns
- * would leave the third sitting alone. Three across is narrower per card but
- * costs less than it looks: `HorizontalBars` gives every label the card's full
- * width and truncates against whatever is left, so it shrinks rather than
- * breaks.
+ * compare against — so it has six charts rather than seven, three spending and
+ * three income, and three across is what makes each direction its own row.
+ * Narrower per card, but that costs less than it looks: `HorizontalBars` gives
+ * every label the card's full width and truncates against whatever is left, so
+ * it shrinks rather than breaks.
  *
  * The last child always takes the full row here, because the last child is
  * always the subscriptions table: a table wants the width, and over all time
@@ -303,31 +304,40 @@ const Dashboard = ({
   // deltas beside it are measuring the same thing.
   const compare = vs ? build(previous, vs.from, vs.to) : [];
 
-  const cats = stats.categories.map((c) => {
-    const subs = stats.subcategories
-      .filter((sub) => sub.category === c.category)
-      .map((sub) => ({
-        key: `${sub.category}/${sub.subcategory ?? ""}`,
-        label: subcategoryLabel(sub.category, sub.subcategory),
-        total: sub.total,
-      }));
-    // A category with one named child reads as that child, and filters as it —
-    // the same rows either way, under the more useful of the two names.
-    const lone = subs.length === 1 && subs[0]!.key.split("/")[1] !== "" ? subs[0]! : null;
-    return {
-      // The slug rides along so a click needs no reverse lookup — two slugs can
-      // tidy to the same display name, and the map back could not tell them apart.
-      key: lone?.key ?? c.category,
-      label: lone?.label ?? categoryLabel(c.category),
-      total: c.total,
-      subs,
-    };
-  });
-  const cps = stats.topCounterparties.map((c) => ({
-    label: c.counterparty,
-    total: c.total,
-    count: c.count,
-  }));
+  // Spending and income are the same three breakdowns over two signs, so they
+  // are the same two mappers called twice — nothing about drawing a bar cares
+  // which direction the money went.
+  const catBars = (
+    categories: typeof stats.categories,
+    subcategories: typeof stats.subcategories,
+  ) =>
+    categories.map((c) => {
+      const subs = subcategories
+        .filter((sub) => sub.category === c.category)
+        .map((sub) => ({
+          key: `${sub.category}/${sub.subcategory ?? ""}`,
+          label: subcategoryLabel(sub.category, sub.subcategory),
+          total: sub.total,
+        }));
+      // A category with one named child reads as that child, and filters as it —
+      // the same rows either way, under the more useful of the two names.
+      const lone = subs.length === 1 && subs[0]!.key.split("/")[1] !== "" ? subs[0]! : null;
+      return {
+        // The slug rides along so a click needs no reverse lookup — two slugs can
+        // tidy to the same display name, and the map back could not tell them apart.
+        key: lone?.key ?? c.category,
+        label: lone?.label ?? categoryLabel(c.category),
+        total: c.total,
+        subs,
+      };
+    });
+  const cpBars = (list: typeof stats.topCounterparties) =>
+    list.map((c) => ({ label: c.counterparty, total: c.total, count: c.count }));
+
+  const cats = catBars(stats.categories, stats.subcategories);
+  const cps = cpBars(stats.topCounterparties);
+  const inCats = catBars(stats.incomeCategories, stats.incomeSubcategories);
+  const inCps = cpBars(stats.topIncomeCounterparties);
   const deltas = visibleDeltas(stats.categoryDeltas).map((d) => ({
     ...d,
     category: categoryLabel(d.category),
@@ -347,10 +357,10 @@ const Dashboard = ({
   const onAccount = pick(onFilters, "accounts");
 
   // One account is not a breakdown, it is the total again with a bar under it.
-  const accounts: BarItem[] = stats.accounts.map((a) => ({
-    label: a.account,
-    total: a.total,
-  }));
+  const acctBars = (list: typeof stats.accounts): BarItem[] =>
+    list.map((a) => ({ label: a.account, total: a.total }));
+  const accounts = acctBars(stats.accounts);
+  const inAccounts = acctBars(stats.incomeAccounts);
 
   // A breakdown of one category is a bar chart of itself, so it goes — and so
   // does the change chart, which can only hold that same category's one bar,
@@ -455,6 +465,9 @@ const Dashboard = ({
       )}
 
       <div className={p.kind === "all" ? CARD_GRID_3 : CARD_GRID}>
+        {/* Three breakdowns per direction, named the same way on both sides:
+            "<direction> by <axis>". The income half hides itself period by
+            period, on exactly the same emptiness rules as the spending half. */}
         {!single && cats.length > 0 && (
           <Card title="Spending by category" icon={CategoryIcon}>
             <HorizontalBars items={cats} onPick={onCategory} onPickSub={onSubcategory} />
@@ -471,14 +484,32 @@ const Dashboard = ({
         )}
 
         {cps.length > 0 && (
-          <Card title="Where the money went" icon={CounterpartyIcon}>
+          <Card title="Spending by counterparty" icon={CounterpartyIcon}>
             <HorizontalBars items={cps} onPick={onMerchant} />
           </Card>
         )}
 
         {accounts.length > 1 && (
-          <Card title="Spend by account" icon={AccountIcon}>
+          <Card title="Spending by account" icon={AccountIcon}>
             <HorizontalBars items={accounts} onPick={onAccount} />
+          </Card>
+        )}
+
+        {!single && inCats.length > 0 && (
+          <Card title="Income by category" icon={CategoryIcon}>
+            <HorizontalBars items={inCats} onPick={onCategory} onPickSub={onSubcategory} />
+          </Card>
+        )}
+
+        {inCps.length > 0 && (
+          <Card title="Income by counterparty" icon={CounterpartyIcon}>
+            <HorizontalBars items={inCps} onPick={onMerchant} />
+          </Card>
+        )}
+
+        {inAccounts.length > 1 && (
+          <Card title="Income by account" icon={AccountIcon}>
+            <HorizontalBars items={inAccounts} onPick={onAccount} />
           </Card>
         )}
 
