@@ -565,8 +565,9 @@ export const SpendLines = ({
   return (
     <div ref={ref}>
       {/* One series needs no key telling it apart from the others — but a
-          dashed twin of it does, even with only one line to name. */}
-      {((hasIncome && hasSpend) || compare.length > 0) && series.length > 0 && (
+          dashed twin of it does, even with only one line to name, and so does
+          the band, which is a second mark whichever lines are drawn. */}
+      {((hasIncome && hasSpend) || hasBand || compare.length > 0) && series.length > 0 && (
         <ChartLegend
           income={hasIncome}
           spend={hasSpend}

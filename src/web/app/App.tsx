@@ -366,8 +366,13 @@ const Dashboard = ({
    * whole window: income lands on about a third of days, so day by day it would
    * call almost every one of them an overspend. Accumulated, or by month, the
    * gap is a surplus again and the band comes back.
+   *
+   * It does not need the spend line, only the income one. With nothing spent
+   * the gap is the whole of the income and the band says so, shading from the
+   * line down to the axis — the surplus is real whether or not a red line is
+   * drawn along the bottom of it.
    */
-  const band = anyIncome && anySpend && (running || bucket === "month");
+  const band = anyIncome && (running || bucket === "month");
 
   // Nothing renders a box it has no rows for. Filtered to rent, "income" is a
   // zero and "net" is the spend again with a minus sign; both are noise.
