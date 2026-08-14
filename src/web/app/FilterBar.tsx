@@ -2,18 +2,20 @@
  * The one control surface: what period you are looking at, and which categories
  * and merchants are in play.
  *
- * Both lists are picked from a dropdown and removed from chips. The dropdown
- * holds checkboxes rather than being a `<select multiple>`, because ctrl-
- * clicking a multi-select is not something anyone should have to do; the chips
- * exist so an active filter is always visible and always one click from gone —
- * a filter you cannot see is a filter you cannot turn off.
+ * Both lists are picked from a dropdown, which holds checkboxes rather than
+ * being a `<select multiple>` — ctrl-clicking a multi-select is not something
+ * anyone should have to do.
+ *
+ * What is on is a count, not a row of chips: ten active filters wrapped onto
+ * three lines and pushed the dashboard down the page, which is the opposite of
+ * what a filter bar is for. The count says how many; the pickers say which, and
+ * are where one is turned off again.
  */
 import { useEffect, useRef, useState } from "react";
 import type { Axis, Filters, Mode, PeriodKind } from "../../core/select.ts";
 import { NO_FILTERS } from "../../core/select.ts";
-import { chipLabel, pairLabel, splitPair, treeLabel } from "./format.ts";
+import { pairLabel, treeLabel } from "./format.ts";
 import {
-  CloseIcon,
   DropdownIcon,
   ExpandIcon,
   Icon,
@@ -47,7 +49,6 @@ interface FilterBarProps {
 const CONTROL =
   "rounded-md border border-line bg-page px-2 py-1.5 text-[13px] text-ink";
 
-
 /** Spelled out, because "2026 / 07" beside a year picker reads as a second year. */
 const MONTH_NAMES = [
   "January",
@@ -63,35 +64,6 @@ const MONTH_NAMES = [
   "November",
   "December",
 ];
-
-interface ChipProps {
-  label: string;
-  /** An excluding chip is doing the opposite of an including one; it should not look identical. */
-  tone?: "include" | "exclude";
-  onRemove: () => void;
-}
-
-/** An active filter, and the way to drop it. */
-const Chip = ({ label, tone = "include", onRemove }: ChipProps) => (
-  <button
-    type="button"
-    onClick={onRemove}
-    className={`flex items-center gap-1 rounded-full border py-1 pr-1.5 pl-2.5 text-xs text-white ${
-      tone === "exclude"
-        ? "border-critical-strong bg-critical-strong"
-        : "border-series-1 bg-series-1"
-    }`}
-  >
-    {label}
-    <Icon
-      role="img"
-      aria-label={`Remove ${label}`}
-      icon={CloseIcon}
-      size={12}
-      className="shrink-0 opacity-80"
-    />
-  </button>
-);
 
 interface PickerProps {
   /** What the summary says, before the count. */
@@ -148,11 +120,6 @@ const Picker = ({
   const [active, setActive] = useState<number | null>(null);
   const excluding = mode === "exclude";
 
-  /**
-   * `details` opens itself and closes itself on its own summary, but nothing
-   * else — Escape and a click elsewhere are ours. Open state stays in the DOM
-   * rather than in React, so the listeners just read it and set it back.
-   */
   const menu = useRef<HTMLDetailsElement>(null);
   const reset = useRef<ReturnType<typeof setTimeout>>(undefined);
   /**
@@ -162,6 +129,11 @@ const Picker = ({
    * costing that.
    */
   const [open, setOpen] = useState(false);
+  /**
+   * `details` opens itself and closes itself on its own summary, but nothing
+   * else — Escape and a click elsewhere are ours. Open state stays in the DOM
+   * rather than in React, so this just reads it and sets it back.
+   */
   useEffect(() => {
     const close = (e: Event) => {
       const el = menu.current;
@@ -508,12 +480,20 @@ export const FilterBar = ({
   const excludingMerchants = filters.merchantMode === "exclude";
   const excludingAccounts = filters.accountMode === "exclude";
 
-  // The search box is on the transactions table, in plain sight — a chip for it
-  // there would only be a second copy that shoves the page down as you type.
-  const searchChip = filters.search !== "" && view !== "transactions";
   const picked =
     filters.categories.length + filters.merchants.length + filters.accounts.length;
-  const chips = picked > 0 || searchChip;
+
+  /**
+   * The three lists and the search as one number, so what is on reads as a whole
+   * rather than three counts to add up. The per-list counts are still on the
+   * pickers themselves, which is where one is turned off again.
+   *
+   * The search counts only where it is not already on screen: the transactions
+   * table has the box in plain sight, and a number saying the same thing is a
+   * second copy of it.
+   */
+  const active =
+    picked + (filters.search !== "" && view !== "transactions" ? 1 : 0);
   const dirty =
     picked > 0 ||
     filters.search !== "" ||
@@ -626,6 +606,15 @@ export const FilterBar = ({
         Excluded rows
       </button>
 
+      {/* What is on, as a number and nothing more. Not a control: it opens
+          nothing and clears nothing, so it is text — the pickers turn one
+          filter off and Reset turns them all off. */}
+      {active > 0 && (
+        <span className="px-1 text-[13px] text-ink-soft">
+          {`${active} filter${active === 1 ? "" : "s"}`}
+        </span>
+      )}
+
       {dirty && (
         <button
           type="button"
@@ -635,51 +624,6 @@ export const FilterBar = ({
           <Icon aria-hidden icon={ResetFiltersIcon} size={14} />
           Reset filters
         </button>
-      )}
-
-      {chips && (
-        <div
-          className="flex basis-full flex-wrap gap-1.5"
-          role="group"
-          aria-label="Active filters"
-        >
-          {/* The mode is invisible once the menu closes, so the chips carry it. */}
-          {filters.categories.map((c) => {
-            const name = chipLabel(c, subsOf(splitPair(c)[0]));
-            return (
-              <Chip
-                key={c}
-                label={excluding ? `Not ${name}` : name}
-                tone={excluding ? "exclude" : "include"}
-                onRemove={() => toggleCategory(c)}
-              />
-            );
-          })}
-          {filters.merchants.map((m) => (
-            <Chip
-              key={m}
-              label={excludingMerchants ? `Not ${m}` : m}
-              tone={excludingMerchants ? "exclude" : "include"}
-              onRemove={() => toggleMerchant(m)}
-            />
-          ))}
-          {filters.accounts.map((a) => (
-            <Chip
-              key={a}
-              label={excludingAccounts ? `Not ${a}` : a}
-              tone={excludingAccounts ? "exclude" : "include"}
-              onRemove={() => toggleAccount(a)}
-            />
-          ))}
-          {/* On the dashboards there is no search box, so without this a search
-              set from a bar click would be a filter with nothing to clear it. */}
-          {searchChip && (
-            <Chip
-              label={`“${filters.search}”`}
-              onRemove={() => onFilters({ ...filters, search: "" })}
-            />
-          )}
-        </div>
       )}
     </div>
   );

@@ -1,0 +1,13 @@
+{
+  "id": "879bea8d",
+  "ts": "2026-08-14T00:42:31+00:00",
+  "text": "pnpm dev in a fresh worktree dies on 'node: .env.local: not found' \u2014 the dev server is offline-only and needs no secret, so the --env-file should be optional or dev should skip it",
+  "tags": [
+    "dx",
+    "worktree"
+  ],
+  "who": "agent",
+  "model": "opus-5",
+  "session": "da6c3fd9",
+  "where": "package.json"
+}
