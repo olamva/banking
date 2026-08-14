@@ -641,6 +641,20 @@ export const App = () => {
   };
 
   /**
+   * The other axis: `A`, `Y` and `M` change how long the window is, where the
+   * arrows move it. All time holds no year to step through, so without these
+   * the arrows are a dead end — `A` went in and nothing came back out.
+   *
+   * Which year: the one in view, and the latest on record from all time, which
+   * is where the page opens anyway. `M` then takes the last month of it, so
+   * `Y` `M` from all time lands where the page started.
+   */
+  const inView = active.slice(0, 4);
+  const year = years.includes(inView) ? inView : years[years.length - 1];
+  const lastMonthOf = (y: string) =>
+    months.filter((m) => m.startsWith(`${y}-`)).at(-1);
+
+  /**
    * What the keys do, and what the dialog prints — one list for both, so a key
    * that works is a key that is listed. `/` and ⌘F are listed here and bound on
    * the search box, which is the only thing that can reach it.
@@ -666,6 +680,21 @@ export const App = () => {
       run: () => step(1),
     },
     { keys: ["a"], cap: "A", what: "All time", run: () => setChosen("all") },
+    {
+      keys: ["y"],
+      cap: "Y",
+      what: "The whole year — the latest, from all time",
+      run: () => year && setChosen(year),
+    },
+    {
+      keys: ["m"],
+      cap: "M",
+      what: "The last month of that year",
+      run: () => {
+        const m = year && lastMonthOf(year);
+        if (m) setChosen(m);
+      },
+    },
     {
       keys: ["g"],
       cap: "G",
