@@ -351,12 +351,17 @@ interface SpendLinesProps {
    * derives it because it titles the card.
    */
   income: boolean;
+  /** The same the other way round: a category that only ever paid in spent nothing. */
+  spend: boolean;
   /**
-   * Whether to shade between the two lines. Separate from `income`, because the
-   * band is the thing that does not survive raw days: it reads the vertical gap
-   * as a surplus, which is only true of a whole period. Income lands on about a
-   * third of days, so day by day the shading calls almost every one of them an
-   * overspend — while the income line itself is perfectly honest and stays.
+   * Whether to shade between the two lines. Independent of `income` and `spend`
+   * both: a line the filter emptied sits on the axis, and the gap against it is
+   * still the measurement — all of the income left over, or all of the spending
+   * uncovered. What the band does not survive is raw days, which is the one
+   * thing the caller gates it on: it reads the vertical gap as a whole period's
+   * balance, and income lands on about a third of days, so day by day the
+   * shading would call almost every one of them uncovered. The lines themselves
+   * are honest at every grain and stay.
    */
   band: boolean;
   /**
@@ -383,6 +388,7 @@ export const SpendLines = ({
   series,
   bucket,
   income: hasIncome,
+  spend: hasSpend,
   band: hasBand,
   trend: offersTrend,
   compare = [],
@@ -590,9 +596,13 @@ export const SpendLines = ({
       ) : (
         <span />
       )}
-      <span className="text-ink-soft">Spent</span>
-      <span className="text-right">{fmtNOK(p.totalOut)}</span>
-      {was && <span className="text-right text-ink-muted">{fmtNOK(was.totalOut)}</span>}
+      {hasSpend && (
+        <>
+          <span className="text-ink-soft">Spent</span>
+          <span className="text-right">{fmtNOK(p.totalOut)}</span>
+          {was && <span className="text-right text-ink-muted">{fmtNOK(was.totalOut)}</span>}
+        </>
+      )}
       {hasIncome && (
         <>
           <span className="text-ink-soft">Income</span>
@@ -635,6 +645,7 @@ export const SpendLines = ({
       {series.length > 0 && (
         <ChartLegend
           income={hasIncome}
+          spend={hasSpend}
           trend={trend !== null}
           compareLabel={compare.length > 0 ? compareLabel : undefined}
           hidden={hidden}
@@ -649,8 +660,6 @@ export const SpendLines = ({
             const gy = py(v);
             return (
               <g key={v}>
-                {/* Zero is a gridline like any other until the axis runs below
-                    it, and then it is the line the trend is read against. */}
                 {/* Zero is a gridline like any other until the axis runs below
                     it, and then it is the line the trend is read against. */}
                 <line
@@ -689,12 +698,14 @@ export const SpendLines = ({
           {shows('compare') &&
             runsOf(cmp).map((run) => (
               <g key={`cmp-${run[0]!.i}`} className="opacity-40">
-                <polyline
-                  points={pts(run, (p) => p.totalOut).join(' ')}
-                  strokeWidth={1.5}
-                  strokeDasharray="4 3"
-                  className="fill-none stroke-critical-strong"
-                />
+                {hasSpend && (
+                  <polyline
+                    points={pts(run, (p) => p.totalOut).join(' ')}
+                    strokeWidth={1.5}
+                    strokeDasharray="4 3"
+                    className="fill-none stroke-critical-strong"
+                  />
+                )}
                 {hasIncome && (
                   <polyline
                     points={pts(run, (p) => p.totalIn).join(' ')}
@@ -734,7 +745,7 @@ export const SpendLines = ({
                     <polygon points={band} clipPath={`url(#${clip}-under-${r})`} className="fill-good-strong opacity-20" />
                   </>
                 )}
-                {shows('out') && (
+                {hasSpend && shows('out') && (
                   <polyline points={pts(run, (p) => p.totalOut).join(' ')} strokeWidth={2} className="fill-none stroke-critical-strong" />
                 )}
                 {hasIncome && shows('in') && (
@@ -773,7 +784,7 @@ export const SpendLines = ({
               p === null ? null : (
                 <g key={p.at}>
                   {/* A stretch of one point draws no polyline, so the dots are what carries it. */}
-                  {shows('out') && (
+                  {hasSpend && shows('out') && (
                     <circle cx={px(i)} cy={py(p.totalOut)} r={near === i ? 5 : 3} className="fill-critical-strong" />
                   )}
                   {hasIncome && shows('in') && (
@@ -787,7 +798,7 @@ export const SpendLines = ({
               it to say which point it landed on. */}
           {!dots && near !== null && dense[near] && (
             <g>
-              {shows('out') && (
+              {hasSpend && shows('out') && (
                 <circle cx={px(near)} cy={py(dense[near].totalOut)} r={4} className="fill-critical-strong" />
               )}
               {hasIncome && shows('in') && (
@@ -824,6 +835,8 @@ export const SpendLines = ({
 
 interface ChartLegendProps {
   income: boolean;
+  /** The same the other way round — no spending in view, no key for its line. */
+  spend: boolean;
   /** Whether the fitted line is drawn — it is keyed only where it exists. */
   trend: boolean;
   /** Named when a compared period is drawn; the dashes are the same for both its lines. */
@@ -863,14 +876,16 @@ const LegendKey = ({ on, onToggle, name, children }: LegendKeyProps) => (
 );
 
 /** Drawn by `SpendLines` itself — it is the only chart with more than one series. */
-const ChartLegend = ({ income, trend, compareLabel, hidden, onToggle }: ChartLegendProps) => {
+const ChartLegend = ({ income, spend, trend, compareLabel, hidden, onToggle }: ChartLegendProps) => {
   const key = (mark: Mark) => ({ on: !hidden.has(mark), onToggle: () => onToggle(mark) });
   return (
     <div className="mb-2 flex flex-wrap gap-3.5 text-xs text-ink-soft">
-      <LegendKey {...key('out')} name="the spending line">
-        <span className="inline-block h-[3px] w-3 rounded-sm bg-critical-strong" />
-        Spent
-      </LegendKey>
+      {spend && (
+        <LegendKey {...key('out')} name="the spending line">
+          <span className="inline-block h-[3px] w-3 rounded-sm bg-critical-strong" />
+          Spent
+        </LegendKey>
+      )}
       {income && (
         <LegendKey {...key('in')} name="the income line">
           <span className="inline-block h-[3px] w-3 rounded-sm bg-good-strong" />
@@ -907,10 +922,20 @@ const ChartLegend = ({ income, trend, compareLabel, hidden, onToggle }: ChartLeg
           explains are the same mark. */}
       {compareLabel && (
         <LegendKey {...key('compare')} name={compareLabel}>
-          <svg aria-hidden width={16} height={income ? 9 : 3} className="shrink-0 opacity-40">
-            <line x1={0} x2={16} y1={1.5} y2={1.5} strokeWidth={3} strokeDasharray="4 3" className="stroke-critical-strong" />
+          <svg aria-hidden width={16} height={income && spend ? 9 : 3} className="shrink-0 opacity-40">
+            {spend && (
+              <line x1={0} x2={16} y1={1.5} y2={1.5} strokeWidth={3} strokeDasharray="4 3" className="stroke-critical-strong" />
+            )}
             {income && (
-              <line x1={0} x2={16} y1={7.5} y2={7.5} strokeWidth={3} strokeDasharray="4 3" className="stroke-good-strong" />
+              <line
+                x1={0}
+                x2={16}
+                y1={spend ? 7.5 : 1.5}
+                y2={spend ? 7.5 : 1.5}
+                strokeWidth={3}
+                strokeDasharray="4 3"
+                className="stroke-good-strong"
+              />
             )}
           </svg>
           {compareLabel}
