@@ -50,6 +50,10 @@ export const GRAINS: Record<PeriodKind, Grain[]> = {
   month: ["running", "day"],
   year: ["running", "month"],
   all: ["month"],
+  // A hand-picked range is any length, so it offers all three and the reader
+  // picks — a week of months and four years of days are both possible, and
+  // guessing from the span would be a rule nobody asked for.
+  custom: ["running", "day", "month"],
 };
 
 /**

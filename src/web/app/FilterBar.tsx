@@ -35,6 +35,9 @@ interface FilterBarProps {
   period: string;
   /** What `period` is, already parsed — the shape of the string, without a second copy of the regexes. */
   kind: PeriodKind;
+  /** Its bounds, already parsed too — what the date boxes show, and what a range switched into starts as. */
+  from: string | null;
+  to: string | null;
   onPeriod: (period: string) => void;
   /** Every value the two dropdowns offer, already narrowed to the period. */
   categories: string[];
@@ -64,6 +67,18 @@ const MONTH_NAMES = [
   "November",
   "December",
 ];
+
+/**
+ * A real date, for the date boxes. A month's upper bound is `YYYY-MM-31`
+ * whatever the month has in it — deliberate, since it is only ever compared as
+ * a string — and `<input type="date">` shows nothing at all for one that never
+ * existed, so switching June into a range would open with an empty end.
+ */
+const realDate = (d: string): string => {
+  const [y, m, day] = d.split("-").map(Number) as [number, number, number];
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return day > last ? `${d.slice(0, 8)}${last}` : d;
+};
 
 interface PickerProps {
   /** What the summary says, before the count. */
@@ -458,6 +473,8 @@ export const FilterBar = ({
   years,
   period,
   kind,
+  from,
+  to,
   onPeriod,
   categories,
   subcategories,
@@ -469,15 +486,22 @@ export const FilterBar = ({
   // A month period is a year with a month in it, so the year picker reads the
   // front of the same string rather than being state of its own — two selects,
   // still one value, and nothing to keep in sync.
-  const year = kind === "all" ? period : period.slice(0, 4);
+  const year = kind === "all" || kind === "custom" ? kind : period.slice(0, 4);
   const monthsOfYear = months.filter((m) => m.startsWith(`${year}-`));
 
   /**
    * Changing the year keeps the month when the new year has one, so stepping
    * back a year lands on the same month rather than dumping you at the top of
    * it. All time has no month at all and is passed straight through.
+   *
+   * A range opens on the window already in view rather than empty, so narrowing
+   * "July" to "the 5th to the 12th" is two edits and not four. All time has no
+   * bounds to open on, so it starts open at both ends — which is all time
+   * again, and the boxes are then the only thing to fill in.
    */
   const changeYear = (next: string) => {
+    if (next === "custom")
+      return onPeriod(`${from ?? ""}..${to ? realDate(to) : ""}`);
     if (!years.includes(next)) return onPeriod(next);
     const mm = kind === "month" ? period.slice(5) : "";
     onPeriod(mm && months.includes(`${next}-${mm}`) ? `${next}-${mm}` : next);
@@ -555,9 +579,10 @@ export const FilterBar = ({
         onChange={(e) => changeYear(e.target.value)}
         aria-label="Year"
       >
-        {/* Above the group, not in it — all time is not one of the years, and
-            it is the only period that is not inside one. */}
+        {/* Above the group, not in it — neither is one of the years, and they
+            are the only periods that are not inside one. */}
         <option value="all">All time</option>
+        <option value="custom">Custom range</option>
         <optgroup label="Years">
           {years.map((y) => (
             <option key={y} value={y}>
@@ -567,8 +592,9 @@ export const FilterBar = ({
         </optgroup>
       </select>
 
-      {/* All time is not inside a year, so there is no month to pick. */}
-      {kind !== "all" && (
+      {/* Neither all time nor a hand-picked range is inside a year, so there is
+          no month to pick in either. */}
+      {(kind === "month" || kind === "year") && (
         <select
           className={CONTROL}
           value={kind === "month" ? period : ""}
@@ -584,6 +610,30 @@ export const FilterBar = ({
             </option>
           ))}
         </select>
+      )}
+
+      {/* Two native date boxes — no picker component, and no date library. An
+          empty box is an open end, which `inRange` already means by null, so
+          clearing one is "everything up to here" rather than nothing. */}
+      {kind === "custom" && (
+        <>
+          <input
+            type="date"
+            className={CONTROL}
+            value={from ?? ""}
+            max={to ?? undefined}
+            onChange={(e) => onPeriod(`${e.target.value}..${to ?? ""}`)}
+            aria-label="From"
+          />
+          <input
+            type="date"
+            className={CONTROL}
+            value={to ?? ""}
+            min={from ?? undefined}
+            onChange={(e) => onPeriod(`${from ?? ""}..${e.target.value}`)}
+            aria-label="To"
+          />
+        </>
       )}
 
       {/* A tree: each category opens into the subcategories the bank names under
