@@ -689,6 +689,16 @@ residue.
 An entry may also carry `sync: false`, meaning it exists for its _number_ alone —
 there is no key `/transactions` answers for. `accountKeys` skips those.
 
+An entry may carry **`from`, the `YYYY-MM` the account opened**, and `accountKeys`
+skips it for any earlier month. A sweep costs one request per account per month
+whether the account existed then or not, and five of the seven opened well after
+the record starts — the card in 2026-02 against raw going back to 2018-09. Over
+that span the floor is 217 requests of 672, nearly a third, and at 60 an hour
+that is three and a half hours of sweeping bought back. The dates are checked
+against the raw and are exact for four of them; BSU+'s 2016-02 predates
+`data/raw/` and is taken on the account holder's word. An account with no `from`
+has no floor.
+
 The check that catches all of this: every excluded reason must net to zero
 across the pair — `investment movement` excepted. If it doesn't, one leg is
 being matched and the other isn't.

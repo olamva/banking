@@ -24,13 +24,21 @@ async function dump(file: string, data: unknown): Promise<void> {
  * is absent from `/accounts` entirely). Their key here is a made-up label, so
  * fetching one would spend a request on a 404. They still earn their entry:
  * `exclude` matches on the *number*.
+ *
+ * `from` is the month the account opened, and asking for a month before it is
+ * a request spent to be told the account was empty — 220 of them across the
+ * record, since a sweep costs one request per account per month whether the
+ * account existed or not. The card alone accounts for 35 of them: it opened in
+ * 2026-02 and the raw goes back to 2018-09. An account with no `from` has no
+ * floor and is fetched for every month asked for.
  */
-export async function accountKeys(): Promise<string[]> {
+export async function accountKeys(month?: string): Promise<string[]> {
   const accounts: Accounts = JSON.parse(
     await readFile("rules/accounts.json", "utf8"),
   );
   return Object.entries(accounts)
     .filter(([, a]) => a.sync !== false)
+    .filter(([, a]) => !month || !a.from || month >= a.from)
     .map(([key]) => key);
 }
 
@@ -76,17 +84,20 @@ const fresh = (file: string, force: Force): boolean => {
  *
  * A month whose files are all present costs nothing without `--force`, so the
  * honest number for a resumed sweep is the missing files and not the months.
+ *
+ * The keys are asked for per month, not once: an account that had not opened
+ * yet is not part of the bill for that month either.
  */
 export async function rangeCost(
   months: string[],
   force: Force,
 ): Promise<number> {
-  const keys = await accountKeys();
-  return months.reduce(
-    (n, month) =>
-      n + keys.filter((key) => !fresh(fileFor(month, key), force)).length,
-    0,
-  );
+  let n = 0;
+  for (const month of months) {
+    const keys = await accountKeys(month);
+    n += keys.filter((key) => !fresh(fileFor(month, key), force)).length;
+  }
+  return n;
 }
 
 /**
@@ -191,7 +202,7 @@ export async function syncMonth(
 ): Promise<number> {
   const { from, to } = rangeToDate(month);
   let fetched = 0;
-  for (const key of await accountKeys()) {
+  for (const key of await accountKeys(month)) {
     const file = fileFor(month, key);
     if (fresh(file, force)) {
       console.error(`skip ${file}`);

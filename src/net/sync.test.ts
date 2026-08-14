@@ -9,7 +9,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { monthsBetween, rangeCost, rangeToDate } from "./sync.ts";
+import { accountKeys, monthsBetween, rangeCost, rangeToDate } from "./sync.ts";
 
 // Enable Banking answers 400 ASPSP_ERROR when date_to is in the future, which
 // is every refresh of the month you are currently in.
@@ -111,6 +111,37 @@ test("a span costs the files it is missing, not the months it covers", async (t)
     new Date(Date.now() - 2 * 3600_000),
   );
   assert.equal(await rangeCost(months, 60), 4);
+});
+
+test("an account is not fetched for months before it opened", async (t) => {
+  const dir = mkdtempSync(join(tmpdir(), "sync-from-"));
+  const cwd = process.cwd();
+  process.chdir(dir);
+  t.after(() => {
+    process.chdir(cwd);
+    rmSync(dir, { recursive: true, force: true });
+  });
+  mkdirSync("rules", { recursive: true });
+  writeFileSync(
+    "rules/accounts.json",
+    JSON.stringify({
+      old: { mine: true },
+      card: { mine: true, from: "2026-02" },
+    }),
+  );
+
+  // The month it opened counts; the month before it does not exist yet.
+  assert.deepEqual(await accountKeys("2026-02"), ["old", "card"]);
+  assert.deepEqual(await accountKeys("2026-01"), ["old"]);
+  // No month asked about is no floor applied — the CLI's own listing.
+  assert.deepEqual(await accountKeys(), ["old", "card"]);
+
+  // And the estimate says so before anything is spent: three months, one
+  // account for two of them and two for the third.
+  assert.equal(
+    await rangeCost(["2025-12", "2026-01", "2026-02"], false),
+    1 + 1 + 2,
+  );
 });
 
 test("a numeric --force refetches, but leaves what this run already wrote", async (t) => {
