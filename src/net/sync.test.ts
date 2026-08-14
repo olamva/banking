@@ -9,7 +9,15 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { accountKeys, monthsBetween, rangeCost, rangeToDate } from "./sync.ts";
+import {
+  accountKeys,
+  monthsBetween,
+  rangeCost,
+  rangeToDate,
+  spans,
+  splitSpan,
+  thisMonth,
+} from "./sync.ts";
 
 // Enable Banking answers 400 ASPSP_ERROR when date_to is in the future, which
 // is every refresh of the month you are currently in.
@@ -141,6 +149,90 @@ test("an account is not fetched for months before it opened", async (t) => {
   assert.equal(
     await rangeCost(["2025-12", "2026-01", "2026-02"], false),
     1 + 1 + 2,
+  );
+});
+
+test("a missing --to means the month we are standing in", () => {
+  const today = new Date(2026, 7, 14);
+  assert.equal(thisMonth(today), "2026-08");
+  assert.deepEqual(monthsBetween("2026-06", thisMonth(today), today), [
+    "2026-06",
+    "2026-07",
+    "2026-08",
+  ]);
+  // Zero-padded, so it sorts and compares like every other month string here —
+  // an unpadded "2026-1" would both fail `bound` and sort after "2026-12".
+  assert.equal(thisMonth(new Date(2026, 0, 3)), "2026-01");
+});
+
+test("a sweep is cut into five-year spans, which is the bank's own ceiling", () => {
+  // `fromDate`..`toDate` longer than five years is a 400, so 60 months is the
+  // widest a single request may be — and the remainder is its own span rather
+  // than being dropped or padded.
+  const months = monthsBetween("2018-09", "2026-08", new Date(2026, 7, 14));
+  assert.equal(months.length, 96);
+  const parts = spans(months);
+  assert.deepEqual(
+    parts.map((p) => [p[0], p.at(-1), p.length]),
+    [
+      ["2018-09", "2023-08", 60],
+      ["2023-09", "2026-08", 36],
+    ],
+  );
+  // Every month lands in exactly one span, in order.
+  assert.deepEqual(parts.flat(), months);
+});
+
+test("a range longer than five years is split, never refused", () => {
+  // The bank's ceiling is a reason to cut a sweep up, not a reason to make the
+  // caller do the cutting: 13 years is three requests, not a 400.
+  const today = new Date(2026, 7, 14);
+  const parts = spans(monthsBetween("2014", thisMonth(today), today));
+  assert.equal(parts.length, 3);
+  assert.deepEqual(
+    parts.map((p) => [p[0], p.at(-1)]),
+    [
+      ["2014-01", "2018-12"],
+      ["2019-01", "2023-12"],
+      ["2024-01", "2026-08"],
+    ],
+  );
+  // None of them can trip `Date interval cannot exceed 5 years`.
+  for (const p of parts) assert.ok(p.length <= 60);
+});
+
+test("a row is filed by its Oslo month, not its UTC one", () => {
+  // Norwegian midnight on 1 July is 22:00Z on 30 June. Splitting on UTC would
+  // write this row into data/raw/2023-06/, where normalizeMonth — which reads
+  // Europe/Oslo — would then never look for it.
+  const midnightOslo1July = Date.UTC(2023, 5, 30, 22, 0, 0);
+  assert.equal(
+    new Date(midnightOslo1July).toISOString().slice(0, 7),
+    "2023-06",
+    "the trap: this timestamp is June in UTC",
+  );
+  const split = splitSpan([
+    { transaction: { date: midnightOslo1July, accountKey: "a" } },
+  ]);
+  assert.deepEqual([...split.keys()], ["2023-07/a"]);
+});
+
+test("a span response splits into one bucket per month per account", () => {
+  const oslo = (y: number, m: number, d: number) =>
+    Date.UTC(y, m - 1, d, 12, 0, 0);
+  const split = splitSpan([
+    { transaction: { date: oslo(2024, 1, 5), accountKey: "a" } },
+    { transaction: { date: oslo(2024, 1, 31), accountKey: "a" } },
+    { transaction: { date: oslo(2024, 1, 5), accountKey: "b" } },
+    { transaction: { date: oslo(2024, 2, 1), accountKey: "a" } },
+  ]);
+  assert.deepEqual(
+    [...split].map(([k, v]) => [k, v.length]),
+    [
+      ["2024-01/a", 2],
+      ["2024-01/b", 1],
+      ["2024-02/a", 1],
+    ],
   );
 });
 

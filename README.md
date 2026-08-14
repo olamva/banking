@@ -66,6 +66,8 @@ pnpm sb1 sync --month YYYY-MM       # one file per account, skips existing
 pnpm sb1 sync --month YYYY-MM --force
 pnpm sb1 sync --month YYYY-MM --stale 60  # a force that resumes: keeps files < 60 min old
 pnpm sb1 sync --from 2022 --to 2026  # a whole span; either end may be YYYY-MM
+pnpm sb1 sync --from 2022            # --to defaults to this month
+                                     # a span is ONE request per five years, all accounts at once
 
 # offline — reads data/raw/ or the database
 pnpm sb1 rebuild                    # rebuild data/banking.db from data/raw/
@@ -183,10 +185,16 @@ and a 429 clears itself at one probe a minute. The one gap is the first call
 ever: with no figure on disk, the 429 is the brake. `pnpm sb1 budget` prints
 what SB1 last said, or tells you it has not said recently.
 
-`sync --from … --to …` prices the whole span up front against that figure and
-says how far it expects to get. It stops rather than failing, and re-running is
-a resume: a month already on disk costs nothing without `--force`. It can also
-outlast its own estimate, since the bucket refills while the sweep runs.
+`sync --from …` prices the whole span up front against that figure and says how
+far it expects to get. It stops rather than failing, and re-running is a resume:
+a month already on disk costs nothing without `--force`.
+
+It is rarely close to the limit any more. `accountKey` is repeatable and the
+bank's date range may be five years wide, so **a span is one request per five
+years, covering every account** — the whole record from 2018-09 is two requests
+rather than 455. The response is split back into the same
+`data/raw/<month>/<key>.json` files, so nothing downstream can tell the
+difference; verified against a year fetched both ways, row for row.
 
 ```bash
 pnpm dev                      # never touches the network
@@ -340,7 +348,8 @@ requests, `core/` may not, `web/` composes them.
 
 ```
 src/net/sb1.ts       SpareBank 1 auth, keychain, get(), monthRange()
-src/net/sync.ts      the network half — one file per account per month
+src/net/sync.ts      the network half — one request per five years, split into
+                     one file per account per month
 src/net/budget.ts    the bank's own remaining-request count, cached to disk
 
 src/core/types.ts     Txn / Classified / Categorized — the shared contract
