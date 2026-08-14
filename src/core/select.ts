@@ -170,12 +170,6 @@ const yearBounds = (y: number) => ({ from: `${y}-01-01`, to: `${y}-12-31` });
  */
 const CUSTOM = /^(\d{4}-\d{2}-\d{2})?\.\.(\d{4}-\d{2}-\d{2})?$/;
 
-/** Whole days, in UTC: these are date-only strings, so no zone and no DST. */
-const DAY = 86_400_000;
-const day = (d: string) => Date.parse(`${d}T00:00:00Z`);
-const addDays = (d: string, n: number) =>
-  new Date(day(d) + n * DAY).toISOString().slice(0, 10);
-
 /** Today in Oslo, in the same shape and zone as `Txn.date`. */
 export const todayOslo = (): string =>
   new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Oslo" });
@@ -231,25 +225,22 @@ export function period(p: string, now = todayOslo()): Period {
   if (range) {
     const [, from = null, to = null] = range;
     /**
-     * The window of the same length immediately before it — the only reading a
-     * hand-picked range has, since it belongs to no calendar: nothing says
-     * whether "the 3rd to the 19th" is a month, a fortnight or a trip. A window
-     * open at either end has no length, so it has no previous either.
+     * **No previous window, deliberately.** A hand-picked range belongs to no
+     * calendar, so nothing says what it is a period *of*: the equally long span
+     * before it was tried, and it compares a trip against the fortnight at home
+     * before it, or a fortnight against a different fortnight nobody chose. A
+     * month has last year and a year has the year before; a range has nothing,
+     * and an invented comparison reads as a measurement.
+     *
+     * So the changes card and the deltas are absent here, exactly as they are
+     * for all time.
      */
-    const len = from && to ? (day(to) - day(from)) / DAY + 1 : 0;
     return {
       kind: "custom",
       from,
       to,
       label: from && to ? `${from} – ${to}` : (from ?? to ?? "All time"),
-      prev:
-        from && to
-          ? {
-              from: addDays(from, -len),
-              to: addDays(from, -1),
-              label: "the window before",
-            }
-          : null,
+      prev: null,
     };
   }
   return { kind: "all", from: null, to: null, label: "All time", prev: null };

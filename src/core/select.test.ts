@@ -290,23 +290,16 @@ test("period: all time, and anything unrecognised, is unbounded and has no previ
 });
 
 /**
- * A hand-picked range belongs to no calendar, so its previous window is the one
- * of the same length immediately before it — and a range open at either end has
- * no length, so it has none.
+ * A hand-picked range bounds exactly what was typed, and compares against
+ * nothing: it belongs to no calendar, so there is no window it is the successor
+ * of. See `period` — the equally long span before it was tried and thrown out.
  */
-test("period: a custom range, and the equally long window before it", () => {
+test("period: a custom range bounds what was typed and has no previous window", () => {
   const p = period("2026-03-04..2026-03-10");
   assert.deepEqual(
-    [p.kind, p.from, p.to],
-    ["custom", "2026-03-04", "2026-03-10"],
+    [p.kind, p.from, p.to, p.prev],
+    ["custom", "2026-03-04", "2026-03-10", null],
   );
-  // Seven days, so the seven ending the day before it — over a month boundary,
-  // which is why this is date arithmetic and not string slicing.
-  assert.deepEqual(p.prev, {
-    from: "2026-02-25",
-    to: "2026-03-03",
-    label: "the window before",
-  });
 
   // One end cleared is an open bound, not an unparseable period.
   assert.deepEqual(
@@ -314,11 +307,7 @@ test("period: a custom range, and the equally long window before it", () => {
     [null, "2026-03-10"],
   );
   assert.equal(period("2026-03-04..").to, null);
-  assert.equal(period("2026-03-04..").prev, null);
   assert.equal(period("..").kind, "custom");
-
-  // A leap day counts as a day like any other.
-  assert.equal(period("2024-03-01..2024-03-01").prev!.from, "2024-02-29");
 
   // Anything not two whole dates is not a range — no half-parsed bounds.
   assert.equal(period("2026-03..2026-05").kind, "all");
