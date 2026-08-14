@@ -3,20 +3,20 @@ description: Read my comments on a PR and act on them, in a worktree on that PR'
 argument-hint: [PR number]
 ---
 
-Act on my review feedback for PR $1. If that number is blank, ask me for one
+Act on my review feedback for PR $ARGUMENTS. If that number is blank, ask me for one
 and stop — the fetches below need it.
 
 ## The PR
 
-!`gh pr view $1 --json number,title,state,url,headRefName --jq '"#\(.number) \(.title)\nstate: \(.state)\nbranch: \(.headRefName)\n\(.url)"'`
+!`gh pr view $ARGUMENTS --json number,title,state,url,headRefName --jq '"#\(.number) \(.title)\nstate: \(.state)\nbranch: \(.headRefName)\n\(.url)"'`
 
 Top-level comments, oldest first:
 
-!`gh pr view $1 --comments`
+!`gh pr view $ARGUMENTS --comments`
 
 Inline comments on the diff:
 
-!`gh api repos/{owner}/{repo}/pulls/$1/comments --jq '.[] | "--\n\(.path):\(.line // .original_line)  @\(.user.login)\n\(.body)"'`
+!`gh api repos/{owner}/{repo}/pulls/$ARGUMENTS/comments --jq '.[] | "--\n\(.path):\(.line // .original_line)  @\(.user.login)\n\(.body)"'`
 
 ## What to act on
 

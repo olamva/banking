@@ -1,0 +1,13 @@
+{
+  "id": "925554f4",
+  "ts": "2026-08-14T00:37:22+00:00",
+  "text": "Slash-command $1 positional arg expands to empty inside !`...` prefetch blocks; $ARGUMENTS works. /pr-feedback 1 ran 'gh pr view' with no number and errored on the current branch.",
+  "tags": [
+    "harness",
+    "slash-commands"
+  ],
+  "who": "agent",
+  "model": "opus-5",
+  "session": "3afeb754",
+  "where": ".claude/commands/pr-feedback.md"
+}
