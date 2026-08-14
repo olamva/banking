@@ -313,7 +313,12 @@ const Picker = ({
       {open && (
         <div
           onKeyDown={navigate}
-          className="absolute z-20 mt-1 flex max-h-72 w-64 max-w-full flex-col rounded-md border border-line bg-surface p-1.5 shadow-lg"
+          /* No `max-w-full`: the containing block is the `details`, which is
+             only as wide as its own summary above `sm` — so it clamped a 256px
+             panel down to a 130px button and truncated every row in it. Below
+             `sm` the `details` is full width, which is what already keeps this
+             on the page; there is nothing left for a max-width to save. */
+          className="absolute z-20 mt-1 flex max-h-72 w-64 flex-col rounded-md border border-line bg-surface p-1.5 shadow-lg"
         >
           {/* Same list, read either way round: the only ones to show, or the only
             ones to hide. Both words stay visible so the alternative is never a
