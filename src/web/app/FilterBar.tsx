@@ -2,11 +2,15 @@
  * The one control surface: what period you are looking at, and which categories
  * and merchants are in play.
  *
- * Both lists are picked from a dropdown and removed from chips. The dropdown
- * holds checkboxes rather than being a `<select multiple>`, because ctrl-
- * clicking a multi-select is not something anyone should have to do; the chips
- * exist so an active filter is always visible and always one click from gone —
- * a filter you cannot see is a filter you cannot turn off.
+ * Both lists are picked from a dropdown, which holds checkboxes rather than
+ * being a `<select multiple>` — ctrl-clicking a multi-select is not something
+ * anyone should have to do.
+ *
+ * What is on is a count on one button, not a row of chips: ten active filters
+ * wrapped onto three lines and pushed the dashboard down the page, which is the
+ * opposite of what a filter bar is for. The chips still exist, inside that
+ * button's panel — a filter you cannot see is a filter you cannot turn off, so
+ * the count says how many and the panel is the one click to any of them.
  */
 import { useEffect, useRef, useState } from "react";
 import type { Axis, Filters, Mode, PeriodKind } from "../../core/select.ts";
@@ -48,12 +52,27 @@ const CONTROL =
   "rounded-md border border-line bg-page px-2 py-1.5 text-[13px] text-ink";
 
 /**
- * How many chips stay on screen before the rest fold behind a count. One row on
- * a normal window: past that the chips push the whole dashboard down, which is
- * the opposite of what a filter bar is for.
+ * `details` opens itself and closes itself on its own summary, but nothing else
+ * — Escape and a click elsewhere are ours. Open state stays in the DOM rather
+ * than in React, so this just reads it and sets it back.
  */
-const CHIP_LIMIT = 6;
-
+const useDismiss = (menu: React.RefObject<HTMLDetailsElement | null>) => {
+  useEffect(() => {
+    const close = (e: Event) => {
+      const el = menu.current;
+      if (!el?.open) return;
+      if (e instanceof KeyboardEvent && e.key !== "Escape") return;
+      if (e.type === "pointerdown" && el.contains(e.target as Node)) return;
+      el.open = false;
+    };
+    document.addEventListener("keydown", close);
+    document.addEventListener("pointerdown", close);
+    return () => {
+      document.removeEventListener("keydown", close);
+      document.removeEventListener("pointerdown", close);
+    };
+  }, [menu]);
+};
 
 /** Spelled out, because "2026 / 07" beside a year picker reads as a second year. */
 const MONTH_NAMES = [
@@ -155,11 +174,6 @@ const Picker = ({
   const [active, setActive] = useState<number | null>(null);
   const excluding = mode === "exclude";
 
-  /**
-   * `details` opens itself and closes itself on its own summary, but nothing
-   * else — Escape and a click elsewhere are ours. Open state stays in the DOM
-   * rather than in React, so the listeners just read it and set it back.
-   */
   const menu = useRef<HTMLDetailsElement>(null);
   const reset = useRef<ReturnType<typeof setTimeout>>(undefined);
   /**
@@ -169,22 +183,8 @@ const Picker = ({
    * costing that.
    */
   const [open, setOpen] = useState(false);
-  useEffect(() => {
-    const close = (e: Event) => {
-      const el = menu.current;
-      if (!el?.open) return;
-      if (e instanceof KeyboardEvent && e.key !== "Escape") return;
-      if (e.type === "pointerdown" && el.contains(e.target as Node)) return;
-      el.open = false;
-    };
-    document.addEventListener("keydown", close);
-    document.addEventListener("pointerdown", close);
-    return () => {
-      document.removeEventListener("keydown", close);
-      document.removeEventListener("pointerdown", close);
-      clearTimeout(reset.current);
-    };
-  }, []);
+  useDismiss(menu);
+  useEffect(() => () => clearTimeout(reset.current), []);
 
   const q = query.trim().toLowerCase();
   const childrenOf = (o: string) => subs?.(o) ?? [];
@@ -477,8 +477,9 @@ export const FilterBar = ({
   filters,
   onFilters,
 }: FilterBarProps) => {
-  /** Whether the chips past `CHIP_LIMIT` are unfolded. Folded again on every reload. */
-  const [showAll, setShowAll] = useState(false);
+  /** The active-filter panel closes on Escape and on a click outside it, like the pickers. */
+  const active = useRef<HTMLDetailsElement>(null);
+  useDismiss(active);
   // A month period is a year with a month in it, so the year picker reads the
   // front of the same string rather than being state of its own — two selects,
   // still one value, and nothing to keep in sync.
@@ -524,9 +525,9 @@ export const FilterBar = ({
     filters.categories.length + filters.merchants.length + filters.accounts.length;
 
   /**
-   * The three lists and the search as one array, because the chips are one row
-   * that has to be counted and cut as a whole — cutting each list separately
-   * would show six categories and then six merchants under them.
+   * The three lists and the search as one array: one count on one button, so
+   * they are counted and listed as a whole rather than three counts to add up.
+   * The per-list counts are still on the pickers themselves.
    */
   const chips = [
     ...filters.categories.map((c) => {
@@ -563,8 +564,6 @@ export const FilterBar = ({
         ]
       : []),
   ];
-  const hidden = chips.length - CHIP_LIMIT;
-  const shown = showAll ? chips : chips.slice(0, CHIP_LIMIT);
   const dirty =
     picked > 0 ||
     filters.search !== "" ||
@@ -677,6 +676,43 @@ export const FilterBar = ({
         Excluded rows
       </button>
 
+      {/* What is on, as a number rather than a row — the chips are in the panel.
+          Its own control, not a count on the three pickers, because the search
+          is a filter too and has no picker to sit on. */}
+      {chips.length > 0 && (
+        <details ref={active} className="group relative">
+          <summary
+            className={`${CONTROL} flex list-none items-center gap-1.5 marker:content-none`}
+          >
+            {`${chips.length} filter${chips.length === 1 ? "" : "s"}`}
+            <Icon
+              aria-hidden
+              icon={DropdownIcon}
+              size={14}
+              className="shrink-0 text-ink-muted transition-transform group-open:rotate-180"
+            />
+          </summary>
+          {/* One click from the count to any single filter being gone. The
+              panel stays open as they go, so several in a row is several
+              clicks and no reopening. The mode is invisible once a picker
+              closes, so the chips still carry it in their colour. */}
+          <div
+            className="absolute z-20 mt-1 flex max-h-72 w-64 flex-col items-start gap-1.5 overflow-y-auto rounded-md border border-line bg-surface p-1.5 shadow-lg"
+            role="group"
+            aria-label="Active filters"
+          >
+            {chips.map((chip) => (
+              <Chip
+                key={chip.key}
+                label={chip.label}
+                tone={chip.tone}
+                onRemove={chip.onRemove}
+              />
+            ))}
+          </div>
+        </details>
+      )}
+
       {dirty && (
         <button
           type="button"
@@ -686,36 +722,6 @@ export const FilterBar = ({
           <Icon aria-hidden icon={ResetFiltersIcon} size={14} />
           Reset filters
         </button>
-      )}
-
-      {chips.length > 0 && (
-        <div
-          className="flex basis-full flex-wrap items-center gap-1.5"
-          role="group"
-          aria-label="Active filters"
-        >
-          {/* The mode is invisible once the menu closes, so the chips carry it. */}
-          {shown.map((chip) => (
-            <Chip
-              key={chip.key}
-              label={chip.label}
-              tone={chip.tone}
-              onRemove={chip.onRemove}
-            />
-          ))}
-          {/* The folded ones are still on, so the count has to say how many —
-              a filter you cannot see is a filter you cannot turn off, and this
-              is the one click back to seeing it. */}
-          {hidden > 0 && (
-            <button
-              type="button"
-              onClick={() => setShowAll(!showAll)}
-              className="rounded-full border border-line px-2.5 py-1 text-xs text-ink-muted"
-            >
-              {showAll ? "Show fewer" : `+${hidden} more`}
-            </button>
-          )}
-        </div>
       )}
     </div>
   );
