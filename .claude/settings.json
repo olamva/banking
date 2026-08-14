@@ -6,7 +6,9 @@
       "Bash(git push:*)",
       "Bash(gh pr create:*)",
       "Bash(gh pr view:*)",
-      "Bash(gh pr list:*)"
+      "Bash(gh pr list:*)",
+      "Bash(gh pr comment:*)",
+      "Bash(git worktree:*)"
     ],
     "deny": [
       "Bash(git push --force:*)",
