@@ -689,15 +689,27 @@ residue.
 An entry may also carry `sync: false`, meaning it exists for its _number_ alone —
 there is no key `/transactions` answers for. `accountKeys` skips those.
 
-An entry may carry **`from`, the `YYYY-MM` the account opened**, and `accountKeys`
-skips it for any earlier month. A sweep costs one request per account per month
-whether the account existed then or not, and five of the seven opened well after
-the record starts — the card in 2026-02 against raw going back to 2018-09. Over
-that span the floor is 217 requests of 672, nearly a third, and at 60 an hour
-that is three and a half hours of sweeping bought back. The dates are checked
-against the raw and are exact for four of them; BSU+'s 2016-02 predates
-`data/raw/` and is taken on the account holder's word. An account with no `from`
-has no floor.
+An entry may carry **`from`, the `YYYY-MM` that account first saw activity**, and
+`accountKeys` skips it for any earlier month. `data/raw/` now reaches back to
+**2003-01**, and the seven accounts open across thirteen years of it, so the
+month-by-account rectangle is mostly empty: the floors skip **1 386 of 1 988
+account-months**, and 2003-01..2007-12 is a whole five-year span with no account
+in it — no request at all, rather than a cheap one.
+
+All seven now carry one, and **six are measured rather than asserted**: the first
+row on record sits in exactly that month, with only empty files behind it. In
+order — Sparekonto 2011-02, BSU+ 2016-02, BRUKSKONTO 2016-08, Sparemål 2021-07,
+AKSJESPAREKONTO 2021-09, Leie 2023-07, the card 2026-02.
+
+BSU+ is the one still taken on the account holder's word, and the reason is worth
+knowing because it generalises: its floor was set to 2016-02 _before_ the 2003
+sweep, so that sweep never asked for BSU+ below 2016-02 and there are no empty
+files behind it to prove anything. **A floor makes itself unfalsifiable.** Its
+first row landing on 2016-02-25, the very month claimed, is corroboration and not
+proof. To actually test a floor, drop it and re-sweep — which is cheap now, since
+the span it would re-ask is one request.
+
+An account with no `from` has no floor.
 
 The check that catches all of this: every excluded reason must net to zero
 across the pair — `investment movement` excepted. If it doesn't, one leg is
@@ -742,7 +754,48 @@ do the same for `-2`, or the override haystack fills with sentinels.
 
 **A five-year ceiling on the range.** `fromDate`..`toDate` may not span more
 than five years — longer is a `400 BadRequest`, `Date interval cannot exceed 5
-years`. It is not a row limit and says nothing about pagination.
+years`. It is not a row limit and says nothing about pagination. It is now the
+_unit of a sweep_ rather than a thing to stay clear of — see below.
+
+**A sweep is one request per five years, not one per account per month.**
+`accountKey` is repeatable, so every account and every month inside the ceiling
+fit in a single call: 2018-09 to 2026-08 is **two requests instead of 455**,
+which against 60 an hour is the difference between two seconds and eight hours
+of stopping and resuming. `syncSpan` makes the call and splits the response back
+into the same `data/raw/<month>/<key>.json` files, so `normalizeMonth`, `fresh`
+and `rebuild` are all untouched.
+
+Three things make the split safe and none of them is optional:
+
+- **The month is the row's Oslo month**, from the `osloDate` `normalize`
+  exports. Cutting on UTC would file every row dated the 1st into the previous
+  directory, where the reader would never look — the repo's oldest date bug,
+  except written into `data/raw/` where it outlives the mistake.
+- **Only the files the plan is missing get written.** Raw is still immutable: a
+  span holds months already on disk, and they are left exactly as they are
+  unless `--force` says otherwise.
+- **An empty month is still written, as an empty envelope.** It is the record
+  that the question was asked and the answer was nothing. Without it the file is
+  owed forever and every later sweep re-requests the span to fill it.
+
+Verified end to end: 2019 fetched both ways, 36 files and 494 rows identical row
+for row, nothing lost. The only files the span sweep does not write are the
+empty ones for accounts that had not opened, which is the `from` floor doing its
+job.
+
+**`transaction.id` is per-response, not an identifier.** The same row fetched
+twice comes back under two completely different ids — verified on a single
+unchanged 2019 row, and on all 4 671 rows of a five-year span. `nonUniqueId`,
+despite its name, was **stable** across both. This corrects what this file used
+to say (_"compare row counts and transaction ids"_): comparing ids answers "was
+this the same response", never "is this the same transaction". Compare **row
+counts and content** — date, amount, description — as `syncSpan`'s verification
+did.
+
+It also widens the reason the incremental upsert had to go. A reservation
+becoming booked is one way a row gets a new id; **every re-fetch is another**.
+Nothing keyed on `id` can ever be stable across syncs, which is why `rebuild`
+wipes and reconstructs and must keep doing so.
 
 **Card posting lag.** Card transactions post late and arrive `PENDING` first, so
 a July report run on 1 Aug misses the tail of July. Run a few days into the
@@ -754,13 +807,18 @@ needed: SB1 reissues a reservation under a _new_ id once it books, and its
 amount can still move, so a kept pending row is how one purchase becomes two.
 
 **Re-syncing rewrites the file even when nothing changed**, because
-`classificationInput.id` is a fresh UUID per response. Compare row counts and
-transaction ids, never file hashes.
+`classificationInput.id` is a fresh UUID per response — and so is
+`transaction.id`, see above. Compare row counts and row _content_, never file
+hashes and never ids.
 
-**Pagination.** `rowLimit` exists on the SB1 transactions endpoints and we have
-never set it. Nothing has come back truncated so far and every response carries
-an empty `errors` array, but that is luck, not proof. A suspiciously round row
-count is the tell.
+**Pagination.** `rowLimit` exists on the SB1 transactions endpoints. It is now
+set explicitly, to a `ROW_LIMIT` far above any real answer, and `syncSpan`
+**refuses to write a response that comes back at the ceiling** — a truncated
+answer written into `data/raw/` would be `fresh` forever and never noticed. That
+guard matters more than it did: one request now covers five years of every
+account rather than one month of one, so the response is two orders of magnitude
+bigger. A 4 671-row response has been verified to arrive whole, with an empty
+`errors` array. A suspiciously round row count is still the tell.
 
 ## Rows only enter the database by rebuild
 
