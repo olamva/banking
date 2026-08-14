@@ -1,0 +1,11 @@
+{
+  "id": "bf8b1649",
+  "ts": "2026-08-13T20:53:34+00:00",
+  "text": "bg worktree isolation is empty in this repo: rules/ data/ .env.local are all gitignored, so every job hand-provisions symlinks before it can run rebuild",
+  "tags": [
+    "tools",
+    "worktree"
+  ],
+  "who": "agent",
+  "where": "/Users/olavassbotn/Documents/banking/.claude/worktrees/overrides-spacing"
+}
