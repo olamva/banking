@@ -89,6 +89,62 @@ test("SB1 falls back to remoteAccountName when cleanedDescription is absent", ()
   );
 });
 
+test("a cleanedDescription that names nobody loses to remoteAccountName", () => {
+  // SB1 cleans `Til: <account number>` down to a bare `Til:` — the preposition
+  // with the payee taken out of it. Preferring that over remoteAccountName cost
+  // the row its category as well as its name: `haystackOf` never sees
+  // remoteAccountName, so the row reached the page uncategorised while the same
+  // payee's other rows matched on the name the bank left on them.
+  withMonthDir(
+    {
+      "acct.json": {
+        transactions: [
+          {
+            transaction: {
+              id: "nameless",
+              accountKey: "acct",
+              amount: -6000,
+              date: Date.UTC(2026, 5, 30, 22, 0, 0),
+              description: "Til: 1234 56 78901",
+              cleanedDescription: "Til:",
+              remoteAccountName: "A Named Payee",
+              typeText: "Betaling med melding",
+            },
+            categories: [{ main: "ukategorisert" }],
+            recurring: false,
+            subscription: false,
+          },
+          {
+            // The same wording with a payee still in it. It names somebody, so
+            // it stays the best string on the row — only the empty case falls
+            // through.
+            transaction: {
+              id: "named",
+              accountKey: "acct",
+              amount: -300,
+              date: Date.UTC(2026, 5, 30, 22, 0, 0),
+              description: "Til: Someone - Online",
+              cleanedDescription: "Til: Someone - Online",
+              remoteAccountName: "Not This One",
+              typeText: "Betaling med melding",
+            },
+            categories: [{ main: "ukategorisert" }],
+            recurring: false,
+            subscription: false,
+          },
+        ],
+      },
+    },
+    (dir) => {
+      const [nameless, named] = normalizeMonth(dir);
+      assert.equal(nameless!.counterparty, "A Named Payee");
+      // The raw string is untouched: the search box reads `description`.
+      assert.equal(nameless!.description, "Til: 1234 56 78901");
+      assert.equal(named!.counterparty, "Til: Someone - Online");
+    },
+  );
+});
+
 test("an account is named by rules/accounts.json, and by its key when it is not", () => {
   // Same file shape as any other account — the card is an SB1 account like the
   // rest, and the rules file is the only thing that gives any of them a name.
