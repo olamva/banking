@@ -1,7 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  annualRate,
   cumulative,
   dailySeries,
   monthStats,
@@ -278,38 +277,6 @@ test('spendTrend never reads income', () => {
     { at: '2026-03', totalIn: 100, totalOut: 300 },
   ]);
   assert.deepEqual(fit, { slope: 100, intercept: 100 });
-});
-
-/**
- * A straight line has no growth rate of its own, so the base it is measured
- * against decides the number entirely. Against the window's average — the one
- * base a reader can see on the card — a line running 2 700 to 45 000 over five
- * and a half years is 32% a year. Compounding its two ends instead divides by
- * where the line *starts* and answers 65%, which is a true statement about an
- * exponential nobody drew.
- */
-test('annualRate measures the slope against the window average', () => {
-  // 68 monthly slots, 2 700 -> 45 000: the average is the midpoint, 23 850, and
-  // the line climbs 631.34 a month, so 7 576 a year on 23 850.
-  const real = { slope: (45000 - 2700) / 67, intercept: 2700 };
-  assert.equal(Math.round(annualRate(real, 68, 12)! * 1000) / 10, 31.8);
-
-  // Doubling across the window is the same rate whether it is drawn by day or
-  // by month: 100 -> 200 over two years climbs 50 a year against a 150
-  // average, so 33.3% — and half what the same doubling over one year would be.
-  const monthly = annualRate({ slope: 100 / 24, intercept: 100 }, 25, 12)!;
-  const daily = annualRate({ slope: 100 / 730, intercept: 100 }, 731, 365.25)!;
-  assert.equal(Math.round(monthly * 1000) / 10, 33.3);
-  assert.equal(Math.round(annualRate({ slope: 100 / 12, intercept: 100 }, 13, 12)! * 1000) / 10, 66.7);
-  assert.ok(Math.abs(daily - monthly) < 0.001, `${daily} vs ${monthly}`);
-
-  // Flat is 0% a year and a fall is negative — both readings, not absences.
-  assert.equal(annualRate({ slope: 0, intercept: 500 }, 13, 12), 0);
-  assert.ok(annualRate({ slope: -10, intercept: 500 }, 13, 12)! < 0);
-
-  // No base to measure against, and no span to measure over.
-  assert.equal(annualRate({ slope: -100, intercept: 100 }, 13, 12), null, 'average at or below zero');
-  assert.equal(annualRate({ slope: 1, intercept: 100 }, 1, 12), null, 'a single slot is no span');
 });
 
 /**

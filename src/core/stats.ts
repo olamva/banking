@@ -443,36 +443,6 @@ export function spendTrend(dense: (SeriesPoint | null)[]): { slope: number; inte
   return { slope, intercept: my - slope * mx };
 }
 
-/**
- * How steeply a fitted line climbs, as a share of the level it climbs from, per
- * year — `0.031` for 3.1%. `slots` is how many the line spans and `slotsPerYear`
- * how many make a year, which is what lets a window drawn by day and the same
- * window drawn by month answer the same.
- *
- * **The level is the window's own average**, which for a straight line is its
- * value at the midpoint. A straight line has no single growth rate — it adds a
- * fixed sum each slot, which is a large share of a small base and a small share
- * of a large one — so the rate quoted for it is only as meaningful as the base
- * named with it, and the average of what is on screen is the one base a reader
- * can see. Compounding the two ends instead is the same arithmetic as a CAGR
- * and reads far higher, because it divides by where the line *starts*: a fit
- * running 2 700 kr to 45 000 kr over five and a half years is 65% a year that
- * way and 32% of the average this way, and only the second describes the
- * straight line actually drawn.
- *
- * Null where the share would mean nothing — an average at or below zero is no
- * base to measure against, and a single slot is no span.
- */
-export function annualRate(
-  fit: { slope: number; intercept: number },
-  slots: number,
-  slotsPerYear: number,
-): number | null {
-  const mean = fit.intercept + (fit.slope * (slots - 1)) / 2;
-  if (slots < 2 || mean <= 0) return null;
-  return (fit.slope * slotsPerYear) / mean;
-}
-
 export function yearStats(year: string, monthsTxns: { month: string; txns: Categorized[] }[]): YearStats {
   const sorted = [...monthsTxns].sort((a, b) => a.month.localeCompare(b.month));
 

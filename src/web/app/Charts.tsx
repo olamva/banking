@@ -8,8 +8,8 @@
  * src/core/stats.ts.
  */
 import { useId, useState, type ReactNode } from 'react';
-import { annualRate, spendTrend, withGaps, type CategoryDelta, type SeriesPoint } from '../../core/stats.ts';
-import { fmtNOK, fmtPct, monthLabel, niceStep, pointLabel, useWidth } from './format.ts';
+import { spendTrend, withGaps, type CategoryDelta, type SeriesPoint } from '../../core/stats.ts';
+import { fmtNOK, monthLabel, niceStep, pointLabel, useWidth } from './format.ts';
 
 interface TipState {
   x: number;
@@ -455,25 +455,6 @@ export const SpendLines = ({
   const ends = trend ? [0, dense.length - 1].map((x) => trend.intercept + trend.slope * x) : [];
 
   /**
-   * How steeply that line climbs, per year, against the average of what is on
-   * screen. Per year because inflation is quoted per year and nothing else is;
-   * against the average because a straight line has no rate of its own, and the
-   * average is the one base a reader can see on the card.
-   */
-  const slotsPerYear = bucket === 'month' ? 12 : 365.25;
-  const rate = trend ? annualRate(trend, dense.length, slotsPerYear) : null;
-  /**
-   * The denominator, spelled out for the key's hover. A percentage whose base
-   * is nowhere on the card is what made the first one of these unreadable.
-   */
-  const rateBase =
-    trend && rate !== null
-      ? `${fmtNOK(trend.slope * slotsPerYear)} a year against the ${fmtNOK(
-          trend.intercept + (trend.slope * (dense.length - 1)) / 2,
-        )} average in view`
-      : undefined;
-
-  /**
    * The axis floor, which is zero until the trend needs it not to be. Spending
    * is a total and can never be negative, but a fitted line through a falling
    * one crosses zero on its way down — three months of 1000, 0, 0 fit a line
@@ -651,10 +632,6 @@ export const SpendLines = ({
         <ChartLegend
           income={hasIncome}
           trend={trend !== null}
-          // `=== null`, not falsy: a flat trend is 0% a year, which is a
-          // reading rather than a missing one.
-          trendRate={rate === null ? undefined : `${rate > 0 ? '+' : ''}${fmtPct(rate)} / year`}
-          trendBase={rateBase}
           compareLabel={compare.length > 0 ? compareLabel : undefined}
           hidden={hidden}
           onToggle={toggle}
@@ -845,15 +822,6 @@ interface ChartLegendProps {
   income: boolean;
   /** Whether the fitted line is drawn — it is keyed only where it exists. */
   trend: boolean;
-  /**
-   * How steeply that line climbs, already formatted. Separate from `trend`,
-   * because a fit whose average is at or below zero has a slope and no rate:
-   * the line is still drawn and still keyed, and the key simply says nothing
-   * about a ratio it cannot form.
-   */
-  trendRate?: string;
-  /** What the rate is a percentage *of*, spelled out on hover. */
-  trendBase?: string;
   /** Named when a compared period is drawn; the dashes are the same for both its lines. */
   compareLabel?: string;
   /** Which marks are switched off, so the keys can say so. */
@@ -891,7 +859,7 @@ const LegendKey = ({ on, onToggle, name, children }: LegendKeyProps) => (
 );
 
 /** Drawn by `SpendLines` itself — it is the only chart with more than one series. */
-const ChartLegend = ({ income, trend, trendRate, trendBase, compareLabel, hidden, onToggle }: ChartLegendProps) => {
+const ChartLegend = ({ income, trend, compareLabel, hidden, onToggle }: ChartLegendProps) => {
   const key = (mark: Mark) => ({ on: !hidden.has(mark), onToggle: () => onToggle(mark) });
   return (
     <div className="mb-2 flex flex-wrap gap-3.5 text-xs text-ink-soft">
@@ -910,21 +878,19 @@ const ChartLegend = ({ income, trend, trendRate, trendBase, compareLabel, hidden
           spending in one colour — with the compared period already dashed and
           red, that is three.
 
-          The key carries the rate, because a straight line's whole content is
-          how steeply it leans and the eye reads that off a plot badly: the same
-          rise looks steep on a narrow card and gentle on a wide one, over an
-          axis rescaled by whatever the biggest month happens to be. */}
+          The key names it and no more. It carried the slope as a percentage for
+          a while, in four framings, and every one of them was a true number that
+          read wrong: a straight line has no single rate, so the figure is
+          whatever its base and its period are chosen to be, and a reader has no
+          way to tell which choice they are looking at. The line itself says
+          "spending drifts this way over this window", which is the whole of
+          what a least-squares fit knows. */}
       {trend && (
         <LegendKey {...key('trend')} name="the fitted trend">
           <svg aria-hidden width={16} height={3} className="shrink-0">
             <line x1={0} x2={16} y1={1.5} y2={1.5} strokeWidth={3} strokeDasharray="7 5" className="stroke-series-1" />
           </svg>
           Trend
-          {trendRate && (
-            <span title={trendBase} className="tabular-nums text-ink-muted">
-              {trendRate}
-            </span>
-          )}
         </LegendKey>
       )}
       {/* One key for both dashed lines — the dashes are what mark the period, and
