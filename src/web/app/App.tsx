@@ -18,6 +18,7 @@ import {
 } from "react";
 import {
   AXES,
+  NO_FILTERS,
   axisBounds,
   distinctAccounts,
   distinctCategories,
@@ -61,6 +62,11 @@ import {
 } from "./Charts.tsx";
 import { FilterBar, type View } from "./FilterBar.tsx";
 import {
+  ShortcutsDialog,
+  useShortcuts,
+  type Shortcut,
+} from "./Shortcuts.tsx";
+import {
   THEMES,
   readTheme,
   setTheme,
@@ -83,6 +89,7 @@ import {
   ErrorIcon,
   Icon,
   InfoIcon,
+  KeyboardIcon,
   LightThemeIcon,
   LoadingIcon,
   MonthlyIcon,
@@ -558,6 +565,7 @@ export const App = () => {
   const [filters, setFilters] = useState<Filters>(initial.filters);
   const [chosenGrain, setChosenGrain] = useState<Grain>(initial.grain);
   const [theme, onTheme] = useState<Theme>(readTheme);
+  const [help, setHelp] = useState(false);
 
   // Before anything renders a slug: the cards and the charts read the names
   // through `categoryLabel`, which has no other way to reach them. The hues go
@@ -620,6 +628,83 @@ export const App = () => {
     setView(next);
   };
 
+  /**
+   * The arrows step within the kind of period in view — months through months,
+   * years through years — because a month and the year holding it are two
+   * lengths of window rather than two neighbours in one list. All time has
+   * nothing either side of it. Clamped at both ends: the archive stops.
+   */
+  const steps = p.kind === "month" ? months : p.kind === "year" ? years : [];
+  const step = (by: number) => {
+    const next = steps[steps.indexOf(active) + by];
+    if (next) setChosen(next);
+  };
+
+  /**
+   * What the keys do, and what the dialog prints — one list for both, so a key
+   * that works is a key that is listed. `/` and ⌘F are listed here and bound on
+   * the search box, which is the only thing that can reach it.
+   */
+  const shortcuts: Shortcut[] = [
+    { keys: ["d"], cap: "D", what: "Dashboard", run: () => changeView("dashboard") },
+    {
+      keys: ["t"],
+      cap: "T",
+      what: "Transactions",
+      run: () => changeView("transactions"),
+    },
+    {
+      keys: ["ArrowLeft"],
+      cap: "←",
+      what: "The month or year before",
+      run: () => step(-1),
+    },
+    {
+      keys: ["ArrowRight"],
+      cap: "→",
+      what: "The month or year after",
+      run: () => step(1),
+    },
+    { keys: ["a"], cap: "A", what: "All time", run: () => setChosen("all") },
+    {
+      keys: ["g"],
+      cap: "G",
+      what: "Next grain on the spending chart",
+      run: () =>
+        setChosenGrain(grains[(grains.indexOf(grain) + 1) % grains.length]!),
+    },
+    {
+      keys: ["e"],
+      cap: "E",
+      what: "Show or hide excluded rows",
+      run: () => setFilters((f) => ({ ...f, showExcluded: !f.showExcluded })),
+    },
+    {
+      keys: ["r"],
+      cap: "R",
+      what: "Reset every filter",
+      run: () => setFilters(NO_FILTERS),
+    },
+    {
+      keys: ["c"],
+      cap: "C",
+      what: "Next theme",
+      run: () => {
+        const next = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length]!;
+        onTheme(next);
+        setTheme(next);
+      },
+    },
+    { cap: "/ ⌘F", what: "Search the transactions table" },
+    {
+      keys: ["?"],
+      cap: "?",
+      what: "This list",
+      run: () => setHelp(true),
+    },
+  ];
+  useShortcuts(shortcuts);
+
   // Chips for the period in view, not for all time — a category last spent in
   // January is not a filter March has any use for. Narrowed by the period only:
   // narrowing by the other filters too would let the search box empty the rail.
@@ -679,6 +764,16 @@ export const App = () => {
     <div className="mx-auto max-w-295 p-6">
       <header className="mb-4 flex flex-wrap items-baseline justify-between gap-4">
         <h1 className="text-xl font-semibold">Spending dashboard</h1>
+        <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setHelp(true)}
+          aria-label="Keyboard shortcuts"
+          className="flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-ink-soft"
+        >
+          <Icon aria-hidden icon={KeyboardIcon} size={14} />
+          Shortcuts
+        </button>
         {/* Three named options rather than a cycling button: a toggle whose next
             state you cannot see is a toggle you press twice. The icon names the
             option picked — "system" is the machine, not the way it resolved. */}
@@ -707,7 +802,14 @@ export const App = () => {
             ))}
           </select>
         </div>
+        </div>
       </header>
+
+      <ShortcutsDialog
+        shortcuts={shortcuts}
+        open={help}
+        onClose={() => setHelp(false)}
+      />
 
       <FilterBar
         view={view}
