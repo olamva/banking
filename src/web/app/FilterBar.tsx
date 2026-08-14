@@ -281,7 +281,15 @@ const Picker = ({
   return (
     <details
       ref={menu}
-      className="group relative"
+      /*
+       * Full width below `sm`, which is about the *panel* rather than the
+       * summary. The panel is absolutely positioned against this element, so
+       * wherever the summary happens to wrap to is where 256px of menu starts —
+       * a picker that landed halfway along the row hung its panel off the right
+       * edge and gave the whole page a sideways scroll. Full width anchors it to
+       * the left of the bar, where it always fits.
+       */
+      className="group relative max-sm:w-full"
       // The panel mounts and unmounts with the menu, so this is what tells React
       // it has opened at all.
       onToggle={toggled}
@@ -302,7 +310,7 @@ const Picker = ({
       {open && (
         <div
           onKeyDown={navigate}
-          className="absolute z-20 mt-1 flex max-h-72 w-64 flex-col rounded-md border border-line bg-surface p-1.5 shadow-lg"
+          className="absolute z-20 mt-1 flex max-h-72 w-64 max-w-full flex-col rounded-md border border-line bg-surface p-1.5 shadow-lg"
         >
           {/* Same list, read either way round: the only ones to show, or the only
             ones to hide. Both words stay visible so the alternative is never a
@@ -380,7 +388,10 @@ const Picker = ({
                         onClick={() => toggleOpen(row.value)}
                         aria-expanded={openHere}
                         aria-label={`${openHere ? "Hide" : "Show"} ${label(row.value)} subcategories`}
-                        className="flex h-6 w-[13px] shrink-0 items-center justify-center text-ink-muted hover:text-ink"
+                        /* 13px wide is a column, not a target. The pseudo-element
+                           widens what a finger has to hit to ~29x40 without
+                           moving the triangle or the label lined up beside it. */
+                        className="relative flex h-6 w-[13px] shrink-0 items-center justify-center text-ink-muted before:absolute before:-inset-2 before:content-[''] hover:text-ink"
                       >
                         <Icon
                           aria-hidden
