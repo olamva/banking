@@ -37,6 +37,7 @@ import {
   UpIcon,
   type IconSvgElement,
 } from "./icons.ts";
+import { isPageKey } from "./Shortcuts.tsx";
 
 interface CardProps {
   title: string;
@@ -458,9 +459,10 @@ interface SearchBoxProps {
   onChange: (value: string) => void;
   placeholder: string;
   /**
-   * Take ⌘F over while mounted. Windowing hides the unrendered rows from the
-   * browser's own find, and this box searches all of them rather than the
-   * on-screen ones — the better answer anyway. One box per page may claim it.
+   * Take ⌘F over while mounted, and answer to `/` as well. Windowing hides the
+   * unrendered rows from the browser's own find, and this box searches all of
+   * them rather than the on-screen ones — the better answer anyway. One box per
+   * page may claim it.
    */
   hotkey?: boolean;
 }
@@ -471,7 +473,12 @@ const SearchBox = ({ value, onChange, placeholder, hotkey }: SearchBoxProps) => 
   useEffect(() => {
     if (!hotkey) return;
     const find = (e: KeyboardEvent) => {
-      if (e.key !== "f" || !(e.metaKey || e.ctrlKey) || e.altKey) return;
+      const modified = e.metaKey || e.ctrlKey;
+      // `/` only where it is not a character being typed — in this box, or in a
+      // filter menu's own search, it is one. Same test the page's own keys use.
+      const slash = e.key === "/" && !modified && isPageKey(e);
+      if (!slash && !(e.key === "f" && modified)) return;
+      if (e.altKey) return;
       e.preventDefault();
       // `select`, not `focus`: ⌘F on a box that already has a search in it means
       // a new search, so the old one goes as soon as you type.
@@ -498,7 +505,9 @@ const SearchBox = ({ value, onChange, placeholder, hotkey }: SearchBoxProps) => 
         onChange={(e) => onChange(e.target.value)}
         aria-label={placeholder}
       />
-      {/* A shortcut that took over a browser one has to say so somewhere. */}
+      {/* A shortcut that took over a browser one has to say so somewhere. `/`
+          is in the shortcuts dialog; only the one that overrides the browser
+          needs saying on the box itself. */}
       {hotkey && (
         <kbd className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 rounded border border-line px-1.5 py-0.5 text-[11px] text-ink-muted">
           ⌘F
