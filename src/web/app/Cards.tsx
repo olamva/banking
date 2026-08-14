@@ -2,7 +2,6 @@
  * The boxes everything sits in: cards, KPI tiles and tables. Presentation only.
  */
 import {
-  Fragment,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -15,8 +14,10 @@ import { subscriptionGroups, type SubscriptionGroup } from "../../core/stats.ts"
 import type { Categorized } from "../../core/types.ts";
 import {
   ID_FIELD,
+  bankLabel,
   categoryColor,
   categoryLabel,
+  fmtDate,
   fmtNOK,
   fmtNOKExact,
   fmtPct,
@@ -632,62 +633,152 @@ interface TxnDialogProps {
   onClose: () => void;
 }
 
+/** A quiet outlined word — what a row *is*, where a Yes/No line said it duller. */
+const Chip = ({ children }: { children: ReactNode }) => (
+  <span className="rounded-full border border-line px-2 py-0.5 text-[11px] text-ink-soft">
+    {children}
+  </span>
+);
+
+/**
+ * What the heading, the chips and the bank row already say. Repeating it in the
+ * list below is the same fact twice, and that list of nineteen was most of why
+ * the dialog read as a dump — what is left is the part they cannot carry.
+ * `reason` is not here: the chip says a row is out, the field says why.
+ *
+ * `bankConfidence` is simply dropped. Nothing gates on it, 7 802 of 8 547 rows
+ * are at 100, and a line saying so on almost every row is a line nobody reads.
+ */
+const SHOWN_ABOVE = [
+  "date",
+  "amount",
+  "counterparty",
+  "account",
+  "category",
+  "subcategory",
+  "excluded",
+  "isSubscription",
+  "isRecurring",
+  "bankCategory",
+  "bankSub",
+  "bankCategoryName",
+  "bankSubName",
+  "bankConfidence",
+];
+
+/** One field of the detail list. Its own rule under it, the last one bare. */
+const ROW =
+  "flex items-baseline justify-between gap-4 border-b border-line py-1.5 last:border-0";
+
 /**
  * One row, with everything on it. A native `<dialog>` opened modally, so Esc,
  * the backdrop, the scroll lock and keeping focus inside are the browser's job
  * and not ours — the fields are read off the row by `txnFields`, so this stays a
  * layout and nothing else.
+ *
+ * The heading is the row as the table reads it — merchant, its category in that
+ * category's own hue, account, date, and the amount at the size of the one
+ * number the dialog is about. It stays put while the rest scrolls under it.
  */
-const TxnDialog = ({ txn, onClose }: TxnDialogProps) => (
-  <dialog
-    ref={(el) => {
-      el?.showModal();
-    }}
-    onClose={onClose}
-    /* The padding is on the inner div so that a click landing on it is a click
-       on the card, not on the dialog box — only the backdrop closes. */
-    onClick={(e) => {
-      if (e.target === e.currentTarget) onClose();
-    }}
-    className="m-auto max-h-[80vh] w-[min(560px,92vw)] overflow-y-auto rounded-[10px] border border-line bg-surface p-0 text-ink backdrop:bg-black/50"
-  >
-    <div className="p-4">
-      <div className="mb-3 flex items-start gap-3">
-        <div className="min-w-0">
-          <h2 className="truncate text-sm font-semibold">{merchantOf(txn)}</h2>
-          <div className="text-xs text-ink-soft">{txn.date}</div>
+const TxnDialog = ({ txn, onClose }: TxnDialogProps) => {
+  const bank = bankLabel(txn);
+
+  return (
+    <dialog
+      ref={(el) => {
+        el?.showModal();
+      }}
+      onClose={onClose}
+      /* The padding is on the inner div so that a click landing on it is a
+         click on the card, not on the dialog box — only the backdrop closes. */
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="m-auto max-h-[80vh] w-[min(560px,92vw)] overflow-y-auto rounded-xl border border-line bg-surface p-0 text-ink shadow-2xl backdrop:bg-black/50"
+    >
+      <div className="sticky top-0 z-10 flex items-start gap-3 border-b border-line bg-surface px-5 py-4">
+        <div className="min-w-0 flex-1">
+          <h2 className="truncate text-base font-semibold">
+            {merchantOf(txn)}
+          </h2>
+          <div className="mt-1 flex flex-wrap items-center gap-x-1.5 text-xs text-ink-soft">
+            <span
+              className="font-medium"
+              style={{ color: categoryColor(txn.category) }}
+            >
+              {subcategoryLabel(txn.category, txn.subcategory)}
+            </span>
+            <span aria-hidden className="text-ink-muted">
+              ·
+            </span>
+            <span>{txn.account}</span>
+            <span aria-hidden className="text-ink-muted">
+              ·
+            </span>
+            <span>{fmtDate(txn.date)}</span>
+          </div>
         </div>
-        <div className="ml-auto text-lg font-semibold tabular-nums whitespace-nowrap">
+        {/* Income is the colour, spending is not: everything here is money out,
+          and a page of red says nothing the sign does not. */}
+        <div
+          className={`text-xl font-semibold tabular-nums whitespace-nowrap ${txn.amount > 0 ? "text-good" : ""}`}
+        >
           {fmtNOKExact(txn.amount)}
         </div>
         <button
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="text-ink-muted hover:text-ink"
+          className="-m-1 shrink-0 rounded p-1 text-ink-muted hover:bg-hover hover:text-ink"
         >
           <Icon aria-hidden icon={CloseIcon} size={16} />
         </button>
       </div>
-      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-xs">
-        {txnFields(txn).map(([name, value]) => (
-          <Fragment key={name}>
-            <dt className="text-ink-soft">{name}</dt>
-            {/* Cut in CSS rather than in the string, so the whole id is still
-                there to select and copy — `min-w-0` because a grid track will
-                not shrink below its content without it. */}
-            <dd
-              className={name === ID_FIELD ? "min-w-0 truncate" : "break-words"}
-              title={name === ID_FIELD ? value : undefined}
-            >
-              {value}
-            </dd>
-          </Fragment>
-        ))}
-      </dl>
-    </div>
-  </dialog>
-);
+      <div className="px-5 py-4">
+        {(txn.excluded || txn.isSubscription || txn.isRecurring) && (
+          <div className="mb-3 flex flex-wrap gap-1.5">
+            {txn.excluded && <Chip>Excluded</Chip>}
+            {txn.isSubscription && <Chip>Subscription</Chip>}
+            {txn.isRecurring && <Chip>Recurring</Chip>}
+          </div>
+        )}
+        {/* A line per field rather than a grid, so each can have a rule under
+            it — the flat block of nineteen was one paragraph shaped like a
+            table. */}
+        <dl className="text-xs">
+          {bank && (
+            <div className={ROW}>
+              <dt className="shrink-0 text-ink-soft">Bank category</dt>
+              <dd className="min-w-0 text-right">
+                <div className="text-sm break-words">{bank[0]}</div>
+                {/* The slug in the shape a rule is written in, monospaced
+                    because that is what it is — five fields said this, and four
+                    of them were saying it twice. */}
+                <div className="font-mono text-[11px] break-all text-ink-muted">
+                  {bank[1]}
+                </div>
+              </dd>
+            </div>
+          )}
+          {txnFields(txn, SHOWN_ABOVE).map(([name, value]) => (
+            <div key={name} className={ROW}>
+              <dt className="shrink-0 text-ink-soft">{name}</dt>
+              {/* Cut in CSS rather than in the string, so the whole id is
+                  still there to select and copy — `min-w-0` because a flex item
+                  will not shrink below its content without it. */}
+              <dd
+                className={`min-w-0 text-right ${name === ID_FIELD ? "truncate" : "break-words"}`}
+                title={name === ID_FIELD ? value : undefined}
+              >
+                {value}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+    </dialog>
+  );
+};
 
 interface TransactionsCardProps {
   txns: Categorized[];
