@@ -36,6 +36,8 @@ export type Accounts = Record<
     name?: string;
     number?: string;
     sync?: boolean;
+    /** `YYYY-MM` the account opened — see `accountKeys`. */
+    from?: string;
     investment?: boolean;
     card?: boolean;
     issuer?: boolean;
