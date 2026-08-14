@@ -67,7 +67,13 @@ import {
   useTransactions,
   type Theme,
 } from "./data.ts";
-import { categoryLabel, fmtNOK, setLabels, subcategoryLabel } from "./format.ts";
+import {
+  categoryLabel,
+  fmtNOK,
+  setCategoryHues,
+  setLabels,
+  subcategoryLabel,
+} from "./format.ts";
 import {
   AccountIcon,
   CategoryIcon,
@@ -554,8 +560,13 @@ export const App = () => {
   const [theme, onTheme] = useState<Theme>(readTheme);
 
   // Before anything renders a slug: the cards and the charts read the names
-  // through `categoryLabel`, which has no other way to reach them.
-  if (load.status === "ready") setLabels(load.labels);
+  // through `categoryLabel`, which has no other way to reach them. The hues go
+  // the same way, and off every row rather than the filtered view — see
+  // `setCategoryHues`.
+  if (load.status === "ready") {
+    setLabels(load.labels);
+    setCategoryHues(distinctCategories(load.txns));
+  }
 
   const txns = load.status === "ready" ? load.txns : [];
   const months = useMemo(() => distinctMonths(txns), [txns]);
