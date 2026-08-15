@@ -119,6 +119,20 @@ export const treeLabel = (category: string, pairs: string[]): string =>
     : categoryLabel(category);
 
 /**
+ * What one row is called where its category is **not** on screen beside it — the
+ * table cell and the detail heading, as against the tree the two above serve.
+ *
+ * `NO_SUB` is "Annet", and that reads as "the rest of this category" only when
+ * the category is the row above it. Standing alone in a column it names nothing:
+ * every `ukategorisert` row on record has no second level, so the whole
+ * subcategory read "Annet" and clicking it filtered to `ukategorisert/` — a
+ * correct filter under a label that could not say so. A row with no sub is its
+ * category and nothing narrower, so that is what it says.
+ */
+export const rowLabel = (category: string, sub: string | null): string =>
+  sub === null ? categoryLabel(category) : subcategoryLabel(category, sub);
+
+/**
  * The four field names camel-casing does not tidy into something readable. Every
  * other key reads as itself — `bankConfidence` -> `Bank confidence` — which is
  * what keeps this map from having to list `Txn` twice, and what makes a widened
