@@ -1,13 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { NO_SUB, buildLabels } from "../../core/labels.ts";
 import type { Categorized } from "../../core/types.ts";
 import {
   ID_FIELD,
   bankLabel,
   categoryColor,
+  categoryLabel,
   fmtDate,
   fmtNOKExact,
+  rowLabel,
   setCategoryHues,
+  setLabels,
   txnFields,
 } from "./format.ts";
 
@@ -134,4 +138,18 @@ test("a colour does not depend on the order the categories arrive in", () => {
 test("a category nobody registered keeps the ordinary text colour", () => {
   setCategoryHues(MAINS);
   assert.equal(categoryColor("a_main_from_next_month"), "var(--color-ink)");
+});
+
+test("a row with no subcategory reads as its category, never as Annet", () => {
+  // The tree calls the unnamed remainder "Annet", which says nothing standing
+  // alone in a table column — and every `ukategorisert` row on record has no
+  // second level at all, so the whole column read that way.
+  setLabels(buildLabels([row]));
+  assert.equal(rowLabel("ukategorisert", null), categoryLabel("ukategorisert"));
+  assert.notEqual(rowLabel("ukategorisert", null), NO_SUB);
+  assert.equal(
+    rowLabel("dagligvarer", "andre_dagligvarer"),
+    "Andre dagligvarer",
+    "a named sub is still the sub's own name",
+  );
 });
