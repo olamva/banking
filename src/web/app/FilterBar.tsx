@@ -173,6 +173,11 @@ const Picker = ({
    * costing that.
    */
   const [open, setOpen] = useState(false);
+  /**
+   * What was already checked when the menu was opened — the rows that float to
+   * the top of it, decided once so the order cannot change while it is open.
+   */
+  const [pinned, setPinned] = useState<readonly string[]>([]);
   useDismiss(menu);
   // The search box's own delayed reset, which outlives an unmount otherwise.
   useEffect(() => () => clearTimeout(reset.current), []);
@@ -196,6 +201,17 @@ const Picker = ({
       )
     : options;
 
+  // Whatever is on floats to the top, so what is filtered is never scrolled away
+  // from in a list of hundreds. A parent counts as on when one of its children
+  // is: the row that was ticked has to be reachable either way.
+  //
+  // Against the snapshot rather than `picked`, so the list holds still while it
+  // is being used. Ticking a box would otherwise fling that row to the top from
+  // under the pointer — and take the arrow keys' highlight, which is an index
+  // into this order, off onto whatever slid into its place.
+  const isPinned = (o: string) =>
+    pinned.includes(o) || childrenOf(o).some((c) => pinned.includes(c));
+
   /**
    * The flat list the arrow keys actually walk: every shown option, with the
    * children of the opened ones spliced in beneath their parent.
@@ -203,7 +219,7 @@ const Picker = ({
    * Flat on purpose — the keyboard, the highlight and Enter all index into one
    * array, so opening a category needs no second notion of "where am I".
    */
-  const rows = shown.flatMap((o) => {
+  const rowsOf = (o: string) => {
     const all = childrenOf(o);
     // A search narrows the children too. Listing all of them because *one*
     // matched is what made searching "vennebetaling" show every child of
@@ -215,8 +231,18 @@ const Picker = ({
         : all.filter((c) => hitsQuery(subLabel(c)) || picked.includes(c));
     // A search that matched a child opens its parent: the row you were looking
     // for should be on screen, not one click behind a triangle. A parent that
-    // matched on its *own* name keeps its children folded away.
-    const openHere = expanded.has(o) || kids.length < all.length;
+    // matched on its *own* name keeps its children folded away. A *checked*
+    // child opens it too, for the same reason it floats the parent to the top —
+    // a filter you cannot see is one you cannot turn off. Never a lone child,
+    // which is drawn as the parent row itself and would otherwise be listed
+    // twice, once under each name.
+    const openByDefault =
+      kids.length < all.length ||
+      (all.length > 1 && kids.some((c) => pinned.includes(c)));
+    // `expanded` holds the rows flipped *out of* that default, not the open
+    // ones: a set of open rows cannot express closing one that opened itself,
+    // so clicking the triangle on an auto-opened category did nothing at all.
+    const openHere = openByDefault !== expanded.has(o);
     // One *named* child is the same rows under a better name, so the row becomes
     // that child rather than opening onto it. A lone unnamed child is not a
     // better name — `vipps` would read as "Annet" — so those keep the parent.
@@ -227,7 +253,27 @@ const Picker = ({
       : kids.length === 1 && openHere
         ? [parent, { value: kids[0]!, sub: true }]
         : [parent];
-  });
+  };
+
+  const pinnedRows = shown.filter(isPinned).flatMap(rowsOf);
+  const rows = [
+    ...pinnedRows,
+    ...shown.filter((o) => !isPinned(o)).flatMap(rowsOf),
+  ];
+  /**
+   * Whether the row at `i` is opened onto its children — read off the list that
+   * was built rather than out of `expanded`, which now holds only the flips away
+   * from each row's default and so no longer answers this on its own.
+   */
+  const isOpenAt = (i: number) => rows[i + 1]?.sub === true;
+
+  // A rule between the two halves, drawn as a border on the first row below it —
+  // a row of its own would be one the arrow keys could land on and Enter could
+  // toggle. -1 when either half is empty, since a rule needs two sides.
+  const divideAt =
+    pinnedRows.length > 0 && rows.length > pinnedRows.length
+      ? pinnedRows.length
+      : -1;
 
   // Clamped on read rather than reset on every change: typing shortens the list
   // under the cursor, and the row it was on is not always still there. `-1`
@@ -251,7 +297,10 @@ const Picker = ({
   const toggled = (e: React.SyntheticEvent<HTMLDetailsElement>) => {
     clearTimeout(reset.current);
     setOpen(e.currentTarget.open);
-    if (e.currentTarget.open) return;
+    if (e.currentTarget.open) {
+      setPinned(picked);
+      return;
+    }
     reset.current = setTimeout(() => {
       setQuery("");
       setActive(null);
@@ -282,8 +331,7 @@ const Picker = ({
       const row = rows[at];
       if (row && !row.sub && childrenOf(row.value).length > 1) {
         e.preventDefault();
-        if (expanded.has(row.value) === (e.key === "ArrowLeft"))
-          toggleOpen(row.value);
+        if (isOpenAt(at) === (e.key === "ArrowLeft")) toggleOpen(row.value);
         return;
       }
     }
@@ -407,11 +455,11 @@ const Picker = ({
             ) : (
               rows.map((row, i) => {
                 const kids = row.sub ? [] : childrenOf(row.value);
-                const openHere = expanded.has(row.value);
+                const openHere = isOpenAt(i);
                 return (
                   <div
                     key={`${row.sub ? "sub:" : ""}${row.value}`}
-                    className="flex items-center"
+                    className={`flex items-center ${i === divideAt ? "mt-1 border-t border-line pt-1" : ""}`}
                   >
                     {row.sub ? (
                       // Two spacers, so a child lines up under its parent's label

@@ -1,0 +1,12 @@
+{
+  "id": "8799b59b",
+  "ts": "2026-08-16T22:08:37+00:00",
+  "text": "src/net/sb1.test.ts:93 flakes on a clock boundary \u2014 remaining(path, now+60_000) read 0 not 1, passes on re-run",
+  "tags": [
+    "tests"
+  ],
+  "who": "agent",
+  "model": "opus-5",
+  "session": "e46f25c8",
+  "where": "src/net/sb1.test.ts"
+}
