@@ -53,6 +53,11 @@ export function buildLabels(txns: Categorized[], names: Names = {}): Labels {
   // one: see the note above about `dagligvarer`.
   const mains = new Map<string, string>();
   const subs = new Map<string, string>();
+  // The same names again, keyed on the bare sub, for the renamed-main fallback
+  // below. Built here rather than searched for per call: it is the difference
+  // between one pass over 70 pairs and one per row, and the page asks for a
+  // label once per row per render — see the note on the fallback.
+  const bareSubs = new Map<string, string>();
   for (const t of txns) {
     if (t.bankCategory && t.bankCategoryName && !mains.has(t.bankCategory)) {
       mains.set(t.bankCategory, t.bankCategoryName);
@@ -60,6 +65,9 @@ export function buildLabels(txns: Categorized[], names: Names = {}): Labels {
     if (t.bankCategory && t.bankSub && t.bankSubName) {
       const key = `${t.bankCategory}/${t.bankSub}`;
       if (!subs.has(key)) subs.set(key, t.bankSubName);
+      // First one wins, matching the search this replaces: it scanned `subs` in
+      // insertion order and took the first key ending in the sub.
+      if (!bareSubs.has(t.bankSub)) bareSubs.set(t.bankSub, t.bankSubName);
     }
   }
 
@@ -70,11 +78,17 @@ export function buildLabels(txns: Categorized[], names: Names = {}): Labels {
       // The pair first, then the sub as the bank spells it anywhere — our own
       // main renames (`faste_boutgifter` -> `faste_utgifter`) leave the pair key
       // unfindable while the sub underneath is still the bank's own.
-      const anywhere = [...subs].find(([k]) => k.endsWith(`/${sub}`));
+      //
+      // All three are map reads, and that is the point: this runs once per row
+      // per render — 10 440 times on the transactions table, and twice that per
+      // comparison when it sorts by the category column. The fallback used to
+      // spread `subs` into an array and scan it, and it did so *before* the
+      // chain rather than inside it, so every row paid for a search it did not
+      // need. That cost 200 ms a sort. Keep all four branches O(1).
       return (
         names[`${category}/${sub}`] ??
         subs.get(`${category}/${sub}`) ??
-        anywhere?.[1] ??
+        bareSubs.get(sub) ??
         tidy(sub)
       );
     },
