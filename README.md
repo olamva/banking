@@ -52,9 +52,14 @@ rules to read. Point it at the originals rather than re-syncing them:
 
 ```bash
 pnpm install
-ln -s ../../../{.env.local,data,rules} .   # from a worktree under .claude/worktrees/
-pnpm dev --port 4001                        # 4000 is the main checkout's
+pnpm worktree:link                  # symlinks .env.local, data and rules back
+pnpm dev --port 4001                # 4000 is the main checkout's
 ```
+
+`worktree:link` finds the main checkout with `git rev-parse --git-common-dir`
+rather than counting `../` upwards, because a worktree named `a/b` is one level
+deeper than one named `a` and the fixed path silently linked to nothing. It is
+idempotent, so re-running it costs nothing.
 
 ## Commands
 
