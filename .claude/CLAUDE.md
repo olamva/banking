@@ -37,6 +37,14 @@ never `git add -f` a path under either. Push is also not a licence to publish
 anything else — the dashboard rule below is untouched, and a PR body carries no
 account numbers, payee names or amounts.
 
+**`rules/` is versioned, in its own git repo, on this machine only.** `git -C
+rules log` is its history; it has no remote and must never be given one. That
+repo is invisible to this one and stays that way — it is deliberately **not** a
+submodule, because a gitlink would put `rules` back on a tracked path here, and
+the JSON would then be one missing inner `.git` away from being staged by
+`git add -A`. The `rules` line in `.gitignore` is what makes that impossible, so
+it stays. Nothing about this changes what is committable here: still nothing.
+
 ## Layout
 
 `src/` is split by **which half of the rule a file is on**: `net/` is allowed to
