@@ -1,0 +1,13 @@
+{
+  "id": "1ce5e3e6",
+  "ts": "2026-08-16T22:05:56+00:00",
+  "text": "bg-isolation guard blocks editing gitignored files (rules/*.json): they cannot exist in a worktree, and the guard resolves a symlink back to the shared path, so Edit can never reach them",
+  "tags": [
+    "harness",
+    "worktree"
+  ],
+  "who": "agent",
+  "model": "opus-5",
+  "session": "1dd20b3a",
+  "where": "/Users/olavassbotn/Documents/banking/.claude/worktrees/yurosupotsu-sportsutstyr"
+}

@@ -554,8 +554,9 @@ test("excluding one subcategory leaves its siblings in", () => {
 });
 
 test("a category whose rows have no subcategory is still selectable", () => {
-  // Half of rules/overrides.json still names one level, so "the part nothing has
-  // named yet" has to be reachable or the drill-down shows less than its parent.
+  // `overfoering`, `ukategorisert` and the travel guess name one level on
+  // purpose, so "the part nothing has named yet" has to stay reachable or the
+  // drill-down shows less than its parent.
   const bare = txn({
     id: "1",
     amount: -100,

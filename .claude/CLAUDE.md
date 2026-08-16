@@ -72,9 +72,8 @@ data/raw/         API responses, verbatim, gitignored
 data/banking.db   derived SQLite store, rebuildable from data/raw, gitignored
 rules/accounts.json     which accounts are mine, and which is the card
                         (hand-edited), gitignored
-rules/overrides.json    substring or /regex/ -> `category` or `category/sub`,
-                        gitignored; both value forms are read, so the file
-                        migrates a line at a time
+rules/overrides.json    substring or /regex/ -> `category/sub`, gitignored;
+                        a bare `category` parses and means no subcategory
 rules/giro.json         name -> what that person's lump transfers are, gitignored
 rules/payees.json       pattern -> the one name a payee goes by, gitignored
 rules/subscriptions.json  the same patterns, as a list; sets isSubscription, gitignored
@@ -499,19 +498,38 @@ can be both and mean different things, `dagligvarer` being a main the bank calls
 `Dagligvarer` and a sub it calls `Matvarer`. Tidying is right for most of what we
 invent, which is what keeps that file down to five entries.
 
-**A rule that names one level keeps the bank's subcategory**, when the bank
-agrees about the category. Most of `rules/overrides.json` still names one level,
-and discarding the second with it threw away a level the bank had already
-supplied: `/\bSAS[\d ]/` says `reise` and the bank says `reise/flybilletter`.
-The category matching is the guard — `PAYPAL BOOKING HOTEL` is a trip to us and
-`hobby_og_fritid/digital_markedsplass` to the bank, and grafting that sub under
-`reise` would invent a pair neither meant. Where the mains disagree the rule has
-overruled the bank outright and its subcategory goes too. An excluded row takes
-no sub at all: `reason` already says why it is out.
+**Every rule names both levels**, and a rule that names one takes no
+subcategory at all. `rules/overrides.json` and `rules/giro.json` hold no bare
+value as of 2026-08-17, and adding one is the thing to avoid: it reaches the
+page as that category and `Annet` under it.
 
-So a subcategory of **Annet** on the page means _our own rules named only one
-level and the bank disagreed about the other_ — never that the bank sent nothing.
-It has one on all 8 547 rows.
+A bare value used to mean the opposite — keep the bank's own sub wherever the
+bank agreed about the main — and that read as a migration half done rather than
+a rule. **The bank never sends a bare main**: all 11 505 category entries on
+10 462 rows carry `main` and `sub`, so the shape was ours alone, and it behaved
+as a coin toss. Of the 52 bare lines on record, 40 inherited nothing whatever,
+and the rest split one payee across two labels on nothing but whether the bank
+had recognised that merchant: `sans fris` was `velvare` on 25 rows and `Annet`
+on the 26th. Naming the pair on all 52 moved **298 rows off `Annet`, changed no
+row's category, and left both money totals identical to the øre**. `keepBankSub`
+went with them, and its going moved nothing.
+
+Two lines paid for the mechanism and neither survived the reading. `/\bSAS[\d ]/`
+looked like the case for it — it says `reise` and the bank says
+`reise/flybilletter` — but it also caught `NARVESEN SAS h`, a kiosk, and filed it
+as travel; with that fixed the bank agreed about all 18 rows and the line
+deleted outright. The `hotel` pattern really did span, and it split into three
+lines instead: `overnatting`, a `reiseselskap` pair for hotels.com and Booking,
+and `Quality Hotel Prinsen`, which is a venue we have only ever been to for
+events and is `kafe_og_restaurant/utesteder`.
+
+The guard the mechanism needed is now the *pattern's* job, and it is the same
+rule as everywhere else here: where two readings share a payee, narrow the
+pattern until each says one thing. An excluded row still takes no sub at all —
+`reason` already says why it is out.
+
+So a subcategory of **Annet** on the page means _a rule of ours named only one
+level_ — never that the bank sent nothing. It has one on all 10 462 rows.
 
 A category with exactly one _named_ subcategory reads as that subcategory —
 `annet_lan_og_gjeld` is `Studielån` and nothing else, so the parent is the vaguer
