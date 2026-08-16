@@ -425,10 +425,20 @@ const useSort = <T, S extends Record<string, (a: T, b: T) => number>>(
   const [by, setBy] = useState<K | null>(initial);
   const [asc, setAsc] = useState(firstAsc(initial));
 
+  // Memoised because a comparator is not always cheap: the transactions table
+  // sorts on the category *label*, so one comparison is two label lookups and a
+  // `localeCompare`, and there are n log n of them. Re-sorting for a render that
+  // changed neither the rows nor the column — opening a row's dialog, closing
+  // it — was 26 ms of the click. Both call sites pass a module-level `sorts`, so
+  // the identity is stable and this actually hits.
+  const sorted = useMemo(
+    () =>
+      by ? [...items].sort((a, b) => (asc ? 1 : -1) * sorts[by](a, b)) : items,
+    [items, sorts, by, asc],
+  );
+
   return {
-    sorted: by
-      ? [...items].sort((a, b) => (asc ? 1 : -1) * sorts[by](a, b))
-      : items,
+    sorted,
     head: (label: string, key: K, extra?: Partial<Column>): Column => ({
       label,
       ...extra,
@@ -840,9 +850,7 @@ export const TransactionsCard = ({
    * table does not hold room open for one it can no longer show.
    */
   const subcategorySizes = useMemo(
-    () => [
-      ...new Set(txns.map((t) => rowLabel(t.category, t.subcategory))),
-    ],
+    () => [...new Set(txns.map((t) => rowLabel(t.category, t.subcategory)))],
     [txns],
   );
 
