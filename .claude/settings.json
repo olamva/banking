@@ -8,7 +8,12 @@
       "Bash(gh pr view:*)",
       "Bash(gh pr list:*)",
       "Bash(gh pr comment:*)",
-      "Bash(git worktree:*)"
+      "Bash(git worktree:*)",
+      "Bash(git -C rules add:*)",
+      "Bash(git -C rules commit:*)",
+      "Bash(git -C rules status:*)",
+      "Bash(git -C rules diff:*)",
+      "Bash(git -C rules log:*)"
     ],
     "deny": [
       "Bash(git push --force:*)",
