@@ -78,3 +78,19 @@ test("our renamed main still finds the bank name of the sub underneath it", () =
 test("a row with no second level says so rather than showing an empty cell", () => {
   assert.equal(buildLabels([]).subcategory("vipps", null), NO_SUB);
 });
+
+test("where two mains share a sub slug, the fallback takes the first on record", () => {
+  // Only reachable through the renamed-main fallback, so it needs a category
+  // the bank never sent. The rule is first-seen wins: the fallback is a guess at
+  // what the bank would have called this sub, and a later row is not a better
+  // guess than an earlier one. Pinned because it is the one thing a lookup keyed
+  // on the bare sub could quietly get backwards.
+  const l = buildLabels([
+    row({ bankCategory: "reise", bankSub: "taxi", bankSubName: "Drosje" }),
+    row({ bankCategory: "transport", bankSub: "taxi", bankSubName: "Taxi" }),
+  ]);
+  assert.equal(l.subcategory("vaar_egen_main", "taxi"), "Drosje");
+  // The pair itself still beats the fallback, both ways round.
+  assert.equal(l.subcategory("transport", "taxi"), "Taxi");
+  assert.equal(l.subcategory("reise", "taxi"), "Drosje");
+});
