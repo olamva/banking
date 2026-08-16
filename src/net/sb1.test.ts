@@ -85,7 +85,7 @@ test("recording the zero from a 429 is what starts the refill clock", () => {
   const path = ledger();
   const now = Date.now();
   assert.throws(() =>
-    noteLimits(429, new Headers({ "x-ratelimit-remaining": "0" }), path),
+    noteLimits(429, new Headers({ "x-ratelimit-remaining": "0" }), path, now),
   );
   assert.equal(remaining(path, now), 0);
   // A minute on there is one to spend again, which is why a 429 does not need a
