@@ -778,9 +778,11 @@ test("a bare Vipps marker is never enough — Vipps bills merchants too", () => 
   );
 });
 
-test("a rule that names one level keeps the bank sub, when the bank agrees on the category", () => {
-  // `/\bSAS[\d ]/` says `reise` and the bank says `reise/flybilletter` — the
-  // same category, one level deeper. Discarding that lost 2 132 rows a level.
+test("a rule that names one level takes no subcategory, not even the bank's own", () => {
+  // A bare value used to inherit the bank's sub wherever the mains agreed, which
+  // filed one payee under two labels depending on whether the bank had
+  // recognised the merchant. Every line names a pair now, and a bare one means
+  // what it says: this category, no second level.
   const out = categorize(
     [
       classified({
@@ -792,7 +794,7 @@ test("a rule that names one level keeps the bank sub, when the bank agrees on th
     { "/\\bSAS[\\d ]/": "reise" },
   )[0]!;
   assert.equal(out.category, "reise");
-  assert.equal(out.subcategory, "flybilletter");
+  assert.equal(out.subcategory, null);
 });
 
 test("a sub from a category the rule overruled is not grafted on", () => {
