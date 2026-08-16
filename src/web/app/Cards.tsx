@@ -24,7 +24,7 @@ import {
   fmtNOK,
   fmtNOKExact,
   fmtPct,
-  subcategoryLabel,
+  rowLabel,
   txnFields,
 } from "./format.ts";
 import {
@@ -453,8 +453,8 @@ const TXN_SORTS = {
   // its own to sort by any more.
   subcategory: (a: Categorized, b: Categorized) =>
     categoryLabel(a.category).localeCompare(categoryLabel(b.category)) ||
-    subcategoryLabel(a.category, a.subcategory).localeCompare(
-      subcategoryLabel(b.category, b.subcategory),
+    rowLabel(a.category, a.subcategory).localeCompare(
+      rowLabel(b.category, b.subcategory),
     ),
   account: (a: Categorized, b: Categorized) =>
     a.account.localeCompare(b.account),
@@ -724,7 +724,7 @@ const TxnDialog = ({ txn, onClose }: TxnDialogProps) => {
               className="font-medium"
               style={{ color: categoryColor(txn.category) }}
             >
-              {subcategoryLabel(txn.category, txn.subcategory)}
+              {rowLabel(txn.category, txn.subcategory)}
             </span>
             <span aria-hidden className="text-ink-muted">
               ·
@@ -841,7 +841,7 @@ export const TransactionsCard = ({
    */
   const subcategorySizes = useMemo(
     () => [
-      ...new Set(txns.map((t) => subcategoryLabel(t.category, t.subcategory))),
+      ...new Set(txns.map((t) => rowLabel(t.category, t.subcategory))),
     ],
     [txns],
   );
@@ -898,7 +898,7 @@ export const TransactionsCard = ({
                `Filters.categories` holds both levels, so the pair filters on
                the same axis the bare category used to. */
             <PickCell
-              label={subcategoryLabel(t.category, t.subcategory)}
+              label={rowLabel(t.category, t.subcategory)}
               value={subcategoryOf(t)}
               color={categoryColor(t.category)}
               onPick={onCategory}
