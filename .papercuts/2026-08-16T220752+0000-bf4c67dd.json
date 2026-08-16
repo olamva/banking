@@ -1,0 +1,13 @@
+{
+  "id": "bf4c67dd",
+  "ts": "2026-08-16T22:07:52+00:00",
+  "text": "bg-job worktree guard blocks edits to gitignored rules/*.json; a worktree has no rules/ dir at all, so isolating the change loses it",
+  "tags": [
+    "tools",
+    "worktree"
+  ],
+  "who": "agent",
+  "model": "opus-5",
+  "session": "69e94308",
+  "where": "rules/payees.json"
+}
