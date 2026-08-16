@@ -51,6 +51,25 @@ the JSON would then be one missing inner `.git` away from being staged by
 `git add -A`. The `rules` line in `.gitignore` is what makes that impossible, so
 it stays. Nothing about this changes what is committable here: still nothing.
 
+**An edit under `rules/` is finished only when it is committed there**, by
+whoever made it, in the same turn. Nothing else records it: this repo's `git
+status` stays clean however much of `overrides.json` you rewrote, so an
+uncommitted rules change is invisible to every later session, absent from every
+diff, and one stray checkout from gone. So it is not enough to report the edit —
+commit it:
+
+```bash
+git -C rules add -A && git -C rules commit -m "chore: ..."
+```
+
+Same Conventional Commits style as here, and say in your report that you did it.
+**This is required, not merely allowed** — and it is the one commit the global
+never-commit rule does not reach, because that rule's exception is a repo's own
+`CLAUDE.md` and `rules/` has none but is governed by this file. It publishes
+nothing: that repo has no remote and never will. The edit is made in the main
+checkout, unisolated, for the reason the next section gives — so the agent that
+made it is always standing where it can commit it.
+
 ## Working in a worktree
 
 A background job isolates itself in `.claude/worktrees/<name>`, and everything
