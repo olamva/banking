@@ -82,10 +82,12 @@ export const merchantOf = (t: Categorized): string =>
  * The value the subcategory filter matches on: the pair, with a trailing slash
  * where there is no second level.
  *
- * A row with no sub is still selectable — half of `rules/overrides.json` names
- * only one level, so "the part of this category nothing has named yet" is a real
- * thing to want to look at, and dropping it would make the drill-down silently
- * show less than the category it opened from.
+ * A row with no sub is still selectable. `rules/overrides.json` names a pair on
+ * every line now, but the rules `categorize` holds itself still do not —
+ * `overfoering`, `ukategorisert` and the travel guess all refuse a second level
+ * on purpose — so "the part of this category nothing has named yet" remains a
+ * real thing to want to look at, and dropping it would make the drill-down
+ * silently show less than the category it opened from.
  */
 export const subcategoryOf = (t: Categorized): string =>
   `${t.category}/${t.subcategory ?? ""}`;
