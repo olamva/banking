@@ -46,6 +46,12 @@ export class RateLimited extends Error {
  * need the real refresh token or would overwrite it with a fake one. `path` is
  * for those tests and nothing else — `get` writes the real ledger.
  *
+ * `now` is for them too, and it is not cosmetic: the refill is counted in whole
+ * minutes from the stamp this writes, so a test that reads its own `Date.now()`
+ * a millisecond earlier and then asks about `now + 60_000` is a millisecond
+ * short of the first credit and gets 0. Every other function in `budget.ts`
+ * takes the clock for that reason; this one was the gap.
+ *
  * The header is read before either throw, because a 429 carries it too — that
  * is the response that most wants recording. Recording the zero is what starts
  * the ledger's refill clock, so the next run knows how long to leave it.
@@ -54,9 +60,10 @@ export function noteLimits(
   status: number,
   headers: Headers,
   path?: string,
+  now?: number,
 ): void {
   const left = headers.get("x-ratelimit-remaining");
-  if (left !== null && left !== "") note(Number(left), path);
+  if (left !== null && left !== "") note(Number(left), path, now);
   if (status === 401) throw new ReauthRequired("API returned 401");
   if (status === 429) throw new RateLimited(headers.get("retry-after"));
 }
