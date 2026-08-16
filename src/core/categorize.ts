@@ -9,15 +9,20 @@ import type { Categorized, Classified } from "./types.ts";
  * `/.../ ` — `"/\\bleie\\b/"` matches the word *leie* but not *utleie* or
  * *leiebil*, which a substring cannot express.
  *
- * **The value takes two forms and both are current.** A bare `"dagligvarer"`
- * names the category alone; `"kafe_og_restaurant/utesteder"` names the bank's
- * own pair. Both forms are read by `splitCategory` below, which is what lets
- * this file be rewritten a line at a time: the category half is unchanged by
- * adding a sub, so the page does not move while the migration is half done.
+ * **The value is a pair, `"kafe_og_restaurant/utesteder"`.** Every line names
+ * both levels; a bare `"dagligvarer"` parses, and now means the category with
+ * *no* subcategory rather than one to be filled in from the bank.
  *
- * The pair form is the one to write. `pnpm sb1 categories` says which lines
- * still earn their place — 81 of the 175 patterns on record decide exactly what
- * the bank's own subcategory already says, and delete cleanly.
+ * It used to mean the second. A bare value kept the bank's own sub wherever the
+ * bank agreed about the main, which read as a migration half done and behaved as
+ * a coin toss: of the 52 bare lines on record, 40 inherited nothing at all and
+ * the rest split one payee across two labels — `sans fris` was `velvare` on 25
+ * rows and `Annet` on the 26th, on nothing but whether the bank had recognised
+ * the merchant that day. Naming the pair moved 298 rows off `Annet` and left
+ * every row's category, and both money totals, untouched.
+ *
+ * `pnpm sb1 categories` says which lines still earn their place — a line the
+ * bank's own pair already agrees with deletes cleanly.
  *
  * Matched against `description` and `counterparty` both. They usually say the
  * same thing — `counterparty` is the bank's cleaned form of the description —
@@ -269,6 +274,9 @@ export type Pair = { category: string; subcategory: string | null };
  * better seen on the page than silently trimmed.
  */
 export function splitCategory(value: string): Pair {
+  // A bare value is still parsed rather than refused: it is a hand-edited file,
+  // and a line that names one level should reach the page as that level and an
+  // `Annet` under it — visible, and fixable by adding the sub.
   const cut = value.indexOf("/");
   return cut === -1
     ? { category: value, subcategory: null }
@@ -370,29 +378,6 @@ export function isVippsPeer(t: {
 }
 
 /**
- * A rule that named only a category keeps the bank's subcategory — **when the
- * bank agrees about the category**.
- *
- * Most of `rules/overrides.json` still names one level, and throwing the bank's
- * second level away with it lost real information: `/\bSAS[\d ]/` says `reise`
- * and the bank says `reise/flybilletter`, the same category and one level
- * deeper. 2 132 rows arrived with a subcategory on them and reached the page
- * without one for no better reason than that.
- *
- * The guard is the category matching. `PAYPAL BOOKING HOTEL` is a trip to us and
- * `hobby_og_fritid/digital_markedsplass` to the bank; grafting that sub under
- * `reise` would invent a pair neither of us meant. Where the mains disagree the
- * rule has overruled the bank outright, and its subcategory goes with it.
- */
-function keepBankSub(pair: Pair, t: Classified): Pair {
-  if (pair.subcategory !== null) return pair;
-  const bank = bankPair(t);
-  return bank && bank.category === pair.category
-    ? { ...pair, subcategory: bank.subcategory }
-    : pair;
-}
-
-/**
  * The pair the bank's own answer becomes, or null where it said nothing usable.
  *
  * The sub rides along untouched even where the main is renamed: the rename is
@@ -443,12 +428,12 @@ function categoryFor(
   // already says why it is out, so a subcategory has nothing to add.
   if (t.excluded) return flat(TRANSFER);
   const override = rules.find((r) => r.matches(haystack));
-  if (override) return keepBankSub(splitCategory(override.category), t);
+  if (override) return splitCategory(override.category);
   // A lump transfer, and a name that says what this person's lump transfers
   // are — rent from a flatmate, a share of a trip from a friend.
   if (LUMP_TYPE.test(t.typeText ?? "")) {
     const named = giroRules.find((r) => r.matches(haystack));
-    if (named) return keepBankSub(splitCategory(named.category), t);
+    if (named) return splitCategory(named.category);
   }
   // Below the lump rule, so a standing arrangement keeps the name giro.json gave
   // it — pocket money is family money that already has a better label — and
