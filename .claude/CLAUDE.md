@@ -29,6 +29,12 @@ unread. The settings deny list holds the three spellings of a force push and
 `git push --quiet --force` is not caught, so the rule above is the real guard
 and the list is a backstop.
 
+Rewording the paragraphs above is a thing the Edit classifier refuses, whoever
+asked and however the request is phrased — it reads any loosening of a git
+safety rule as the edit it exists to stop, and there is no override to reach
+for. Do not spend three attempts discovering that. **Say so and let the account
+holder make the edit by hand**, which is the right hands for it anyway.
+
 And nothing under `rules/` or `data/` is committable at all — the whole point of
 them being gitignored, and the only reason a remote is safe here. That gitignore
 is now what stands between the transactions and GitHub, so treat an edit to it as
@@ -60,9 +66,39 @@ Same Conventional Commits style as here, and say in your report that you did it.
 **This is required, not merely allowed** — and it is the one commit the global
 never-commit rule does not reach, because that rule's exception is a repo's own
 `CLAUDE.md` and `rules/` has none but is governed by this file. It publishes
-nothing: that repo has no remote and never will. An agent that could not reach
-`rules/` at all — a worktree has no copy of a gitignored directory — has made no
-edit to commit, and says so instead.
+nothing: that repo has no remote and never will. The edit is made in the main
+checkout, unisolated, for the reason the next section gives — so the agent that
+made it is always standing where it can commit it.
+
+## Working in a worktree
+
+A background job isolates itself in `.claude/worktrees/<name>`, and everything
+this repo keeps out of git is therefore missing from it. `pnpm install` then
+`pnpm worktree:link` is the whole provisioning step — the second symlinks
+`.env.local`, `data` and `rules` back to the main checkout, which is why the
+`.gitignore` entries carry no trailing slash. A dozen papercuts were filed
+against doing that by hand before it was a script; do not do it by hand again.
+
+**A change to `rules/` or `data/` cannot be made from a worktree at all**, and
+the symlink is not a way round it: the isolation guard resolves the link back to
+the shared path and refuses the write for being outside the worktree. That is
+the guard working, not failing. There is also nothing to isolate — the files are
+in no branch, so no commit carries them and no PR can review them. **Make a
+rules edit in the main checkout, unisolated.** If a task is nothing but a rules
+edit, do not enter a worktree for it.
+
+**The Bash guard refuses compound commands inside an isolated session** —
+heredocs, redirects, `&&` chains — as "too complex to verify it stays inside the
+worktree", and the message sometimes blames a redirect that is not there. It is
+a syntactic check, so arguing with it costs more than obeying it: write the
+script to `$CLAUDE_JOB_DIR/tmp` with the Write tool and run it in one plain
+call, or split the thing into separate calls.
+
+`EnterWorktree` branches from `origin/main`, the `worktree.baseRef: fresh`
+default. It once took the session's own HEAD instead, which built a fix on the
+wrong base and opened an accidental PR stack twice in one session — so if a
+branch here ever looks stacked on work that is not on `main`, that is the shape
+of it. Check the base before building on it.
 
 ## Layout
 
@@ -550,7 +586,7 @@ lines instead: `overnatting`, a `reiseselskap` pair for hotels.com and Booking,
 and `Quality Hotel Prinsen`, which is a venue we have only ever been to for
 events and is `kafe_og_restaurant/utesteder`.
 
-The guard the mechanism needed is now the *pattern's* job, and it is the same
+The guard the mechanism needed is now the _pattern's_ job, and it is the same
 rule as everywhere else here: where two readings share a payee, narrow the
 pattern until each says one thing. An excluded row still takes no sub at all —
 `reason` already says why it is out.
