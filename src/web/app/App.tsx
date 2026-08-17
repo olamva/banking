@@ -30,6 +30,7 @@ import {
   inRange,
   matchesFilters,
   period,
+  personMerchants,
   type Axis,
   type Filters,
   type Mode,
@@ -882,6 +883,10 @@ export const App = () => {
       ),
     [inPeriod, filters.merchants],
   );
+  // Off the whole period rather than the filtered rows: which names are people
+  // is a fact about them, and recomputing it from what the filters left would
+  // make a name stop being a person as soon as you filtered its peer rows away.
+  const people = useMemo(() => personMerchants(inPeriod), [inPeriod]);
   const accounts = useMemo(
     () =>
       [...new Set([...distinctAccounts(inPeriod), ...filters.accounts])].sort(
@@ -966,6 +971,7 @@ export const App = () => {
         categories={categories}
         subcategories={subcategories}
         merchants={merchants}
+        people={people}
         accounts={accounts}
         countries={countries}
         filters={filters}

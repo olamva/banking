@@ -98,7 +98,8 @@ const NO_ACCOUNT = "-1";
  */
 const NAMES_NOBODY = /^(til|fra)[\s:.-]*$/i;
 
-const named = (s?: string) => (s && !NAMES_NOBODY.test(s.trim()) ? s : undefined);
+const named = (s?: string) =>
+  s && !NAMES_NOBODY.test(s.trim()) ? s : undefined;
 
 function normalizeSb1(file: Sb1File, names: Record<string, string>): Txn[] {
   return (
@@ -123,7 +124,8 @@ function normalizeSb1(file: Sb1File, names: Record<string, string>): Txn[] {
         // the bank's cleaned string is the merchant, while remoteAccountName is
         // whatever the payer typed into the payment. Unless it names nobody —
         // see NAMES_NOBODY, where a bare `Til:` is worth less than either.
-        counterparty: named(t.cleanedDescription) ?? t.remoteAccountName ?? null,
+        counterparty:
+          named(t.cleanedDescription) ?? t.remoteAccountName ?? null,
         // Off the same string, before any rename touches it: a payee renamed to
         // `Yoshinoya` no longer carries the tail the country is written in.
         country: countryOf(named(t.cleanedDescription) ?? ""),

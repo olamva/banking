@@ -181,7 +181,7 @@ used exactly as written — letting the cleaner touch one would return `IKEA` as
 
 That split is what stops either from growing without end. A merchant first seen
 next year arrives readable with nothing added anywhere; a merchant that needs a
-*name* rather than a shape gets one line. The 2026-08-17 pass named 539 of the
+_name_ rather than a shape gets one line. The 2026-08-17 pass named 539 of the
 897 spellings on record by rule and left the rest to the cleaner, and the money
 totals were identical to the øre across it — a rename can never move money,
 which is the property that makes the whole file safe to edit.
