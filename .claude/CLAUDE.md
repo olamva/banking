@@ -512,15 +512,20 @@ The order is fixed and worth knowing: **an exclusion wins**, so a value on both
 lists is hidden, and an empty include list is still every row. That is what
 makes the parent-plus-narrower-child pair mean anything at all.
 
-The mode is gone from `Filters` and from the URL, and the Include/Exclude button
-in each picker is now a **pen**: it says which list the next tick joins, nothing
-about which rows are on the page, so it is `useState` beside the People/
-Businesses switch. Both lists tick the same checkboxes and an excluded one is
-red — **unticking always clears**, whichever list it was on, because a ticked
-box is a filter that is on and a click on it has to be able to turn it off. The
-`_mode=exclude` spelling is still read out of an old URL and moved to the `_not`
-side; dropping it would show a pinned tab the exact complement of what it asked
-for, silently.
+The mode is gone from `Filters` and from the URL, and **which list a tick joins
+is the modifier**: a plain tick includes, ⌘/ctrl-click — or ⌘/ctrl-Enter on the
+row the arrows are on — excludes. That is deliberately the same gesture the
+charts and the table already use, so excluding is one thing learned once rather
+than a modifier in one place and a control in another. An Include/Exclude pen
+sat at the top of each panel for exactly one iteration; it was a second spelling
+of the same idea, and it had to be set _before_ the click it governed.
+
+Both lists tick the same checkboxes and an excluded one is red —
+**unticking always clears**, whichever list it was on and whatever is held,
+because a ticked box is a filter that is on and a click on it has to be able to
+turn it off. The `_mode=exclude` spelling is still read out of an old URL and
+moved to the `_not` side; dropping it would show a pinned tab the exact
+complement of what it asked for, silently.
 
 **The country axis is the fourth, and it needed no fourth kind of control** —
 `AXES` was already "one entry plus its two fields", which is what adding it
@@ -716,11 +721,19 @@ taking pinch-zoom away from everyone.
 
 **Hover and meta-click are shortcuts, never the only route.** A phone has
 neither. Every number a tooltip gives must be readable somewhere else — the bars
-print their own totals, which is what lets the tooltip be a nicety — and every
-gesture behind a modifier key needs a plain control that does the same thing:
-meta-click excludes, and the Include/Exclude pen inside each picker is the
-route to the same state without a keyboard. Adding a modifier-only capability
-with no such twin is how a feature ships that a phone cannot reach at all.
+print their own totals, which is what lets the tooltip be a nicety — and a
+gesture behind a modifier key wants a plain control that does the same thing.
+Adding a modifier-only capability with no such twin is how a feature ships that
+a phone cannot reach at all.
+
+**Excluding is now the standing exception, knowingly.** Meta-click and
+meta-Enter are the only way to _put_ a value on an exclusion list: the
+Include/Exclude pen that used to be the touch route was removed on
+2026-08-17 at the account holder's instruction, as a second spelling of one
+idea. Exclusions still **show** on the page and in the filter summary, and a
+plain tap still **clears** one, so a phone can read and undo them and only
+cannot author them. If that ever bites, the twin that costs nothing is a plain
+tap cycling off -> only -> except, rather than the pen coming back.
 
 **A tap is a `pointerdown` and a `pointerup` with no `pointermove` between
 them.** A chart bound only to `onPointerMove` therefore has no reading at all on

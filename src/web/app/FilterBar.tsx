@@ -155,13 +155,26 @@ type Kind = "all" | "people" | "business";
 
 /**
  * Two lists, picked from the same checkboxes: what to show, and what to hide
- * out of it. Which one a tick joins is the pen at the top of the panel, so
- * "only `innskudd`, but not `innskudd/familie`" is two ticks with a flip
- * between them rather than a filter the bar could not express.
+ * out of it. **A plain tick includes; a meta-tick excludes** — ⌘/ctrl-click, or
+ * ⌘/ctrl-Enter on the arrowed-to row — so "only `innskudd`, but not
+ * `innskudd/familie`" is two ticks and a held key.
  *
- * A hidden option is ticked too, in red — it is a filter that is on, and the
- * one thing a picker must always be able to do is turn a filter back off. The
- * pen decides what a *new* tick means, never what an existing one shows.
+ * That is the same gesture the charts and the table already use, which is the
+ * point of it: excluding is one thing you learn once, not a modifier here and a
+ * mode switch there. It replaced an Include/Exclude pen at the top of the panel,
+ * which was a second way to say the same thing and had to be set *before* the
+ * click it governed.
+ *
+ * A hidden option is ticked too, in red — it is a filter that is on, and the one
+ * thing a picker must always be able to do is turn a filter back off. Unticking
+ * clears it whichever list it was on, modifier or not.
+ *
+ * **A phone cannot reach the exclude half.** There is no meta key on a
+ * touchscreen and no plain control left that does it, so exclusions are
+ * desktop-only to *create* — they still show, and still clear, with a tap. This
+ * is a deliberate exception to the modifier-needs-a-twin rule in CLAUDE.md,
+ * taken on the account holder's instruction; the cheap twin, if it is ever
+ * wanted, is making a plain tap cycle off -> only -> except.
  *
  * ponytail: renders every option, so all-time merchants is a few hundred
  * `<label>` in a scroller. Virtualise only if opening it ever feels slow.
@@ -193,13 +206,6 @@ const Picker = ({
    * already lit, as if it were hovered.
    */
   const [active, setActive] = useState<number | null>(null);
-  /**
-   * Which list a tick joins. Local for the same reason `kind` is: it decides
-   * what the next click *means* and nothing about which rows are on the page,
-   * so it has no business in the URL or in `Filters` — where, as a per-list
-   * mode, it used to make "these, except that one" impossible to say.
-   */
-  const [excluding, setExcluding] = useState(false);
   /** Ticked either way: on one list or the other. */
   const on = (v: string) => picked.includes(v) || excluded.includes(v);
 
@@ -387,16 +393,18 @@ const Picker = ({
       // From nothing, either arrow lands on the first row rather than off the end.
       setActive(at < 0 ? 0 : Math.max(0, Math.min(at + step, rows.length - 1)));
     } else if (e.key === "Enter") {
-      // The mode toggle is in here too, and Enter on a button means that button.
+      // Buttons live in here too — the People/Businesses switch, the disclosure
+      // triangles — and Enter on a button means that button.
       if (e.target instanceof HTMLButtonElement) return;
       // Typing a name and pressing Enter means the one match you typed it for,
-      // without arrowing onto it first.
+      // without arrowing onto it first. Meta-Enter is the keyboard's half of
+      // meta-click, so the two gestures stay the same gesture.
       const i = at < 0 ? 0 : at;
       const row = rows[i];
       if (!row) return;
       e.preventDefault();
       setActive(i);
-      onToggle(row.value, excluding);
+      onToggle(row.value, e.metaKey || e.ctrlKey);
     }
   };
 
@@ -440,30 +448,8 @@ const Picker = ({
              panel down to a 130px button and truncated every row in it. Below
              `sm` the `details` is full width, which is what already keeps this
              on the page; there is nothing left for a max-width to save. */
-          className="absolute z-20 mt-1 flex max-h-72 w-64 flex-col rounded-md border border-line bg-surface p-1.5 shadow-lg"
+          className="absolute left-0 z-20 mt-1 flex max-h-72 w-64 flex-col rounded-md border border-line bg-surface p-1.5 shadow-lg"
         >
-          {/* Which list the next tick joins — the two coexist, so this is a pen
-            and not a reading of one list. Both words stay visible so the
-            alternative is never a guess, but the whole thing is one button —
-            clicking anywhere on it flips, including the half already lit. */}
-          <button
-            type="button"
-            aria-pressed={excluding}
-            aria-label={`Tick ${title.toLowerCase()} to exclude them`}
-            onClick={() => setExcluding(!excluding)}
-            className="mb-1.5 flex w-full shrink-0 overflow-hidden rounded-md border border-line text-xs"
-          >
-            <span
-              className={`flex-1 px-2 py-1 ${excluding ? "bg-page text-ink-soft" : "bg-series-1 text-white"}`}
-            >
-              Include
-            </span>
-            <span
-              className={`flex-1 px-2 py-1 ${excluding ? "bg-critical-strong text-white" : "bg-page text-ink-soft"}`}
-            >
-              Exclude
-            </span>
-          </button>
           {/* Only where the caller says the list splits, which is merchants
               alone. Three plain buttons rather than a select: the whole control
               is one tap on a phone, and no option is hidden behind opening it. */}
@@ -583,7 +569,17 @@ const Picker = ({
                            on, and it is the red the bars already spend in. */
                         className={`shrink-0 ${excluded.includes(row.value) ? "accent-critical-strong" : ""}`}
                         checked={on(row.value)}
-                        onChange={() => onToggle(row.value, excluding)}
+                        /* `onClick` rather than `onChange`, because only the
+                           mouse event carries the modifier — meta-click is what
+                           makes a tick an exclusion, the same gesture that
+                           excludes from a bar or a table cell. A keyboard space
+                           fires click too, with no modifier, so plain ticking is
+                           unchanged. `onChange` stays as a no-op only to keep
+                           React from calling the box uncontrolled. */
+                        onChange={() => {}}
+                        onClick={(e) =>
+                          onToggle(row.value, e.metaKey || e.ctrlKey)
+                        }
                         // The arrows own the highlight, so a row reached by tabbing
                         // moves it rather than leaving two rows looking active.
                         onFocus={() => setActive(i)}
@@ -680,10 +676,18 @@ const FilterSummary = ({
           className="shrink-0 text-ink-muted transition-transform group-open:rotate-180"
         />
       </summary>
-      {/* Anchored like the pickers: below `sm` the `details` is the full width of
-          the bar, so the panel cannot hang off the right edge from wherever the
-          summary happened to wrap to. */}
-      <div className="absolute z-20 mt-1 flex max-h-72 w-64 flex-col rounded-md border border-line bg-surface p-1.5 shadow-lg">
+      {/* **`right-0`, not the default left.** This is the one control on the bar
+          that sits at the *right* end (`ml-auto`), so a panel growing rightward
+          from the trigger's left edge starts 256px of menu at the last ~110px of
+          the page and runs straight off it — which is what shipped. Anchoring the
+          panel's right edge to the trigger's makes it grow back across the bar,
+          where there is always room: 256px of panel against a bar that is the
+          page's own width, never narrower than the 375px the phone rule sets.
+
+          The pickers get away with the default because they sit at the *left*.
+          The rule is the same one CLAUDE.md already states — a panel is anchored
+          wherever its trigger is, so the trigger's position decides the anchor. */}
+      <div className="absolute right-0 z-20 mt-1 flex max-h-72 w-64 flex-col rounded-md border border-line bg-surface p-1.5 shadow-lg">
         <div className="min-h-0 space-y-2 overflow-y-auto px-0.5 py-0.5">
           {axes.map(({ key, title, on, out }) => (
             <div key={key}>
@@ -830,7 +834,7 @@ const PeriodMenu = ({
           className="shrink-0 text-ink-muted transition-transform group-open:rotate-180"
         />
       </summary>
-      <div className="absolute z-20 mt-1 w-72 rounded-md border border-line bg-surface p-1.5 shadow-lg max-sm:w-full">
+      <div className="absolute left-0 z-20 mt-1 w-72 rounded-md border border-line bg-surface p-1.5 shadow-lg max-sm:w-full">
         {/* The two periods that sit inside no year, above the ones that do. */}
         <div className="mb-1.5 flex gap-1 border-b border-line pb-1.5">
           <button

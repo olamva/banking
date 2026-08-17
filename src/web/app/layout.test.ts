@@ -41,6 +41,36 @@ test("every grid track floors at the viewport, not at a fixed width", () => {
   }
 });
 
+test("every floating panel says which edge it hangs from", () => {
+  /**
+   * An absolutely-positioned panel defaults to the left edge of its trigger and
+   * grows rightward. That is right for a control at the left of the bar and
+   * wrong for one at the right: the filter summary sits under `ml-auto`, so 256px
+   * of panel started at the last ~110px of the page and ran off it — on a desktop
+   * window, not just a phone.
+   *
+   * The anchor depends on where the trigger sits, which is not visible from the
+   * panel's own line, so the rule is that the line states it either way. `left-0`
+   * is a no-op that documents the choice; a panel with neither is one where
+   * nobody chose.
+   */
+  const anchored = /\b(left|right|inset-x)-/;
+  const offending = tsx.flatMap((file) =>
+    source(file)
+      .split("\n")
+      .flatMap((line, i) =>
+        /className="absolute/.test(line) && !anchored.test(line)
+          ? [`${file}:${i + 1}: ${line.trim()}`]
+          : [],
+      ),
+  );
+  assert.deepEqual(
+    offending,
+    [],
+    `a floating panel does not say which edge it hangs from — add left-0 or right-0:\n${offending.join("\n")}`,
+  );
+});
+
 test("the page declares the device width", () => {
   // Without this, mobile Safari lays the page out at 980px and scales it down:
   // every media query reads as desktop and the text arrives unreadably small.
