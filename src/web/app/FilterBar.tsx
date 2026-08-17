@@ -8,8 +8,9 @@
  *
  * What is on is a count, not a row of chips: ten active filters wrapped onto
  * three lines and pushed the dashboard down the page, which is the opposite of
- * what a filter bar is for. The count says how many; the pickers say which, and
- * are where one is turned off again.
+ * what a filter bar is for. The count **opens** into which, in `FilterSummary`
+ * — the same list, one click away instead of always on screen — and that
+ * disclosure is also the only place Reset lives.
  */
 import { useEffect, useRef, useState } from "react";
 import { NO_COUNTRY } from "../../core/select.ts";
@@ -604,6 +605,136 @@ const Picker = ({
   );
 };
 
+interface FilterSummaryProps {
+  filters: Filters;
+  onFilters: (filters: Filters) => void;
+  /** How one value reads on its own axis — categories are slugs, the rest are already names. */
+  labelOf: (axis: Axis, value: string) => string;
+  /**
+   * The number on the trigger. May be 0 while something is still on: the count
+   * deliberately skips the search where the transactions table already shows the
+   * box, and `showExcluded` is a widening rather than a filter.
+   */
+  active: number;
+}
+
+/** One axis's half, as a word and a list — never as a colour alone. */
+const SummaryRow = ({ label, values }: { label: string; values: string[] }) =>
+  values.length === 0 ? null : (
+    <div className="flex gap-1.5 text-[12px]">
+      <span
+        className={`w-11 shrink-0 ${label === "Except" ? "text-critical-strong" : "text-ink-muted"}`}
+      >
+        {label}
+      </span>
+      <span className="min-w-0 flex-1 text-ink">{values.join(", ")}</span>
+    </div>
+  );
+
+/**
+ * What is on, and where — the number opened into the list behind it.
+ *
+ * It was a bare count and nothing else, which said how many filters were on and
+ * never which: with four axes, two lists each, a search and a toggle, "6
+ * filters" is a number you have to go hunting through four menus to explain.
+ *
+ * **Reset lives here and nowhere else.** It used to sit on the bar beside this,
+ * where it was one stray click from clearing work with no warning and no
+ * statement of what was about to go. Behind a disclosure it is read first and
+ * pressed second, and the thing it clears is on screen while you press it.
+ *
+ * So the trigger appears whenever anything is resettable, not whenever the count
+ * is non-zero — otherwise "excluded rows shown" alone, or a search typed in the
+ * transactions view, would be a state with no way back to a clean page.
+ */
+const FilterSummary = ({
+  filters,
+  onFilters,
+  labelOf,
+  active,
+}: FilterSummaryProps) => {
+  const menu = useRef<HTMLDetailsElement>(null);
+  useDismiss(menu);
+
+  const axes = (Object.entries(AXES) as [Axis, (typeof AXES)[Axis]][])
+    .map(([key, outKey]) => ({
+      key,
+      // The axis names itself: the four keys are the four titles, capitalised,
+      // so the picker above and the row here cannot drift apart.
+      title: key[0]!.toUpperCase() + key.slice(1),
+      on: filters[key],
+      out: filters[outKey],
+    }))
+    .filter(({ on, out }) => on.length > 0 || out.length > 0);
+
+  return (
+    <details ref={menu} className="group relative max-sm:w-full">
+      <summary
+        className={`${CONTROL} flex list-none items-center gap-1.5 marker:content-none`}
+      >
+        {active > 0 ? `${active} filter${active === 1 ? "" : "s"}` : "Filters"}
+        <Icon
+          aria-hidden
+          icon={DropdownIcon}
+          size={14}
+          className="shrink-0 text-ink-muted transition-transform group-open:rotate-180"
+        />
+      </summary>
+      {/* Anchored like the pickers: below `sm` the `details` is the full width of
+          the bar, so the panel cannot hang off the right edge from wherever the
+          summary happened to wrap to. */}
+      <div className="absolute z-20 mt-1 flex max-h-72 w-64 flex-col rounded-md border border-line bg-surface p-1.5 shadow-lg">
+        <div className="min-h-0 space-y-2 overflow-y-auto px-0.5 py-0.5">
+          {axes.map(({ key, title, on, out }) => (
+            <div key={key}>
+              <div className="text-[11px] tracking-wide text-ink-muted uppercase">
+                {title}
+              </div>
+              <SummaryRow
+                label="Only"
+                values={on.map((v) => labelOf(key, v))}
+              />
+              <SummaryRow
+                label="Except"
+                values={out.map((v) => labelOf(key, v))}
+              />
+            </div>
+          ))}
+          {/* Listed even where the box is on screen: this is the list of what
+              Reset is about to clear, not a second copy of the control. */}
+          {filters.search !== "" && (
+            <div>
+              <div className="text-[11px] tracking-wide text-ink-muted uppercase">
+                Search
+              </div>
+              <SummaryRow label="Text" values={[filters.search]} />
+            </div>
+          )}
+          {filters.showExcluded && (
+            <div>
+              <div className="text-[11px] tracking-wide text-ink-muted uppercase">
+                Excluded rows
+              </div>
+              <SummaryRow label="Shown" values={["transfers, card bills"]} />
+            </div>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            onFilters(NO_FILTERS);
+            if (menu.current) menu.current.open = false;
+          }}
+          className="mt-1.5 flex shrink-0 items-center justify-center gap-1.5 rounded-md border border-line px-2.5 py-1.5 text-xs text-ink-muted"
+        >
+          <Icon aria-hidden icon={ResetFiltersIcon} size={14} />
+          Reset filters
+        </button>
+      </div>
+    </details>
+  );
+};
+
 interface PeriodMenuProps {
   months: string[];
   years: string[];
@@ -835,6 +966,21 @@ export const FilterBar = ({
   const toggleAccount = toggle("accounts");
   const toggleCountry = toggle("countries");
 
+  /**
+   * How one value reads in the summary. Categories are slugs carrying two
+   * levels, so a pair reads as its subcategory and a bare slug as its category —
+   * the same two names the picker's own rows already choose between. The other
+   * three axes are names as they stand, `NO_COUNTRY`'s dash excepted.
+   */
+  const labelOf = (axis: Axis, value: string) =>
+    axis === "categories"
+      ? value.includes("/")
+        ? pairLabel(value)
+        : treeLabel(value, subsOf(value))
+      : axis === "countries" && value === NO_COUNTRY
+        ? "No country"
+        : value;
+
   // Both halves of all four axes: an exclusion is a filter like any other, so a
   // page filtered only by exclusions still says so and still offers Reset.
   const picked = (Object.entries(AXES) as [Axis, (typeof AXES)[Axis]][]).reduce(
@@ -971,24 +1117,17 @@ export const FilterBar = ({
         Excluded rows
       </button>
 
-      {/* What is on, as a number and nothing more. Not a control: it opens
-          nothing and clears nothing, so it is text — the pickers turn one
-          filter off and Reset turns them all off. */}
-      {active > 0 && (
-        <span className="px-1 text-[13px] text-ink-soft">
-          {`${active} filter${active === 1 ? "" : "s"}`}
-        </span>
-      )}
-
+      {/* What is on, opened into which — and the only Reset there is. `ml-auto`
+          keeps it where the Reset button used to sit, at the end of the bar. */}
       {dirty && (
-        <button
-          type="button"
-          onClick={() => onFilters(NO_FILTERS)}
-          className="ml-auto flex items-center gap-1.5 rounded-md border border-line px-2.5 py-1.5 text-xs text-ink-muted"
-        >
-          <Icon aria-hidden icon={ResetFiltersIcon} size={14} />
-          Reset filters
-        </button>
+        <div className="ml-auto max-sm:w-full">
+          <FilterSummary
+            filters={filters}
+            onFilters={onFilters}
+            labelOf={labelOf}
+            active={active}
+          />
+        </div>
       )}
     </div>
   );
