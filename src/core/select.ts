@@ -321,6 +321,44 @@ export function distinctMerchants(txns: Categorized[]): string[] {
 }
 
 /**
+ * The categories that mean the other party was a person rather than a shop.
+ *
+ * The bank does not say whether a counterparty is a human, and no name shape
+ * answers it either — `Georgios Giannakis` is a taverna, `Elias Rønnestad` is a
+ * clothes shop, and `Møller Kantine` is not a person called Møller. Tried over
+ * the record, a person-name regex called about 190 businesses people.
+ *
+ * What does answer it is the category already on the row: a peer payment or
+ * family money only ever has a human on the other end. That is a fact the
+ * pipeline has already established, so this reads it rather than guessing again.
+ */
+const PEER = new Set([
+  "diverse/vennebetaling",
+  "innskudd/familie",
+  "innskudd/lommepenger",
+]);
+
+/**
+ * Which merchants are people, from the rows in view.
+ *
+ * **Any** peer row makes the name a person, not all of them: a flatmate is rent
+ * under `faste_boutgifter` and small Vipps payments under `vennebetaling`, and
+ * requiring every row to agree would file them as a business on the strength of
+ * the rent.
+ *
+ * ponytail: a signal, not a register of humans. It calls `Vipps`, `Pant` and
+ * `Korreksjon` people, because peer rows land under those names, and it misses a
+ * landlord who only ever sent rent. Both are visible in a list you are looking
+ * at, which is the whole reason this narrows a picker rather than a total.
+ */
+export function personMerchants(txns: Categorized[]): Set<string> {
+  const people = new Set<string>();
+  for (const t of txns)
+    if (PEER.has(subcategoryOf(t))) people.add(merchantOf(t));
+  return people;
+}
+
+/**
  * The value the country filter matches on, with a name for "the row has none".
  *
  * A sentinel rather than dropping those rows from the axis: BankAxept and every

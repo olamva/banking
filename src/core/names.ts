@@ -48,7 +48,10 @@ const COUNTRY_SEGMENTS = 3;
 export function countryOf(name: string): string | null {
   const parts = name.split(",");
   if (parts.length < COUNTRY_SEGMENTS) return null;
-  const tail = parts.at(-1)!.replace(/\s*\(.*\)\s*$/, "").trim();
+  const tail = parts
+    .at(-1)!
+    .replace(/\s*\(.*\)\s*$/, "")
+    .trim();
   // Letters and spaces only: a tail carrying a digit or a slash is a terminal
   // reference, not a place — `JP.HOTELS.COM` sits one segment further in.
   if (!/^[\p{L} ]{3,}$/u.test(tail)) return null;
@@ -57,17 +60,15 @@ export function countryOf(name: string): string | null {
 
 /** Title case, except tokens of three letters or fewer, which stay as sent. */
 function titleCase(s: string): string {
-  return s
-    .toLowerCase()
-    .replace(/\S+/g, (w, i: number) =>
-      // The source decides, not the lowercased copy: `AS`, `UPS` and `CFS` are
-      // company forms and initialisms, and there is no list that separates them
-      // from three-letter words. Shouting `BAR` back is wrong-looking; calling
-      // `UPS Norway AS` "Ups Norway As" is wrong.
-      /^[\p{L}]{1,3}$/u.test(s.slice(i, i + w.length))
-        ? s.slice(i, i + w.length)
-        : w.charAt(0).toUpperCase() + w.slice(1),
-    );
+  return s.toLowerCase().replace(/\S+/g, (w, i: number) =>
+    // The source decides, not the lowercased copy: `AS`, `UPS` and `CFS` are
+    // company forms and initialisms, and there is no list that separates them
+    // from three-letter words. Shouting `BAR` back is wrong-looking; calling
+    // `UPS Norway AS` "Ups Norway As" is wrong.
+    /^[\p{L}]{1,3}$/u.test(s.slice(i, i + w.length))
+      ? s.slice(i, i + w.length)
+      : w.charAt(0).toUpperCase() + w.slice(1),
+  );
 }
 
 /** Below this a name is one or two words and has no street left to lose. */

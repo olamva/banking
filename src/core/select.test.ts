@@ -12,6 +12,7 @@ import {
   matchesFilters,
   NO_FILTERS,
   period,
+  personMerchants,
   subcategoryOf,
 } from "./select.ts";
 import type { Categorized } from "./types.ts";
@@ -584,4 +585,55 @@ test("distinctSubcategories lists the pairs, including the unnamed remainder", (
     ]),
     ["reise/flybilletter", "vipps/"],
   );
+});
+
+/**
+ * Who the other party was is not on the row, and no name shape answers it — a
+ * person-name regex called about 190 businesses people over the real record.
+ * The category does answer it, because a peer payment only ever has a human on
+ * the other end.
+ */
+test("a merchant is a person when any row of theirs is a peer payment", () => {
+  const rows = [
+    // A flatmate: rent under housing, and small Vipps payments beside it. One
+    // peer row is enough — requiring all of them would file this person as a
+    // business on the strength of the rent.
+    txn({
+      id: "a",
+      amount: -8000,
+      counterparty: "Flatmate",
+      category: "faste_boutgifter",
+      subcategory: "boligutgifter",
+    }),
+    txn({
+      id: "b",
+      amount: -120,
+      counterparty: "Flatmate",
+      category: "diverse",
+      subcategory: "vennebetaling",
+    }),
+    // Money from a relative is the other half of the same question.
+    txn({
+      id: "c",
+      amount: 500,
+      counterparty: "Relative",
+      category: "innskudd",
+      subcategory: "familie",
+    }),
+    // A taverna whose name reads exactly like a person's, which is why the
+    // shape of the name is not what decides this.
+    txn({
+      id: "d",
+      amount: -240,
+      counterparty: "Georgios Giannakis",
+      category: "kafe_og_restaurant",
+      subcategory: "restaurant",
+    }),
+  ];
+
+  const people = personMerchants(rows);
+  assert.ok(people.has("Flatmate"));
+  assert.ok(people.has("Relative"));
+  assert.ok(!people.has("Georgios Giannakis"));
+  assert.equal(people.size, 2);
 });
