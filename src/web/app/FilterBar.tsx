@@ -13,8 +13,8 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { NO_COUNTRY } from "../../core/select.ts";
-import type { Axis, Filters, Mode, PeriodKind } from "../../core/select.ts";
-import { NO_FILTERS } from "../../core/select.ts";
+import type { Axis, Filters, PeriodKind } from "../../core/select.ts";
+import { AXES, NO_FILTERS } from "../../core/select.ts";
 import { pairLabel, treeLabel } from "./format.ts";
 import {
   DropdownIcon,
@@ -118,10 +118,11 @@ interface PickerProps {
   title: string;
   /** Everything on offer, in the order it should read. */
   options: string[];
+  /** The rows to show, and the rows to hide out of them — one axis, two lists. */
   picked: string[];
-  mode: Mode;
-  onToggle: (value: string) => void;
-  onMode: (mode: Mode) => void;
+  excluded: string[];
+  /** `exclude` says which of the two lists the tick lands in. */
+  onToggle: (value: string, exclude: boolean) => void;
   /** How an option reads; the values themselves are slugs for categories. */
   label?: (value: string) => string;
   /**
@@ -152,9 +153,14 @@ interface PickerProps {
 type Kind = "all" | "people" | "business";
 
 /**
- * One list, picked from checkboxes, read either as the only rows to show or the
- * only ones to hide. Categories and merchants are the same control over two
- * lists, so they are the same component.
+ * Two lists, picked from the same checkboxes: what to show, and what to hide
+ * out of it. Which one a tick joins is the pen at the top of the panel, so
+ * "only `innskudd`, but not `innskudd/familie`" is two ticks with a flip
+ * between them rather than a filter the bar could not express.
+ *
+ * A hidden option is ticked too, in red — it is a filter that is on, and the
+ * one thing a picker must always be able to do is turn a filter back off. The
+ * pen decides what a *new* tick means, never what an existing one shows.
  *
  * ponytail: renders every option, so all-time merchants is a few hundred
  * `<label>` in a scroller. Virtualise only if opening it ever feels slow.
@@ -163,9 +169,8 @@ const Picker = ({
   title,
   options,
   picked,
-  mode,
+  excluded,
   onToggle,
-  onMode,
   label = (v) => v,
   subs,
   subLabel = (v) => v,
@@ -187,7 +192,15 @@ const Picker = ({
    * already lit, as if it were hovered.
    */
   const [active, setActive] = useState<number | null>(null);
-  const excluding = mode === "exclude";
+  /**
+   * Which list a tick joins. Local for the same reason `kind` is: it decides
+   * what the next click *means* and nothing about which rows are on the page,
+   * so it has no business in the URL or in `Filters` — where, as a per-list
+   * mode, it used to make "these, except that one" impossible to say.
+   */
+  const [excluding, setExcluding] = useState(false);
+  /** Ticked either way: on one list or the other. */
+  const on = (v: string) => picked.includes(v) || excluded.includes(v);
 
   const menu = useRef<HTMLDetailsElement>(null);
   const reset = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -217,9 +230,7 @@ const Picker = ({
   const listed =
     !people || kind === "all"
       ? options
-      : options.filter(
-          (o) => people.has(o) === (kind === "people") || picked.includes(o),
-        );
+      : options.filter((o) => people.has(o) === (kind === "people") || on(o));
   const childrenOf = (o: string) => subs?.(o) ?? [];
   const hitsQuery = (name: string) => name.toLowerCase().includes(q);
 
@@ -231,10 +242,8 @@ const Picker = ({
     ? listed.filter(
         (o) =>
           hitsQuery(label(o)) ||
-          picked.includes(o) ||
-          childrenOf(o).some(
-            (c) => hitsQuery(subLabel(c)) || picked.includes(c),
-          ),
+          on(o) ||
+          childrenOf(o).some((c) => hitsQuery(subLabel(c)) || on(c)),
       )
     : listed;
 
@@ -263,9 +272,7 @@ const Picker = ({
     // `diverse` — the row you asked for, buried among seven you did not.
     // Whatever is checked stays, for the same reason it does at the top level.
     const kids =
-      q === ""
-        ? all
-        : all.filter((c) => hitsQuery(subLabel(c)) || picked.includes(c));
+      q === "" ? all : all.filter((c) => hitsQuery(subLabel(c)) || on(c));
     // A search that matched a child opens its parent: the row you were looking
     // for should be on screen, not one click behind a triangle. A parent that
     // matched on its *own* name keeps its children folded away. A *checked*
@@ -335,7 +342,7 @@ const Picker = ({
     clearTimeout(reset.current);
     setOpen(e.currentTarget.open);
     if (e.currentTarget.open) {
-      setPinned(picked);
+      setPinned([...picked, ...excluded]);
       return;
     }
     reset.current = setTimeout(() => {
@@ -388,7 +395,7 @@ const Picker = ({
       if (!row) return;
       e.preventDefault();
       setActive(i);
-      onToggle(row.value);
+      onToggle(row.value, excluding);
     }
   };
 
@@ -413,7 +420,10 @@ const Picker = ({
         className={`${CONTROL} flex list-none items-center gap-1.5 marker:content-none`}
       >
         {title}
-        {picked.length > 0 && ` (${picked.length})`}
+        {/* Both lists in one count: two ticks is two filters, whichever way
+            round they read. */}
+        {picked.length + excluded.length > 0 &&
+          ` (${picked.length + excluded.length})`}
         <Icon
           aria-hidden
           icon={DropdownIcon}
@@ -431,15 +441,15 @@ const Picker = ({
              on the page; there is nothing left for a max-width to save. */
           className="absolute z-20 mt-1 flex max-h-72 w-64 flex-col rounded-md border border-line bg-surface p-1.5 shadow-lg"
         >
-          {/* Same list, read either way round: the only ones to show, or the only
-            ones to hide. Both words stay visible so the alternative is never a
-            guess, but the whole thing is one button — clicking anywhere on it
-            flips, including the half already lit. */}
+          {/* Which list the next tick joins — the two coexist, so this is a pen
+            and not a reading of one list. Both words stay visible so the
+            alternative is never a guess, but the whole thing is one button —
+            clicking anywhere on it flips, including the half already lit. */}
           <button
             type="button"
             aria-pressed={excluding}
-            aria-label={`Exclude the checked ${title.toLowerCase()}`}
-            onClick={() => onMode(excluding ? "include" : "exclude")}
+            aria-label={`Tick ${title.toLowerCase()} to exclude them`}
+            onClick={() => setExcluding(!excluding)}
             className="mb-1.5 flex w-full shrink-0 overflow-hidden rounded-md border border-line text-xs"
           >
             <span
@@ -566,9 +576,13 @@ const Picker = ({
                     >
                       <input
                         type="checkbox"
-                        className="shrink-0"
-                        checked={picked.includes(row.value)}
-                        onChange={() => onToggle(row.value)}
+                        /* Red when this one is hidden rather than shown. The box
+                           is ticked either way — it is a filter that is on — so
+                           the colour is the only thing saying which list it is
+                           on, and it is the red the bars already spend in. */
+                        className={`shrink-0 ${excluded.includes(row.value) ? "accent-critical-strong" : ""}`}
+                        checked={on(row.value)}
+                        onChange={() => onToggle(row.value, excluding)}
                         // The arrows own the highlight, so a row reached by tabbing
                         // moves it rather than leaving two rows looking active.
                         onFocus={() => setActive(i)}
@@ -784,14 +798,31 @@ export const FilterBar = ({
   filters,
   onFilters,
 }: FilterBarProps) => {
-  /** Ticking a box in any of the three menus is the same edit over a different pair of fields. */
-  const toggle = (key: Axis) => (value: string) =>
+  /**
+   * Ticking a box in any of the four menus is the same edit over a different
+   * pair of fields — the axis and its exclusions, which `AXES` pairs up.
+   *
+   * **Unticking always clears, whichever list the value is on.** A ticked box
+   * is a filter that is on, and a click on it means off; letting the pen decide
+   * would make a red tick clearable only after flipping a control elsewhere on
+   * the panel. A value therefore never sits on both lists at once, which is the
+   * contradiction `matchesFilters` would have to break the tie in.
+   */
+  const toggle = (key: Axis) => (value: string, exclude: boolean) => {
+    const outKey = AXES[key];
+    const gone = {
+      [key]: filters[key].filter((x) => x !== value),
+      [outKey]: filters[outKey].filter((x) => x !== value),
+    };
+    const target = exclude ? outKey : key;
+    const wasOn =
+      filters[key].includes(value) || filters[outKey].includes(value);
     onFilters({
       ...filters,
-      [key]: filters[key].includes(value)
-        ? filters[key].filter((x) => x !== value)
-        : [...filters[key], value],
+      ...gone,
+      ...(wasOn ? {} : { [target]: [...filters[target], value] }),
     });
+  };
   const toggleCategory = toggle("categories");
 
   // A pair is `category/sub`, so its own category is its prefix — no second
@@ -804,20 +835,16 @@ export const FilterBar = ({
   const toggleAccount = toggle("accounts");
   const toggleCountry = toggle("countries");
 
-  const excluding = filters.categoryMode === "exclude";
-  const excludingMerchants = filters.merchantMode === "exclude";
-  const excludingAccounts = filters.accountMode === "exclude";
-  const excludingCountries = filters.countryMode === "exclude";
-
-  const picked =
-    filters.categories.length +
-    filters.merchants.length +
-    filters.accounts.length +
-    filters.countries.length;
+  // Both halves of all four axes: an exclusion is a filter like any other, so a
+  // page filtered only by exclusions still says so and still offers Reset.
+  const picked = (Object.entries(AXES) as [Axis, (typeof AXES)[Axis]][]).reduce(
+    (n, [key, outKey]) => n + filters[key].length + filters[outKey].length,
+    0,
+  );
 
   /**
-   * The three lists and the search as one number, so what is on reads as a whole
-   * rather than three counts to add up. The per-list counts are still on the
+   * The four lists and the search as one number, so what is on reads as a whole
+   * rather than four counts to add up. The per-list counts are still on the
    * pickers themselves, which is where one is turned off again.
    *
    * The search counts only where it is not already on screen: the transactions
@@ -826,14 +853,7 @@ export const FilterBar = ({
    */
   const active =
     picked + (filters.search !== "" && view !== "transactions" ? 1 : 0);
-  const dirty =
-    picked > 0 ||
-    filters.search !== "" ||
-    excluding ||
-    excludingMerchants ||
-    excludingAccounts ||
-    excludingCountries ||
-    filters.showExcluded;
+  const dirty = picked > 0 || filters.search !== "" || filters.showExcluded;
 
   return (
     <div className="mb-5 flex flex-wrap items-center gap-2 rounded-[10px] border border-line bg-surface px-3 py-2.5">
@@ -900,9 +920,8 @@ export const FilterBar = ({
         title="Categories"
         options={categories}
         picked={filters.categories}
-        mode={filters.categoryMode}
+        excluded={filters.categoriesOut}
         onToggle={toggleCategory}
-        onMode={(categoryMode) => onFilters({ ...filters, categoryMode })}
         label={(c) => treeLabel(c, subsOf(c))}
         subs={subsOf}
         subLabel={pairLabel}
@@ -912,9 +931,8 @@ export const FilterBar = ({
         title="Merchants"
         options={merchants}
         picked={filters.merchants}
-        mode={filters.merchantMode}
+        excluded={filters.merchantsOut}
         onToggle={toggleMerchant}
-        onMode={(merchantMode) => onFilters({ ...filters, merchantMode })}
         people={people}
       />
 
@@ -923,9 +941,8 @@ export const FilterBar = ({
         title="Accounts"
         options={accounts}
         picked={filters.accounts}
-        mode={filters.accountMode}
+        excluded={filters.accountsOut}
         onToggle={toggleAccount}
-        onMode={(accountMode) => onFilters({ ...filters, accountMode })}
       />
 
       {/* Only card rows carry a country, so the list is short and the dash at
@@ -934,9 +951,8 @@ export const FilterBar = ({
         title="Countries"
         options={countries}
         picked={filters.countries}
-        mode={filters.countryMode}
+        excluded={filters.countriesOut}
         onToggle={toggleCountry}
-        onMode={(countryMode) => onFilters({ ...filters, countryMode })}
         label={(c) => (c === NO_COUNTRY ? "No country" : c)}
       />
 

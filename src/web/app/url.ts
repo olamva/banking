@@ -73,23 +73,23 @@ export const toParams = (s: UrlState): string => {
   // and offers nothing else, so naming it there would record a choice that was
   // never on offer.
   if (s.grain !== grainsFor(s.period)[0]) p.set("g", s.grain);
+  // Each axis is two lists, so it is two params — the second holding what is
+  // hidden. A `_not` param alone is "everything except these", which is what the
+  // mode used to say; the pair together is what it could never say.
   if (s.filters.categories.length) p.set("cat", s.filters.categories.join(","));
-  if (s.filters.categoryMode !== "include")
-    p.set("cat_mode", s.filters.categoryMode);
+  if (s.filters.categoriesOut.length)
+    p.set("cat_not", s.filters.categoriesOut.join(","));
   // One param per merchant, not a joined list: a merchant name can contain a
   // comma, and a category slug cannot.
   for (const m of s.filters.merchants) p.append("m", m);
-  if (s.filters.merchantMode !== "include")
-    p.set("m_mode", s.filters.merchantMode);
+  for (const m of s.filters.merchantsOut) p.append("m_not", m);
   // Repeated for the same reason as merchants: an account is named by hand and
   // may hold a comma.
   for (const a of s.filters.accounts) p.append("acct", a);
-  if (s.filters.accountMode !== "include")
-    p.set("acct_mode", s.filters.accountMode);
+  for (const a of s.filters.accountsOut) p.append("acct_not", a);
   // Repeated too: a country is a name, and `NO_COUNTRY` is a dash.
   for (const c of s.filters.countries) p.append("co", c);
-  if (s.filters.countryMode !== "include")
-    p.set("co_mode", s.filters.countryMode);
+  for (const c of s.filters.countriesOut) p.append("co_not", c);
   if (s.filters.search) p.set("q", s.filters.search);
   if (s.filters.showExcluded) p.set("excl", "1");
   return p.toString();
@@ -101,25 +101,63 @@ export const toParams = (s: UrlState): string => {
  * lands on a real period either way — and the same holds for `g`, which App
  * falls back on when the window in view does not offer it.
  */
-export const fromParams = (p: URLSearchParams): UrlState => ({
-  view: VIEWS.find((v) => v === p.get("view")) ?? "dashboard",
-  period: p.get("p") || null,
-  grain:
-    ALL_GRAINS.find((g) => g === p.get("g")) ??
-    grainsFor(p.get("p") || null)[0]!,
-  filters: {
-    categories: p.get("cat")?.split(",").filter(Boolean) ?? [],
-    categoryMode: p.get("cat_mode") === "exclude" ? "exclude" : "include",
-    merchants: p.getAll("m").filter(Boolean),
-    merchantMode: p.get("m_mode") === "exclude" ? "exclude" : "include",
-    accounts: p.getAll("acct").filter(Boolean),
-    accountMode: p.get("acct_mode") === "exclude" ? "exclude" : "include",
-    countries: p.getAll("co").filter(Boolean),
-    countryMode: p.get("co_mode") === "exclude" ? "exclude" : "include",
-    search: p.get("q") ?? "",
-    showExcluded: p.get("excl") === "1",
-  },
-});
+export const fromParams = (p: URLSearchParams): UrlState => {
+  const split = (name: string) => p.get(name)?.split(",").filter(Boolean) ?? [];
+  /**
+   * An axis, from the two params holding it — and from the one that used to.
+   * A tab pinned before the split says `cat=x&cat_mode=exclude`, and reading
+   * only the new spelling would show that tab *only* x: the exact opposite
+   * page, silently. So the old mode is still understood, and moves its list to
+   * the side it always meant.
+   */
+  const axis = (
+    values: string[],
+    out: string[],
+    legacyMode: string | null,
+  ): [string[], string[]] =>
+    legacyMode === "exclude" ? [[], [...out, ...values]] : [values, out];
+
+  const [categories, categoriesOut] = axis(
+    split("cat"),
+    split("cat_not"),
+    p.get("cat_mode"),
+  );
+  const repeated = (name: string) => p.getAll(name).filter(Boolean);
+  const [merchants, merchantsOut] = axis(
+    repeated("m"),
+    repeated("m_not"),
+    p.get("m_mode"),
+  );
+  const [accounts, accountsOut] = axis(
+    repeated("acct"),
+    repeated("acct_not"),
+    p.get("acct_mode"),
+  );
+  const [countries, countriesOut] = axis(
+    repeated("co"),
+    repeated("co_not"),
+    p.get("co_mode"),
+  );
+  return {
+    view: VIEWS.find((v) => v === p.get("view")) ?? "dashboard",
+    period: p.get("p") || null,
+    grain:
+      ALL_GRAINS.find((g) => g === p.get("g")) ??
+      grainsFor(p.get("p") || null)[0]!,
+    filters: {
+      categories,
+      categoriesOut,
+      merchants,
+      merchantsOut,
+      accounts,
+      accountsOut,
+      countries,
+      countriesOut,
+      search: p.get("q") ?? "",
+      showExcluded: p.get("excl") === "1",
+    },
+  };
+};
 
 export const readUrl = (): UrlState =>
   fromParams(new URLSearchParams(location.search));
