@@ -33,6 +33,17 @@ export type Filters = {
   /** The same again, over `Txn.account` — what `rules/accounts.json` calls it. */
   accounts: string[];
   accountMode: Mode;
+  /**
+   * The same again, over `Txn.country`.
+   *
+   * Only card rows carry one, so an empty list is not "everywhere" in the way
+   * the other three axes mean it — it is every row, country or not. A row with
+   * no country is therefore excluded by an include filter and kept by an
+   * exclude one, which falls out of `listed` treating null as its own value
+   * rather than needing a case: `NO_COUNTRY` is what it is called in the list.
+   */
+  countries: string[];
+  countryMode: Mode;
   search: string;
   /**
    * Whether internal transfers and card bill payments are listed. Off by
@@ -54,6 +65,7 @@ export const AXES = {
   categories: "categoryMode",
   merchants: "merchantMode",
   accounts: "accountMode",
+  countries: "countryMode",
 } as const;
 
 export type Axis = keyof typeof AXES;
@@ -65,6 +77,8 @@ export const NO_FILTERS: Filters = {
   merchantMode: "include",
   accounts: [],
   accountMode: "include",
+  countries: [],
+  countryMode: "include",
   search: "",
   showExcluded: false,
 };
@@ -132,6 +146,7 @@ export function matchesFilters(t: Categorized, f: Filters): boolean {
     return false;
   if (!listed(f.merchants, f.merchantMode, merchantOf(t))) return false;
   if (!listed(f.accounts, f.accountMode, t.account)) return false;
+  if (!listed(f.countries, f.countryMode, countryOf(t))) return false;
   if (f.search) {
     const q = f.search.toLowerCase();
     const hay = (t.description + " " + (t.counterparty ?? "")).toLowerCase();
@@ -303,6 +318,65 @@ export function distinctSubcategories(txns: Categorized[]): string[] {
 /** Hundreds of these, so the dropdown that shows them is searchable. */
 export function distinctMerchants(txns: Categorized[]): string[] {
   return [...new Set(txns.map(merchantOf))].sort((a, b) => a.localeCompare(b));
+}
+
+/**
+ * The categories that mean the other party was a person rather than a shop.
+ *
+ * The bank does not say whether a counterparty is a human, and no name shape
+ * answers it either — `Georgios Giannakis` is a taverna, `Elias Rønnestad` is a
+ * clothes shop, and `Møller Kantine` is not a person called Møller. Tried over
+ * the record, a person-name regex called about 190 businesses people.
+ *
+ * What does answer it is the category already on the row: a peer payment or
+ * family money only ever has a human on the other end. That is a fact the
+ * pipeline has already established, so this reads it rather than guessing again.
+ */
+const PEER = new Set([
+  "diverse/vennebetaling",
+  "innskudd/familie",
+  "innskudd/lommepenger",
+]);
+
+/**
+ * Which merchants are people, from the rows in view.
+ *
+ * **Any** peer row makes the name a person, not all of them: a flatmate is rent
+ * under `faste_boutgifter` and small Vipps payments under `vennebetaling`, and
+ * requiring every row to agree would file them as a business on the strength of
+ * the rent.
+ *
+ * ponytail: a signal, not a register of humans. It calls `Vipps`, `Pant` and
+ * `Korreksjon` people, because peer rows land under those names, and it misses a
+ * landlord who only ever sent rent. Both are visible in a list you are looking
+ * at, which is the whole reason this narrows a picker rather than a total.
+ */
+export function personMerchants(txns: Categorized[]): Set<string> {
+  const people = new Set<string>();
+  for (const t of txns)
+    if (PEER.has(subcategoryOf(t))) people.add(merchantOf(t));
+  return people;
+}
+
+/**
+ * The value the country filter matches on, with a name for "the row has none".
+ *
+ * A sentinel rather than dropping those rows from the axis: BankAxept and every
+ * transfer carry no country at all, which is most of the record, and an axis
+ * that could not select them would make "show me only the domestic rows" quietly
+ * mean "only the card ones".
+ */
+export const NO_COUNTRY = "—";
+
+export const countryOf = (t: Categorized): string => t.country ?? NO_COUNTRY;
+
+/** Sorted, with the no-country rows last rather than first under `—`. */
+export function distinctCountries(txns: Categorized[]): string[] {
+  const all = [...new Set(txns.map(countryOf))];
+  return all
+    .filter((c) => c !== NO_COUNTRY)
+    .sort((a, b) => a.localeCompare(b))
+    .concat(all.includes(NO_COUNTRY) ? [NO_COUNTRY] : []);
 }
 
 export function distinctAccounts(txns: Categorized[]): string[] {

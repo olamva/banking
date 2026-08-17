@@ -24,6 +24,7 @@ function txn(
     date: "2026-07-15",
     description: "test",
     counterparty: "Kiwi",
+    country: null,
     bankCategory: null,
     bankSub: null,
     bankCategoryName: null,

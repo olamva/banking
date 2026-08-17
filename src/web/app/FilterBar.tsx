@@ -12,6 +12,7 @@
  * are where one is turned off again.
  */
 import { useEffect, useRef, useState } from "react";
+import { NO_COUNTRY } from "../../core/select.ts";
 import type { Axis, Filters, Mode, PeriodKind } from "../../core/select.ts";
 import { NO_FILTERS } from "../../core/select.ts";
 import { pairLabel, treeLabel } from "./format.ts";
@@ -47,7 +48,10 @@ interface FilterBarProps {
   /** `category/sub` pairs, which the categories dropdown opens into. */
   subcategories: string[];
   merchants: string[];
+  /** Which of `merchants` are people — see `personMerchants`. */
+  people: ReadonlySet<string>;
   accounts: string[];
+  countries: string[];
   filters: Filters;
   onFilters: (filters: Filters) => void;
 }
@@ -132,7 +136,20 @@ interface PickerProps {
    */
   subs?: (option: string) => string[];
   subLabel?: (value: string) => string;
+  /**
+   * Which options are people, if that is a thing this list can be split by.
+   *
+   * Only the merchants picker passes it, and passing it is what draws the
+   * People/Businesses switch — a list of eight hundred names is two different
+   * lists in practice, and scrolling past every friend to reach Rema is the
+   * complaint this answers. It narrows what is *listed*, never which rows are
+   * counted: the filter is still the checkboxes.
+   */
+  people?: ReadonlySet<string>;
 }
+
+/** All, or one side of the People/Businesses split. */
+type Kind = "all" | "people" | "business";
 
 /**
  * One list, picked from checkboxes, read either as the only rows to show or the
@@ -152,8 +169,16 @@ const Picker = ({
   label = (v) => v,
   subs,
   subLabel = (v) => v,
+  people,
 }: PickerProps) => {
   const [query, setQuery] = useState("");
+  /**
+   * Which side of the split is listed. Not in the URL and not in `Filters`: it
+   * changes nothing about the page, only what this open menu shows, and a
+   * filtered page that reloads should come back filtered the same way whether
+   * the name was found under People or under All.
+   */
+  const [kind, setKind] = useState<Kind>("all");
   /** Which options are opened into their children. Nothing is open to begin with. */
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   /**
@@ -183,6 +208,18 @@ const Picker = ({
   useEffect(() => () => clearTimeout(reset.current), []);
 
   const q = query.trim().toLowerCase();
+  /**
+   * The split runs before the search, so searching inside People searches
+   * people. Anything already checked survives it for the same reason it
+   * survives the search box: a filter you cannot see is one you cannot turn off,
+   * and switching side would otherwise strand it.
+   */
+  const listed =
+    !people || kind === "all"
+      ? options
+      : options.filter(
+          (o) => people.has(o) === (kind === "people") || picked.includes(o),
+        );
   const childrenOf = (o: string) => subs?.(o) ?? [];
   const hitsQuery = (name: string) => name.toLowerCase().includes(q);
 
@@ -191,7 +228,7 @@ const Picker = ({
   // whose *child* matches stays too — searching for a subcategory that finds
   // nothing because its category is spelled differently is not a search.
   const shown = q
-    ? options.filter(
+    ? listed.filter(
         (o) =>
           hitsQuery(label(o)) ||
           picked.includes(o) ||
@@ -199,7 +236,7 @@ const Picker = ({
             (c) => hitsQuery(subLabel(c)) || picked.includes(c),
           ),
       )
-    : options;
+    : listed;
 
   // Whatever is on floats to the top, so what is filtered is never scrolled away
   // from in a list of hundreds. A parent counts as on when one of its children
@@ -416,6 +453,34 @@ const Picker = ({
               Exclude
             </span>
           </button>
+          {/* Only where the caller says the list splits, which is merchants
+              alone. Three plain buttons rather than a select: the whole control
+              is one tap on a phone, and no option is hidden behind opening it. */}
+          {people && (
+            <div className="mb-1.5 flex w-full shrink-0 overflow-hidden rounded-md border border-line text-xs">
+              {(
+                [
+                  ["all", "All"],
+                  ["people", "People"],
+                  ["business", "Businesses"],
+                ] as const
+              ).map(([value, text]) => (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={kind === value}
+                  onClick={() => {
+                    setKind(value);
+                    // The list under the highlight is a different list now.
+                    setActive(null);
+                  }}
+                  className={`flex-1 px-2 py-1 ${kind === value ? "bg-series-1 text-white" : "bg-page text-ink-soft"}`}
+                >
+                  {text}
+                </button>
+              ))}
+            </div>
+          )}
           {/* Always, not just for the long lists. It is also what gives the
               panel focus on open, and the arrow keys only reach the list from
               inside the panel — without it the categories menu opened with focus
@@ -713,7 +778,9 @@ export const FilterBar = ({
   categories,
   subcategories,
   merchants,
+  people,
   accounts,
+  countries,
   filters,
   onFilters,
 }: FilterBarProps) => {
@@ -735,15 +802,18 @@ export const FilterBar = ({
     );
   const toggleMerchant = toggle("merchants");
   const toggleAccount = toggle("accounts");
+  const toggleCountry = toggle("countries");
 
   const excluding = filters.categoryMode === "exclude";
   const excludingMerchants = filters.merchantMode === "exclude";
   const excludingAccounts = filters.accountMode === "exclude";
+  const excludingCountries = filters.countryMode === "exclude";
 
   const picked =
     filters.categories.length +
     filters.merchants.length +
-    filters.accounts.length;
+    filters.accounts.length +
+    filters.countries.length;
 
   /**
    * The three lists and the search as one number, so what is on reads as a whole
@@ -762,6 +832,7 @@ export const FilterBar = ({
     excluding ||
     excludingMerchants ||
     excludingAccounts ||
+    excludingCountries ||
     filters.showExcluded;
 
   return (
@@ -844,6 +915,7 @@ export const FilterBar = ({
         mode={filters.merchantMode}
         onToggle={toggleMerchant}
         onMode={(merchantMode) => onFilters({ ...filters, merchantMode })}
+        people={people}
       />
 
       {/* A handful of accounts, so it needs no search box either. */}
@@ -854,6 +926,18 @@ export const FilterBar = ({
         mode={filters.accountMode}
         onToggle={toggleAccount}
         onMode={(accountMode) => onFilters({ ...filters, accountMode })}
+      />
+
+      {/* Only card rows carry a country, so the list is short and the dash at
+          the end of it is every other row — see `NO_COUNTRY`. */}
+      <Picker
+        title="Countries"
+        options={countries}
+        picked={filters.countries}
+        mode={filters.countryMode}
+        onToggle={toggleCountry}
+        onMode={(countryMode) => onFilters({ ...filters, countryMode })}
+        label={(c) => (c === NO_COUNTRY ? "No country" : c)}
       />
 
       {/* Not a Picker: there is nothing to pick, only whether the flagged rows

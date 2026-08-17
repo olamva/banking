@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS transactions (
   amount REAL NOT NULL,
   description TEXT NOT NULL,
   counterparty TEXT,
+  country TEXT,
   bankCategory TEXT,
   bankSub TEXT,
   bankCategoryName TEXT,
@@ -48,10 +49,10 @@ export function openDb(path = "data/banking.db"): DatabaseSync {
 
 const UPSERT = `
 INSERT INTO transactions
-  (id, accountKey, account, date, month, amount, description, counterparty,
+  (id, accountKey, account, date, month, amount, description, counterparty, country,
    bankCategory, bankSub, bankCategoryName, bankSubName, bankConfidence,
    typeText, remoteAccountNumber, isRecurring, isSubscription, excluded, reason, category, subcategory)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (id) DO UPDATE SET
   accountKey = excluded.accountKey,
   account = excluded.account,
@@ -60,6 +61,7 @@ ON CONFLICT (id) DO UPDATE SET
   amount = excluded.amount,
   description = excluded.description,
   counterparty = excluded.counterparty,
+  country = excluded.country,
   bankCategory = excluded.bankCategory,
   bankSub = excluded.bankSub,
   bankCategoryName = excluded.bankCategoryName,
@@ -85,6 +87,7 @@ function bindParams(row: Categorized) {
     row.amount,
     row.description,
     row.counterparty,
+    row.country,
     row.bankCategory,
     row.bankSub,
     row.bankCategoryName,
@@ -121,6 +124,7 @@ type Row = {
   amount: number;
   description: string;
   counterparty: string | null;
+  country: string | null;
   bankCategory: string | null;
   bankSub: string | null;
   bankCategoryName: string | null;
@@ -145,6 +149,7 @@ function toCategorized(row: Row): Categorized {
     amount: row.amount,
     description: row.description,
     counterparty: row.counterparty,
+    country: row.country,
     bankCategory: row.bankCategory,
     bankSub: row.bankSub,
     bankCategoryName: row.bankCategoryName,

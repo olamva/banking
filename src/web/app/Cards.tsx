@@ -681,6 +681,7 @@ const SHOWN_ABOVE = [
   "date",
   "amount",
   "counterparty",
+  "country",
   "account",
   "category",
   "subcategory",
@@ -763,8 +764,14 @@ const TxnDialog = ({ txn, onClose }: TxnDialogProps) => {
         </button>
       </div>
       <div className="px-5 py-4">
-        {(txn.excluded || txn.isSubscription || txn.isRecurring) && (
+        {(txn.excluded ||
+          txn.isSubscription ||
+          txn.isRecurring ||
+          txn.country) && (
           <div className="mb-3 flex flex-wrap gap-1.5">
+            {/* First, because it is the one chip that says something about the
+                row rather than about how it is treated. */}
+            {txn.country && <Chip>{txn.country}</Chip>}
             {txn.excluded && <Chip>Excluded</Chip>}
             {txn.isSubscription && <Chip>Subscription</Chip>}
             {txn.isRecurring && <Chip>Recurring</Chip>}
