@@ -13,9 +13,8 @@
  * disclosure is also the only place Reset lives.
  */
 import { useEffect, useRef, useState } from "react";
-import { NO_COUNTRY } from "../../core/select.ts";
 import type { Axis, Filters, PeriodKind } from "../../core/select.ts";
-import { AXES, NO_FILTERS } from "../../core/select.ts";
+import { AXES, NO_COUNTRY, NO_FILTERS } from "../../core/select.ts";
 import { pairLabel, treeLabel } from "./format.ts";
 import {
   DropdownIcon,
@@ -419,7 +418,7 @@ const Picker = ({
        * edge and gave the whole page a sideways scroll. Full width anchors it to
        * the left of the bar, where it always fits.
        */
-      className="group relative max-sm:w-full"
+      className="group relative max-sm:w-full select-none"
       // The panel mounts and unmounts with the menu, so this is what tells React
       // it has opened at all.
       onToggle={toggled}
@@ -666,7 +665,7 @@ const FilterSummary = ({
   return (
     <details ref={menu} className="group relative max-sm:w-full">
       <summary
-        className={`${CONTROL} flex list-none items-center gap-1.5 marker:content-none`}
+        className={`${CONTROL} flex list-none items-center select-none gap-1.5 marker:content-none`}
       >
         {active > 0 ? `${active} filter${active === 1 ? "" : "s"}` : "Filters"}
         <Icon
