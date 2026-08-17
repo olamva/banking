@@ -27,6 +27,7 @@ function classified(overrides: Partial<Classified>): Classified {
     amount: -100,
     description: "Rema 1000",
     counterparty: "Rema 1000",
+    country: null,
     bankCategory: "dagligvarer",
     bankSub: null,
     bankCategoryName: null,
@@ -552,8 +553,11 @@ test("renamePayees collapses a payee that writes the month into every payment", 
   );
   // The month is still in the description, which is what the search box reads.
   assert.equal(renamed[0]!.description, "SIMEN LEIE Februar Husleie");
-  // No file, no work: the array comes back as it went in.
-  assert.equal(renamePayees(rows, {}), rows);
+  // With no rules there is nothing to collapse, and every name comes back with
+  // the same value — the shape cleaner runs regardless, but all five of these
+  // are mixed case, which it leaves alone. It is no longer the same *array*:
+  // cleaning does not depend on the rules file existing.
+  assert.deepEqual(renamePayees(rows, {}), rows);
 });
 
 /**

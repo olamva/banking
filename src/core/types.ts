@@ -51,6 +51,21 @@ export type Txn = {
    * Card rows always carry one, as `MERCHANT, CITY, COUNTRY`.
    */
   counterparty: string | null;
+  /**
+   * The terminal's country, where the row carries one.
+   *
+   * Card rows arrive as `NAME, CITY, COUNTRY`, so the country is a field the
+   * bank already sends rather than anything inferred — `countryOf` in
+   * `names.ts` reads it off that tail, and null everywhere else. BankAxept rows
+   * have no country on them at all, which is why a domestic card purchase says
+   * `Norway` and a Rema shop says nothing: the difference is what the channel
+   * sent, not where you were.
+   *
+   * It is a label and a filter axis, never a money field. The travel guess in
+   * `categorize` still reads the name's own tail and is untouched by this —
+   * merging the two would tie a category rule to a display field.
+   */
+  country: string | null;
   /** The bank's own category. Set on card rows too — it classifies those itself. */
   bankCategory: string | null;
   /**

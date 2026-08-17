@@ -23,6 +23,7 @@ const row: Categorized = {
   amount: -249.5,
   description: "a description",
   counterparty: null,
+  country: null,
   bankCategory: "dagligvarer",
   bankSub: "andre_dagligvarer",
   bankCategoryName: "Dagligvarer",

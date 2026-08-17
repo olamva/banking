@@ -15,6 +15,7 @@ function row(overrides: Partial<Categorized> = {}): Categorized {
     amount: -100,
     description: "Coop",
     counterparty: "Coop",
+    country: null,
     bankCategory: "dagligvarer",
     bankSub: null,
     bankCategoryName: null,

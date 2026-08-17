@@ -116,6 +116,9 @@ src/core/types.ts     Txn / Classified / Categorized — the shared contract
 src/core/normalize.ts data/raw/<month>/*.json -> Txn[]
 src/core/exclude.ts   Txn[] -> Classified[]; flags transfers and bill payments
 src/core/categorize.ts Classified[] -> Categorized[]; bank category + overrides
+src/core/names.ts     the shape a channel put on a name, taken back off — the
+                      card's `, CITY, COUNTRY` tail, a BankAxept street and
+                      city, ALL CAPS. Knows no payees; that is payees.json
 src/core/db.ts        node:sqlite store, rebuilt wholesale
 src/core/stats.ts     the only money aggregation — monthStats() and yearStats()
 src/core/report.ts    what rules/overrides.json still earns against the bank's
@@ -123,7 +126,7 @@ src/core/report.ts    what rules/overrides.json still earns against the bank's
 src/core/reconcile.ts opening + every row == the balance the bank reports; the
                       only check that looks outside the repo for its answer
 src/core/select.ts    which rows are in view; no money logic, ever — `AXES` is
-                      the three list filters, one control repeated
+                      the four list filters, one control repeated
 src/core/pipeline.ts  the offline chain, importable by the CLI and the server
 
 src/web/serve.ts      pnpm dev — /api/txns and Vite middleware, offline always
@@ -138,7 +141,8 @@ rules/accounts.json     which accounts are mine, and which is the card
 rules/overrides.json    substring or /regex/ -> `category/sub`, gitignored;
                         a bare `category` parses and means no subcategory
 rules/giro.json         name -> what that person's lump transfers are, gitignored
-rules/payees.json       pattern -> the one name a payee goes by, gitignored
+rules/payees.json       pattern -> the one name a payee goes by, gitignored;
+                        what a payee is *called*, never what shape it arrived in
 rules/subscriptions.json  the same patterns, as a list; sets isSubscription, gitignored
 ```
 
@@ -165,6 +169,22 @@ rendering, with four guards around it to keep the request count sane — stalene
 on disk, single-flight, a budget check, a failed attempt still counted. It was
 removed in favour of not having the path at all, and the reasoning is in that
 file's header. Syncing is `pnpm sb1 sync`, run by hand.
+
+**A name is either known or merely shaped, and the two never mix.**
+`rules/payees.json` carries knowledge — that NSB is Vy, that `ARK BRUNS` and
+`ARK OSL ØST UTL` are one bookshop, that a truncated `Christian Ste` is Stevens.
+None of that is derivable, so it is written down. `src/core/names.ts` carries the
+opposite: the formatting SB1 wraps every name in, which is mechanical and must
+never need a line. It runs only on what no rule claimed, and a rule's name is
+used exactly as written — letting the cleaner touch one would return `IKEA` as
+`Ikea` and `H&M` as `H&m`, which is this file quietly overruling that one.
+
+That split is what stops either from growing without end. A merchant first seen
+next year arrives readable with nothing added anywhere; a merchant that needs a
+*name* rather than a shape gets one line. The 2026-08-17 pass named 539 of the
+897 spellings on record by rule and left the rest to the cleaner, and the money
+totals were identical to the øre across it — a rename can never move money,
+which is the property that makes the whole file safe to edit.
 
 **Every SB1 request is ledgered, against the bank's own count.** `sb1.get` and
 the token exchange both call `budget.spend` before the request and
@@ -284,6 +304,22 @@ while there were two APIs, and one source needs no such field. The key stays on
 the row as `accountKey`; the name rides along because `stats.ts` runs in the
 browser, where there is no rules file to look one up in, and because a key is a
 local secret that must never be a label on the page.
+
+`Txn.country` is **the terminal's country, and only where the row carries one**.
+The card sends `NAME, CITY, COUNTRY`, so three comma segments is the whole
+parse and the whole guard: it takes all 494 rows that have a tail and rejects
+every two-segment name, where the tail is a city (`GINA TRICOT STORMOA, LAN
+ÅLESUND`), a store code (`SMART STORE, S L P`) or a person (`Vipps, Ola Munthe
+Vassbotn :`). A country allowlist would do the same and need maintaining.
+
+It is read off `cleanedDescription` in `normalize`, **before any rename**, since
+a payee renamed to `Yoshinoya` no longer carries the tail it is written in. So a
+domestic card purchase says `Norway` and a Rema shop says nothing at all: the
+difference is which channel sent the row, not where you were standing. It is a
+chip and the fourth filter axis, never a money field — and the travel guess in
+`categorize` still reads the name's own tail and is deliberately untouched by
+it, because tying a category rule to a display field is how one of them starts
+deciding the other.
 
 Two rules still need to know _which_ account is the credit card, and both read
 `card: true` from `rules/accounts.json` rather than guessing: `billReason`,
@@ -466,6 +502,14 @@ the bare slug is one of the candidates tested.
 
 A pair is always `category/sub`, never a bare sub: `dagligvarer` is a sub under
 itself and `kollektivtransport` sits under two mains.
+
+**The country axis is the fourth, and it needed no fourth kind of control** —
+`AXES` was already "one entry plus its two fields", which is what adding it
+cost. Its one difference is that most rows have no country at all, so an empty
+list cannot mean "everywhere" the way it does for the other three: `NO_COUNTRY`
+is a real value in the list, a dash, and it selects every BankAxept row and
+every transfer. Without it, "show me only the domestic rows" would quietly mean
+"only the card ones".
 
 **`diverse` is the bank's largest main and it is kept**, subcategories and all.
 It reads like a second catch-all and is not one: its 2 482 rows split into

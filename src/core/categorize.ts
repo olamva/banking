@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
+import { makeCleaner } from "./names.ts";
 import type { Categorized, Classified } from "./types.ts";
 
 /**
@@ -251,13 +252,26 @@ export function renamePayees<
     matches: compile(pattern, "rules/payees.json"),
     name,
   }));
-  if (rules.length === 0) return txns;
+  // The corpus the cleaner infers places from is the un-renamed names — the raw
+  // strings are where `VOLDA` ends a dozen entries. Building it from the
+  // renamed ones would hide exactly the shape it is looking for.
+  const clean = makeCleaner(
+    txns.map((t) => t.counterparty).filter((n) => n !== null),
+  );
   return txns.map((t) => {
     // Same haystack as `categorize`, account number included: SB1 sends a few
     // rows as a bare `Overføring` with no name on them at all, and the account
     // is then the only thing that says who the other party was.
     const hit = rules.find((r) => r.matches(haystackOf(t)));
-    return hit ? { ...t, counterparty: hit.name } : t;
+    // A rule's name is used exactly as written. It is a person's decision about
+    // what a payee is called, and running a shape heuristic over it would let
+    // this file quietly overrule `rules/payees.json` — `IKEA` would come back
+    // as `Ikea` and `H&M` as `H&m`. The cleaner only ever sees what no rule
+    // claimed.
+    if (hit) return { ...t, counterparty: hit.name };
+    return t.counterparty === null
+      ? t
+      : { ...t, counterparty: clean(t.counterparty) };
   });
 }
 

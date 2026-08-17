@@ -86,6 +86,10 @@ export const toParams = (s: UrlState): string => {
   for (const a of s.filters.accounts) p.append("acct", a);
   if (s.filters.accountMode !== "include")
     p.set("acct_mode", s.filters.accountMode);
+  // Repeated too: a country is a name, and `NO_COUNTRY` is a dash.
+  for (const c of s.filters.countries) p.append("co", c);
+  if (s.filters.countryMode !== "include")
+    p.set("co_mode", s.filters.countryMode);
   if (s.filters.search) p.set("q", s.filters.search);
   if (s.filters.showExcluded) p.set("excl", "1");
   return p.toString();
@@ -110,6 +114,8 @@ export const fromParams = (p: URLSearchParams): UrlState => ({
     merchantMode: p.get("m_mode") === "exclude" ? "exclude" : "include",
     accounts: p.getAll("acct").filter(Boolean),
     accountMode: p.get("acct_mode") === "exclude" ? "exclude" : "include",
+    countries: p.getAll("co").filter(Boolean),
+    countryMode: p.get("co_mode") === "exclude" ? "exclude" : "include",
     search: p.get("q") ?? "",
     showExcluded: p.get("excl") === "1",
   },

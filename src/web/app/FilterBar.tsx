@@ -12,6 +12,7 @@
  * are where one is turned off again.
  */
 import { useEffect, useRef, useState } from "react";
+import { NO_COUNTRY } from "../../core/select.ts";
 import type { Axis, Filters, Mode, PeriodKind } from "../../core/select.ts";
 import { NO_FILTERS } from "../../core/select.ts";
 import { pairLabel, treeLabel } from "./format.ts";
@@ -48,6 +49,7 @@ interface FilterBarProps {
   subcategories: string[];
   merchants: string[];
   accounts: string[];
+  countries: string[];
   filters: Filters;
   onFilters: (filters: Filters) => void;
 }
@@ -714,6 +716,7 @@ export const FilterBar = ({
   subcategories,
   merchants,
   accounts,
+  countries,
   filters,
   onFilters,
 }: FilterBarProps) => {
@@ -735,15 +738,18 @@ export const FilterBar = ({
     );
   const toggleMerchant = toggle("merchants");
   const toggleAccount = toggle("accounts");
+  const toggleCountry = toggle("countries");
 
   const excluding = filters.categoryMode === "exclude";
   const excludingMerchants = filters.merchantMode === "exclude";
   const excludingAccounts = filters.accountMode === "exclude";
+  const excludingCountries = filters.countryMode === "exclude";
 
   const picked =
     filters.categories.length +
     filters.merchants.length +
-    filters.accounts.length;
+    filters.accounts.length +
+    filters.countries.length;
 
   /**
    * The three lists and the search as one number, so what is on reads as a whole
@@ -762,6 +768,7 @@ export const FilterBar = ({
     excluding ||
     excludingMerchants ||
     excludingAccounts ||
+    excludingCountries ||
     filters.showExcluded;
 
   return (
@@ -854,6 +861,18 @@ export const FilterBar = ({
         mode={filters.accountMode}
         onToggle={toggleAccount}
         onMode={(accountMode) => onFilters({ ...filters, accountMode })}
+      />
+
+      {/* Only card rows carry a country, so the list is short and the dash at
+          the end of it is every other row — see `NO_COUNTRY`. */}
+      <Picker
+        title="Countries"
+        options={countries}
+        picked={filters.countries}
+        mode={filters.countryMode}
+        onToggle={toggleCountry}
+        onMode={(countryMode) => onFilters({ ...filters, countryMode })}
+        label={(c) => (c === NO_COUNTRY ? "No country" : c)}
       />
 
       {/* Not a Picker: there is nothing to pick, only whether the flagged rows

@@ -29,6 +29,8 @@ test("a populated state round-trips, nulls included", () => {
       merchantMode: "include",
       accounts: ["Mastercard Ung"],
       accountMode: "exclude",
+      countries: ["Japan", "—"],
+      countryMode: "include",
       search: "rema",
       showExcluded: true,
     },
