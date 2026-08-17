@@ -1,9 +1,7 @@
 /**
- * The offline half, in one place so the CLI and the dev server run identically.
- *
- * Nothing here imports anything under src/net/, and nothing here may: analysis never
- * calls the API. That rule is enforced by this file's import list — keep it
- * that way.
+ * The offline chain, in one place so the CLI and the dev server run
+ * identically. Nothing here may import from src/net/: analysis never calls the
+ * API, and this file's import list is what enforces it.
  */
 import { readdirSync, rmSync } from "node:fs";
 import { mkdir, readFile } from "node:fs/promises";
@@ -18,14 +16,13 @@ import {
 } from "./categorize.ts";
 import { openDb, rebuild as rebuildDb } from "./db.ts";
 import { exclude, type Accounts } from "./exclude.ts";
+import { narrowings } from "./narrowings.ts";
 import { normalizeMonth } from "./normalize.ts";
-import { narrowings } from "./report.ts";
 import type { Categorized } from "./types.ts";
 
 export const DB_FILE = "data/banking.db";
 export const RAW = "data/raw";
 
-/** Every YYYY-MM directory under data/raw/, ascending. */
 export function monthsOnDisk(): string[] {
   return readdirSync(RAW, { withFileTypes: true })
     .filter((e) => e.isDirectory() && /^\d{4}-\d{2}$/.test(e.name))
@@ -38,14 +35,6 @@ export function monthsOnDisk(): string[] {
  *
  * Exclusion runs per month because both legs of an internal transfer share a
  * date and so can never land in different months.
- *
- * `rename: false` stops before `renamePayees` and hands back the names the bank
- * actually sent. Only the override report wants that, and it must have it: the
- * rename runs *after* `categorize`, so a rule is never matched against a renamed
- * name, and a report judging rules against the stored name judges a world the
- * pipeline never ran. `rules/payees.json` rewriting a payee into a string that
- * some *other* override pattern matches is enough to invert a verdict — one
- * entry on record does exactly that.
  */
 export async function pipeline(
   month: string,
@@ -79,21 +68,18 @@ export async function pipeline(
 /**
  * What each excluded reason sums to, which must be zero for all but one.
  *
- * `investment movement` is exempt **by design**: its counter-leg is booked at
- * the fund manager and is not in `data/raw/` at all, so its residue is the gain
- * on the funds. Every other reason has both legs in the data, so a non-zero sum
- * is not a rounding artefact — it is money one rule took out of the totals and
- * no rule put back.
+ * `investment movement` is exempt: its counter-leg is booked at the fund
+ * manager and is not in `data/raw/` at all, so its residue is the gain on the
+ * funds. Every other reason has both legs here, so a non-zero sum is money one
+ * rule took out of the totals and no rule put back.
  */
 export function netByReason(rows: Categorized[]): Map<string, number> {
   const net = new Map<string, number>();
   for (const r of rows) {
     if (!r.excluded || !r.reason || r.reason === "investment movement")
       continue;
-    // A card bill's two legs are one pair under two names — the bank debit and
-    // the card credit are worded differently, so they are labelled differently.
-    // Netting them apart would report every bill twice as an error and never as
-    // the balanced pair it is.
+    // A card bill's two legs are one pair under two names, so netting them
+    // apart would report every bill as an error forever.
     const pair = r.reason.replace(/ \(card side\)$/, "");
     net.set(pair, (net.get(pair) ?? 0) + r.amount);
   }
@@ -102,17 +88,9 @@ export function netByReason(rows: Categorized[]): Map<string, number> {
 
 /**
  * The database is derived and disposable: delete it and reconstruct from
- * data/raw/ alone.
- *
- * This is the only way rows get in, and deliberately so. An incremental upsert
- * keyed on `(source, id)` used to exist alongside it, and it was wrong: SB1
- * reissues a transaction under a *new* id when a reservation becomes booked, so
- * re-syncing a month still in flight left the old id behind as a second row.
- * One 18 000 kr rent payment showed up twice, and no amount of re-importing
- * cleared it, because an upsert has no way to notice a row it did not produce.
- *
- * A full reconstruct is a few hundred milliseconds at this size and has no such
- * failure mode. Revisit only when that stops being true.
+ * data/raw/ alone. This is the only way rows get in — an incremental upsert
+ * cannot notice a row it did not produce, and SB1 reissues a transaction under
+ * a new id every time it is fetched.
  */
 export async function rebuildAll(): Promise<number> {
   rmSync(DB_FILE, { force: true });
@@ -122,52 +100,41 @@ export async function rebuildAll(): Promise<number> {
     const months = monthsOnDisk();
     const rows: Categorized[] = [];
     for (const month of months) {
-      // A row the pipeline chokes on throws from wherever it was read, which
-      // names neither the month nor the file — `rebuild` reported a bare
-      // "Cannot read properties of undefined" over 4000 rows. The month is the
-      // one piece of context this loop has and the stack does not.
       try {
-        // Un-renamed, because the ordering check below has to see the names the
-        // rules were matched against. The rename is applied once, after it.
+        // Un-renamed, so the check below sees the names the rules matched
+        // against. The rename is applied once, after it.
         rows.push(...(await pipeline(month, { rename: false })));
       } catch (e) {
+        // The month is the one piece of context this loop has and the stack
+        // does not.
         throw new Error(
           `${RAW}/${month}: ${e instanceof Error ? e.message : e}`,
           { cause: e },
         );
       }
     }
-    // Every line in rules/overrides.json is location-agnostic, so the file can
-    // be grouped and sorted freely. Nothing else would announce that breaking:
-    // two lines claiming the same row under different categories make the order
-    // load-bearing, and the only symptom is rows quietly moving the next time
-    // the file is tidied.
-    //
-    // **On the un-renamed rows, and that is load-bearing.** `rules/payees.json`
-    // rewrites `ONLINE LINJ TR` to `Online Linjeforeningen`, which matches a
-    // *different* override than the one that actually decided the row — judging
-    // the file against a name no rule ever saw invents two collisions that are
-    // not there. Warned, not thrown: the store is still right for today's order.
+    // Two lines claiming one row under different categories make the file's
+    // order load-bearing, and the only symptom is rows quietly moving the next
+    // time it is tidied. Warned, not thrown: today's order is still right.
     const loose = narrowings(rows, await loadOverrides());
-    if (loose.length) {
+    for (const l of loose) {
       console.error(
-        `\nwarning: ${loose.length} line(s) in rules/overrides.json now depend on where they sit.` +
-          `\nThe file can no longer be reordered safely. Run \`pnpm sb1 categories\` for the narrowed form of each.`,
+        `\nwarning: ${JSON.stringify(l.pattern)} only works where it sits, losing rows to ` +
+          l.beaten.map((b) => JSON.stringify(b.pattern)).join(", ") +
+          (l.suggest
+            ? `\n  narrow it to ${JSON.stringify(l.suggest)}`
+            : `\n  narrow it by hand — a winner is anchored and cannot be inlined`),
       );
     }
-    // Every excluded reason must net to zero across its pair, because both legs
-    // of a flagged move are in the data. A reason that does not net is a leg
-    // excluded whose counterpart stayed in, which silently deletes real money
-    // from both totals — 28 150 kr of it went unnoticed for eight years because
-    // this check lived only in the tests and never ran over the record.
+    // A reason that does not net is one leg excluded while its counterpart is
+    // counted, which silently deletes real money from both totals.
     for (const [reason, net] of netByReason(rows)) {
       if (Math.abs(net) < 0.005) continue;
       console.error(
         `\nwarning: excluded reason "${reason}" nets to ${net.toFixed(2)}, not zero.` +
-          `\nOne leg of a pair is being excluded while the other is counted — that much money is missing from the totals.`,
+          `\nOne leg of a pair is being excluded while the other is counted.`,
       );
     }
-    // Last, so no rule was ever matched against a name the bank did not send.
     rebuildDb(db, renamePayees(rows, await loadPayees()));
     console.error(
       `rebuilt ${DB_FILE} from ${months.length} months, ${rows.length} rows`,

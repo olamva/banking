@@ -95,39 +95,21 @@ import {
 import { GRAINS, readUrl, writeUrl, type Grain } from "./url.ts";
 
 /**
- * Two columns at this page width, and the last card takes the whole row **only
- * when it would otherwise be the odd one out** sitting alone in half of one.
+ * Two columns, and the last card takes the whole row **only when it would
+ * otherwise sit alone in half of one** — either parity happens in practice, so
+ * the span must not be unconditional.
  *
- * That `nth-child(odd)` is doing real work, and both ways round. A month or a
- * year normally shows eight — four spending charts (category, changes,
- * merchants, accounts), three income ones, and the subscriptions table — so the
- * table is the eighth and pairs off with the last chart. Drop one card (a year
- * with nothing before it to change against, a period with no income, one
- * account) and the count goes odd, which is when the span has to fire. Either
- * parity happens in practice, which is why it must not be unconditional.
- *
- * The `min(…, 100%)` is what makes the 460 a *preference* rather than a floor.
- * Written as a bare pixel minimum the column never goes narrower than that, so
- * on a phone it stayed 460 wide and the whole page scrolled sideways under it.
- * `layout.test.ts` refuses the bare form anywhere in here; the mobile rules are
- * in CLAUDE.md.
+ * `min(…, 100%)` makes the 460 a *preference* rather than a floor: a bare pixel
+ * minimum never goes narrower, so on a phone the page scrolls sideways under
+ * it. `layout.test.ts` refuses the bare form anywhere in here.
  */
 const CARD_GRID =
   "grid grid-cols-[repeat(auto-fit,minmax(min(460px,100%),1fr))] gap-4 [&>*:last-child:nth-child(odd)]:col-span-full";
 
 /**
- * All time: three charts across, and the table under them.
- *
- * All time is the one period with **no** changes card — nothing precedes it to
- * compare against — so it has six charts rather than seven, three spending and
- * three income, and three across is what makes each direction its own row.
- * Narrower per card, but that costs less than it looks: `HorizontalBars` gives
- * every label the card's full width and truncates against whatever is left, so
- * it shrinks rather than breaks.
- *
- * The last child always takes the full row here, because the last child is
- * always the subscriptions table: a table wants the width, and over all time
- * there is always something recurring for it to hold.
+ * All time: three charts across, so each direction is its own row — it is the
+ * one period with no changes card, leaving six. The last child always spans,
+ * because over all time it is always the subscriptions table.
  */
 const CARD_GRID_3 =
   "grid grid-cols-[repeat(auto-fit,minmax(min(300px,100%),1fr))] gap-4 [&>*:last-child]:col-span-full";
@@ -159,22 +141,13 @@ const ExcludedNote = ({ excluded, where }: ExcludedNoteProps) =>
 type SetFilters = Dispatch<SetStateAction<Filters>>;
 
 /**
- * Clicking a bar or a table cell filters to it; clicking the one already
- * filtered to clears it. A plain click always means "show me this", so it
- * replaces whatever was shown — showing is naturally one thing at a time.
+ * A plain click means "show me this" and replaces what was shown, since showing
+ * is naturally one thing at a time. Meta-click means "not this" and
+ * accumulates, since hiding is naturally several.
  *
- * Meta-click means "not this", and accumulates: hiding is naturally several, so
- * each one adds to the exclusion list. **The two lists no longer displace each
- * other**, which is the point of there being two: meta-clicking a subcategory
- * out of the category you clicked into now leaves you inside that category,
- * where before it dropped the include list and showed you everything else.
- *
- * A value still ends up on one list at a time, since each gesture takes it off
- * the other — the exclusion would win anyway, and a tick that decides nothing
- * is a filter that reads as on and does nothing.
- *
- * The four axes are the same gesture over a different pair of lists, so they
- * are one function, and `AXES` is that pairing.
+ * A value ends up on one list at a time, each gesture taking it off the other:
+ * the exclusion would win anyway, and a tick that decides nothing reads as a
+ * filter that is on and does nothing.
  */
 const pick =
   (onFilters: SetFilters, key: Axis) =>
@@ -248,14 +221,9 @@ interface DashboardProps {
 }
 
 /**
- * One dashboard for every period. Month and year were never two views — they
- * were the same tiles and the same bars over two window lengths, so what varies
- * here is the window, not the layout.
- *
- * `monthStats` is named for the case it was written for, but it only ever used
- * the month as a label: hand it any two row sets and it compares them. That is
- * what makes "biggest changes" and the counterparty list — both month-only
- * before — work over a year for free.
+ * One dashboard for every period: the same tiles and bars over two window
+ * lengths, so what varies is the window and not the layout. `monthStats` uses
+ * its month as a label only — hand it any two row sets and it compares them.
  */
 const Dashboard = ({
   txns,
@@ -270,14 +238,10 @@ const Dashboard = ({
   const shown = all.filter((t) => matchesFilters(t, filters));
 
   /**
-   * The window being compared against, once there is one. Nothing precedes all
-   * time, and nothing precedes the first period in the archive either — a
-   * comparison against a window with no rows in it reads as a 100% rise on
-   * every tile, against a zero that is an absence rather than a measurement.
-   *
-   * Measured before the filters, deliberately. A filter that empties the
-   * previous window is a real zero — money spent on something that did not
-   * exist then — and that delta is worth keeping.
+   * The window compared against, where there is one: a comparison against a
+   * window with no rows reads as a 100% rise against a zero that is an absence.
+   * Measured before the filters, since a filter that empties the previous
+   * window is a real zero worth keeping.
    */
   const vs =
     p.prev && txns.some((t) => inRange(t, p.prev!.from, p.prev!.to))
@@ -315,9 +279,8 @@ const Dashboard = ({
   // deltas beside it are measuring the same thing.
   const compare = vs ? build(previous, vs.from, vs.to) : [];
 
-  // Spending and income are the same three breakdowns over two signs, so they
-  // are the same two mappers called twice — nothing about drawing a bar cares
-  // which direction the money went.
+  // Nothing about drawing a bar cares which direction the money went, so the
+  // two sides are the same two mappers called twice.
   const catBars = (
     categories: typeof stats.categories,
     subcategories: typeof stats.subcategories,
@@ -337,8 +300,8 @@ const Dashboard = ({
           ? subs[0]!
           : null;
       return {
-        // The slug rides along so a click needs no reverse lookup — two slugs can
-        // tidy to the same display name, and the map back could not tell them apart.
+        // The slug rides along so a click needs no reverse lookup: two slugs
+        // can tidy to the same display name.
         key: lone?.key ?? c.category,
         label: lone?.label ?? categoryLabel(c.category),
         total: c.total,
@@ -380,33 +343,19 @@ const Dashboard = ({
   const accounts = acctBars(stats.accounts);
   const inAccounts = acctBars(stats.incomeAccounts);
 
-  // A breakdown of one category is a bar chart of itself, so it goes — and so
-  // does the change chart, which can only hold that same category's one bar,
-  // already spelled out on the tile above it. Exclusions do not count: one
-  // category minus a subcategory of it is still one bar, and excluding a
-  // category on its own leaves everything else in and worth breaking down.
+  // A breakdown of one category is a bar chart of itself. Exclusions do not
+  // count: excluding a category leaves everything else in and worth breaking
+  // down.
   const single = filters.categories.length === 1;
 
-  // Filtered to a spending category every point's income is zero, and a line
-  // along the axis is not a finding. The chart drops it; the title follows.
-  // Both ways round: filtered to a category that only ever paid in, the spend
-  // line is the one flat on the axis.
+  // A line along the axis is not a finding, so a side with nothing in it is
+  // dropped and the title follows.
   const anyIncome = series.some((s) => s.totalIn > 0);
   const anySpend = series.some((s) => s.totalOut > 0);
 
-  /**
-   * The shading, which is a narrower question than the line above it. It reads
-   * the vertical gap between the two as a surplus, and that is only true of a
-   * whole window: income lands on about a third of days, so day by day it would
-   * call almost every one of them an overspend. Accumulated, or by month, the
-   * gap is a surplus again and the band comes back.
-   *
-   * It needs neither line, only the grain. Where one side of the pair is empty
-   * the missing line sits on the axis, and the gap the band shades is the whole
-   * of the other one: all of the income left over, or all of the spending
-   * uncovered. Both are the same measurement against a zero that the filter
-   * made, so the band answers the same question it always did.
-   */
+  // The shading reads the vertical gap as a surplus, which is only true of a
+  // whole window: income lands on about a third of days, so day by day it would
+  // call almost every one an overspend. It needs the grain, not either line.
   const band = running || bucket === "month";
 
   // Nothing renders a box it has no rows for. Filtered to rent, "income" is a
@@ -483,15 +432,9 @@ const Dashboard = ({
               income={anyIncome}
               spend={anySpend}
               band={band}
-              // A running total only ever climbs, so a line fitted to it is a
-              // straight line drawn over one — it reports an average rate the
-              // tile above already gives as a number. The legend switches it
-              // off anywhere it does mean something.
-              //
-              // And it is fitted through spending, so it goes wherever the red
-              // line goes: with nothing spent in view it is a flat line on the
-              // axis with a key naming it a trend, which is the same non-finding
-              // the line itself was dropped for.
+              // A line fitted to a running total is a straight line drawn over
+              // one, reporting an average the tile above already gives. It is
+              // fitted through spending, so it goes where the red line goes.
               trend={!running && anySpend}
               compare={compare}
               compareLabel={vs?.label}
@@ -589,11 +532,9 @@ const TransactionsView = ({
   /**
    * The box keeps up with the typing; the table is allowed to lag behind it.
    *
-   * A year in view is a couple of thousand rows, and re-rendering all of them
-   * takes long enough that doing it between two keystrokes drops the second one.
-   * Deferring the *filter* input — not the box's own value — leaves React free
-   * to abandon a half-rendered table when the next character arrives, so only
-   * the row set you stopped on is ever finished.
+   * A year is a couple of thousand rows, and re-rendering them between two
+   * keystrokes drops the second. Deferring the *filter* input — not the box's
+   * own value — lets React abandon a half-rendered table.
    */
   const search = useDeferredValue(filters.search);
   const shown = rows.filter((t) => matchesFilters(t, { ...filters, search }));
@@ -638,10 +579,8 @@ export const App = () => {
   const [theme, onTheme] = useState<Theme>(readTheme);
   const [help, setHelp] = useState(false);
 
-  // Before anything renders a slug: the cards and the charts read the names
-  // through `categoryLabel`, which has no other way to reach them. The hues go
-  // the same way, and off every row rather than the filtered view — see
-  // `setCategoryHues`.
+  // Before anything renders a slug: `categoryLabel` has no other way to reach
+  // the names. Hues off every row rather than the filtered view.
   if (load.status === "ready") {
     setLabels(load.labels);
     setCategoryHues(distinctCategories(load.txns));
@@ -652,23 +591,17 @@ export const App = () => {
   const years = useMemo(() => distinctYears(txns), [txns]);
 
   /**
-   * The edges of the record, which is as far as the date boxes will go. Nothing
-   * is on either side of it: a range starting in 1998 draws an empty page and
-   * says nothing about why.
-   *
-   * `axisBounds` over all time already answers exactly this — the first row, and
-   * today or the last row where the bank has booked ahead of it — so the far end
-   * moves with the archive rather than with the calendar.
+   * The edges of the record, as far as the date boxes go: a range starting in
+   * 1998 draws an empty page and says nothing about why. `axisBounds` over all
+   * time answers exactly this, so the far end moves with the archive.
    */
   const record = useMemo(() => axisBounds(txns, period("all")), [txns]);
 
-  // Latest month, until something is picked. Derived rather than stored, so the
-  // first render after the fetch lands is already on the right month. Anything
-  // the picker does not offer falls back to it too, so a hand-edited URL cannot
-  // leave the select showing one period while the page renders another.
-  // A hand-picked range is offered by the date boxes rather than by a list, so
-  // it is checked by shape instead — `period` reads anything it does not
-  // recognise as all time, so an unparseable one still falls back.
+  // Latest month until something is picked, and derived rather than stored so
+  // the first render after the fetch is already on it. Anything the picker does
+  // not offer falls back too, so a hand-edited URL cannot leave the select
+  // showing one period while the page renders another. A range has no list to
+  // be in, so it is checked by shape.
   const offered = [...months, ...years, "all"];
   const active =
     chosen && (offered.includes(chosen) || period(chosen).kind === "custom")
@@ -677,25 +610,18 @@ export const App = () => {
   const p = useMemo(() => period(active), [active]);
 
   /**
-   * The same narrowing one line down, and for the same reason: a window draws
-   * only the grains it can carry, so a choice it does not offer — held over
-   * from another window, or typed into the URL — falls back to that window's
-   * default. Derived rather than stored, so the choice itself survives a trip
+   * The same narrowing, for the same reason: a window draws only the grains it
+   * can carry. Derived rather than stored, so the choice survives a trip
    * through a window that cannot show it.
    */
   const grains = GRAINS[p.kind];
   const grain = grains.includes(chosenGrain) ? chosenGrain : grains[0]!;
 
   /**
-   * The period goes in raw and the grain goes in derived, which looks
-   * inconsistent and is not: a null period means "the latest month", so storing
-   * the answer would freeze today's into the URL. A grain has no such
-   * placeholder — every value is literal — so writing a raw one leaves the URL
-   * claiming a mode the window in view does not draw. Switching a month on
-   * `g=day` to a year left `?g=day` on a chart plotting a running total.
-   *
-   * The choice itself is still kept, so stepping through a year and back to a
-   * month returns to per day rather than to the default.
+   * The period goes in raw and the grain derived, which is not the
+   * inconsistency it looks: a null period means "the latest month", so storing
+   * the answer would freeze today's into the URL, while a grain has no such
+   * placeholder and a raw one would claim a mode the window does not draw.
    */
   useEffect(
     () => writeUrl({ view, period: chosen, grain, filters }),
@@ -703,9 +629,8 @@ export const App = () => {
   );
 
   /**
-   * A search belongs to the table it was typed on. Carrying it into the
-   * dashboard leaves the charts filtered by a string with no box to clear it —
-   * the same reason the chip exists there for a search set by clicking a bar.
+   * A search belongs to the table it was typed on: carried into the dashboard
+   * it leaves the charts filtered by a string with no box to clear it.
    */
   const changeView = (next: View) => {
     if (view === "transactions" && next !== "transactions")
@@ -714,10 +639,9 @@ export const App = () => {
   };
 
   /**
-   * The arrows step within the kind of period in view — months through months,
-   * years through years — because a month and the year holding it are two
-   * lengths of window rather than two neighbours in one list. All time has
-   * nothing either side of it. Clamped at both ends: the archive stops.
+   * The arrows step within the kind of period in view, because a month and the
+   * year holding it are two lengths of window rather than two neighbours in one
+   * list. Clamped at both ends: the archive stops.
    */
   const steps = p.kind === "month" ? months : p.kind === "year" ? years : [];
   const step = (by: number) => {
@@ -727,12 +651,8 @@ export const App = () => {
 
   /**
    * The other axis: `A`, `Y` and `M` change how long the window is, where the
-   * arrows move it. All time holds no year to step through, so without these
-   * the arrows are a dead end — `A` went in and nothing came back out.
-   *
-   * Which year: the one in view, and the latest on record from all time, which
-   * is where the page opens anyway. `M` then takes the last month of it, so
-   * `Y` `M` from all time lands where the page started.
+   * arrows move it. Without them all time is a dead end, holding no year to
+   * step through. The year is the one in view, or the latest on record.
    */
   const inView = active.slice(0, 4);
   const year = years.includes(inView) ? inView : years[years.length - 1];
@@ -832,10 +752,8 @@ export const App = () => {
     () => txns.filter((t) => inRange(t, p.from, p.to)),
     [txns, p],
   );
-  // Only bare categories are options; a picked *pair* contributes its parent
-  // instead. Feeding the pair itself in listed it twice — once as the category
-  // row the lone-child rule had already renamed to it, once as an option of its
-  // own, both reading "Studielån" and both ticked.
+  // Only bare categories are options; a picked *pair* contributes its parent,
+  // or the lone-child rule lists the same row twice under one name.
   const categories = useMemo(
     () =>
       [
@@ -848,9 +766,8 @@ export const App = () => {
       ].sort(),
     [inPeriod, filters.categories],
   );
-  // Sorted by their own display name, not by the slug: the picker draws them
-  // under their category and `annen_reise` reading before `flybilletter` is the
-  // slug's alphabet, not the one on screen.
+  // By display name, not by slug: the picker draws them under their category,
+  // and the slug's alphabet is not the one on screen.
   const subcategories = useMemo(
     () =>
       [
@@ -882,9 +799,8 @@ export const App = () => {
       ),
     [inPeriod, filters.merchants],
   );
-  // Off the whole period rather than the filtered rows: which names are people
-  // is a fact about them, and recomputing it from what the filters left would
-  // make a name stop being a person as soon as you filtered its peer rows away.
+  // Off the whole period, not the filtered rows: a name would otherwise stop
+  // being a person as soon as you filtered its peer rows away.
   const people = useMemo(() => personMerchants(inPeriod), [inPeriod]);
   const accounts = useMemo(
     () =>
@@ -893,14 +809,12 @@ export const App = () => {
       ),
     [inPeriod, filters.accounts],
   );
-  // Not re-sorted the way the three above are: `distinctCountries` already puts
-  // the no-country dash last, and sorting again here would pull it to the front
-  // under its own punctuation.
+  // Not re-sorted: `distinctCountries` already puts the no-country dash last,
+  // and sorting again would pull it to the front under its punctuation.
   const countries = useMemo(() => {
     const inView = distinctCountries(inPeriod);
-    // A country picked in a period that has none of it stays on the list, the
-    // same way the three above keep their picked values — otherwise narrowing
-    // the period drops the chip and there is nothing left to click off.
+    // A picked value stays listed even where the period has none of it, or
+    // narrowing the period drops the chip and leaves nothing to click off.
     return inView.concat(filters.countries.filter((c) => !inView.includes(c)));
   }, [inPeriod, filters.countries]);
 

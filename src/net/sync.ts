@@ -20,21 +20,12 @@ async function dump(file: string, data: unknown): Promise<void> {
 }
 
 /**
- * The accounts to fetch — every entry except the ones marked `sync: false`,
- * which are mine but have no key SB1 would answer for (a share savings account
- * is absent from `/accounts` entirely). Their key here is a made-up label, so
- * fetching one would spend a request on a 404. They still earn their entry:
- * `exclude` matches on the *number*.
+ * The accounts to fetch. `sync: false` marks an entry whose key is a made-up
+ * label SB1 would 404 on — it earns its place because `exclude` matches on the
+ * *number*.
  *
- * `from` is the month the account first saw activity, and asking for a month
- * before it is a question whose answer is already known to be nothing. The raw
- * now reaches back to 2003-01 and the accounts open across thirteen years of
- * it, so most of that rectangle is empty: **1 386 of 1 988 account-months**, and
- * the whole of 2003-01..2007-12 is a span with no account in it at all, which
- * costs no request whatsoever.
- *
- * An account with no `from` has no floor and is fetched for every month asked
- * for.
+ * `from` is the month the account first saw activity, so asking below it is a
+ * question whose answer is known. An account with no `from` has no floor.
  */
 export async function accountKeys(month?: string): Promise<string[]> {
   const accounts: Accounts = JSON.parse(
@@ -91,14 +82,9 @@ const fresh = (file: string, force: Force): boolean => {
 };
 
 /**
- * What a span will actually cost, counted from disk rather than assumed.
- *
- * A month whose files are all present costs nothing without `--force`, so the
- * honest number for a resumed sweep is the missing files and not the months.
- *
- * This is the count of **files**, which is no longer the count of requests —
- * see `syncSpan`. It is still what the pre-flight message reports as the work,
- * because a file is the unit that either lands or doesn't.
+ * What a span will cost in **files**, counted from disk. Not the count of
+ * requests — see `syncSpan` — but a file is the unit that either lands or does
+ * not, which is what the pre-flight message reports.
  */
 export async function rangeCost(
   months: string[],
@@ -180,15 +166,8 @@ type SpanResponse = { transactions?: SpanRow[]; errors?: unknown[] };
 
 /**
  * An explicit ceiling on the rows one response may carry, so a truncated answer
- * is something we notice rather than something we write to disk.
- *
- * `rowLimit` is a documented parameter whose default nobody outside the bank
- * knows. It has never mattered while a request covered one account for one
- * month — about 80 rows at the worst — but a five-year span across every
- * account is a different size of question, and a silently truncated response
- * would be written into `data/raw/` as a complete month and then be `fresh`
- * forever after. **A 4 671-row response has been verified to come back whole**;
- * this is the guard for the day one does not.
+ * is noticed rather than written to disk — where it would be a complete month
+ * as far as `fresh` is concerned, forever after.
  */
 const ROW_LIMIT = 50_000;
 
@@ -196,11 +175,9 @@ const ROW_LIMIT = 50_000;
  * A span response grouped into the files it becomes, keyed `<month>/<key>`.
  *
  * The month is the row's **Oslo** month, because that is the cut
- * `normalizeMonth` reads back: SB1 dates a row at Norwegian midnight, so every
- * summer timestamp is `22:00Z` and a UTC month would file every row dated the
- * 1st into the previous directory. Splitting one way and reading the other is
- * the same bug the whole repo formats dates in `Europe/Oslo` to avoid, except
- * that here it would be written into `data/raw/` and outlive the mistake.
+ * `normalizeMonth` reads back. A UTC month would file every row dated the 1st
+ * into the previous directory — written into `data/raw/`, where it outlives the
+ * mistake.
  */
 export function splitSpan(rows: SpanRow[]): Map<string, SpanRow[]> {
   const byFile = new Map<string, SpanRow[]>();
@@ -223,32 +200,19 @@ export function spans(months: string[], size = SPAN_MONTHS): string[][] {
 
 /**
  * One request for a whole span, split back into the per-month files the rest of
- * the repo already reads.
+ * the repo reads. `accountKey` is repeatable and the range may be five years
+ * wide, so the smallest honest unit of fetching is every account for five
+ * years, in one call.
  *
- * **`accountKey` is repeatable**, and `fromDate`..`toDate` may cover five
- * years, so the smallest honest unit of fetching is not a month for one account
- * — it is every account for five years, in a single call. Sweeping 2018-09 to
- * 2026-08 a month at a time costs 455 requests against a 60-an-hour quota,
- * which is eight hours of waiting; the same sweep as two spans costs two.
+ * Three things make the split safe, and none is optional:
  *
- * What lands on disk is unchanged: `data/raw/<month>/<key>.json`, one file per
- * account per month, same envelope. That is deliberate — `normalizeMonth`
- * reads a month directory, `fresh` skips a file that is already there, and
- * `rebuild` reconstructs from the month directories alone. A span-shaped file
- * would have meant touching all three, and worse, would have let a span file
- * and a month file cover the same rows at once: `normalizeMonth` concatenates
- * whatever it finds without deduplicating, so the overlap would be counted
- * twice. **Splitting the response is what keeps a wider request invisible
- * downstream.**
- *
- * Raw stays immutable: only the files the plan says are missing get written, so
- * a re-run without `--force` still never rewrites a month already on disk even
- * though the response held it.
- *
- * A month with no rows for an account is still written, as an empty envelope,
- * exactly as the month-at-a-time sweep wrote it. It is the record that the
- * question was asked and the answer was nothing — without it the file is owed
- * forever and every later sweep re-requests the span to fill it.
+ * - **What lands on disk is unchanged**, so a wider request stays invisible
+ *   downstream. A span-shaped file could overlap a month file, and
+ *   `normalizeMonth` concatenates without deduplicating.
+ * - **Only the files the plan is missing get written**: raw is immutable, so a
+ *   month already on disk is left alone even though the response held it.
+ * - **An empty month is still written**, as the record that the question was
+ *   asked and the answer was nothing. Without it the file is owed forever.
  */
 export async function syncSpan(
   months: string[],
@@ -312,22 +276,14 @@ export async function syncSpan(
 }
 
 /**
- * A whole span of months, oldest first.
+ * A whole span of months, oldest first, at one request per five years.
  *
- * **One request per five years, not one per account per month.** A sweep of the
- * whole record used to cost 455 requests against a quota of 60 an hour — eight
- * hours of waiting, stopping and resuming — and it now costs two, because
- * `accountKey` is repeatable and the range may be five years wide. Running out
- * of budget part way was the normal ending of a sweep; it is now close to
- * unreachable.
+ * Two things stop it and both are handled the same way: the ledger counting
+ * down to zero from what the bank last reported, or the bank answering 429
+ * itself. The first is a cached figure and the second is the truth.
  *
- * Two different things can still stop it and both are handled the same way: the
- * ledger counting down to zero from what the bank last reported, or the bank
- * answering 429 itself. The first is a cached figure and the second is the
- * truth — see `RateLimited`.
- *
- * A span whose files are all on disk costs **no request at all**, which is what
- * still makes re-running a range a resume rather than a repeat.
+ * A span whose files are all on disk costs no request at all, which is what
+ * makes re-running a range a resume rather than a repeat.
  */
 export async function syncRange(
   from: string,
@@ -379,16 +335,9 @@ export async function syncRange(
 }
 
 /**
- * One month, which is a span of one — and so **one request, not one per
- * account**. `pnpm sb1 sync --month` cost seven; it costs one.
- *
- * There is nothing left for this to do that `syncSpan` does not, and the loop
- * that used to live here was the same fetch-and-write a request at a time. Its
- * one advantage was that a month dying half way still kept the files it had
- * written, and a single request cannot half-fail, so that is gone with it.
- *
+ * One month, which is a span of one — so one request, not one per account.
  * `onFile` fires as each file lands, so a caller can count what a run got
- * through even when the next request is the one that runs out of budget.
+ * through even when the next request runs out of budget.
  */
 export async function syncMonth(
   month: string,

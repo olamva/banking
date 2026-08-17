@@ -1,11 +1,7 @@
 /**
- * The two mobile rules a reader cannot check by looking at the page on a laptop.
- *
- * Everything else about the layout is judged by eye at a narrow window, which is
- * fine — it fails visibly. These two do not: a `minmax` floor and a missing
- * viewport tag both render perfectly at every width anyone developing this has
- * open, and only come apart on the phone nobody is testing on. So they get the
- * check, and the rest of the mobile rules stay prose in CLAUDE.md.
+ * The mobile rules a reader cannot check by looking at the page on a laptop: a
+ * `minmax` floor and a missing viewport tag both render perfectly at every
+ * width anyone developing this has open, and come apart only on the phone.
  */
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
@@ -13,11 +9,19 @@ import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
-const HERE = dirname(fileURLToPath(import.meta.url));
+const APP = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "../../../src/web/app",
+);
 
-const source = (name: string) => readFileSync(join(HERE, name), "utf8");
+const source = (name: string) => readFileSync(join(APP, name), "utf8");
 
-const tsx = readdirSync(HERE).filter((f) => f.endsWith(".tsx"));
+const tsx = readdirSync(APP).filter((f) => f.endsWith(".tsx"));
+
+// Both scans below are vacuous on an empty list, so a wrong path would pass.
+test("the app's components are where this expects them", () => {
+  assert.ok(tsx.length > 0, `no .tsx under ${APP}`);
+});
 
 test("every grid track floors at the viewport, not at a fixed width", () => {
   /**

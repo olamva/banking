@@ -12,8 +12,8 @@ import {
   loadSubscriptions,
   renamePayees,
   splitCategory,
-} from "./categorize.ts";
-import type { Classified } from "./types.ts";
+} from "../../src/core/categorize.ts";
+import type { Classified } from "../../src/core/types.ts";
 
 /** The card, as `rules/accounts.json` names it — the travel guess sees these rows and no others. */
 const CARDS = new Set(["card"]);
@@ -237,9 +237,8 @@ test("the bank spelling out ukategorisert is the one real shrug", () => {
     )[0]!.category,
     "ukategorisert",
   );
-  // And `diverse` is not a second one. It used to collapse into the shrug, which
-  // threw away a level above where all its signal was and cost
-  // `rules/vipps.json` 176 hand-written names.
+  // And `diverse` is not a second one: collapsing it throws away a level above
+  // where all of its signal is.
   const peer = categorize(
     [classified({ bankCategory: "diverse", bankSub: "vennebetaling" })],
     {},
@@ -711,9 +710,8 @@ test("the bank finds peers no list ever named", () => {
 });
 
 /**
- * The two shapes that replaced `rules/vipps.json`. Each says by itself that the
- * payee was a person; the marker alone never does, which is the whole reason a
- * list of 32 names existed.
+ * The two shapes that each say by themselves that the payee was a person. The
+ * `Vipps*` marker alone never does.
  */
 test("a Vipps row the bank calls a transfer is a peer payment, on the card", () => {
   // The card files these as `diverse/overforing`, which is the bank reading

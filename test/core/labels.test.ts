@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { buildLabels, NO_SUB, tidy } from "./labels.ts";
-import type { Categorized } from "./types.ts";
+import { buildLabels, NO_SUB, tidy } from "../../src/core/labels.ts";
+import type { Categorized } from "../../src/core/types.ts";
 
 function row(overrides: Partial<Categorized>): Categorized {
   return {

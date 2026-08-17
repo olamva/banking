@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { exclude } from "./exclude.ts";
-import type { Txn } from "./types.ts";
+import { exclude } from "../../src/core/exclude.ts";
+import type { Txn } from "../../src/core/types.ts";
 
 function txn(overrides: Partial<Txn>): Txn {
   return {

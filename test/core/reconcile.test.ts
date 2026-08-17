@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { reconcile, unexplained } from "./reconcile.ts";
-import type { Txn } from "./types.ts";
+import { reconcile, unexplained } from "../../src/core/reconcile.ts";
+import type { Txn } from "../../src/core/types.ts";
 
 function txn(over: Partial<Txn>): Txn {
   return {

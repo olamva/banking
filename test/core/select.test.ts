@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { Filters } from "./select.ts";
+import type { Filters } from "../../src/core/select.ts";
 import {
   AXES,
   axisBounds,
@@ -14,8 +14,8 @@ import {
   period,
   personMerchants,
   subcategoryOf,
-} from "./select.ts";
-import type { Categorized } from "./types.ts";
+} from "../../src/core/select.ts";
+import type { Categorized } from "../../src/core/types.ts";
 
 // Selection only. Aggregation is stats.ts, pinned by src/core/stats.test.ts —
 // the React app imports both directly, so what runs here is what runs there.

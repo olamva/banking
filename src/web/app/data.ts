@@ -1,18 +1,15 @@
 /**
  * The one thing the page fetches: every transaction, from the local server.
- *
- * Not embedded in the HTML any more — Vite serves the shell, `serve.ts` serves
- * the rows. Kept out of the component files on purpose, so nothing that renders
- * also knows how the data arrives.
+ * Kept out of the component files, so nothing that renders also knows how the
+ * data arrives.
  */
 import { useEffect, useState } from "react";
 import { buildLabels, type Labels, type Names } from "../../core/labels.ts";
 import type { Categorized } from "../../core/types.ts";
 
 /**
- * `names` is only what `rules/categories.json` overrides — the bank's own names
- * are already on the rows, so `buildLabels` learns 68 pairs from them and this
- * map stays small.
+ * `names` is only what `rules/categories.json` overrides: the bank's own names
+ * are already on the rows for `buildLabels` to learn from.
  */
 type Payload = { txns: Categorized[]; names: Names };
 
