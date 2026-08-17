@@ -12,6 +12,7 @@ function txn(overrides: Partial<Txn>): Txn {
     amount: -100,
     description: "Rema 1000",
     counterparty: "Rema 1000",
+    country: null,
     bankCategory: "dagligvarer",
     bankSub: null,
     bankCategoryName: null,

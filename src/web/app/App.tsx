@@ -21,6 +21,7 @@ import {
   NO_FILTERS,
   axisBounds,
   distinctAccounts,
+  distinctCountries,
   distinctCategories,
   distinctMerchants,
   distinctMonths,
@@ -888,6 +889,16 @@ export const App = () => {
       ),
     [inPeriod, filters.accounts],
   );
+  // Not re-sorted the way the three above are: `distinctCountries` already puts
+  // the no-country dash last, and sorting again here would pull it to the front
+  // under its own punctuation.
+  const countries = useMemo(() => {
+    const inView = distinctCountries(inPeriod);
+    // A country picked in a period that has none of it stays on the list, the
+    // same way the three above keep their picked values — otherwise narrowing
+    // the period drops the chip and there is nothing left to click off.
+    return inView.concat(filters.countries.filter((c) => !inView.includes(c)));
+  }, [inPeriod, filters.countries]);
 
   return (
     <div className="mx-auto max-w-295 p-3 sm:p-6">
@@ -956,6 +967,7 @@ export const App = () => {
         subcategories={subcategories}
         merchants={merchants}
         accounts={accounts}
+        countries={countries}
         filters={filters}
         onFilters={setFilters}
       />

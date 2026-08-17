@@ -13,6 +13,7 @@ function row(overrides: Partial<Categorized>): Categorized {
     amount: -100,
     description: "Rema 1000",
     counterparty: "Rema 1000",
+    country: null,
     bankCategory: "dagligvarer",
     bankSub: "dagligvarer",
     bankCategoryName: "Dagligvarer",

@@ -328,6 +328,18 @@ the others. It rewrites `counterparty` only and runs after every other rule, so
 nothing is matched against a name it did not see, and the month stays in
 `description`, which is what the search box reads.
 
+A name **no** pattern claims is not left raw. `src/core/names.ts` takes the
+shape off it instead — the card's `, CITY, COUNTRY` tail, a BankAxept street and
+city, ALL CAPS — so `YOSHINOYA, TOKYO, JAPAN` reads as `Yoshinoya` and
+`NIDAR AS BLOMSTADVN TRONDHEIM` as `Nidar AS` with no line written for either.
+It never touches a name a pattern *did* claim: those are your words, and
+title-casing them would hand back `Ikea` and `H&m`. So the file is for what a
+payee is called, and the cleaner for what shape it arrived in.
+
+The country off that same tail lands on `Txn.country`, shown as a chip on the
+row and offered as the fourth filter axis beside category, merchant and account.
+Only card rows carry one; everything else selects under `—`.
+
 `rules/subscriptions.json` is a list of the same patterns, and it is a second axis
 rather than a category:
 
