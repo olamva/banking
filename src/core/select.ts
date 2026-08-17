@@ -7,11 +7,22 @@
  */
 import type { Categorized } from "./types.ts";
 
-export type Mode = "include" | "exclude";
-
+/**
+ * Every list filter is **two lists over one field**: the rows to show, and the
+ * rows to hide out of them. It was one list plus a mode, which could say "only
+ * `innskudd`" or "anything but `innskudd/familie`" and never both at once — and
+ * both at once is the ordinary thing to want, since the exception to a filter
+ * lives on the same axis as the filter.
+ *
+ * The two are read in one order and it is not negotiable: **an exclusion wins.**
+ * A value on both lists is hidden. That is what makes `innskudd` minus
+ * `innskudd/familie` mean anything — the parent is listed, the child is listed
+ * under it, and only the narrower word can be the answer.
+ */
 export type Filters = {
   /**
-   * Empty means every category, whichever way `categoryMode` is set.
+   * Empty means every category, and the `Out` list below still applies to it —
+   * "everything except X" needs no include list at all.
    *
    * **Holds both levels**: a bare `dagligvarer` and a pair
    * `dagligvarer/andre_dagligvarer` live in the same list, and a row matches if
@@ -25,25 +36,29 @@ export type Filters = {
    * would quietly pull rows from both.
    */
   categories: string[];
-  /** Whether `categories` names the only rows to show, or the only ones to hide. */
-  categoryMode: Mode;
+  /**
+   * The rows hidden out of that, named the same two ways — a bare category or a
+   * pair. It wins over `categories`, so listing `innskudd` there and
+   * `innskudd/familie` here is a contradiction resolved in favour of hiding.
+   */
+  categoriesOut: string[];
   /** The same, over `merchantOf` — the name the tables and the bars show. */
   merchants: string[];
-  merchantMode: Mode;
+  merchantsOut: string[];
   /** The same again, over `Txn.account` — what `rules/accounts.json` calls it. */
   accounts: string[];
-  accountMode: Mode;
+  accountsOut: string[];
   /**
    * The same again, over `Txn.country`.
    *
-   * Only card rows carry one, so an empty list is not "everywhere" in the way
-   * the other three axes mean it — it is every row, country or not. A row with
-   * no country is therefore excluded by an include filter and kept by an
-   * exclude one, which falls out of `listed` treating null as its own value
+   * Only card rows carry one, so an empty include list is not "everywhere" in
+   * the way the other three axes mean it — it is every row, country or not. A
+   * row with no country is therefore dropped by an include filter and kept by
+   * an exclusion, which falls out of `shown` treating null as its own value
    * rather than needing a case: `NO_COUNTRY` is what it is called in the list.
    */
   countries: string[];
-  countryMode: Mode;
+  countriesOut: string[];
   search: string;
   /**
    * Whether internal transfers and card bill payments are listed. Off by
@@ -55,30 +70,30 @@ export type Filters = {
 };
 
 /**
- * The three list filters, each paired with the field holding its mode.
+ * The four list filters, each paired with the field holding its exclusions.
  *
  * They are one control repeated, so the code that toggles them is one function
- * over this map rather than three near-copies — and adding a fourth axis is
- * this entry plus its two fields above.
+ * over this map rather than four near-copies — and adding a fifth axis is this
+ * entry plus its two fields above.
  */
 export const AXES = {
-  categories: "categoryMode",
-  merchants: "merchantMode",
-  accounts: "accountMode",
-  countries: "countryMode",
+  categories: "categoriesOut",
+  merchants: "merchantsOut",
+  accounts: "accountsOut",
+  countries: "countriesOut",
 } as const;
 
 export type Axis = keyof typeof AXES;
 
 export const NO_FILTERS: Filters = {
   categories: [],
-  categoryMode: "include",
+  categoriesOut: [],
   merchants: [],
-  merchantMode: "include",
+  merchantsOut: [],
   accounts: [],
-  accountMode: "include",
+  accountsOut: [],
   countries: [],
-  countryMode: "include",
+  countriesOut: [],
   search: "",
   showExcluded: false,
 };
@@ -122,31 +137,33 @@ export function inRange(
   return true;
 }
 
-/** An empty list is every row, either way round — a filter nobody set must never empty the page. */
-const listed = (values: string[], mode: Mode, value: string): boolean =>
-  !values.length || values.includes(value) === (mode === "include");
-
 /**
- * The same, where a row can be named more than one way. Any candidate matching
- * counts as a match, so a category and one of its own subcategories are a union
- * rather than an impossible intersection — and excluding a category still takes
- * its subcategories with it, since the bare slug is one of the candidates.
+ * One axis, both its lists. A row is in when nothing hides it, and either the
+ * include list is empty or something in it names the row — an empty include
+ * list is every row, since a filter nobody set must never empty the page.
+ *
+ * A row can be named more than one way, and any candidate counts. That is what
+ * makes a category and one of its own subcategories a union rather than an
+ * impossible intersection, what takes the children with the parent on either
+ * list — and what lets the narrower name be the exception to the wider one,
+ * since the exclusion answers on the pair while the inclusion answers on the
+ * bare category, and the exclusion is asked first.
  */
-const listedAny = (
-  values: string[],
-  mode: Mode,
+const shown = (
+  include: string[],
+  exclude: string[],
   candidates: string[],
 ): boolean =>
-  !values.length ||
-  candidates.some((c) => values.includes(c)) === (mode === "include");
+  !candidates.some((c) => exclude.includes(c)) &&
+  (!include.length || candidates.some((c) => include.includes(c)));
 
 export function matchesFilters(t: Categorized, f: Filters): boolean {
   if (t.excluded && !f.showExcluded) return false;
-  if (!listedAny(f.categories, f.categoryMode, [t.category, subcategoryOf(t)]))
+  if (!shown(f.categories, f.categoriesOut, [t.category, subcategoryOf(t)]))
     return false;
-  if (!listed(f.merchants, f.merchantMode, merchantOf(t))) return false;
-  if (!listed(f.accounts, f.accountMode, t.account)) return false;
-  if (!listed(f.countries, f.countryMode, countryOf(t))) return false;
+  if (!shown(f.merchants, f.merchantsOut, [merchantOf(t)])) return false;
+  if (!shown(f.accounts, f.accountsOut, [t.account])) return false;
+  if (!shown(f.countries, f.countriesOut, [countryOf(t)])) return false;
   if (f.search) {
     const q = f.search.toLowerCase();
     const hay = (t.description + " " + (t.counterparty ?? "")).toLowerCase();

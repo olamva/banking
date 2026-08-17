@@ -24,13 +24,13 @@ test("a populated state round-trips, nulls included", () => {
     period: "2026",
     filters: {
       categories: ["dagligvarer", "transport"],
-      categoryMode: "exclude",
+      categoriesOut: ["dagligvarer/andre_dagligvarer"],
       merchants: ["Rema 1000", "Kiwi"],
-      merchantMode: "include",
-      accounts: ["Mastercard Ung"],
-      accountMode: "exclude",
+      merchantsOut: ["Meny"],
+      accounts: [],
+      accountsOut: ["Mastercard Ung"],
       countries: ["Japan", "—"],
-      countryMode: "include",
+      countriesOut: ["Norway"],
       search: "rema",
       showExcluded: true,
     },
@@ -94,8 +94,8 @@ test("the grain default follows the window, so all time names nothing", () => {
   assert.equal(fromParams(new URLSearchParams("p=2026-07")).grain, "running");
 });
 
-/** The mode changes what the same list means, so it has to survive a reload with it. */
-test("the category mode rides along, and only when it is not the default", () => {
+/** Two lists, so two params — and a page can be pinned with both of them on. */
+test("the exclusions ride in their own param, beside the list they narrow", () => {
   const picked: UrlState = {
     ...DEFAULT,
     filters: { ...NO_FILTERS, categories: ["reise"] },
@@ -104,14 +104,31 @@ test("the category mode rides along, and only when it is not the default", () =>
   assert.equal(
     toParams({
       ...picked,
-      filters: { ...picked.filters, categoryMode: "exclude" },
+      filters: { ...picked.filters, categoriesOut: ["reise/flybilletter"] },
     }),
-    "cat=reise&cat_mode=exclude",
+    "cat=reise&cat_not=reise%2Fflybilletter",
   );
-  assert.equal(
+  // Exclusions alone need no include list: that is "everything except these".
+  const only = fromParams(new URLSearchParams("cat_not=reise")).filters;
+  assert.deepEqual([only.categories, only.categoriesOut], [[], ["reise"]]);
+});
+
+/**
+ * A tab pinned before the split says `cat_mode=exclude`, and reading only the
+ * new spelling would show that tab *only* what it asked to hide — the exact
+ * opposite page, with nothing on it to say so.
+ */
+test("a URL written before the split still means what it meant", () => {
+  const f = fromParams(
+    new URLSearchParams("cat=reise&cat_mode=exclude&m=Kiwi&m_mode=exclude"),
+  ).filters;
+  assert.deepEqual([f.categories, f.categoriesOut], [[], ["reise"]]);
+  assert.deepEqual([f.merchants, f.merchantsOut], [[], ["Kiwi"]]);
+  // Anything else in that param is the default it always was.
+  assert.deepEqual(
     fromParams(new URLSearchParams("cat=reise&cat_mode=sideways")).filters
-      .categoryMode,
-    "include",
+      .categories,
+    ["reise"],
   );
 });
 
@@ -120,10 +137,10 @@ test("accounts ride along as their own repeated param", () => {
   const f = {
     ...NO_FILTERS,
     accounts: ["Sparekonto, felles"],
-    accountMode: "exclude" as const,
+    accountsOut: ["Brukskonto, mine"],
   };
   const q = toParams({ ...DEFAULT, filters: f });
-  assert.equal(q, "acct=Sparekonto%2C+felles&acct_mode=exclude");
+  assert.equal(q, "acct=Sparekonto%2C+felles&acct_not=Brukskonto%2C+mine");
   assert.deepEqual(fromParams(new URLSearchParams(q)).filters, f);
 });
 
@@ -133,18 +150,13 @@ test("merchants survive a comma in the name", () => {
     filters: {
       ...NO_FILTERS,
       merchants: ["Meny, Torgallmenningen", "Kiwi"],
-      merchantMode: "exclude",
+      merchantsOut: ["Rema 1000, Moholt"],
     },
   };
   assert.deepEqual(fromParams(new URLSearchParams(toParams(state))), state);
   assert.equal(
     toParams({ ...DEFAULT, filters: { ...NO_FILTERS, merchants: ["Kiwi"] } }),
     "m=Kiwi",
-  );
-  assert.equal(
-    fromParams(new URLSearchParams("m=Kiwi&m_mode=sideways")).filters
-      .merchantMode,
-    "include",
   );
 });
 

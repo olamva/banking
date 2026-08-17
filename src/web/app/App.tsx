@@ -33,7 +33,6 @@ import {
   personMerchants,
   type Axis,
   type Filters,
-  type Mode,
   type Period,
 } from "../../core/select.ts";
 import type { ExcludedSummary } from "../../core/stats.ts";
@@ -161,39 +160,39 @@ type SetFilters = Dispatch<SetStateAction<Filters>>;
 
 /**
  * Clicking a bar or a table cell filters to it; clicking the one already
- * filtered to clears it. A plain click always means "show me this", so it drops
- * out of exclude mode — a click that hid the thing just asked for would be a
- * trap.
+ * filtered to clears it. A plain click always means "show me this", so it
+ * replaces whatever was shown — showing is naturally one thing at a time.
  *
- * Meta-click means the opposite, and accumulates: showing is naturally one thing
- * at a time, hiding is naturally several, so each meta-click adds to the list
- * rather than replacing it. An include list means something else, so it goes.
+ * Meta-click means "not this", and accumulates: hiding is naturally several, so
+ * each one adds to the exclusion list. **The two lists no longer displace each
+ * other**, which is the point of there being two: meta-clicking a subcategory
+ * out of the category you clicked into now leaves you inside that category,
+ * where before it dropped the include list and showed you everything else.
  *
- * Categories, merchants and accounts are the same gesture over three lists, so
- * they are one function; only the pair of fields it writes back differs, and
- * `AXES` is that pairing.
+ * A value still ends up on one list at a time, since each gesture takes it off
+ * the other — the exclusion would win anyway, and a tick that decides nothing
+ * is a filter that reads as on and does nothing.
+ *
+ * The four axes are the same gesture over a different pair of lists, so they
+ * are one function, and `AXES` is that pairing.
  */
 const pick =
   (onFilters: SetFilters, key: Axis) =>
   (value: string, exclude = false) =>
     onFilters((f) => {
-      const modeKey = AXES[key];
+      const outKey = AXES[key];
       const values: string[] = f[key];
-      const mode: Mode = f[modeKey];
+      const out: string[] = f[outKey];
+      const without = (list: string[]) => list.filter((v) => v !== value);
 
-      let next: string[];
-      if (exclude) {
-        const list = mode === "exclude" ? values : [];
-        next = list.includes(value)
-          ? list.filter((v) => v !== value)
-          : [...list, value];
-      } else {
-        const only =
-          mode === "include" && values.length === 1 && values[0] === value;
-        next = only ? [] : [value];
-      }
-
-      return { ...f, [key]: next, [modeKey]: exclude ? "exclude" : "include" };
+      if (exclude)
+        return {
+          ...f,
+          [key]: without(values),
+          [outKey]: out.includes(value) ? without(out) : [...out, value],
+        };
+      const only = values.length === 1 && values[0] === value;
+      return { ...f, [key]: only ? [] : [value], [outKey]: without(out) };
     });
 
 /**
@@ -383,10 +382,10 @@ const Dashboard = ({
 
   // A breakdown of one category is a bar chart of itself, so it goes — and so
   // does the change chart, which can only hold that same category's one bar,
-  // already spelled out on the tile above it. Excluding one category is the
-  // opposite: everything else is still in, and still worth breaking down.
-  const single =
-    filters.categories.length === 1 && filters.categoryMode === "include";
+  // already spelled out on the tile above it. Exclusions do not count: one
+  // category minus a subcategory of it is still one bar, and excluding a
+  // category on its own leaves everything else in and worth breaking down.
+  const single = filters.categories.length === 1;
 
   // Filtered to a spending category every point's income is zero, and a line
   // along the axis is not a finding. The chart drops it; the title follows.

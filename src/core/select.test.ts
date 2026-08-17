@@ -184,11 +184,7 @@ test("matchesFilters: exclude hides exactly what include would have kept", () =>
     matchesFilters(t, { ...NO_FILTERS, categories: list }),
   );
   const dropped = all.filter((t) =>
-    matchesFilters(t, {
-      ...NO_FILTERS,
-      categories: list,
-      categoryMode: "exclude",
-    }),
+    matchesFilters(t, { ...NO_FILTERS, categoriesOut: list }),
   );
   assert.deepEqual(dropped, [rent]);
   assert.deepEqual(
@@ -198,10 +194,65 @@ test("matchesFilters: exclude hides exactly what include would have kept", () =>
 
   // An empty list means every row either way — never an empty page.
   assert.equal(
-    all.filter((t) =>
-      matchesFilters(t, { ...NO_FILTERS, categoryMode: "exclude" }),
-    ).length,
+    all.filter((t) => matchesFilters(t, { ...NO_FILTERS, categoriesOut: [] }))
+      .length,
     3,
+  );
+});
+
+/**
+ * The two lists on one axis, which is the whole reason there are two: the
+ * exception to a filter lives on the same field as the filter, so a mode could
+ * never say it.
+ */
+test("matchesFilters: a category, minus one subcategory of it", () => {
+  const gift = txn({
+    id: "1",
+    amount: 500,
+    category: "innskudd",
+    subcategory: "familie",
+  });
+  const salary = txn({
+    id: "2",
+    amount: 20000,
+    category: "innskudd",
+    subcategory: "lonn",
+  });
+  const spend = txn({ id: "3", amount: -100, category: "dagligvarer" });
+  const all = [gift, salary, spend];
+
+  assert.deepEqual(
+    all.filter((t) =>
+      matchesFilters(t, {
+        ...NO_FILTERS,
+        categories: ["innskudd"],
+        categoriesOut: ["innskudd/familie"],
+      }),
+    ),
+    [salary],
+  );
+
+  // The exclusion wins where the two name the same rows, so the narrower word
+  // is always the one that decides.
+  assert.equal(
+    matchesFilters(gift, {
+      ...NO_FILTERS,
+      categories: ["innskudd/familie"],
+      categoriesOut: ["innskudd"],
+    }),
+    false,
+  );
+
+  // And it holds on the other axes, which are the same pair of lists.
+  assert.deepEqual(
+    all.filter((t) =>
+      matchesFilters(t, {
+        ...NO_FILTERS,
+        accounts: ["Brukskonto"],
+        accountsOut: ["Brukskonto"],
+      }),
+    ),
+    [],
   );
 });
 
@@ -368,10 +419,7 @@ test("matchesFilters: merchants, alongside the categories, and on the descriptio
   const only = (f: Partial<typeof NO_FILTERS>) =>
     all.filter((t) => matchesFilters(t, { ...NO_FILTERS, ...f }));
   assert.deepEqual(only({ merchants: ["Rema 1000"] }), [rema]);
-  assert.deepEqual(
-    only({ merchants: ["Rema 1000"], merchantMode: "exclude" }),
-    [kiwi, card],
-  );
+  assert.deepEqual(only({ merchantsOut: ["Rema 1000"] }), [kiwi, card]);
   // No counterparty, so the description is the merchant — the same string the table cell offers.
   assert.deepEqual(only({ merchants: ["Varekjøp"] }), [card]);
   // The two lists are an AND: a merchant in the wrong category is out.
@@ -379,7 +427,12 @@ test("matchesFilters: merchants, alongside the categories, and on the descriptio
     only({ merchants: ["Rema 1000"], categories: ["transport"] }),
     [],
   );
-  assert.equal(only({ merchantMode: "exclude" }).length, 3);
+  assert.equal(only({ merchantsOut: [] }).length, 3);
+  // Both lists on the merchant axis at once, the same as the categories.
+  assert.deepEqual(
+    only({ merchants: ["Rema 1000", "Kiwi"], merchantsOut: ["Kiwi"] }),
+    [rema],
+  );
 });
 
 test("distinctMerchants falls back to the description and is sorted and deduplicated", () => {
@@ -411,12 +464,9 @@ test("the account filter is the third axis, and works either way round", () => {
       .map((t) => t.id);
 
   assert.deepEqual(shown({ accounts: ["Mastercard Ung"] }), ["2"]);
-  assert.deepEqual(
-    shown({ accounts: ["Mastercard Ung"], accountMode: "exclude" }),
-    ["1"],
-  );
-  // A filter nobody set must never empty the page, whichever mode it is in.
-  assert.deepEqual(shown({ accountMode: "exclude" }), ["1", "2"]);
+  assert.deepEqual(shown({ accountsOut: ["Mastercard Ung"] }), ["1"]);
+  // A filter nobody set must never empty the page, either list of it.
+  assert.deepEqual(shown({ accountsOut: [] }), ["1", "2"]);
   // The axes are ANDed, like the other two already are.
   assert.deepEqual(
     shown({ accounts: ["Brukskonto"], categories: ["reise"] }),
@@ -424,15 +474,16 @@ test("the account filter is the third axis, and works either way round", () => {
   );
 });
 
-test("AXES names every list filter with the field holding its mode", () => {
-  // The UI toggles all three through this map, so a filter missing from it is a
-  // filter with no menu and no chip.
-  for (const [list, mode] of Object.entries(AXES)) {
+test("AXES names every list filter with the field holding its exclusions", () => {
+  // The UI toggles all four through this map, so a filter missing from it is a
+  // filter with no menu and no chip — and half an axis in it is one whose
+  // exclusions nothing can reach.
+  for (const [list, out] of Object.entries(AXES)) {
     assert.ok(
       Array.isArray(NO_FILTERS[list as keyof typeof AXES]),
       `${list} is a list`,
     );
-    assert.equal(NO_FILTERS[mode], "include");
+    assert.deepEqual(NO_FILTERS[out], [], `${out} is an empty list`);
   }
 });
 
@@ -504,11 +555,7 @@ test("a category listed alone still takes all of its subcategories with it", () 
     true,
   );
   // And excluding the parent excludes the children, for the same reason.
-  const not = {
-    ...NO_FILTERS,
-    categories: ["dagligvarer"],
-    categoryMode: "exclude" as const,
-  };
+  const not = { ...NO_FILTERS, categoriesOut: ["dagligvarer"] };
   assert.equal(
     matchesFilters(
       txn({
@@ -524,11 +571,7 @@ test("a category listed alone still takes all of its subcategories with it", () 
 });
 
 test("excluding one subcategory leaves its siblings in", () => {
-  const f = {
-    ...NO_FILTERS,
-    categories: ["dagligvarer/andre_dagligvarer"],
-    categoryMode: "exclude" as const,
-  };
+  const f = { ...NO_FILTERS, categoriesOut: ["dagligvarer/andre_dagligvarer"] };
   assert.equal(
     matchesFilters(
       txn({
