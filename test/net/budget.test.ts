@@ -9,7 +9,7 @@ import {
   note,
   remaining,
   spend,
-} from "./budget.ts";
+} from "../../src/net/budget.ts";
 
 const ledger = () =>
   join(mkdtempSync(join(tmpdir(), "budget-")), "api-budget.json");

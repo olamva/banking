@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { countryOf, makeCleaner } from "./names.ts";
+import { countryOf, makeCleaner } from "../../src/core/names.ts";
 
 /**
  * The shapes, not the corpus. Every string here is one SB1 actually sends, but

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { SeriesPoint } from "./stats.ts";
+import type { SeriesPoint } from "../../src/core/stats.ts";
 import {
   cumulative,
   dailySeries,
@@ -12,8 +12,8 @@ import {
   totals,
   withGaps,
   yearStats,
-} from "./stats.ts";
-import type { Categorized } from "./types.ts";
+} from "../../src/core/stats.ts";
+import type { Categorized } from "../../src/core/types.ts";
 
 function txn(
   partial: Partial<Categorized> & { id: string; amount: number },

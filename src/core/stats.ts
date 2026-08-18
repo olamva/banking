@@ -1,12 +1,8 @@
 /**
- * Pure aggregation over `Categorized[]` — no I/O, no database import, no
- * network. Everything here is exported types the dashboard builds against
- * directly: keep the shape flat and treat it as a contract.
- *
- * This is the *only* implementation of the money aggregation. The React app
- * imports this module and Vite bundles it, so the browser re-filters with the
- * exact code `node --test` pins rather than a hand-synced copy that drifts the
- * first time a rule changes. Keep it free of `node:` imports for that reason.
+ * The *only* implementation of the money aggregation. The React app imports
+ * this module directly, so the browser aggregates with the exact code
+ * `node --test` pins rather than a copy that drifts — which is why it must stay
+ * free of `node:` imports.
  */
 import { merchantOf } from "./select.ts";
 import type { Categorized } from "./types.ts";
@@ -128,14 +124,9 @@ const categoriesFromCents = (
   }));
 
 /**
- * A subcategory's spending, and its share **of its own category** rather than of
- * everything.
- *
- * Within the parent, because that is the number a drill-down is asking for: two
- * thirds of what you spend on eating out went on fastfood is worth reading, and
- * `0.09 of all spending` is the same fact told worse. It also keeps
- * `categories` untouched — its shares still sum to 1 across the page, and
- * nothing that already draws it has to change.
+ * A subcategory's spending, and its share **of its own category** — the number
+ * a drill-down is asking for. "Two thirds of eating out went on fastfood" is
+ * worth reading; `0.09 of all spending` is the same fact told worse.
  */
 export type SubcategoryTotal = {
   category: string;
@@ -194,10 +185,8 @@ const accountsFromCents = (byAccount: Map<string, number>): AccountTotal[] =>
   }));
 
 /**
- * One direction's breakdowns. The two sides are aggregated identically and kept
- * apart, which is the same rule the totals have always followed: the sign
- * decides which side a row lands on, and no category can move money between
- * them.
+ * One direction's breakdowns. The sign decides which side a row lands on, so no
+ * category can move money between the two.
  */
 type SideAgg = {
   /** Magnitude, never negative — on both sides. */
@@ -257,9 +246,8 @@ export type Totals = {
 };
 
 /**
- * What a set of rows adds up to, and nothing else. `monthStats` carries the same
- * four numbers, but building one to read them sorts categories and
- * counterparties nobody asked for — and a date range has no month to name.
+ * What a set of rows adds up to, and nothing else — `monthStats` carries the
+ * same four numbers but sorts breakdowns nobody asked for on the way.
  */
 export function totals(txns: Categorized[]): Totals {
   const agg = aggregateCents(txns);
@@ -272,12 +260,8 @@ export function totals(txns: Categorized[]): Totals {
 }
 
 /**
- * `dir` is the sign the row must have: `out` is money spent, `in` is money
- * received.
- *
- * 25 rather than the 10 the card draws, because the card now opens: a limit
- * equal to what is shown is a card whose "show more" can never appear, and the
- * cut has to sit above the fold rather than on it.
+ * `dir` is the sign the row must have. 25 rather than the 10 the card draws: a
+ * limit equal to what is shown is a card whose "show more" can never appear.
  */
 function topCounterparties(
   txns: Categorized[],
@@ -400,13 +384,9 @@ const point = (at: string, txns: Categorized[]): SeriesPoint => {
 };
 
 /**
- * Every date from `from` to `to`, both ends inclusive.
- *
- * The bound is compared as a string, exactly as `inRange` does, and for the
- * same reason: `period()` hands out `YYYY-MM-31` as a month's upper bound, and
- * no calendar has a 31st of February. Lexically every March date sorts above
- * it, so the walk stops on the real last day of the month without anyone
- * having to know which day that is.
+ * Every date from `from` to `to`, both ends inclusive. The bound is compared as
+ * a string, so a `YYYY-MM-31` upper bound stops on the real last day of the
+ * month without anyone having to know which day that is.
  */
 const eachDay = (from: string, to: string): string[] => {
   const out: string[] = [];
@@ -420,14 +400,10 @@ const eachDay = (from: string, to: string): string[] => {
 };
 
 /**
- * One point per calendar day across the whole range, spending or not.
- *
- * Unlike the monthly series this one is **dense, and its holes are zeros**. A
- * month missing from `data/raw/` is an absence — nothing was ever synced for
- * it — but a day inside a synced month with no transactions on it is a real
- * day on which nothing was spent, and drawing that as a gap would claim the
- * record stops every weekend. The range comes from the period rather than from
- * the rows, so a filter narrows the lines without shortening the axis.
+ * One point per calendar day across the range, spending or not: **dense, and
+ * its holes are zeros**. A day inside a synced month with no transactions is a
+ * real day on which nothing was spent, unlike a month missing from
+ * `data/raw/` — drawing it as a gap would claim the record stops every weekend.
  */
 export function dailySeries(
   txns: Categorized[],
@@ -449,17 +425,12 @@ export function monthlySeries(txns: Categorized[]): SeriesPoint[] {
 }
 
 /**
- * The series as running totals from its own start.
+ * The series as running totals from its own start. Accumulated, both lines are
+ * monotonic, the gap between them is the running surplus, and where they cross
+ * is the day the period went under — none of which survives being cut into
+ * days, since two thirds of days carry no income at all.
  *
- * Daily spending is spiky and two thirds of days carry no income at all, so
- * drawn raw the income line sits on the axis most of the week and the band
- * between the two reads as overspending on nearly every day of every month —
- * the band is a statement about a whole period and does not survive being cut
- * into days. Accumulated, both lines are monotonic, the gap between them is
- * the running surplus, and where they cross is the day the period went under.
- *
- * Summed in cents, so a year of additions cannot drift the way repeated
- * float addition of kroner would.
+ * Summed in cents, so a year of additions cannot drift.
  */
 export function cumulative(series: SeriesPoint[]): SeriesPoint[] {
   let inCents = 0;
@@ -497,20 +468,11 @@ const monthIndex = (month: string): number => {
 };
 
 /**
- * The series with every calendar month from the first to the last, and `null`
- * where there is no month.
- *
- * `monthlySeries` only emits months that have rows, so a chart drawing that
- * array straight joins May to August as though nothing sat between them — the
- * line slopes across the hole and reads as a real trend. A gap in the record is
- * not a value, and it is not zero either: filling it with 0 would claim a month
- * of no spending. It has to be a hole the chart can see and break across.
- *
- * Months only. The daily series is dense to begin with and its empty days are
- * genuine zeros — see `dailySeries`.
- *
- * Order-independent and Date-free: months are keyed by index and the span is
- * read off the extremes, so an unsorted series cannot spin this.
+ * The series with every calendar month from first to last, and `null` where
+ * there is no month. `monthlySeries` emits only months that have rows, so a
+ * chart drawing it straight slopes May to August and reads as a real trend. A
+ * gap is not a value and not zero either: it has to be a hole the chart breaks
+ * across.
  */
 export function withGaps(series: SeriesPoint[]): (SeriesPoint | null)[] {
   if (series.length === 0) return [];
@@ -524,12 +486,10 @@ export function withGaps(series: SeriesPoint[]): (SeriesPoint | null)[] {
 }
 
 /**
- * The least-squares line through a series' spending, as `y = slope * x + intercept`
- * over the **slot index** — so the x it is fitted against is the position on the
- * drawn axis, holes included. That is the whole reason it takes the gapped array
- * rather than the series: fitting against the array index instead would pull a
- * missing month's neighbours together and tilt the line towards a period that
- * was never synced.
+ * The least-squares line through a series' spending, fitted over the **slot
+ * index** — the position on the drawn axis, holes included. That is why it
+ * takes the gapped array: fitting the array index would pull a missing month's
+ * neighbours together and tilt the line.
  *
  * Null under two points, because a line through one point is every line.
  */
@@ -595,15 +555,12 @@ export type SubscriptionGroup = {
   /** NOK, magnitude spent across the group. A refund inside it nets off. */
   total: number;
   /**
-   * NOK charged on `last` — what it costs a month, on the assumption that the
-   * last payment is the current price and that the price is monthly.
+   * NOK charged on `last`, not the average: an old price averaged in says what
+   * a subscription *has* cost, and the question here is what it costs now.
    *
-   * The first half is the point: an old price averaged in tells you what the
-   * subscription *has* cost, and the question a subscription list answers is
-   * what it costs now. The second half is where it can be wrong — a yearly bill
-   * reads as its yearly amount, and nothing on the row says otherwise. Dividing
-   * by an inferred cadence needs more than one charge to infer from, which the
-   * new subscriptions that most want checking are exactly the ones without.
+   * ponytail: assumes the price is monthly, so a yearly bill reads as its
+   * yearly amount. Inferring the cadence needs more than one charge, which the
+   * new subscriptions most worth checking are exactly the ones without.
    */
   latest: number;
   /** Latest booking date in the group — how long since it last took anything. */
@@ -613,23 +570,14 @@ export type SubscriptionGroup = {
 /**
  * What is subscribed to, one line each — not one line per charge.
  *
- * Takes **every** row in view, not only the flagged ones, and keeps the payees
- * that carry at least one flag. The flag is per row and the bank sets it
- * unevenly: it marked one of twelve identical monthly rent payments, so a
- * standing 6 100 kr/month read as a single 6 000 kr charge in June 2024 while
- * the transactions table right below it showed all twelve. A subscription is a
- * property of the payee, not of the individual charge — one flag anywhere is
- * the bank telling us this payee recurs, and the rest of its rows are the same
- * subscription whether or not the flag stuck to them.
+ * Takes **every** row in view and keeps the payees carrying at least one flag,
+ * because a subscription is a property of the payee and the bank sets the flag
+ * per row and unevenly: one of twelve identical rent payments marked reads as a
+ * single charge while the table below shows all twelve.
  *
- * On the real data that promotes 15 rows across 36 payees, and nothing runs
- * away with it: the bank's wrong guesses land on payees seen once or twice, so
- * no everyday merchant is dragged in by a single stray flag.
- *
- * The category is the latest row's, because a recategorised subscription is
- * that category now; the old rows are history, not a second opinion. Everything
- * booked on that same date counts as one payment, so a charge split over two
- * rows is one price and a same-day refund comes off it.
+ * The category is the latest row's, since a recategorised subscription is that
+ * category now. Everything booked on that date counts as one payment, so a
+ * split charge is one price and a same-day refund comes off it.
  */
 export function subscriptionGroups(txns: Categorized[]): SubscriptionGroup[] {
   type Acc = {

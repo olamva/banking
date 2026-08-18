@@ -17,7 +17,7 @@ import {
   spans,
   splitSpan,
   thisMonth,
-} from "./sync.ts";
+} from "../../src/net/sync.ts";
 
 // Enable Banking answers 400 ASPSP_ERROR when date_to is in the future, which
 // is every refresh of the month you are currently in.

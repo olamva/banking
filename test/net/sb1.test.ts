@@ -3,8 +3,13 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { remaining } from "./budget.ts";
-import { monthRange, noteLimits, RateLimited, ReauthRequired } from "./sb1.ts";
+import { remaining } from "../../src/net/budget.ts";
+import {
+  monthRange,
+  noteLimits,
+  RateLimited,
+  ReauthRequired,
+} from "../../src/net/sb1.ts";
 
 /** Never the real ledger: these tests would spend the day's budget on paper. */
 const ledger = () =>

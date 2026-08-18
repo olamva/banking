@@ -9,38 +9,26 @@ import type { Categorized } from "./types.ts";
 
 /**
  * Every list filter is **two lists over one field**: the rows to show, and the
- * rows to hide out of them. It was one list plus a mode, which could say "only
- * `innskudd`" or "anything but `innskudd/familie`" and never both at once — and
- * both at once is the ordinary thing to want, since the exception to a filter
- * lives on the same axis as the filter.
+ * rows to hide out of them. Both at once is the ordinary thing to want, since
+ * the exception to a filter lives on the filter's own axis.
  *
- * The two are read in one order and it is not negotiable: **an exclusion wins.**
- * A value on both lists is hidden. That is what makes `innskudd` minus
- * `innskudd/familie` mean anything — the parent is listed, the child is listed
- * under it, and only the narrower word can be the answer.
+ * The order is not negotiable: **an exclusion wins**, so a value on both lists
+ * is hidden. That is what makes `innskudd` minus `innskudd/familie` mean
+ * anything.
  */
 export type Filters = {
   /**
-   * Empty means every category, and the `Out` list below still applies to it —
-   * "everything except X" needs no include list at all.
+   * Empty means every category, and the `Out` list still applies to it.
    *
    * **Holds both levels**: a bare `dagligvarer` and a pair
-   * `dagligvarer/andre_dagligvarer` live in the same list, and a row matches if
-   * *either* is listed. One axis rather than two, because two ANDed — picking a
-   * category and a subcategory under some other category asked for rows that are
-   * both at once and drew an empty page. A tree with checkboxes means a union,
-   * and a union is what one list gives for nothing.
+   * `dagligvarer/andre_dagligvarer` share one list, and a row matches if either
+   * is listed. Two axes would AND, asking for rows that are a category and a
+   * subcategory under some *other* category at once — an empty page.
    *
    * A pair is always `category/sub`, never a bare sub: `dagligvarer` is a sub
-   * under itself and `kollektivtransport` sits under two mains, so a bare sub
-   * would quietly pull rows from both.
+   * under itself and `kollektivtransport` sits under two mains.
    */
   categories: string[];
-  /**
-   * The rows hidden out of that, named the same two ways — a bare category or a
-   * pair. It wins over `categories`, so listing `innskudd` there and
-   * `innskudd/familie` here is a contradiction resolved in favour of hiding.
-   */
   categoriesOut: string[];
   /** The same, over `merchantOf` — the name the tables and the bars show. */
   merchants: string[];
@@ -49,32 +37,25 @@ export type Filters = {
   accounts: string[];
   accountsOut: string[];
   /**
-   * The same again, over `Txn.country`.
-   *
-   * Only card rows carry one, so an empty include list is not "everywhere" in
-   * the way the other three axes mean it — it is every row, country or not. A
-   * row with no country is therefore dropped by an include filter and kept by
-   * an exclusion, which falls out of `shown` treating null as its own value
-   * rather than needing a case: `NO_COUNTRY` is what it is called in the list.
+   * The same again, over `Txn.country`. Only card rows carry one, so an empty
+   * include list means every row, country or not — `NO_COUNTRY` is a real value
+   * in the list, which is what lets "only the domestic rows" be asked for.
    */
   countries: string[];
   countriesOut: string[];
   search: string;
   /**
    * Whether internal transfers and card bill payments are listed. Off by
-   * default: no money path counts them — `stats.ts` skips them before it sums —
-   * so listing them only makes a transfer pair look like spending. One toggle
-   * puts them back, because the excluded set has to stay auditable.
+   * default, since no money path counts them; one toggle puts them back,
+   * because the excluded set has to stay auditable.
    */
   showExcluded: boolean;
 };
 
 /**
- * The four list filters, each paired with the field holding its exclusions.
- *
- * They are one control repeated, so the code that toggles them is one function
- * over this map rather than four near-copies — and adding a fifth axis is this
- * entry plus its two fields above.
+ * The four list filters, each paired with the field holding its exclusions —
+ * one control repeated, so toggling is one function over this map rather than
+ * four near-copies.
  */
 export const AXES = {
   categories: "categoriesOut",
@@ -99,24 +80,17 @@ export const NO_FILTERS: Filters = {
 };
 
 /**
- * The one name a row goes by. Card rows have no counterparty until a statement
- * export reaches them, so the description is the fallback — and it has to be the
- * same fallback everywhere, or a merchant clicked in the table filters to
- * nothing.
+ * The one name a row goes by, and it has to be the same fallback everywhere or
+ * a merchant clicked in the table filters to nothing.
  */
 export const merchantOf = (t: Categorized): string =>
   t.counterparty ?? t.description;
 
 /**
- * The value the subcategory filter matches on: the pair, with a trailing slash
- * where there is no second level.
- *
- * A row with no sub is still selectable. `rules/overrides.json` names a pair on
- * every line now, but the rules `categorize` holds itself still do not —
- * `overfoering`, `ukategorisert` and the travel guess all refuse a second level
- * on purpose — so "the part of this category nothing has named yet" remains a
- * real thing to want to look at, and dropping it would make the drill-down
- * silently show less than the category it opened from.
+ * The pair, with a trailing slash where there is no second level, so a row with
+ * no sub stays selectable — `overfoering`, `ukategorisert` and the travel guess
+ * all refuse one on purpose, and dropping them would make a drill-down show
+ * less than the category it opened from.
  */
 export const subcategoryOf = (t: Categorized): string =>
   `${t.category}/${t.subcategory ?? ""}`;
@@ -138,16 +112,12 @@ export function inRange(
 }
 
 /**
- * One axis, both its lists. A row is in when nothing hides it, and either the
- * include list is empty or something in it names the row — an empty include
- * list is every row, since a filter nobody set must never empty the page.
+ * One axis, both its lists. An empty include list is every row, since a filter
+ * nobody set must never empty the page.
  *
- * A row can be named more than one way, and any candidate counts. That is what
- * makes a category and one of its own subcategories a union rather than an
- * impossible intersection, what takes the children with the parent on either
- * list — and what lets the narrower name be the exception to the wider one,
- * since the exclusion answers on the pair while the inclusion answers on the
- * bare category, and the exclusion is asked first.
+ * A row can be named more than one way and any candidate counts, which is what
+ * makes a category and its own subcategory a union rather than an impossible
+ * intersection — and what lets the narrower name be the exception to the wider.
  */
 const shown = (
   include: string[],
@@ -195,12 +165,8 @@ const monthBounds = (m: string) => ({ from: `${m}-01`, to: `${m}-31` });
 const yearBounds = (y: number) => ({ from: `${y}-01-01`, to: `${y}-12-31` });
 
 /**
- * A hand-picked window, `from..to`, either end allowed to be empty for an open
- * one — the same "no bound" `inRange` already understands, so clearing one date
- * box is a period rather than an error.
- *
- * A range says nothing about which month or year it sits in, so it is its own
- * kind rather than a shape the month regex could be widened to.
+ * A hand-picked window, either end allowed to be empty for an open one, so
+ * clearing a date box is a period rather than an error.
  */
 const CUSTOM = /^(\d{4}-\d{2}-\d{2})?\.\.(\d{4}-\d{2}-\d{2})?$/;
 
@@ -211,24 +177,16 @@ export const todayOslo = (): string =>
 /**
  * The one period the whole page runs on: a month `2026-07`, a year `2026`, a
  * hand-picked `2026-03-04..2026-05-01`, or anything else meaning all time.
+ * Both views read it, which is what keeps the dashboard and the table in step.
  *
- * Both views read this, which is what lets the dashboard and the table stay in
- * step — and what makes "vs the previous period" mean the same thing for a
- * month and for a year.
+ * **A month compares against the same month a year back**, because spending has
+ * a shape over a year the month before cannot see — January against December
+ * says only that Christmas happened.
  *
- * **A month compares against the same month a year back, not against the month
- * before it.** Spending has a shape over a year that the month before cannot
- * see: December is not a verdict on November, and January against December says
- * only that Christmas happened. Against last December it says something.
- *
- * The period still running is only part-full, so its previous window is cut to
- * the same point: nine days of August against a whole August would read as a
- * 70% fall every time, which is the calendar talking and not the spending. Any
- * other period is complete and compares against a complete one.
- *
- * The cut is a string bound, so a day the previous window does not have needs
- * no special case — `2025-02-30` sorts after every February date and before
- * every March one, which is exactly "all of February".
+ * A period still running is part-full, so its previous window is cut to the
+ * same point, or every delta would read as a collapse drawn by the calendar.
+ * The cut is a string bound, so a day the previous window lacks needs no case:
+ * `2025-02-30` sorts after every February date and before every March one.
  */
 export function period(p: string, now = todayOslo()): Period {
   if (/^\d{4}-\d{2}$/.test(p)) {
@@ -258,17 +216,9 @@ export function period(p: string, now = todayOslo()): Period {
   const range = CUSTOM.exec(p);
   if (range) {
     const [, from = null, to = null] = range;
-    /**
-     * **No previous window, deliberately.** A hand-picked range belongs to no
-     * calendar, so nothing says what it is a period *of*: the equally long span
-     * before it was tried, and it compares a trip against the fortnight at home
-     * before it, or a fortnight against a different fortnight nobody chose. A
-     * month has last year and a year has the year before; a range has nothing,
-     * and an invented comparison reads as a measurement.
-     *
-     * So the changes card and the deltas are absent here, exactly as they are
-     * for all time.
-     */
+    // No previous window, deliberately: a hand-picked range belongs to no
+    // calendar, so nothing says what it is a period *of*, and an invented
+    // comparison reads as a measurement.
     return {
       kind: "custom",
       from,
@@ -285,18 +235,10 @@ export function period(p: string, now = todayOslo()): Period {
  * as `YYYY-MM-DD`.
  *
  * Taken from the period rather than from the rows, so filtering to one merchant
- * thins the line instead of shortening the axis to the days that merchant
- * happens to appear on. Two things pull the far end back in:
- *
- * - A period still running would otherwise stretch to its last calendar day and
- *   draw a fortnight of flat line, which reads as having stopped spending
- *   rather than as not having got there yet.
- * - But it must never stop short of the rows themselves. The bank books card
- *   rows a day or two ahead, so `data/raw/` routinely holds dates later than
- *   today, and an axis cut at today drops spending the totals beside it count.
- *
- * So the far end is the period's own, or where the record reaches — today, or
- * the latest row if that is later still — whichever comes first.
+ * thins the line instead of shortening the axis. The far end is the period's
+ * own or where the record reaches, whichever comes first: a running period
+ * would otherwise draw a fortnight of flat line, but it must never stop short
+ * of the rows, since card rows routinely carry dates later than today.
  */
 export function axisBounds(
   rows: Categorized[],
@@ -340,14 +282,9 @@ export function distinctMerchants(txns: Categorized[]): string[] {
 /**
  * The categories that mean the other party was a person rather than a shop.
  *
- * The bank does not say whether a counterparty is a human, and no name shape
- * answers it either — `Georgios Giannakis` is a taverna, `Elias Rønnestad` is a
- * clothes shop, and `Møller Kantine` is not a person called Møller. Tried over
- * the record, a person-name regex called about 190 businesses people.
- *
- * What does answer it is the category already on the row: a peer payment or
- * family money only ever has a human on the other end. That is a fact the
- * pipeline has already established, so this reads it rather than guessing again.
+ * No name shape answers this — `Georgios Giannakis` is a taverna and `Møller
+ * Kantine` is not a person called Møller. The category already on the row does:
+ * a peer payment or family money only ever has a human on the other end.
  */
 const PEER = new Set([
   "diverse/vennebetaling",
@@ -356,17 +293,14 @@ const PEER = new Set([
 ]);
 
 /**
- * Which merchants are people, from the rows in view.
+ * Which merchants are people, from the rows in view. **Any** peer row makes the
+ * name a person: a flatmate is rent under `faste_boutgifter` and small Vipps
+ * payments under `vennebetaling`, and requiring every row to agree would call
+ * them a business on the strength of the rent.
  *
- * **Any** peer row makes the name a person, not all of them: a flatmate is rent
- * under `faste_boutgifter` and small Vipps payments under `vennebetaling`, and
- * requiring every row to agree would file them as a business on the strength of
- * the rent.
- *
- * ponytail: a signal, not a register of humans. It calls `Vipps`, `Pant` and
- * `Korreksjon` people, because peer rows land under those names, and it misses a
- * landlord who only ever sent rent. Both are visible in a list you are looking
- * at, which is the whole reason this narrows a picker rather than a total.
+ * ponytail: a signal, not a register of humans — it calls `Vipps` and `Pant`
+ * people and misses a landlord who only ever sent rent. Both are visible in a
+ * list you are looking at, which is why this narrows a picker and not a total.
  */
 export function personMerchants(txns: Categorized[]): Set<string> {
   const people = new Set<string>();
@@ -376,12 +310,9 @@ export function personMerchants(txns: Categorized[]): Set<string> {
 }
 
 /**
- * The value the country filter matches on, with a name for "the row has none".
- *
- * A sentinel rather than dropping those rows from the axis: BankAxept and every
- * transfer carry no country at all, which is most of the record, and an axis
- * that could not select them would make "show me only the domestic rows" quietly
- * mean "only the card ones".
+ * A sentinel rather than dropping the rows with no country: that is most of the
+ * record, and an axis that could not select them would make "only the domestic
+ * rows" quietly mean "only the card ones".
  */
 export const NO_COUNTRY = "—";
 

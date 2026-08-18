@@ -3,8 +3,8 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { openDb, queryRange, rebuild, upsertMany } from "./db.ts";
-import type { Categorized } from "./types.ts";
+import { openDb, queryRange, rebuild, upsertMany } from "../../src/core/db.ts";
+import type { Categorized } from "../../src/core/types.ts";
 
 function row(overrides: Partial<Categorized> = {}): Categorized {
   return {

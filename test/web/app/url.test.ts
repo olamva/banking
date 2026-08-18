@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { NO_FILTERS } from "../../core/select.ts";
-import { fromParams, toParams, type UrlState } from "./url.ts";
+import { NO_FILTERS } from "../../../src/core/select.ts";
+import {
+  fromParams,
+  toParams,
+  type UrlState,
+} from "../../../src/web/app/url.ts";
 
 // Importing this module must stay DOM-free: readUrl/writeUrl only touch
 // location/history when called, so node can run everything else here.

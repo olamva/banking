@@ -3,35 +3,18 @@
 Personal spending analysis over my SpareBank 1 accounts and credit card. Pulls
 raw transactions to disk once, then does everything else offline.
 
-Private repo, single user, personal use. Not a product, not accepting issues.
-
-## What it does
-
-One source goes in and one picture comes out:
-
-| Account         | Gives                                                       |
-| --------------- | ----------------------------------------------------------- |
-| 6 bank accounts | amount, date, description, the bank's own category          |
-| 1 credit card   | the same, plus the merchant's MCC and the original currency |
-
-All of it comes from the SpareBank 1 API. The card used to need Enable Banking
-and a manual statement export for the merchant; `GET /accounts` turned out to
-hide it behind an `includeCreditCardAccounts` flag that defaults to false, and
-the ordinary transactions endpoint answers for it with more on every row than
-Enable Banking ever returned. The one thing lost is the booking date: SB1 dates
-a card row by the purchase, one to three days earlier. See `Txn.date`.
-
-Everything is normalised to one record shape, internal transfers and card bill
-payments are flagged so they don't double-count, categories are applied, and the
-result lands in SQLite. Every row carries the name of the account it is on, from
-`rules/accounts.json`, which is what the dashboard splits spending by. The
-dashboard reads from there.
+Private repo, single user, personal use.
 
 ```
 data/raw/  ──normalize──►  Txn  ──exclude──►  ──categorize──►  SQLite
                                 (transfers)    (overrides)        │
                                                   pnpm dev ◄──────┘
 ```
+
+Six bank accounts and one credit card, all from the SB1 API. Every row is
+normalised to one shape, internal transfers and card bill payments are flagged
+so they don't double-count, categories are applied, and the result lands in
+SQLite for the dashboard to read.
 
 ## Setup
 
@@ -42,24 +25,15 @@ pnpm install
 pnpm dev                            # http://localhost:4000
 ```
 
-You also need `.env.local` with the SpareBank 1 credentials, for the online
-commands only — `pnpm dev` and everything offline runs without it. It is not in
-git.
-
-**A second checkout starts empty.** `.env.local`, `data/` and `rules/` are all
-gitignored, so a fresh clone or `git worktree` has no database to serve and no
-rules to read. Point it at the originals rather than re-syncing them:
+`.env.local` holds the SpareBank 1 credentials, for the online commands only —
+`pnpm dev` and everything offline runs without it. It is not in git, and neither
+are `data/` or `rules/`, so **a fresh clone or worktree starts empty**:
 
 ```bash
 pnpm install
 pnpm worktree:link                  # symlinks .env.local, data and rules back
 pnpm dev --port 4001                # 4000 is the main checkout's
 ```
-
-`worktree:link` finds the main checkout with `git rev-parse --git-common-dir`
-rather than counting `../` upwards, because a worktree named `a/b` is one level
-deeper than one named `a` and the fixed path silently linked to nothing. It is
-idempotent, so re-running it costs nothing.
 
 ## Commands
 
@@ -74,181 +48,103 @@ pnpm sb1 sync --from 2022 --to 2026  # a whole span; either end may be YYYY-MM
 pnpm sb1 sync --from 2022            # --to defaults to this month
                                      # a span is ONE request per five years, all accounts at once
 
-# offline — reads data/raw/ or the database
+# offline
 pnpm sb1 rebuild                    # rebuild data/banking.db from data/raw/
-pnpm sb1 reconcile                  # does the history explain the balances? (needs `sb1 accounts` for fresh ones)
-pnpm sb1 merchants                  # one shop under many names -> lines for rules/payees.json
-pnpm sb1 categories                 # which rules/overrides.json lines the bank already covers, and which depend on line order
-pnpm sb1 categories --all           # ...plus every bank pair, and the categories that still need a name
-
-# the living app
-pnpm dev                            # serve the dashboard on :4000, offline
+pnpm sb1 reconcile                  # does the history explain the balances?
 pnpm sb1 budget                     # what SB1 last said was left of its limit
 
+pnpm dev                            # the dashboard on :4000, offline
 pnpm test                           # node --test, no framework
 pnpm typecheck
 ```
 
-`rebuild` reconstructs the whole database from `data/raw/` — a few hundred
-milliseconds, and the only way rows get in. `pnpm dev` reads the database, so it
-has to have run first.
-
-## The dashboard
-
-```bash
-pnpm dev          # then open http://localhost:4000
-```
-
-A React app served by Vite in middleware mode inside the same process, so one
-command gives you the page on one port with hot reload and no build step. The
-server exposes exactly one endpoint, `/api/txns`, which re-reads the database
-per request — a `rebuild` in another terminal shows up on reload. Everything is
-computed in the browser by importing `src/core/stats.ts` directly.
-
-**Two views over one period.** _Dashboard_ is the tiles and the charts,
-_transactions_ is the rows behind them, and one pair of pickers chooses what
-both are looking at: a year, then a month inside it or the whole of it. All time
-sits above the years and drops the month picker, having no year to be inside.
-Month and year were never two layouts — the same tiles over two window lengths —
-so what the dashboard shows follows the window. Deltas compare against **a year
-back** — this February against last February, this year against last year —
-because spending has a shape over a year that the month before it cannot see:
-January against December says only that Christmas happened, while January
-against last January says something. They disappear when there is nothing to
-compare against: all time has nothing before it, and neither does the first
-period in the archive. The "per month" averages appear once the window spans
-more than one month.
-
-**The spending chart runs on days.** _Running total_ accumulates from the start
-of the window, so the two lines climb to the window's own totals and the gap
-between them is the running surplus — where they cross is the day it went under.
-Accumulated the line is monotonic, which is what lets a point per day stay
-readable across a whole year. _Per day_ plots the days raw, for "what happened
-on the 14th"; _per month_ plots the months. Each window offers the raw bucket it
-can carry and no other — a month has no months in it to plot, and a year has 365
-days to fit across a thousand pixels — so a month offers per day, a year offers
-per month, and all time offers only that.
-
-The shading between the lines is the only thing the raw daily view drops. It
-reads the vertical gap as a surplus, and that is only true of a whole window:
-income lands on about a third of days, so day by day it would call almost every
-one of them an overspend. Both lines are still drawn.
-
-The window still running compares against **the same slice** a year back — nine
-days of August against the first nine days of last August, not against the whole
-month, or every delta on the page would read as a collapse drawn by the
-calendar. Finished windows compare whole, and the tile says which it did.
-
-**Spending splits by account too**, not only by category — one bar per account,
-named by `rules/accounts.json`. The card is just another account there; it is
-only a bar of its own because a credit card is where a third of the money goes.
-The card once had a meter to itself, back when its rows arrived with no merchant
-and no category and the number was really a measure of how much was unreadable.
-
-**Subscriptions are listed per subscription**, not per charge: one line for what
-it is, what it costs a month, what it has taken across the window, how many
-times, and when it last went out. Sortable, searchable and windowed, like the
-transactions table.
-
-_Per month_ is the **last payment**, not the average — an old price averaged in
-says what a subscription has cost, and the question here is what it costs now.
-A yearly bill therefore reads as its yearly amount, since nothing on a row says
-how often it recurs.
-
-Categories, merchants and accounts each filter as **chips: click any number of
-them**, none means all — one control repeated three times, and the same gesture
-everywhere. A bar, a table cell or a menu entry filters to itself; meta-click
-excludes it instead, and accumulates. Pick exactly one category and the category
-breakdown drops out — a bar chart of a single category is a bar chart of itself.
-
-**Never share it.** It embeds every transaction you have, and so does a
-screenshot. The server binds to `127.0.0.1`; keep it that way.
-
-### Not tripping the rate limit
-
-**`pnpm dev` never touches the network.** Syncing is a command you run, not
-something a page view can trigger — so no number of tabs, reloads or restarts
-costs a single request. A `--pull` flag used to re-sync a stale current month on
-page load, behind four separate defences against exactly that; not having the
-path is the same guarantee for none of the code.
-
-Every call that is made is ledgered, and `sb1.get` refuses at the bank's zero.
-
-**The budget is the bank's, and there is no local cap.** SB1's quota is 60
-requests an hour per API — stated in its FAQ, not the reference — published as
-`x-ratelimit-remaining` on every response, with a 429 at zero. Crucially it
-refills _as it goes_, roughly a request a minute, rather than holding each call
-against you for a full 60 minutes the way "hourly limit" sounds.
-
-So `data/api-budget.json` keeps the last figure and its timestamp, and derives
-the rest: `spend` counts down for calls still in flight, the next response
-overwrites the estimate with fact, and elapsed time credits back at 1/minute up
-to 60. A `SB1_HOURLY_CAP` over a rolling hour of our own timestamps used to sit
-in front of all this and refused long after the bank would have said yes.
-
-Nothing expires, which is the point — a 0 seen an hour ago is a full bucket now,
-and a 429 clears itself at one probe a minute. The one gap is the first call
-ever: with no figure on disk, the 429 is the brake. `pnpm sb1 budget` prints
-what SB1 last said, or tells you it has not said recently.
-
-`sync --from …` prices the whole span up front against that figure and says how
-far it expects to get. It stops rather than failing, and re-running is a resume:
-a month already on disk costs nothing without `--force`.
-
-It is rarely close to the limit any more. `accountKey` is repeatable and the
-bank's date range may be five years wide, so **a span is one request per five
-years, covering every account** — the whole record from 2018-09 is two requests
-rather than 455. The response is split back into the same
-`data/raw/<month>/<key>.json` files, so nothing downstream can tell the
-difference; verified against a year fetched both ways, row for row.
-
-```bash
-pnpm dev                      # never touches the network
-pnpm dev --port 5000
-```
-
-## A typical month
+A typical month:
 
 ```bash
 pnpm sb1 sync --month 2026-08
 pnpm sb1 rebuild
 ```
 
-Card transactions post late and arrive pending first, so a month is only really
-final a few days after it ends. Pending rows are dropped rather than counted —
-the bank reissues them under a new id once they book — so re-run with `--force`
-to pick up the tail.
+Card transactions post late and arrive pending first, so a month is only final a
+few days after it ends. Pending rows are dropped rather than counted, so re-run
+with `--force` to pick up the tail.
+
+## The dashboard
+
+`pnpm dev` is Vite. The app is `src/web/app/`, and `/api/txns` is a plugin in
+`vite.config.ts` that re-reads the database per request — a `rebuild` in another
+terminal shows up on reload. Everything is computed in the browser by importing
+`src/core/stats.ts` directly, so the page aggregates with the code the tests
+pin. There is no build step and no `dist/`.
+
+**Two views over one period.** _Dashboard_ is the tiles and the charts,
+_transactions_ is the rows behind them, and one pair of pickers chooses what
+both are looking at. Deltas compare against **a year back**, because spending
+has a shape over a year that the month before it cannot see: January against
+December says only that Christmas happened. A period still running compares
+against the same slice a year back, or every delta would read as a collapse
+drawn by the calendar.
+
+**The spending chart runs on days.** _Running total_ accumulates from the start
+of the window, so the gap between the two lines is the running surplus and where
+they cross is the day it went under. _Per day_ and _per month_ plot the buckets
+raw; each window offers only the one it can carry. The shading is the only thing
+the raw daily view drops — it reads the vertical gap as a surplus, which is true
+of a whole window and not of a Tuesday.
+
+**Categories, merchants, accounts and countries each filter as two lists**: a
+click includes, meta-click excludes, and an exclusion wins. Click any number of
+them; none means all. A bar, a table cell or a menu entry filters to itself.
+
+**Subscriptions are listed per subscription**, not per charge — one line for
+what it is, what it costs a month, what it has taken across the window, and when
+it last went out. _Per month_ is the **last payment**, not the average: an old
+price averaged in says what a subscription has cost, and the question is what it
+costs now.
+
+**Never share it.** It embeds every transaction you have, and so does a
+screenshot. The server binds to `127.0.0.1`; keep it that way.
+
+### Not tripping the rate limit
+
+**`pnpm dev` never touches the network.** Syncing is a command you run, so no
+number of tabs, reloads or restarts costs a request.
+
+SB1's quota is 60 requests an hour per API, published as `x-ratelimit-remaining`
+on every response, and it refills _as it goes_ rather than holding each call
+against you for a full hour. `data/api-budget.json` keeps the last figure and
+its timestamp and derives the rest; `sb1.get` refuses at the bank's zero. With
+nothing on disk the 429 is the brake.
+
+`sync --from …` prices the whole span up front and says how far it expects to
+get. It stops rather than failing, and re-running is a resume. It is rarely
+close to the limit: `accountKey` is repeatable and the date range may be five
+years wide, so **a span is one request per five years covering every account** —
+the whole record from 2018 is two requests rather than 455.
 
 ## Categories
 
 The bank labels its own transactions and is wrong or unhelpful often enough to
-matter. The hand-edited rules all live in `rules/`, none of them in git.
+matter. The hand-edited rules live in `rules/`, none of them in git.
+
 `rules/overrides.json` maps a case-insensitive substring to a category, checked
-against both the description and the merchant, and wins over the bank:
+against the description, the merchant and the payee's account number, and wins
+over the bank:
 
 ```json
-{
-  "Munkegata 34": "husleie",
-  "/\\bleie\\b/": "husleie"
-}
+{ "Munkegata 34": "faste_utgifter/boligutgifter" }
 ```
 
 A pattern wrapped in slashes is a **regex**, which is how you match a word as a
-word: `\bleie\b` catches `Leie Juni & Juli` but not `utleie` or `leiebil`. Note
-the doubled backslash — it is JSON.
-
-Patterns also see the **payee's account number**, which is how one name can bill
-two different things: SiT sends the rent and the gym both as `Sit`, same row
-type and same bank category, and the account behind them is the only field that
-differs.
+word: `"/\\bleie\\b/"` catches `Leie Juni` but not `utleie`. Note the doubled
+backslash — it is JSON. Keep plain patterns specific: a bare street name catches
+every shop on that street.
 
 **Every line has to work wherever it sits.** `categorize` takes the first
 pattern that matches, so the file _could_ be made to depend on its own order —
-and must not: a line added at the top would quietly take rows from one below it,
-with nothing to tell you. So the fix for two lines competing for a row is to
-narrow the _pattern_, never to move it. A refusal lookahead and a requirement
-lookahead do it without consuming anything, so the line behaves identically
-anywhere in the file:
+and must not. The fix for two lines competing is to narrow the _pattern_, never
+to move it; a refusal lookahead and a requirement lookahead do it without
+consuming anything:
 
 ```json
 {
@@ -256,154 +152,59 @@ anywhere in the file:
 }
 ```
 
-`pnpm sb1 categories` lists every line that still depends on where it sits and
-prints the narrowed form to paste; `pnpm sb1 rebuild` warns if the list stops
-being empty. Because the order means nothing, the file is **grouped by the
-category it assigns** — sorted by main, then subcategory, then pattern, with a
-blank line at each change of main — and can be re-sorted freely.
+`pnpm sb1 rebuild` warns about every line that still depends on where it sits,
+and prints the narrowed form to paste. Because the order means nothing, the file
+is grouped by the category it assigns and can be re-sorted freely.
 
-Keep plain patterns specific. A bare street name catches every shop on that
-street, which is how `Munkegata` first swallowed a supermarket.
+The other four:
 
-A card merchant ends with the terminal's country — `LAWSON, TOKYO, JAPAN` — so a
-card row that neither a pattern nor the bank has placed falls to `reise` when
-that country is not Norway, and to `ukategorisert` when it is. It sits _below_
-the bank's own category on purpose: a supermarket in Vienna is groceries that
-happened abroad. The bank's catch-alls — `diverse`, and `ukategorisert` spelled
-out on the row — collapse into `ukategorisert` too, so there is one opaque
-bucket, not three.
+- `rules/giro.json` — what a given person's _lump_ transfers are. Per name,
+  because the row type says how the money moved and never why: one lump is rent
+  from a flatmate and another is a friend's share of a trip.
+- `rules/family.json` — relatives, where **the sign decides what an entry
+  means**: money in is `innskudd/familie`, money out is you paying them back. An
+  entry may be an account number, for the rows the bank names no payee on.
+- `rules/payees.json` — the one name a payee should go by. A landlord who writes
+  the month into every payment is eleven payees to anything counting by name.
+- `rules/subscriptions.json` — a list of the same patterns, setting
+  `isSubscription`. A second axis rather than a category, so YouTube Premium
+  stays `medier_og_underholdning` and is still counted as a subscription.
 
-An **excluded** row with nothing else to go on lands in `overfoering` rather
-than that bucket: both legs of a transfer and both legs of a card bill are a
-transfer, and the toggle that lists them is the only place they are ever seen.
-No sum can see it — `stats.ts` skips excluded rows before it adds anything up.
-
-Person-to-person Vipps payments need **no rule at all**, and used to need a file
-of 32 names. A bare `Vipps*` marker cannot be matched on its own — Vipps bills
-merchants too, and one pattern over it moved 271 canteen lunches and tram fares
-into `vennebetaling` — but two shapes carry a second signal that settles it:
-
-- On the **card**, the bank files the row as `diverse/overforing`, its reading of
-  `mcc: 4829`, _MONEY TRANSF_. All 16 such rows on record are people; the other
-  12 `Vipps*` card rows arrive as restaurants, furniture, buses and cinemas with
-  a real category to match.
-- On the **deposit accounts**, Vipps doubles its own marker — `Vipps*Vipps*` — on
-  the instant-settlement rows the bank has no category for. 18 rows, all people.
-
-Both sit above the bank's own category and below every rule below, because a
-flatmate's rent and a relative's gift are Vipps payments too.
-
-`rules/giro.json` says what a given person's lump transfers are:
-
-```json
-{ "ola nordmann": "husleie", "kari nordmann": "reise" }
-```
-
-The category is per name rather than always rent, because the row type says how
-the money moved and never why — two of these turned out to be friends' shares of
-a trip, transferred in a lump exactly like a month's rent and identical to it on
-the row. A name absent from `rules/giro.json` keeps its peer-payment reading, and
-`Overførsel mellom egne kontoer` is excluded outright as the bank's wording for
-a family transfer. An explicit entry in `rules/overrides.json` beats all of it, being
-checked first.
-
-`rules/family.json` is a list of relatives, and **the sign decides what an entry
-means**: money in is `innskudd/familie`, money out to the same person is you
-paying them back, `diverse/vennebetaling`. An entry may be an account number as
-well as a name, for the plain `Overføring` rows the bank names no payee on.
-
-`rules/payees.json` maps a pattern to the one name a payee should go by:
-
-```json
-{ "simen leie": "Simen leie" }
-```
-
-A landlord who writes the month into every payment is eleven payees to anything
-counting by name — `SIMEN LEIE Februar Husleie` and `SIMEN LEIE Mars Husleie`
-share nothing a grouping can see — so the subscriptions card listed one standing
-rent eleven times over. Renaming beats grouping at the point of use, because
-`merchantOf` is what the table, the bars, the chips and the subscriptions card
-all agree on; a name synthesised inside one of them would filter to nothing in
-the others. It rewrites `counterparty` only and runs after every other rule, so
-nothing is matched against a name it did not see, and the month stays in
-`description`, which is what the search box reads.
-
-A name **no** pattern claims is not left raw. `src/core/names.ts` takes the
+A name **no** pattern claims is not left raw: `src/core/names.ts` takes the
 shape off it instead — the card's `, CITY, COUNTRY` tail, a BankAxept street and
-city, ALL CAPS — so `YOSHINOYA, TOKYO, JAPAN` reads as `Yoshinoya` and
-`NIDAR AS BLOMSTADVN TRONDHEIM` as `Nidar AS` with no line written for either.
-It never touches a name a pattern _did_ claim: those are your words, and
-title-casing them would hand back `Ikea` and `H&m`. So the file is for what a
-payee is called, and the cleaner for what shape it arrived in.
+city, ALL CAPS — so `YOSHINOYA, TOKYO, JAPAN` reads as `Yoshinoya` with no line
+written. It never touches a name a pattern _did_ claim, which would hand back
+`Ikea` and `H&m`. The file is for what a payee is called, the cleaner for what
+shape it arrived in.
 
-The country off that same tail lands on `Txn.country`, shown as a chip on the
-row and offered as the fourth filter axis beside category, merchant and account.
-Only card rows carry one; everything else selects under `—`.
+Person-to-person Vipps payments need **no rule at all**. A bare `Vipps*` marker
+cannot be matched on its own — Vipps bills merchants too — but on the card the
+bank files a peer row as `diverse/overforing` (its reading of `mcc: 4829`), and
+on the deposit accounts Vipps doubles its own marker. Both sit above the bank's
+category and below every rule above it.
 
-`rules/subscriptions.json` is a list of the same patterns, and it is a second axis
-rather than a category:
-
-```json
-["telenor", "youtubepremium", "claude"]
-```
-
-A match sets `isSubscription`, so YouTube Premium stays
-`medier_og_underholdning` and is still counted as a subscription. SB1 sets the
-flag itself, on the card as well as the bank accounts, and a pattern only ever
-adds to it. The bank guesses it from the merchant and is wrong about as often as
-right, so a pattern here is what makes a subscription certain.
-
-`/overrides` in Claude Code reads the database and `rules/overrides.json` and suggests
-patterns worth adding — only where a merchant with real money behind it is
-landing in `ukategorisert`. It sends merchant
-names to the model, which is the one place this repo talks to the network on
-purpose. Run `pnpm sb1 rebuild` after accepting a change.
+`/overrides` in Claude Code reads the database and suggests patterns worth
+adding, where a merchant with real money behind it is landing in
+`ukategorisert`. Run `pnpm sb1 rebuild` after accepting a change.
 
 ## Layout
 
-`src/` is split by which half of the one rule a file is on — `net/` may make
-requests, `core/` may not, `web/` composes them.
-
 ```
-src/net/sb1.ts       SpareBank 1 auth, keychain, get(), monthRange()
-src/net/sync.ts      the network half — one request per five years, split into
-                     one file per account per month
-src/net/budget.ts    the bank's own remaining-request count, cached to disk
-
-src/core/types.ts     Txn / Classified / Categorized — the shared contract
-src/core/normalize.ts data/raw/<month>/*.json -> Txn[]
-src/core/exclude.ts   flags internal transfers and card bill payments
-src/core/categorize.ts bank category + overrides, Vipps peers, subscriptions
-src/core/db.ts        node:sqlite store, rebuilt wholesale
-src/core/stats.ts     the only money aggregation
-src/core/report.ts    what rules/overrides.json still earns against the bank
-src/core/select.ts    which rows are in view — filters, months, categories
-src/core/pipeline.ts  the offline chain; imports nothing that touches a network
-
-src/web/serve.ts     pnpm dev: /api/txns, Vite middleware, when to auto-refresh
-src/web/app/         the React app — App, FilterBar, Charts, Cards
-src/cli.ts           command dispatch
-
-rules/             the hand-edited JSON rules — accounts, overrides, giro,
-                   family, payees, subscriptions; gitignored, see Categories
+src/net/       may make requests
+src/core/      may not — imported by both Node and the browser
+src/web/app/   the React app
+src/cli.ts     command dispatch
+vite.config.ts pnpm dev: the app plus /api/txns
+test/          node --test, mirroring src/
+rules/         hand-edited JSON, gitignored
 ```
 
-`src/core/` runs in both Node and the browser, so the page aggregates with the
-exact code `node --test` pins.
-
-Everything holding personal data is gitignored: `data/`, `rules/` and
-`.env.local`.
-
-## Design rules
-
-React, Vite and Tailwind v4 for the dashboard; Node's stdlib for everything else,
+React, Vite and Tailwind for the dashboard; Node's stdlib for everything else,
 including SQLite, HTTP and TypeScript execution. No ORM, no chart library, no
-component library, no state manager — the charts are hand-written SVG and the
-state is four `useState`s. There is no build step: Vite runs in middleware mode
-inside the server, so `pnpm dev` is one process on one port and `dist/` does not
-exist. `data/raw/` is the source of truth and is never rewritten in place; the
-database is derived and can be deleted at any time. Analysis never calls the
-API. Anything that sums money leaves a test behind.
+component library, no state manager — the charts are hand-written SVG.
+`data/raw/` is the source of truth and is never rewritten in place; the database
+is derived and can be deleted at any time. Analysis never calls the API.
+Anything that sums money leaves a test behind.
 
 The rest, including the exclusion rules and why they are what they are, is in
 `.claude/CLAUDE.md`.

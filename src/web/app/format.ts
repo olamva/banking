@@ -4,18 +4,16 @@ import { buildLabels, tidy, type Labels } from "../../core/labels.ts";
 import type { Categorized } from "../../core/types.ts";
 
 /**
- * Built once. `toLocaleString` builds its formatter per call, which is invisible
- * on a stat tile and is not on a two-thousand-row table — it was most of what
- * one of those cost to render.
+ * Built once: `toLocaleString` builds its formatter per call, which is most of
+ * what a two-thousand-row table costs to render.
  */
 const NOK = new Intl.NumberFormat("nb-NO");
 
 export const fmtNOK = (n: number): string => `${NOK.format(Math.round(n))} kr`;
 
 /**
- * The øre as well. Every other figure on the page is a sum of many rows, where
- * two decimals are noise — one row's own amount is the one place they are the
- * point, so the detail view must not round 249,50 to 250.
+ * The øre as well. A sum of many rows makes two decimals noise; one row's own
+ * amount is the one place they are the point.
  */
 const NOK_EXACT = new Intl.NumberFormat("nb-NO", {
   minimumFractionDigits: 2,
@@ -28,20 +26,11 @@ export const fmtPct = (share: number): string =>
   `${Math.round(share * 1000) / 10}%`;
 
 /**
- * What a category slug is called on the page.
- *
- * The names come from `core/labels.ts` — the bank's own `mainI18n`/`subI18n`
- * off the rows, whatever `rules/categories.json` overrides, and a tidied slug
- * for the rest. This used to be a hardcoded map here, and its own comment
- * admitted it drifted every time the rules were edited; it still listed `stroem`
- * after that category had stopped existing.
+ * What a category slug is called on the page — see `core/labels.ts`.
  *
  * ponytail: one module-level `Labels`, set once when the rows arrive, rather
- * than a prop threaded through eight call sites across the cards and the charts.
- * It replaces a module-level map in the same place, is written once per page
- * load and only ever read after, and the components stay as dumb as they were.
- * Upgrade path if a second labelled dataset ever shares the page: pass `Labels`
- * as a prop from `App` and delete these two lines.
+ * than a prop threaded through eight call sites. Upgrade path if a second
+ * labelled dataset ever shares the page: pass `Labels` as a prop from `App`.
  */
 let LABELS: Labels = buildLabels([]);
 
@@ -60,14 +49,9 @@ export const subcategoryLabel = (
  * A hue per main category, so a subcategory can say which main it belongs to
  * without a second column repeating the name.
  *
- * Assigned by position in the sorted list of every main in the *dataset*, never
- * the filtered view: hues derived from what is on screen would repaint the
- * table every time a filter moved, and a colour that means something different
- * after a click means nothing. Spread evenly rather than hashed because a hash
- * collides — the 17 mains on record put two pairs on the same hue, which is
- * exactly the distinction this is for.
- *
- * Set once beside `setLabels`, and for the same reason.
+ * Taken from the whole *dataset*, never the filtered view: a colour that means
+ * something different after a click means nothing. Spread evenly rather than
+ * hashed, because a hash collides on exactly the distinction this is for.
  */
 let HUES: Record<string, number> = {};
 
@@ -79,13 +63,9 @@ export const setCategoryHues = (categories: string[]): void => {
 };
 
 /**
- * `oklch` so the hues are perceptually even and every category lands at the same
- * lightness — `hsl` spends a third of its circle on greens and draws yellow far
- * brighter than blue at the same number. Lightness is a CSS variable because the
- * page has two themes and only that half of the colour changes between them.
- *
- * A category no `setCategoryHues` has seen keeps the ordinary text colour rather
- * than borrowing the hue of whichever main sorted first.
+ * `oklch` so every category lands at the same perceived lightness — `hsl` draws
+ * yellow far brighter than blue at the same number. Lightness is a CSS variable
+ * because only that half of the colour changes between the two themes.
  */
 export const categoryColor = (category: string): string =>
   category in HUES
@@ -119,32 +99,21 @@ export const treeLabel = (category: string, pairs: string[]): string =>
     : categoryLabel(category);
 
 /**
- * What one row is called where its category is **not** on screen beside it — the
- * table cell and the detail heading, as against the tree the two above serve.
- *
- * `NO_SUB` is "Annet", and that reads as "the rest of this category" only when
- * the category is the row above it. Standing alone in a column it names nothing:
- * every `ukategorisert` row on record has no second level, so the whole
- * subcategory read "Annet" and clicking it filtered to `ukategorisert/` — a
- * correct filter under a label that could not say so. A row with no sub is its
- * category and nothing narrower, so that is what it says.
+ * What one row is called where its category is **not** on screen beside it.
+ * "Annet" reads as "the rest of this category" only when the category is the
+ * row above it; standing alone in a column it names nothing.
  */
 export const rowLabel = (category: string, sub: string | null): string =>
   sub === null ? categoryLabel(category) : subcategoryLabel(category, sub);
 
-/**
- * The four field names camel-casing does not tidy into something readable. Every
- * other key reads as itself — `bankConfidence` -> `Bank confidence` — which is
- * what keeps this map from having to list `Txn` twice, and what makes a widened
- * `Txn` (`mcc`, `mccGroup`) show up in the detail view without a line here.
- */
-/**
- * The one field with nothing to read in it: an opaque id, long enough to wrap to
- * a second line and push every other field down the dialog. The detail view
- * truncates it, and it is named here so that the rule and the map cannot drift.
- */
+/** Truncated by the detail view, and named here so the two cannot drift. */
 export const ID_FIELD = "Transaction ID";
 
+/**
+ * The four field names camel-casing does not tidy into something readable.
+ * Every other key reads as itself, which is what lets a widened `Txn` show up
+ * in the detail view without a line here.
+ */
 const FIELD_NAMES: Record<string, string> = {
   id: ID_FIELD,
   counterparty: "Merchant",
@@ -160,13 +129,8 @@ const fieldName = (key: string): string =>
  * rather than listed, so nothing has to be kept in step with `Txn`.
  *
  * `accountKey` is the one field held back: the key is a local secret and must
- * never be a label on the page, which is the whole reason `account` rides along
- * beside it. Nulls and empty strings are dropped — "the bank sent nothing here"
- * is better said by the row not being there.
- *
- * `skip` is for the caller that already shows a field somewhere better: the
- * detail view puts six of them in its heading, and a list repeating them under
- * it is the same fact twice.
+ * never be a label on the page. Nulls and empty strings are dropped, and `skip`
+ * is for the caller that already shows a field somewhere better.
  */
 export const txnFields = (
   t: Categorized,
@@ -191,16 +155,12 @@ export const txnFields = (
   });
 
 /**
- * What the bank itself called this row, as one thing rather than five fields:
- * the pair's names, and the pair's slugs under it. The slugs are there because
- * they are what a line in `rules/overrides.json` is written against — the names
- * are for reading, the slugs are for pasting.
+ * What the bank itself called this row: the pair's names, and its slugs under
+ * them — the names are for reading, the slugs for pasting into
+ * `rules/overrides.json`.
  *
- * Null where the bank sent no category at all, which so far is never.
- *
- * Not `categorize`'s `bankPair`, which is a different question: that one applies
- * our renames and returns null for a catch-all, because it is deciding where a
- * row lands. This one reports what the bank literally said.
+ * Not `categorize`'s `bankPair`, which applies our renames and returns null for
+ * a catch-all because it is deciding where a row lands. This one reports.
  */
 export const bankLabel = (
   t: Categorized,
@@ -236,13 +196,9 @@ export const monthLabel = (month: string): string => {
 };
 
 /**
- * What one point on the spending chart is called: `2026-08-14` reads `14. aug`,
- * `2026-08` reads `aug`. The bucket is the string's own length, so nothing has
- * to tell it which it is holding.
- *
- * No year. The tooltip compares two of them side by side under their own year
- * headings, and a point that repeated the year would say it twice; where there
- * is no heading to carry it, the caller appends it.
+ * `2026-08-14` reads `14. aug`, `2026-08` reads `aug` — the bucket is the
+ * string's own length. No year: the tooltip carries it in its heading, and
+ * where there is none the caller appends it.
  */
 export const pointLabel = (at: string): string =>
   at.length > 7 ? `${Number(at.slice(8))}. ${monthLabel(at)}` : monthLabel(at);

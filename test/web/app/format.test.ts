@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { NO_SUB, buildLabels } from "../../core/labels.ts";
-import type { Categorized } from "../../core/types.ts";
+import { NO_SUB, buildLabels } from "../../../src/core/labels.ts";
+import type { Categorized } from "../../../src/core/types.ts";
 import {
   ID_FIELD,
   bankLabel,
@@ -13,7 +13,7 @@ import {
   setCategoryHues,
   setLabels,
   txnFields,
-} from "./format.ts";
+} from "../../../src/web/app/format.ts";
 
 const row: Categorized = {
   id: "row-1",

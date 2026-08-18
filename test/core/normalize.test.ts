@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { normalizeMonth } from "./normalize.ts";
+import { normalizeMonth } from "../../src/core/normalize.ts";
 
 function withMonthDir(
   files: Record<string, unknown>,

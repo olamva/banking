@@ -148,18 +148,13 @@ export const MeterTile = ({ label, share, note }: MeterTileProps) => (
 );
 
 /**
- * Holds a `min` column at the width of the widest value it can hold, rather
- * than the widest one on screen. A windowed table renders a screenful, so
- * without this a column resizes as you scroll onto a longer value and takes
- * every other column sideways with it.
+ * Holds a column at the width of the widest value it *can* hold, not the widest
+ * on screen: a windowed table renders a screenful, so otherwise a column
+ * resizes as you scroll onto a longer value and drags the rest sideways.
  *
  * Rendered rather than written as a `ch` width, because it has to be right in
- * whatever font the page ends up with: the header's own, at the cells' weight,
- * invisible and zero height, so it sets the width and nothing else.
- *
- * A longer value than any of these still fits — no cell wraps. It just starts
- * moving the column again, which for the rare outlier is a better trade than
- * reserving the room for it forever.
+ * whatever font the page ends up with. A longer value still fits — no cell
+ * wraps — it just starts moving the column again.
  */
 const Sizer = ({ of }: { of: string[] }) => (
   <span aria-hidden className="invisible block h-0 font-normal">
@@ -256,10 +251,9 @@ const VIEWPORT = 460;
 export const DataTable = ({ columns, rows, scroll, onRow }: DataTableProps) => {
   const [win, setWin] = useState({ top: 0, height: VIEWPORT });
   /**
-   * Measured rather than assumed: padding and font size are the card's business,
-   * and a hardcoded row height here would silently drift the moment either
-   * changes. One row is representative because the cells cannot wrap — see the
-   * `whitespace-nowrap` below.
+   * Measured rather than assumed, since a hardcoded row height drifts the
+   * moment the padding or font size changes. One row is representative because
+   * the cells cannot wrap.
    */
   const [rowH, setRowH] = useState(24);
   const probe = useRef<HTMLTableRowElement>(null);
@@ -272,17 +266,12 @@ export const DataTable = ({ columns, rows, scroll, onRow }: DataTableProps) => {
     if (h && Math.abs(h - rowH) > 0.5) setRowH(h);
 
     /**
-     * The scroller is what the user is looking at; `win` is only this
-     * component's copy of where it is, and the two come apart. A filter that
-     * drops the list under `WINDOW_OVER` detaches `onScroll` below, and the
-     * browser then clamps its own `scrollTop` to the shorter content with
-     * nothing left listening — so widening the filter again would window the
-     * rows around a position abandoned several filters ago, and draw a table
-     * of blank space that no further scrolling is needed to correct.
+     * `win` is this component's copy of where the scroller is, and the two come
+     * apart: a filter dropping the list under `WINDOW_OVER` detaches
+     * `onScroll`, and the browser clamps `scrollTop` with nothing listening.
      *
-     * Read back rather than remembered, then. In a layout effect the value is
-     * the browser's own post-clamp one, and both comparisons are equalities,
-     * so a correction settles in one extra pass.
+     * Read back rather than remembered, then — in a layout effect the value is
+     * the browser's own post-clamp one.
      */
     const el = box.current;
     if (el && (el.scrollTop !== win.top || el.clientHeight !== win.height))
@@ -290,10 +279,9 @@ export const DataTable = ({ columns, rows, scroll, onRow }: DataTableProps) => {
   });
 
   /**
-   * Clamped to what the new row set can actually scroll to. Filtering shrinks
-   * the list under a scroll position the browser has not corrected yet, and an
-   * uncorrected one would slice past the end and render a blank table for a
-   * frame.
+   * Clamped to what the new row set can scroll to: filtering shrinks the list
+   * under a scroll position the browser has not corrected yet, which would
+   * slice past the end and render a blank table for a frame.
    */
   const top = Math.min(win.top, Math.max(0, rows.length * rowH - win.height));
   const first = windowed ? Math.max(0, Math.floor(top / rowH) - OVERSCAN) : 0;
@@ -302,9 +290,8 @@ export const DataTable = ({ columns, rows, scroll, onRow }: DataTableProps) => {
     : rows.length;
 
   /**
-   * The rows that are not rendered still have to take up their space, or the
-   * scrollbar would report the height of a dozen rows and the thumb would jump
-   * about as you drag it. One empty row at each end does it.
+   * The unrendered rows still have to take up their space, or the scrollbar
+   * reports the height of a dozen rows and the thumb jumps as you drag it.
    */
   const spacer = (h: number) =>
     h > 0 ? (
@@ -425,12 +412,10 @@ const useSort = <T, S extends Record<string, (a: T, b: T) => number>>(
   const [by, setBy] = useState<K | null>(initial);
   const [asc, setAsc] = useState(firstAsc(initial));
 
-  // Memoised because a comparator is not always cheap: the transactions table
-  // sorts on the category *label*, so one comparison is two label lookups and a
-  // `localeCompare`, and there are n log n of them. Re-sorting for a render that
-  // changed neither the rows nor the column — opening a row's dialog, closing
-  // it — was 26 ms of the click. Both call sites pass a module-level `sorts`, so
-  // the identity is stable and this actually hits.
+  // A comparator is not always cheap — sorting on the category *label* is two
+  // lookups and a `localeCompare`, n log n times — so re-sorting for a render
+  // that changed neither the rows nor the column costs 26 ms of a click. Both
+  // call sites pass a module-level `sorts`, so the identity is stable.
   const sorted = useMemo(
     () =>
       by ? [...items].sort((a, b) => (asc ? 1 : -1) * sorts[by](a, b)) : items,
@@ -457,10 +442,9 @@ const TXN_SORTS = {
   date: (a: Categorized, b: Categorized) => a.date.localeCompare(b.date),
   merchant: (a: Categorized, b: Categorized) =>
     merchantOf(a).localeCompare(merchantOf(b)),
-  // On the label, not the slug, so the order matches the column: `Strøm` belongs
-  // under S, where it reads, and not under the `stroem` nobody sees. By the main
-  // first, so sorting the column groups the colours — the main has no column of
-  // its own to sort by any more.
+  // On the label, not the slug, so the order matches the column: `Strøm` sorts
+  // under S and not under the `stroem` nobody sees. By the main first, so
+  // sorting the column groups the colours.
   subcategory: (a: Categorized, b: Categorized) =>
     categoryLabel(a.category).localeCompare(categoryLabel(b.category)) ||
     rowLabel(a.category, a.subcategory).localeCompare(
@@ -566,13 +550,10 @@ interface SubscriptionsCardProps {
 }
 
 /**
- * What is subscribed to, not every charge it ever made: eleven Spotify rows are
- * one subscription that took 99 kr eleven times, and reading that off a list of
- * eleven identical lines was the reader doing the summing.
- *
- * The same table as the transactions one underneath — sortable, searchable and
- * windowed by `DataTable` — because a year of these is a list long enough to
- * need all three.
+ * What is subscribed to, not every charge it made: eleven Spotify rows are one
+ * subscription that took 99 kr eleven times. Sortable, searchable and windowed
+ * like the transactions table, because a year of these is long enough to need
+ * all three.
  */
 export const SubscriptionsCard = ({
   txns,
@@ -778,8 +759,7 @@ const TxnDialog = ({ txn, onClose }: TxnDialogProps) => {
           </div>
         )}
         {/* A line per field rather than a grid, so each can have a rule under
-            it — the flat block of nineteen was one paragraph shaped like a
-            table. */}
+            it: nineteen without is one paragraph shaped like a table. */}
         <dl className="text-xs">
           {bank && (
             <div className={ROW}>
@@ -787,8 +767,7 @@ const TxnDialog = ({ txn, onClose }: TxnDialogProps) => {
               <dd className="min-w-0 text-right">
                 <div className="text-sm wrap-break-word">{bank[0]}</div>
                 {/* The slug in the shape a rule is written in, monospaced
-                    because that is what it is — five fields said this, and four
-                    of them were saying it twice. */}
+                    because that is what it is. */}
                 <div className="font-mono text-[11px] break-all text-ink-muted">
                   {bank[1]}
                 </div>
@@ -883,9 +862,9 @@ export const TransactionsCard = ({
           columns={[
             head("Date", "date", { min: true }),
             head("Merchant / description", "merchant"),
-            /* "Category", not "Subcategory": the column is the one category
-               column now, and which level its text is at is not a distinction
-               the header has to make — the colour carries the main. */
+            /* "Category", not "Subcategory": which level the text is at is not
+               a distinction the header has to make — the colour carries the
+               main. */
             head("Category", "subcategory", {
               min: true,
               sizer: subcategorySizes,

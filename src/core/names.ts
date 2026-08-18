@@ -85,19 +85,16 @@ const STREET =
  * its own street begins.
  *
  * `VOLDA FILMTEATE STORGT. VOLDA` is three fields and `MAT FRA MIDTOESTEN` is
- * one, and nothing inside either string says which. What does say so is the
- * rest of the record: `VOLDA` ends a dozen unrelated names and `MIDTOESTEN`
- * ends one, so the corpus knows which words are towns without a list of towns
- * in the source. That is the same trick `nearMisses` uses in `merchants.ts`,
- * and for the same reason — a stoplist of Norwegian places would be wrong the
- * first time a new one appeared.
+ * one, and nothing inside either string says which. The rest of the record
+ * does: `VOLDA` ends a dozen unrelated names and `MIDTOESTEN` ends one, so the
+ * corpus knows which words are towns without a stoplist of Norwegian places —
+ * which would be wrong the first time a new one appeared.
  *
- * ponytail: a heuristic, and it stays one. It only ever runs on names no rule
- * matched, every name on the record today is matched, and the worst case is a
- * shop reading one word short. Upgrade path if that stops being true: SB1's
- * field widths are 15/12/rest, so a fixed-width cut would be exact — except SB1
- * space-joins the truncated fields instead of padding them, which is what ruled
- * that out. Do not reach for it again without checking that first.
+ * ponytail: a heuristic, and it stays one. It runs only on names no rule
+ * matched, and the worst case is a shop reading one word short. Upgrade path:
+ * SB1's field widths are 15/12/rest, so a fixed-width cut would be exact —
+ * except SB1 space-joins the truncated fields rather than padding them, which
+ * is what ruled it out. Check that before reaching for it again.
  *
  * Mixed-case names are returned untouched, comma cut aside. The bank only sends
  * mixed case where it has already cleaned the name itself, so there is no
