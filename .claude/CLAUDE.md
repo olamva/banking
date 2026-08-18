@@ -35,52 +35,19 @@ file holds the invariants. Keep every `ponytail:` marker.
 
 ## Committing
 
-**Commit, push and PRs are authorised in this repo, standing** — commits granted
-2026-08-13, push and PRs the same day, and the deliberate exception to the global
-never-commit rule. Commit as the work reaches a state worth keeping, in the
-repo's own style (Conventional Commits, no scope, no gitmoji, no body). Push your
-own branch, and open the PR against `main` when the work is done.
-`.claude/settings.json` carries the matching permissions, so none of it prompts.
+Commit, push and PRs are authorised in this repo. Commit as the work reaches a state worth keeping. Push your own branch, and open the PR against `main` when the work is done. `.claude/settings.json` carries the matching permissions, so none of it prompts.
 
-Committing to `main` stays fine — it is where the work here has always landed,
-and the standing commit grant above is unchanged by any of this. What the grant
-does **not** cover, and still needs asking for in the conversation: **pushing**
-`main` to the remote, force-pushing anything, and merging a PR. A branch and a
-PR add history that can be read before it counts; those three publish or land it
-unread. The settings deny list holds the three spellings of a force push and
-`gh pr merge`, but a deny entry matches the front of the command only —
-`git push --quiet --force` is not caught, so the rule above is the real guard
-and the list is a backstop.
+And nothing under `rules/` or `data/` is committable at all — the whole point of them being gitignored, and the only reason a remote is safe here. That gitignore is now what stands between the transactions and GitHub, so treat an edit to it as an edit to a security control: never loosen the `data` or `rules` lines, and never `git add -f` a path under either. Push is also not a licence to publish anything else — the dashboard rule below is untouched, and a PR body carries no account numbers, payee names or amounts.
 
-Rewording the paragraphs above is a thing the Edit classifier refuses, whoever
-asked and however the request is phrased — it reads any loosening of a git
-safety rule as the edit it exists to stop, and there is no override to reach
-for. Do not spend three attempts discovering that. **Say so and let the account
-holder make the edit by hand**, which is the right hands for it anyway.
+**`rules/` is versioned, in its own git repo, on this machine only.** It has no remote and must never be given one, and it is deliberately **not** a submodule: a gitlink would put `rules` back on a tracked path here.
 
-And nothing under `rules/` or `data/` is committable at all — the whole point of
-them being gitignored, and the only reason a remote is safe here. That gitignore
-is now what stands between the transactions and GitHub, so treat an edit to it as
-an edit to a security control: never loosen the `data` or `rules` lines, and
-never `git add -f` a path under either. Push is also not a licence to publish
-anything else — the dashboard rule below is untouched, and a PR body carries no
-account numbers, payee names or amounts.
-
-**`rules/` is versioned, in its own git repo, on this machine only.** It has no
-remote and must never be given one, and it is deliberately **not** a submodule:
-a gitlink would put `rules` back on a tracked path here.
-
-**An edit under `rules/` is finished only when it is committed there**, in the
-same turn — this repo's `git status` stays clean however much of
-`overrides.json` you rewrote, so an uncommitted rules change is invisible to
-every later session:
+**An edit under `rules/` is finished only when it is committed there**, in the same turn — this repo's `git status` stays clean however much of `overrides.json` you rewrote, so an uncommitted rules change is invisible to every later session:
 
 ```bash
 git -C rules add -A && git -C rules commit -m "chore: ..."
 ```
 
-This is required, not merely allowed, and it is the one commit the global
-never-commit rule does not reach. It publishes nothing.
+This is required, not merely allowed, and it is the one commit the global never-commit rule does not reach. It publishes nothing.
 
 ## Working in a worktree
 
