@@ -188,6 +188,17 @@ export interface Column {
   sort?: "asc" | "desc" | null;
 }
 
+/**
+ * True when this click was the end of a drag that highlighted text. A drag to
+ * select ends in a `click` on whatever it started and stopped inside, so a row
+ * that opens a dialog would open it on every attempt to read the text out, and
+ * the dialog's backdrop would close on a selection released outside the card.
+ *
+ * `detail` is 0 for a keyboard activation, which no selection may block.
+ */
+const highlighting = (e: { detail: number }) =>
+  e.detail > 0 && !(window.getSelection()?.isCollapsed ?? true);
+
 interface PickCellProps {
   /** What the cell reads as. */
   label: string;
@@ -215,7 +226,7 @@ export const PickCell = ({
     type="button"
     onClick={(e) => {
       e.stopPropagation();
-      onPick(value, e.metaKey);
+      if (!highlighting(e)) onPick(value, e.metaKey);
     }}
     style={color ? { color } : undefined}
     className="text-left hover:underline"
@@ -370,7 +381,7 @@ export const DataTable = ({ columns, rows, scroll, onRow }: DataTableProps) => {
             <tr
               key={first + i}
               ref={i === 0 ? probe : undefined}
-              onClick={onRow && (() => onRow(first + i))}
+              onClick={onRow && ((e) => !highlighting(e) && onRow(first + i))}
               className={`hover:bg-hover ${onRow ? "cursor-pointer" : ""}`}
             >
               {row.map((cell, j) => (
@@ -702,7 +713,7 @@ const TxnDialog = ({ txn, onClose }: TxnDialogProps) => {
       /* The padding is on the inner div so that a click landing on it is a
          click on the card, not on the dialog box — only the backdrop closes. */
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget && !highlighting(e)) onClose();
       }}
       className="m-auto max-h-[80vh] w-[min(560px,92vw)] overflow-y-auto rounded-xl border border-line bg-surface p-0 text-ink shadow-2xl backdrop:bg-black/50"
     >
@@ -881,7 +892,7 @@ export const TransactionsCard = ({
                button, so a keyboard reaches it too. */
             <button
               type="button"
-              onClick={() => setOpen(t)}
+              onClick={(e) => !highlighting(e) && setOpen(t)}
               className="text-left hover:underline"
             >
               {t.date}
