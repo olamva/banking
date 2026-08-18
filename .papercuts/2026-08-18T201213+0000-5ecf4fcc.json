@@ -1,0 +1,13 @@
+{
+  "id": "5ecf4fcc",
+  "ts": "2026-08-18T20:12:13+00:00",
+  "text": "No way to dry-run a rules pattern: rules match the pre-rename haystack, but data/banking.db stores the post-rename counterparty, so checking a pattern against the DB silently passes for patterns that match nothing in the real pipeline",
+  "tags": [
+    "rules",
+    "tooling"
+  ],
+  "who": "agent",
+  "model": "opus-5",
+  "session": "63fb9d33",
+  "where": "rules/not-subscriptions.json"
+}
