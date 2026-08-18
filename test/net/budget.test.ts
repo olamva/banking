@@ -61,8 +61,6 @@ test("zero refuses, and says how long rather than naming a cap of ours", () => {
 });
 
 test("the allowance comes back a request a minute, not all at once in an hour", () => {
-  // The whole reason the local rolling-hour cap went: SB1 does not hold a
-  // request for 60 minutes after it is fired, it hands the quota back steadily.
   const path = ledger();
   const now = Date.now();
   note(0, path, now);
@@ -88,8 +86,6 @@ test("refills stop at the stated quota, however long nothing has called", () => 
 });
 
 test("a burst does not push its own refill away", () => {
-  // `at` advances by whole minutes only. Resetting it to now on every spend
-  // would discard the part-minute accrued and starve a busy sweep.
   const path = ledger();
   const now = Date.now();
   note(5, path, now);

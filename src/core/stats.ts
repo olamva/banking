@@ -1,23 +1,13 @@
-/**
- * The *only* implementation of the money aggregation. The React app imports
- * this module directly, so the browser aggregates with the exact code
- * `node --test` pins rather than a copy that drifts — which is why it must stay
- * free of `node:` imports.
- */
 import { merchantOf } from "./select.ts";
 import type { Categorized } from "./types.ts";
 
 export type CategoryTotal = {
   category: string;
-  /** NOK, magnitude spent (never negative). */
   total: number;
-  /** 0-1. Every category's share in one aggregate sums to 1 (or 0 if nothing was spent). */
   share: number;
 };
 
-/** The same split, by the account the money left rather than what it was for. */
 export type AccountTotal = {
-  /** `Txn.account` — what `rules/accounts.json` calls it. */
   account: string;
   total: number;
   share: number;
@@ -25,7 +15,6 @@ export type AccountTotal = {
 
 export type CounterpartyTotal = {
   counterparty: string;
-  /** NOK, magnitude moved — spent or received, depending on which list this is. */
   total: number;
   count: number;
 };
@@ -39,7 +28,6 @@ export type CategoryDelta = {
 
 export type ExcludedSummary = {
   count: number;
-  /** NOK, sum of |amount| across excluded rows — not netted, so a matched transfer pair still shows the volume that moved. */
   total: number;
 };
 
@@ -55,23 +43,17 @@ export type MonthStats = {
   totalOut: number;
   net: number;
   categories: CategoryTotal[];
-  /** The second level of `categories`, shares within each parent. */
   subcategories: SubcategoryTotal[];
-  /** Top 25 by spend; the card draws 10 of them until it is opened. */
   topCounterparties: CounterpartyTotal[];
-  /** The same three breakdowns over the money that came *in*. Empty where nothing did. */
   incomeCategories: CategoryTotal[];
   incomeSubcategories: SubcategoryTotal[];
-  /** Top 25 by income; the card draws 10 of them until it is opened. */
   topIncomeCounterparties: CounterpartyTotal[];
   incomeAccounts: AccountTotal[];
   subscriptions: Categorized[];
   recurring: Categorized[];
   categoryDeltas: CategoryDelta[];
-  /** null when no previous month was supplied. */
   delta: MonthDelta | null;
   excluded: ExcludedSummary;
-  /** Spending per account, biggest first. Shares sum to 1, like `categories`. */
   accounts: AccountTotal[];
 };
 
@@ -87,7 +69,7 @@ const toCents = (amount: number) => Math.round(amount * 100);
 const fromCents = (cents: number) => cents / 100;
 const byDate = (a: Categorized, b: Categorized) => a.date.localeCompare(b.date);
 
-/** Largest-remainder rounding: integer basis points that always sum to 10000, so shares always sum to 1. */
+// Largest-remainder rounding. The basis points sum to 10000, so shares sum to 1.
 function allocateShares(parts: number[]): number[] {
   const total = parts.reduce((sum, p) => sum + p, 0);
   if (total <= 0) return parts.map(() => 0);
@@ -102,7 +84,6 @@ function allocateShares(parts: number[]): number[] {
   return bp.map((b) => b / scale);
 }
 
-/** Totals and shares for one grouping, biggest first. The label is the caller's to name. */
 function slices(
   byKey: Map<string, number>,
 ): { key: string; total: number; share: number }[] {
@@ -123,30 +104,16 @@ const categoriesFromCents = (
     share,
   }));
 
-/**
- * A subcategory's spending, and its share **of its own category** — the number
- * a drill-down is asking for. "Two thirds of eating out went on fastfood" is
- * worth reading; `0.09 of all spending` is the same fact told worse.
- */
 export type SubcategoryTotal = {
   category: string;
-  /** null where neither the bank nor a rule named a second level. */
   subcategory: string | null;
   total: number;
-  /** Of the parent category, so each parent's subcategories sum to 1. */
   share: number;
 };
 
-/** The `/` cannot collide: no bank slug contains one, and `splitCategory` would have split it. */
 const SUB_KEY = (category: string, sub: string | null) =>
   `${category}/${sub ?? ""}`;
 
-/**
- * Grouped by parent and shared within it, so every parent's slices sum to 1.
- *
- * Sorted by category total first so a caller can walk it in the same order as
- * `categories` without re-sorting, then by subcategory total inside each.
- */
 function subcategoriesFromCents(
   bySub: Map<string, number>,
 ): SubcategoryTotal[] {
@@ -184,12 +151,7 @@ const accountsFromCents = (byAccount: Map<string, number>): AccountTotal[] =>
     share,
   }));
 
-/**
- * One direction's breakdowns. The sign decides which side a row lands on, so no
- * category can move money between the two.
- */
 type SideAgg = {
-  /** Magnitude, never negative — on both sides. */
   cents: number;
   categoryCents: Map<string, number>;
   subCents: Map<string, number>;
@@ -245,10 +207,6 @@ export type Totals = {
   excluded: ExcludedSummary;
 };
 
-/**
- * What a set of rows adds up to, and nothing else — `monthStats` carries the
- * same four numbers but sorts breakdowns nobody asked for on the way.
- */
 export function totals(txns: Categorized[]): Totals {
   const agg = aggregateCents(txns);
   return {
@@ -259,10 +217,6 @@ export function totals(txns: Categorized[]): Totals {
   };
 }
 
-/**
- * `dir` is the sign the row must have. 25 rather than the 10 the card draws: a
- * limit equal to what is shown is a card whose "show more" can never appear.
- */
 function topCounterparties(
   txns: Categorized[],
   dir: "in" | "out",
@@ -347,7 +301,6 @@ export function monthStats(
   };
 }
 
-/** Groups by month, ready for `yearStats`. */
 export function byMonth(
   txns: Categorized[],
 ): { month: string; txns: Categorized[] }[] {
@@ -363,11 +316,6 @@ export function byMonth(
     .map(([month, txns]) => ({ month, txns }));
 }
 
-/**
- * One point on the spending chart. The bucket is whatever the caller grouped
- * by — a day or a month — so `at` is `YYYY-MM-DD` or `YYYY-MM` and the series
- * is the only thing that knows which.
- */
 export type SeriesPoint = {
   at: string;
   totalIn: number;
@@ -383,11 +331,6 @@ const point = (at: string, txns: Categorized[]): SeriesPoint => {
   };
 };
 
-/**
- * Every date from `from` to `to`, both ends inclusive. The bound is compared as
- * a string, so a `YYYY-MM-31` upper bound stops on the real last day of the
- * month without anyone having to know which day that is.
- */
 const eachDay = (from: string, to: string): string[] => {
   const out: string[] = [];
   const cursor = new Date(`${from}T00:00:00Z`);
@@ -399,12 +342,6 @@ const eachDay = (from: string, to: string): string[] => {
   return out;
 };
 
-/**
- * One point per calendar day across the range, spending or not: **dense, and
- * its holes are zeros**. A day inside a synced month with no transactions is a
- * real day on which nothing was spent, unlike a month missing from
- * `data/raw/` — drawing it as a gap would claim the record stops every weekend.
- */
 export function dailySeries(
   txns: Categorized[],
   from: string,
@@ -419,19 +356,10 @@ export function dailySeries(
   return eachDay(from, to).map((at) => point(at, buckets.get(at) ?? []));
 }
 
-/** One point per month that has rows; `withGaps` puts the missing ones back as holes. */
 export function monthlySeries(txns: Categorized[]): SeriesPoint[] {
   return byMonth(txns).map(({ month, txns }) => point(month, txns));
 }
 
-/**
- * The series as running totals from its own start. Accumulated, both lines are
- * monotonic, the gap between them is the running surplus, and where they cross
- * is the day the period went under — none of which survives being cut into
- * days, since two thirds of days carry no income at all.
- *
- * Summed in cents, so a year of additions cannot drift.
- */
 export function cumulative(series: SeriesPoint[]): SeriesPoint[] {
   let inCents = 0;
   let outCents = 0;
@@ -448,10 +376,8 @@ export function cumulative(series: SeriesPoint[]): SeriesPoint[] {
 
 export type YearStats = {
   year: string;
-  /** One entry per input month, sorted ascending — a series ready for charting. */
   months: MonthSummary[];
   categories: CategoryTotal[];
-  /** The second level of `categories`, shares within each parent. */
   subcategories: SubcategoryTotal[];
   averageMonth: {
     totalIn: number;
@@ -461,19 +387,11 @@ export type YearStats = {
   excluded: ExcludedSummary;
 };
 
-/** `2026-08` -> a single sortable number, so month arithmetic needs no Date and no year wrap. */
 const monthIndex = (month: string): number => {
   const [y, m] = month.split("-").map(Number);
   return y! * 12 + (m! - 1);
 };
 
-/**
- * The series with every calendar month from first to last, and `null` where
- * there is no month. `monthlySeries` emits only months that have rows, so a
- * chart drawing it straight slopes May to August and reads as a real trend. A
- * gap is not a value and not zero either: it has to be a hole the chart breaks
- * across.
- */
 export function withGaps(series: SeriesPoint[]): (SeriesPoint | null)[] {
   if (series.length === 0) return [];
   const byIndex = new Map(series.map((m) => [monthIndex(m.at), m]));
@@ -485,14 +403,6 @@ export function withGaps(series: SeriesPoint[]): (SeriesPoint | null)[] {
   return out;
 }
 
-/**
- * The least-squares line through a series' spending, fitted over the **slot
- * index** — the position on the drawn axis, holes included. That is why it
- * takes the gapped array: fitting the array index would pull a missing month's
- * neighbours together and tilt the line.
- *
- * Null under two points, because a line through one point is every line.
- */
 export function spendTrend(
   dense: (SeriesPoint | null)[],
 ): { slope: number; intercept: number } | null {
@@ -543,42 +453,17 @@ export function yearStats(
   };
 }
 
-/**
- * The dashboard shows subscriptions and recurring rows as one list, and the two
- * overlap. Deduplicated on `id`, the database's own key.
- */
 export type SubscriptionGroup = {
-  /** `merchantOf` — the same string the tables and the bars offer as a filter. */
   name: string;
   category: string;
   count: number;
-  /** NOK, magnitude spent across the group. A refund inside it nets off. */
   total: number;
-  /**
-   * NOK charged on `last`, not the average: an old price averaged in says what
-   * a subscription *has* cost, and the question here is what it costs now.
-   *
-   * ponytail: assumes the price is monthly, so a yearly bill reads as its
-   * yearly amount. Inferring the cadence needs more than one charge, which the
-   * new subscriptions most worth checking are exactly the ones without.
-   */
+  // NOK charged on `last`, not the average. This is the current price.
+  // ponytail: assumes a monthly price. A yearly bill shows its yearly amount.
   latest: number;
-  /** Latest booking date in the group — how long since it last took anything. */
   last: string;
 };
 
-/**
- * What is subscribed to, one line each — not one line per charge.
- *
- * Takes **every** row in view and keeps the payees carrying at least one flag,
- * because a subscription is a property of the payee and the bank sets the flag
- * per row and unevenly: one of twelve identical rent payments marked reads as a
- * single charge while the table below shows all twelve.
- *
- * The category is the latest row's, since a recategorised subscription is that
- * category now. Everything booked on that date counts as one payment, so a
- * split charge is one price and a same-day refund comes off it.
- */
 export function subscriptionGroups(txns: Categorized[]): SubscriptionGroup[] {
   type Acc = {
     cents: number;

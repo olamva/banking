@@ -23,12 +23,10 @@ async function dump(file: string, data: unknown): Promise<void> {
   console.error(`wrote ${file}`);
 }
 
-/** Pull accounts once, keep the raw dump, derive a key list. */
 async function accounts(): Promise<void> {
   const { get } = await import("./net/sb1.ts");
-  // All five, because every one of them defaults to false and an account left
-  // out here is invisible everywhere downstream — the share savings account
-  // was, and its transfers counted as income until `exclude` learned its number.
+  // Request all five flags. Each flag defaults to false. An account that you
+  // omit here is not visible in any later step.
   const include = new URLSearchParams({
     includeCreditCardAccounts: "true",
     includeBsuAccounts: "true",
@@ -56,10 +54,6 @@ async function accounts(): Promise<void> {
     return;
   }
   if (!existsSync("rules/accounts.json")) {
-    // Hand-edit before trusting internal-transfer detection. `number` rides
-    // along because `exclude` reads it: a row naming one of these is a
-    // self-transfer whatever the bank types it as. `name` is the label the
-    // dashboard shows, and the card's own `name` is its masked number.
     const card = (a: Account) => a.type === "CREDITCARD";
     await dump(
       "rules/accounts.json",
@@ -79,11 +73,6 @@ async function accounts(): Promise<void> {
   console.error(`${found.length} account keys.`);
 }
 
-/**
- * Does the history explain the money that is there? Offline, against the
- * balances `pnpm sb1 accounts` last wrote — so a stale snapshot reads as a gap,
- * and refreshing it is the first thing to try when one appears.
- */
 async function reconcileCmd(): Promise<void> {
   const { normalizeMonth } = await import("./core/normalize.ts");
   const { reconcile, unexplained } = await import("./core/reconcile.ts");
@@ -134,16 +123,12 @@ try {
     const { syncMonth, syncRange, thisMonth } = await import("./net/sync.ts");
     const from = flag("from");
     const to = flag("to");
-    // `--stale N` is a force that stops short of what it just fetched: re-run
-    // after a 429 and only the accounts the first run never reached cost a
-    // request. Plain `--force` refetches the lot.
     const stale = flag("stale");
     if (stale !== undefined && !(Number(stale) > 0))
       raise("--stale wants minutes, e.g. --stale 60");
     const force = stale === undefined ? has("force") : Number(stale);
     if (from || to) {
       if (!from) raise("sync needs --from, as YYYY or YYYY-MM");
-      // A missing `--to` means "up to now", the only end that is not a guess.
       await syncRange(from!, to ?? thisMonth(), force);
     } else {
       await syncMonth(
@@ -179,8 +164,6 @@ try {
     process.exit(1);
   }
 } catch (e) {
-  // Every throw here is a message for the person running the command. The
-  // stack buries it; set DEBUG to get it back.
   console.error(e instanceof Error && !process.env.DEBUG ? e.message : e);
   process.exit(1);
 }

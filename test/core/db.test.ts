@@ -131,9 +131,6 @@ test("openDb on an existing file is idempotent and keeps prior data", () => {
 });
 
 test("the bank pair, its names and its confidence round-trip, subcategory included", () => {
-  // The builder's defaults are all null, so the nullable path is already
-  // covered above — this is the populated one, and the confidence in
-  // particular, which is the only INTEGER column that is not a boolean.
   const db = openDb(":memory:");
   const populated = row({
     bankCategory: "helse_og_velvaere",

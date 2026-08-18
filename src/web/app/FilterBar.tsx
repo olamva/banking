@@ -1,13 +1,3 @@
-/**
- * The one control surface: what period you are looking at, and which values are
- * in play on each axis.
- *
- * Checkboxes in a dropdown rather than a `<select multiple>`, since
- * ctrl-clicking one is not something anyone should have to do. What is on is a
- * count rather than a row of chips — ten of those wrap onto three lines and
- * push the dashboard down the page — and the count opens into `FilterSummary`,
- * which is also the only place Reset lives.
- */
 import { useEffect, useRef, useState } from "react";
 import type { Axis, Filters, PeriodKind } from "../../core/select.ts";
 import { AXES, NO_COUNTRY, NO_FILTERS } from "../../core/select.ts";
@@ -25,26 +15,18 @@ export type View = "dashboard" | "transactions";
 interface FilterBarProps {
   view: View;
   onView: (view: View) => void;
-  /** Every `YYYY-MM` and `YYYY` there are rows for; the pickers are built from these. */
   months: string[];
   years: string[];
-  /** Both views run on one period, so there is one pair of pickers for it. */
   period: string;
-  /** What `period` is, already parsed — the shape of the string, without a second copy of the regexes. */
   kind: PeriodKind;
-  /** Its bounds, already parsed too — what the date boxes show, and what a range switched into starts as. */
   from: string | null;
   to: string | null;
-  /** The edges of the record: as far as the date boxes go, either way. */
   earliest: string;
   latest: string;
   onPeriod: (period: string) => void;
-  /** Every value the two dropdowns offer, already narrowed to the period. */
   categories: string[];
-  /** `category/sub` pairs, which the categories dropdown opens into. */
   subcategories: string[];
   merchants: string[];
-  /** Which of `merchants` are people — see `personMerchants`. */
   people: ReadonlySet<string>;
   accounts: string[];
   countries: string[];
@@ -55,7 +37,6 @@ interface FilterBarProps {
 const CONTROL =
   "rounded-md border border-line bg-page px-2 py-1.5 text-[13px] text-ink";
 
-/** Spelled out, because "2026 / 07" beside a year picker reads as a second year. */
 const MONTH_NAMES = [
   "January",
   "February",
@@ -71,22 +52,12 @@ const MONTH_NAMES = [
   "December",
 ];
 
-/**
- * A real date, for the date boxes. A month's upper bound is `YYYY-MM-31`
- * whatever the month has in it — deliberate, since it is only ever compared as
- * a string — and `<input type="date">` shows nothing at all for one that never
- * existed, so switching June into a range would open with an empty end.
- */
 const realDate = (d: string): string => {
   const [y, m, day] = d.split("-").map(Number) as [number, number, number];
   const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
   return day > last ? `${d.slice(0, 8)}${last}` : d;
 };
 
-/**
- * Escape, and a click outside, close a `details` menu — neither of which its
- * own behaviour covers. Open state stays in the DOM rather than in React.
- */
 const useDismiss = (menu: React.RefObject<HTMLDetailsElement | null>) => {
   useEffect(() => {
     const close = (e: Event) => {
@@ -106,66 +77,24 @@ const useDismiss = (menu: React.RefObject<HTMLDetailsElement | null>) => {
 };
 
 interface PickerProps {
-  /** What the summary says, before the count. */
   title: string;
-  /** Everything on offer, in the order it should read. */
   options: string[];
-  /** The rows to show, and the rows to hide out of them — one axis, two lists. */
   picked: string[];
   excluded: string[];
-  /** `exclude` says which of the two lists the tick lands in. */
   onToggle: (value: string, exclude: boolean) => void;
-  /** How an option reads; the values themselves are slugs for categories. */
   label?: (value: string) => string;
-  /**
-   * The level below an option, making this a tree rather than a list.
-   *
-   * Children go into the **same** `picked` list as their parents and through
-   * the same `onToggle` — one axis, so ticking a category and a subcategory of
-   * some other category is a union rather than an intersection of nothing.
-   *
-   * A row with two or more children opens; a row with one is that child under
-   * another name, so it stays a single row and `label` is what renames it.
-   */
   subs?: (option: string) => string[];
   subLabel?: (value: string) => string;
-  /**
-   * Which options are people. Passing it is what draws the People/Businesses
-   * switch, because a list of eight hundred names is two lists in practice. It
-   * narrows what is *listed*, never which rows are counted.
-   */
   people?: ReadonlySet<string>;
 }
 
-/** All, or one side of the People/Businesses split. */
 type Kind = "all" | "people" | "business";
 
-/**
- * Two lists, picked from the same checkboxes: what to show, and what to hide
- * out of it. **A plain tick includes; a meta-tick excludes** — ⌘/ctrl-click, or
- * ⌘/ctrl-Enter on the arrowed-to row — so "only `innskudd`, but not
- * `innskudd/familie`" is two ticks and a held key.
- *
- * That is the same gesture the charts and the table already use, which is the
- * point of it: excluding is one thing you learn once, not a modifier here and a
- * mode switch there. It replaced an Include/Exclude pen at the top of the panel,
- * which was a second way to say the same thing and had to be set *before* the
- * click it governed.
- *
- * A hidden option is ticked too, in red — it is a filter that is on, and the one
- * thing a picker must always be able to do is turn a filter back off. Unticking
- * clears it whichever list it was on, modifier or not.
- *
- * **A phone cannot reach the exclude half.** There is no meta key on a
- * touchscreen and no plain control left that does it, so exclusions are
- * desktop-only to *create* — they still show, and still clear, with a tap. This
- * is a deliberate exception to the modifier-needs-a-twin rule in CLAUDE.md,
- * taken on the account holder's instruction; the cheap twin, if it is ever
- * wanted, is making a plain tap cycle off -> only -> except.
- *
- * ponytail: renders every option, so all-time merchants is a few hundred
- * `<label>` in a scroller. Virtualise only if opening it ever feels slow.
- */
+// A plain tick includes. A meta-tick excludes. A phone cannot create an
+// exclusion. The account holder accepts this. A tap still clears one.
+// ponytail: this renders every option. Virtualise it only if the panel is slow
+// to open.
+
 const Picker = ({
   title,
   options,
@@ -178,45 +107,19 @@ const Picker = ({
   people,
 }: PickerProps) => {
   const [query, setQuery] = useState("");
-  /**
-   * Which side of the split is listed. Not in the URL and not in `Filters`,
-   * because it changes what this open menu shows and nothing about the page.
-   */
   const [kind, setKind] = useState<Kind>("all");
-  /** Which options are opened into their children. Nothing is open to begin with. */
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
-  /**
-   * Which option the arrow keys are on, as an index into `shown`. Null until
-   * something puts it somewhere — an untouched list should not open with a row
-   * already lit, as if it were hovered.
-   */
   const [active, setActive] = useState<number | null>(null);
-  /** Ticked either way: on one list or the other. */
   const on = (v: string) => picked.includes(v) || excluded.includes(v);
 
   const menu = useRef<HTMLDetailsElement>(null);
   const reset = useRef<ReturnType<typeof setTimeout>>(undefined);
-  /**
-   * A mirror of the DOM's open flag, kept only so a closed menu renders nothing
-   * at all: 668 merchants is 1300-odd elements for React to walk on every
-   * keystroke anywhere on the page.
-   */
   const [open, setOpen] = useState(false);
-  /**
-   * What was already checked when the menu was opened — the rows that float to
-   * the top of it, decided once so the order cannot change while it is open.
-   */
   const [pinned, setPinned] = useState<readonly string[]>([]);
   useDismiss(menu);
-  // The search box's own delayed reset, which outlives an unmount otherwise.
   useEffect(() => () => clearTimeout(reset.current), []);
 
   const q = query.trim().toLowerCase();
-  /**
-   * The split runs before the search, so searching inside People searches
-   * people. Anything checked survives it: a filter you cannot see is one you
-   * cannot turn off.
-   */
   const listed =
     !people || kind === "all"
       ? options
@@ -224,8 +127,6 @@ const Picker = ({
   const childrenOf = (o: string) => subs?.(o) ?? [];
   const hitsQuery = (name: string) => name.toLowerCase().includes(q);
 
-  // Whatever is checked stays listed, or turning a filter off means retyping
-  // its name first. A parent whose *child* matches stays too.
   const shown = q
     ? listed.filter(
         (o) =>
@@ -235,38 +136,17 @@ const Picker = ({
       )
     : listed;
 
-  // Whatever is on floats to the top, so a filter is never scrolled away from
-  // in a list of hundreds. Against the snapshot rather than `picked`, or
-  // ticking a box flings that row to the top from under the pointer — taking
-  // the arrow keys' highlight, an index into this order, with it.
   const isPinned = (o: string) =>
     pinned.includes(o) || childrenOf(o).some((c) => pinned.includes(c));
 
-  /**
-   * The flat list the arrow keys actually walk: every shown option, with the
-   * children of the opened ones spliced in beneath their parent.
-   *
-   * Flat on purpose — the keyboard, the highlight and Enter all index into one
-   * array, so opening a category needs no second notion of "where am I".
-   */
   const rowsOf = (o: string) => {
     const all = childrenOf(o);
-    // A search narrows the children too, or one match lists every sibling.
     const kids =
       q === "" ? all : all.filter((c) => hitsQuery(subLabel(c)) || on(c));
-    // A search or a tick that reached a child opens its parent: the row should
-    // be on screen, not one click behind a triangle. A parent matching on its
-    // *own* name keeps its children folded. Never a lone child, which is drawn
-    // as the parent row and would otherwise be listed under both names.
     const openByDefault =
       kids.length < all.length ||
       (all.length > 1 && kids.some((c) => pinned.includes(c)));
-    // `expanded` holds the rows flipped *out of* that default: a set of open
-    // rows cannot express closing one that opened itself.
     const openHere = openByDefault !== expanded.has(o);
-    // One *named* child is the same rows under a better name, so the row becomes
-    // that child rather than opening onto it. A lone unnamed child is not a
-    // better name — `vipps` would read as "Annet" — so those keep the parent.
     const lone = all.length === 1 && !all[0]!.endsWith("/") ? all[0]! : null;
     const parent = { value: lone ?? o, sub: false };
     return kids.length > 1 && openHere
@@ -281,23 +161,13 @@ const Picker = ({
     ...pinnedRows,
     ...shown.filter((o) => !isPinned(o)).flatMap(rowsOf),
   ];
-  /**
-   * Read off the list that was built rather than out of `expanded`, which holds
-   * only the flips away from each row's default.
-   */
   const isOpenAt = (i: number) => rows[i + 1]?.sub === true;
 
-  // A rule between the two halves, drawn as a border on the first row below it —
-  // a row of its own would be one the arrow keys could land on and Enter could
-  // toggle. -1 when either half is empty, since a rule needs two sides.
   const divideAt =
     pinnedRows.length > 0 && rows.length > pinnedRows.length
       ? pinnedRows.length
       : -1;
 
-  // Clamped on read rather than reset on every change: typing shortens the list
-  // under the cursor, and the row it was on is not always still there. `-1`
-  // matches no row, which is what "nothing is arrowed to" looks like.
   const at = active === null ? -1 : Math.min(active, rows.length - 1);
 
   const toggleOpen = (o: string) =>
@@ -307,12 +177,6 @@ const Picker = ({
       return next;
     });
 
-  /**
-   * A closed menu forgets what was typed in it, and which rows were opened, a
-   * few seconds later: long enough that closing it by accident keeps your
-   * place, short enough that coming back starts clean. Clearing on the spot
-   * empties the box in plain sight.
-   */
   const toggled = (e: React.SyntheticEvent<HTMLDetailsElement>) => {
     clearTimeout(reset.current);
     setOpen(e.currentTarget.open);
@@ -327,15 +191,8 @@ const Picker = ({
     }, 3000);
   };
 
-  /**
-   * Arrows walk the list and Enter checks what they land on, so a merchant can
-   * be searched and picked without the mouse. Only from inside the panel: on the
-   * summary the arrows still scroll the page and Enter still opens the menu.
-   */
   const navigate = (e: React.KeyboardEvent) => {
     const step = e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0;
-    // Only once something is arrowed to: focus lives in the search box, so
-    // before that a space is someone typing a name with one in it.
     if (e.key === " " && at >= 0) {
       const row = rows[at];
       if (row && !row.sub && childrenOf(row.value).length > 1) {
@@ -344,7 +201,6 @@ const Picker = ({
         return;
       }
     }
-    // Left and right do it too, which is what a tree does everywhere else.
     if ((e.key === "ArrowRight" || e.key === "ArrowLeft") && at >= 0) {
       const row = rows[at];
       if (row && !row.sub && childrenOf(row.value).length > 1) {
@@ -355,15 +211,9 @@ const Picker = ({
     }
     if (step) {
       e.preventDefault();
-      // Clamped, not wrapped: running off the end of a long list and landing
-      // back at the top loses your place.
       setActive(at < 0 ? 0 : Math.max(0, Math.min(at + step, rows.length - 1)));
     } else if (e.key === "Enter") {
-      // Buttons live in here too — the People/Businesses switch, the disclosure
-      // triangles — and Enter on a button means that button.
       if (e.target instanceof HTMLButtonElement) return;
-      // Enter means the match you typed for, without arrowing onto it first.
-      // Meta-Enter is the keyboard's half of meta-click.
       const i = at < 0 ? 0 : at;
       const row = rows[i];
       if (!row) return;
@@ -376,14 +226,7 @@ const Picker = ({
   return (
     <details
       ref={menu}
-      /*
-       * Full width below `sm`, which is about the *panel*: it is positioned
-       * against this element, so wherever the summary wraps to is where 256px
-       * of menu starts — off the right edge, and the page scrolls sideways.
-       */
       className="group relative max-sm:w-full select-none"
-      // The panel mounts and unmounts with the menu, so this is what tells React
-      // it has opened at all.
       onToggle={toggled}
     >
       {/* The caret is the only thing saying this opens rather than toggles. */}
@@ -405,9 +248,10 @@ const Picker = ({
       {open && (
         <div
           onKeyDown={navigate}
-          /* No `max-w-full`: the containing block is the `details`, only as
-             wide as its summary above `sm`, so it would clamp a 256px panel to
-             a 130px button. Below `sm` the `details` is already full width. */
+          /* Do not add `max-w-full`. The containing block is the `details`. Above `sm`
+             the `details` is only as wide as its summary, so `max-w-full` would clamp a
+             256px panel to a 130px button. Below `sm` the `details` already fills the
+             width. */
           className="absolute left-0 z-20 mt-1 flex max-h-72 w-64 flex-col rounded-md border border-line bg-surface p-1.5 shadow-lg"
         >
           {/* Only where the caller says the list splits, which is merchants
@@ -428,7 +272,6 @@ const Picker = ({
                   aria-pressed={kind === value}
                   onClick={() => {
                     setKind(value);
-                    // The list under the highlight is a different list now.
                     setActive(null);
                   }}
                   className={`flex-1 px-2 py-1 ${kind === value ? "bg-series-1 text-white" : "bg-page text-ink-soft"}`}
@@ -450,8 +293,6 @@ const Picker = ({
               className="pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-ink-muted"
             />
             <input
-              /* Right this time: the box now mounts with the panel, and opening
-                 a searchable list is asking to type in it. */
               autoFocus
               type="search"
               className="w-full rounded-md border border-line bg-page py-1 pr-2 pl-7 text-xs text-ink"
@@ -459,9 +300,6 @@ const Picker = ({
               value={query}
               onChange={(e) => {
                 setQuery(e.target.value);
-                // The list changes under the cursor, so the row it was on is
-                // no longer the row you meant — and it hands space back to the
-                // box you are typing in.
                 setActive(null);
               }}
               aria-label={`Search ${title.toLowerCase()}`}
@@ -484,20 +322,13 @@ const Picker = ({
                     className={`flex items-center ${i === divideAt ? "mt-1 border-t border-line pt-1" : ""}`}
                   >
                     {row.sub ? (
-                      // Two spacers, so a child lines up under its parent's label
-                      // rather than under its triangle.
                       <span className="w-6.5 shrink-0" />
                     ) : kids.length > 1 ? (
                       <button
                         type="button"
-                        // Not inside the label: clicking a disclosure must not
-                        // also tick the box it sits next to.
                         onClick={() => toggleOpen(row.value)}
                         aria-expanded={openHere}
                         aria-label={`${openHere ? "Hide" : "Show"} ${label(row.value)} subcategories`}
-                        /* 13px wide is a column, not a target. The pseudo-element
-                           widens what a finger has to hit to ~29x40 without
-                           moving the triangle or the label lined up beside it. */
                         className="relative flex h-6 w-3.25 shrink-0 items-center justify-center text-ink-muted before:absolute before:-inset-2 before:content-[''] hover:text-ink"
                       >
                         <Icon
@@ -508,12 +339,9 @@ const Picker = ({
                         />
                       </button>
                     ) : (
-                      // Holds the column so every label starts at the same x.
                       <span className="w-3.25 shrink-0" />
                     )}
                     <label
-                      // Keeps the arrowed-to row in the scroller. `nearest` so it only
-                      // moves when the row is actually out of sight.
                       ref={
                         i === at
                           ? (el) => el?.scrollIntoView({ block: "nearest" })
@@ -523,25 +351,12 @@ const Picker = ({
                     >
                       <input
                         type="checkbox"
-                        /* Red when this one is hidden rather than shown. The box
-                           is ticked either way — it is a filter that is on — so
-                           the colour is the only thing saying which list it is
-                           on, and it is the red the bars already spend in. */
                         className={`shrink-0 ${excluded.includes(row.value) ? "accent-critical-strong" : ""}`}
                         checked={on(row.value)}
-                        /* `onClick` rather than `onChange`, because only the
-                           mouse event carries the modifier — meta-click is what
-                           makes a tick an exclusion, the same gesture that
-                           excludes from a bar or a table cell. A keyboard space
-                           fires click too, with no modifier, so plain ticking is
-                           unchanged. `onChange` stays as a no-op only to keep
-                           React from calling the box uncontrolled. */
                         onChange={() => {}}
                         onClick={(e) =>
                           onToggle(row.value, e.metaKey || e.ctrlKey)
                         }
-                        // The arrows own the highlight, so a row reached by tabbing
-                        // moves it rather than leaving two rows looking active.
                         onFocus={() => setActive(i)}
                       />
                       <span className="truncate">
@@ -564,17 +379,10 @@ const Picker = ({
 interface FilterSummaryProps {
   filters: Filters;
   onFilters: (filters: Filters) => void;
-  /** How one value reads on its own axis — categories are slugs, the rest are already names. */
   labelOf: (axis: Axis, value: string) => string;
-  /**
-   * The number on the trigger. May be 0 while something is still on: the count
-   * deliberately skips the search where the transactions table already shows the
-   * box, and `showExcluded` is a widening rather than a filter.
-   */
   active: number;
 }
 
-/** One axis's half, as a word and a list — never as a colour alone. */
 const SummaryRow = ({ label, values }: { label: string; values: string[] }) =>
   values.length === 0 ? null : (
     <div className="flex gap-1.5 text-[12px]">
@@ -587,16 +395,6 @@ const SummaryRow = ({ label, values }: { label: string; values: string[] }) =>
     </div>
   );
 
-/**
- * What is on, and where — the number opened into the list behind it. With four
- * axes, two lists each, a search and a toggle, "6 filters" is a number you
- * would otherwise hunt through four menus to explain.
- *
- * **Reset lives here and nowhere else**, so it is read first and pressed
- * second, with the thing it clears on screen. The trigger therefore appears
- * whenever anything is resettable, not whenever the count is non-zero — or
- * "excluded rows shown" alone would have no way back to a clean page.
- */
 const FilterSummary = ({
   filters,
   onFilters,
@@ -609,8 +407,6 @@ const FilterSummary = ({
   const axes = (Object.entries(AXES) as [Axis, (typeof AXES)[Axis]][])
     .map(([key, outKey]) => ({
       key,
-      // The axis names itself: the four keys are the four titles, capitalised,
-      // so the picker above and the row here cannot drift apart.
       title: key[0]!.toUpperCase() + key.slice(1),
       on: filters[key],
       out: filters[outKey],
@@ -703,15 +499,6 @@ interface PeriodMenuProps {
   onPeriod: (period: string) => void;
 }
 
-/**
- * The period as one menu: years down the left, the months of one of them across
- * the right, both on screen at once — so the year points at the month grid
- * rather than being a choice to make first.
- *
- * **A year opens on hover and also on tap**, which is what makes this work on a
- * phone: a tap fills the grid and selects nothing, so the second tap decides.
- * `Whole year` is how a year is still a period of its own.
- */
 const PeriodMenu = ({
   months,
   years,
@@ -723,15 +510,8 @@ const PeriodMenu = ({
 }: PeriodMenuProps) => {
   const menu = useRef<HTMLDetailsElement>(null);
   useDismiss(menu);
-  /**
-   * Which year's months are on show. Null is "the one in view", so pointing at
-   * another year is a look rather than a change — cleared when the menu shuts,
-   * not when something is picked.
-   */
   const [looking, setLooking] = useState<string | null>(null);
 
-  // All time and a range sit in no year, so there is none in view to open on,
-  // and an empty grid beside a list of years is a menu that looks broken.
   const inView = kind === "month" || kind === "year" ? period.slice(0, 4) : "";
   const latest = years[years.length - 1] ?? "";
   const shown = looking ?? (inView || latest);
@@ -752,7 +532,6 @@ const PeriodMenu = ({
           ? period
           : `${MONTH_NAMES[Number(period.slice(5)) - 1]} ${period.slice(0, 4)}`;
 
-  /** One row of the menu, whichever column it is in. */
   const ROW =
     "rounded px-2 py-1 text-left text-[13px] hover:bg-hover disabled:cursor-default disabled:opacity-35 disabled:hover:bg-transparent";
   const ON = "bg-series-1 text-white hover:bg-series-1";
@@ -760,9 +539,8 @@ const PeriodMenu = ({
   return (
     <details
       ref={menu}
-      // Same anchoring as the pickers: the panel is positioned against this, so
-      // below `sm` it has to be the full width of the bar or it hangs off the
-      // right edge from wherever the summary wrapped to.
+      // The panel is positioned against this element. Below `sm` it must fill the
+      // width of the bar, or it goes past the right edge.
       className="group relative max-sm:w-full"
       onToggle={(e) => {
         if (!e.currentTarget.open) setLooking(null);
@@ -791,8 +569,6 @@ const PeriodMenu = ({
           </button>
           <button
             type="button"
-            // Opens on the window already in view, so narrowing a month to a
-            // few days of it is two edits and not four.
             onClick={() => choose(`${from ?? ""}..${to ? realDate(to) : ""}`)}
             className={`flex-1 ${ROW} ${kind === "custom" ? ON : ""}`}
           >
@@ -809,8 +585,6 @@ const PeriodMenu = ({
               <button
                 key={y}
                 type="button"
-                // Hover is the shortcut and the tap is the route: both only
-                // point the grid at a year, so neither can pick one by accident.
                 onPointerEnter={() => setLooking(y)}
                 onFocus={() => setLooking(y)}
                 onClick={() => setLooking(y)}
@@ -878,15 +652,6 @@ export const FilterBar = ({
   filters,
   onFilters,
 }: FilterBarProps) => {
-  /**
-   * Ticking a box in any of the four menus is the same edit over a different
-   * pair of fields — the axis and its exclusions, which `AXES` pairs up.
-   *
-   * **Unticking always clears, whichever list the value is on**, because a
-   * ticked box is a filter that is on and a click means off. A value therefore
-   * never sits on both lists, which `matchesFilters` would have to break a tie
-   * in.
-   */
   const toggle = (key: Axis) => (value: string, exclude: boolean) => {
     const outKey = AXES[key];
     const gone = {
@@ -904,8 +669,6 @@ export const FilterBar = ({
   };
   const toggleCategory = toggle("categories");
 
-  // A pair is `category/sub`, so its own category is its prefix — no second
-  // grouping to keep in step with the list the picker was handed.
   const subsOf = (category: string) =>
     subcategories.filter(
       (pair) => pair.slice(0, pair.indexOf("/")) === category,
@@ -914,12 +677,6 @@ export const FilterBar = ({
   const toggleAccount = toggle("accounts");
   const toggleCountry = toggle("countries");
 
-  /**
-   * How one value reads in the summary. Categories are slugs carrying two
-   * levels, so a pair reads as its subcategory and a bare slug as its category —
-   * the same two names the picker's own rows already choose between. The other
-   * three axes are names as they stand, `NO_COUNTRY`'s dash excepted.
-   */
   const labelOf = (axis: Axis, value: string) =>
     axis === "categories"
       ? value.includes("/")
@@ -929,18 +686,11 @@ export const FilterBar = ({
         ? "No country"
         : value;
 
-  // Both halves of all four axes: an exclusion is a filter like any other, so a
-  // page filtered only by exclusions still says so and still offers Reset.
   const picked = (Object.entries(AXES) as [Axis, (typeof AXES)[Axis]][]).reduce(
     (n, [key, outKey]) => n + filters[key].length + filters[outKey].length,
     0,
   );
 
-  /**
-   * The four lists and the search as one number, the per-list counts being on
-   * the pickers themselves. The search counts only where it is not already on
-   * screen: the transactions table has the box in plain sight.
-   */
   const active =
     picked + (filters.search !== "" && view !== "transactions" ? 1 : 0);
   const dirty = picked > 0 || filters.search !== "" || filters.showExcluded;

@@ -1,6 +1,3 @@
-/**
- * The boxes everything sits in: cards, KPI tiles and tables. Presentation only.
- */
 import {
   useEffect,
   useLayoutEffect,
@@ -46,7 +43,6 @@ import { isPageKey } from "./Shortcuts.tsx";
 interface CardProps {
   title: string;
   icon?: IconSvgElement;
-  /** A control belonging to this card, parked at the far end of its heading. */
   action?: ReactNode;
   children: ReactNode;
 }
@@ -75,7 +71,6 @@ export interface Delta {
   good: boolean;
 }
 
-/** `goodIfUp` because more income is good and more spending is not. */
 export const deltaInfo = (
   current: number,
   previous: number,
@@ -90,9 +85,7 @@ interface StatTileProps {
   label: string;
   value: string;
   delta?: Delta;
-  /** What the delta is measured against — "last month" for a month, "last year" for a year. */
   vs?: string;
-  /** A quiet second line. The per-month average lives here rather than in a tile of its own. */
   sub?: string;
 }
 
@@ -127,7 +120,6 @@ export const StatTile = ({ label, value, delta, vs, sub }: StatTileProps) => (
 interface MeterTileProps {
   label: string;
   share: number;
-  /** Only when there is something to say — an empty note renders nothing. */
   note?: string;
 }
 
@@ -147,15 +139,6 @@ export const MeterTile = ({ label, share, note }: MeterTileProps) => (
   </div>
 );
 
-/**
- * Holds a column at the width of the widest value it *can* hold, not the widest
- * on screen: a windowed table renders a screenful, so otherwise a column
- * resizes as you scroll onto a longer value and drags the rest sideways.
- *
- * Rendered rather than written as a `ch` width, because it has to be right in
- * whatever font the page ends up with. A longer value still fits — no cell
- * wraps — it just starts moving the column again.
- */
 const Sizer = ({ of }: { of: string[] }) => (
   <span aria-hidden className="invisible block h-0 font-normal">
     {of.map((s) => (
@@ -166,56 +149,27 @@ const Sizer = ({ of }: { of: string[] }) => (
   </span>
 );
 
-/** The widest amount worth holding a money column open for. */
 export const AMOUNT_SIZE = [fmtNOK(-100000)];
 
 export interface Column {
   label: string;
-  /** Money: right-aligned. */
   num?: boolean;
-  /** Values this column must stay wide enough for, whatever is rendered — see `Sizer`. */
   sizer?: string[];
-  /**
-   * Shrink to the widest cell instead of sharing the slack. `w-px` with
-   * `nowrap` is the table-layout way of saying "as narrow as the content
-   * allows", which leaves one flexible column to absorb the rest — so filtering
-   * the rows cannot shuffle every column sideways.
-   */
   min?: boolean;
-  /** Set to make the header a sort button. The caller owns the sort; the header owns the arrow. */
   onClick?: () => void;
-  /** Which way this column is sorted, or null when it is sortable but not the sorted one. */
   sort?: "asc" | "desc" | null;
 }
 
-/**
- * True when this click was the end of a drag that highlighted text. A drag to
- * select ends in a `click` on whatever it started and stopped inside, so a row
- * that opens a dialog would open it on every attempt to read the text out, and
- * the dialog's backdrop would close on a selection released outside the card.
- *
- * `detail` is 0 for a keyboard activation, which no selection may block.
- */
 const highlighting = (e: { detail: number }) =>
   e.detail > 0 && !(window.getSelection()?.isCollapsed ?? true);
 
 interface PickCellProps {
-  /** What the cell reads as. */
   label: string;
-  /** What that stands for — the slug, where the label is not the filter value. */
   value?: string;
-  /** A CSS colour for the text, where the cell encodes something by colour. */
   color?: string;
   onPick: (value: string, meta: boolean) => void;
 }
 
-/**
- * A cell that is also the filter for its own value, the same gesture as a chart
- * bar: click to show only it, meta-click to hide it.
- *
- * The click stops here: the row around it may open the details dialog, and a
- * click meant to filter to a merchant must not also open the row it sits in.
- */
 export const PickCell = ({
   label,
   value = label,
@@ -238,34 +192,18 @@ export const PickCell = ({
 interface DataTableProps {
   columns: Column[];
   rows: ReactNode[][];
-  /** Caps the height and pins the header, for the long lists. */
   scroll?: boolean;
-  /**
-   * Makes the rows clickable, by index into `rows`. `PickCell` stops its own
-   * click, so the filter cells keep filtering.
-   */
   onRow?: (index: number) => void;
 }
 
-/**
- * Past this many rows the table windows itself. Below it the whole thing is
- * cheaper to render than the arithmetic that would avoid rendering it.
- */
 const WINDOW_OVER = 80;
 
-/** Rows kept above and below the viewport, so a flick of the wheel lands on rows that exist. */
 const OVERSCAN = 12;
 
-/** The scroller's own height, matching `max-h-[460px]` — a starting guess, remeasured on the first scroll. */
 const VIEWPORT = 460;
 
 export const DataTable = ({ columns, rows, scroll, onRow }: DataTableProps) => {
   const [win, setWin] = useState({ top: 0, height: VIEWPORT });
-  /**
-   * Measured rather than assumed, since a hardcoded row height drifts the
-   * moment the padding or font size changes. One row is representative because
-   * the cells cannot wrap.
-   */
   const [rowH, setRowH] = useState(24);
   const probe = useRef<HTMLTableRowElement>(null);
   const box = useRef<HTMLDivElement>(null);
@@ -276,34 +214,17 @@ export const DataTable = ({ columns, rows, scroll, onRow }: DataTableProps) => {
     const h = probe.current?.getBoundingClientRect().height;
     if (h && Math.abs(h - rowH) > 0.5) setRowH(h);
 
-    /**
-     * `win` is this component's copy of where the scroller is, and the two come
-     * apart: a filter dropping the list under `WINDOW_OVER` detaches
-     * `onScroll`, and the browser clamps `scrollTop` with nothing listening.
-     *
-     * Read back rather than remembered, then — in a layout effect the value is
-     * the browser's own post-clamp one.
-     */
     const el = box.current;
     if (el && (el.scrollTop !== win.top || el.clientHeight !== win.height))
       setWin({ top: el.scrollTop, height: el.clientHeight });
   });
 
-  /**
-   * Clamped to what the new row set can scroll to: filtering shrinks the list
-   * under a scroll position the browser has not corrected yet, which would
-   * slice past the end and render a blank table for a frame.
-   */
   const top = Math.min(win.top, Math.max(0, rows.length * rowH - win.height));
   const first = windowed ? Math.max(0, Math.floor(top / rowH) - OVERSCAN) : 0;
   const last = windowed
     ? Math.min(rows.length, Math.ceil((top + win.height) / rowH) + OVERSCAN)
     : rows.length;
 
-  /**
-   * The unrendered rows still have to take up their space, or the scrollbar
-   * reports the height of a dozen rows and the thumb jumps as you drag it.
-   */
   const spacer = (h: number) =>
     h > 0 ? (
       <tr aria-hidden style={{ height: h }}>
@@ -376,8 +297,8 @@ export const DataTable = ({ columns, rows, scroll, onRow }: DataTableProps) => {
         <tbody>
           {spacer(first * rowH)}
           {rows.slice(first, last).map((row, i) => (
-            // Keyed on where the row is in the whole list, not in the slice, or
-            // scrolling would reuse the same dozen keys for every row in turn.
+            // Key on the position in the whole list, not in the slice. A slice key
+            // repeats for each row as the user scrolls.
             <tr
               key={first + i}
               ref={i === 0 ? probe : undefined}
@@ -385,10 +306,10 @@ export const DataTable = ({ columns, rows, scroll, onRow }: DataTableProps) => {
               className={`hover:bg-hover ${onRow ? "cursor-pointer" : ""}`}
             >
               {row.map((cell, j) => (
+                // No cell wraps in a windowed table. One tall row moves every row below it
+                // out of position.
                 <td
                   key={j}
-                  /* Nothing wraps in a windowed table: one tall row would put
-                   every row below it out of place by the difference. */
                   className={`border-b border-grid py-1 pr-2 ${columns[j]?.num ? "text-right" : "text-left"} ${columns[j]?.min ? "w-px whitespace-nowrap" : ""} ${windowed ? "whitespace-nowrap" : ""}`}
                 >
                   {cell}
@@ -403,15 +324,6 @@ export const DataTable = ({ columns, rows, scroll, onRow }: DataTableProps) => {
   );
 };
 
-/**
- * Sort state, and the headers that drive it. One hook over any row shape, so
- * every table on the page sorts by the same clicks — each having its own would
- * be several behaviours for one gesture.
- *
- * `ascFirst` names the columns that read A-Z on the first click; everything else
- * starts biggest/newest first. A third click drops the sort and the rows fall
- * back to the order they arrived in.
- */
 const useSort = <T, S extends Record<string, (a: T, b: T) => number>>(
   items: T[],
   sorts: S,
@@ -423,10 +335,6 @@ const useSort = <T, S extends Record<string, (a: T, b: T) => number>>(
   const [by, setBy] = useState<K | null>(initial);
   const [asc, setAsc] = useState(firstAsc(initial));
 
-  // A comparator is not always cheap — sorting on the category *label* is two
-  // lookups and a `localeCompare`, n log n times — so re-sorting for a render
-  // that changed neither the rows nor the column costs 26 ms of a click. Both
-  // call sites pass a module-level `sorts`, so the identity is stable.
   const sorted = useMemo(
     () =>
       by ? [...items].sort((a, b) => (asc ? 1 : -1) * sorts[by](a, b)) : items,
@@ -453,9 +361,6 @@ const TXN_SORTS = {
   date: (a: Categorized, b: Categorized) => a.date.localeCompare(b.date),
   merchant: (a: Categorized, b: Categorized) =>
     merchantOf(a).localeCompare(merchantOf(b)),
-  // On the label, not the slug, so the order matches the column: `Strøm` sorts
-  // under S and not under the `stroem` nobody sees. By the main first, so
-  // sorting the column groups the colours.
   subcategory: (a: Categorized, b: Categorized) =>
     categoryLabel(a.category).localeCompare(categoryLabel(b.category)) ||
     rowLabel(a.category, a.subcategory).localeCompare(
@@ -473,12 +378,6 @@ interface SearchBoxProps {
   value: string;
   onChange: (value: string) => void;
   placeholder: string;
-  /**
-   * Take ⌘F over while mounted, and answer to `/` as well. Windowing hides the
-   * unrendered rows from the browser's own find, and this box searches all of
-   * them rather than the on-screen ones — the better answer anyway. One box per
-   * page may claim it.
-   */
   hotkey?: boolean;
 }
 
@@ -494,14 +393,10 @@ const SearchBox = ({
     if (!hotkey) return;
     const find = (e: KeyboardEvent) => {
       const modified = e.metaKey || e.ctrlKey;
-      // `/` only where it is not a character being typed — in this box, or in a
-      // filter menu's own search, it is one. Same test the page's own keys use.
       const slash = e.key === "/" && !modified && isPageKey(e);
       if (!slash && !(e.key === "f" && modified)) return;
       if (e.altKey) return;
       e.preventDefault();
-      // `select`, not `focus`: ⌘F on a box that already has a search in it means
-      // a new search, so the old one goes as soon as you type.
       box.current?.select();
     };
     document.addEventListener("keydown", find);
@@ -550,22 +445,11 @@ const GROUP_SORTS = {
 };
 
 interface SubscriptionsCardProps {
-  /**
-   * Every row in view, not only the flagged ones — `subscriptionGroups` picks
-   * the payees, because the flag belongs to the payee and the bank puts it on
-   * an arbitrary subset of that payee's rows.
-   */
   txns: Categorized[];
   onMerchant: (merchant: string, meta: boolean) => void;
   onCategory: (category: string, meta: boolean) => void;
 }
 
-/**
- * What is subscribed to, not every charge it made: eleven Spotify rows are one
- * subscription that took 99 kr eleven times. Sortable, searchable and windowed
- * like the transactions table, because a year of these is long enough to need
- * all three.
- */
 export const SubscriptionsCard = ({
   txns,
   onMerchant,
@@ -592,7 +476,6 @@ export const SubscriptionsCard = ({
     [groups],
   );
 
-  // Nothing recurring in this period is no card at all, rather than an empty box.
   if (groups.length === 0) return null;
 
   return (
@@ -612,8 +495,6 @@ export const SubscriptionsCard = ({
       ) : (
         <DataTable
           scroll
-          /* Only the name is flexible, so sorting and searching cannot slide
-             the other columns about — the same rule as the full table. */
           columns={[
             head("Subscription", "name"),
             head("Category", "category", { min: true, sizer: categorySizes }),
@@ -653,22 +534,12 @@ interface TxnDialogProps {
   onClose: () => void;
 }
 
-/** A quiet outlined word — what a row *is*, where a Yes/No line said it duller. */
 const Chip = ({ children }: { children: ReactNode }) => (
   <span className="rounded-full border border-line px-2 py-0.5 text-[11px] text-ink-soft">
     {children}
   </span>
 );
 
-/**
- * What the heading, the chips and the bank row already say. Repeating it in the
- * list below is the same fact twice, and that list of nineteen was most of why
- * the dialog read as a dump — what is left is the part they cannot carry.
- * `reason` is not here: the chip says a row is out, the field says why.
- *
- * `bankConfidence` is simply dropped. Nothing gates on it, 7 802 of 8 547 rows
- * are at 100, and a line saying so on almost every row is a line nobody reads.
- */
 const SHOWN_ABOVE = [
   "date",
   "amount",
@@ -687,20 +558,9 @@ const SHOWN_ABOVE = [
   "bankConfidence",
 ];
 
-/** One field of the detail list. Its own rule under it, the last one bare. */
 const ROW =
   "flex items-baseline justify-between gap-4 border-b border-line py-1.5 last:border-0";
 
-/**
- * One row, with everything on it. A native `<dialog>` opened modally, so Esc,
- * the backdrop, the scroll lock and keeping focus inside are the browser's job
- * and not ours — the fields are read off the row by `txnFields`, so this stays a
- * layout and nothing else.
- *
- * The heading is the row as the table reads it — merchant, its category in that
- * category's own hue, account, date, and the amount at the size of the one
- * number the dialog is about. It stays put while the rest scrolls under it.
- */
 const TxnDialog = ({ txn, onClose }: TxnDialogProps) => {
   const bank = bankLabel(txn);
 
@@ -710,8 +570,6 @@ const TxnDialog = ({ txn, onClose }: TxnDialogProps) => {
         el?.showModal();
       }}
       onClose={onClose}
-      /* The padding is on the inner div so that a click landing on it is a
-         click on the card, not on the dialog box — only the backdrop closes. */
       onClick={(e) => {
         if (e.target === e.currentTarget && !highlighting(e)) onClose();
       }}
@@ -807,30 +665,13 @@ const TxnDialog = ({ txn, onClose }: TxnDialogProps) => {
 
 interface TransactionsCardProps {
   txns: Categorized[];
-  /** The search box sits on the table it filters, rather than off in the filter bar. */
   search: string;
   onSearch: (search: string) => void;
-  /** The merchant, category and account cells filter to themselves; see `PickCell`. */
   onMerchant: (merchant: string, meta: boolean) => void;
-  /** Takes a bare category or a `category/sub` pair — one list holds both levels. */
   onCategory: (category: string, meta: boolean) => void;
   onAccount: (account: string, meta: boolean) => void;
 }
 
-/**
- * Every row in view, newest first. It has a view of its own now — the dashboards
- * are the charts, this is the rows behind them.
- *
- * Long lists are windowed by `DataTable` itself, so the row count no longer
- * decides what a render costs. The search box still defers its filtering (see
- * `TransactionsView`), which is what keeps the totals above the table off the
- * typing path.
- *
- * Windowing hides the unrendered rows from the browser's own find, so ⌘F is
- * taken over here and pointed at the box instead — which searches all the rows
- * rather than the on-screen ones, and is the better answer anyway. Only while
- * this card is mounted: on the dashboards ⌘F is the browser's again.
- */
 export const TransactionsCard = ({
   txns,
   search,
@@ -841,11 +682,6 @@ export const TransactionsCard = ({
 }: TransactionsCardProps) => {
   const { sorted, head } = useTxnSort(txns);
   const [open, setOpen] = useState<Categorized | null>(null);
-  /**
-   * Every subcategory the table can show, not the ones a screenful happens to
-   * hold. Over `txns` rather than over every subcategory there is, so a filtered
-   * table does not hold room open for one it can no longer show.
-   */
   const subcategorySizes = useMemo(
     () => [...new Set(txns.map((t) => rowLabel(t.category, t.subcategory)))],
     [txns],
@@ -867,15 +703,9 @@ export const TransactionsCard = ({
         <DataTable
           scroll
           onRow={(i) => setOpen(sorted[i] ?? null)}
-          /* Everything but the merchant is content-width, so the one column
-             whose text actually varies is the one that absorbs the slack —
-             filtering the rows no longer slides the others sideways. */
           columns={[
             head("Date", "date", { min: true }),
             head("Merchant / description", "merchant"),
-            /* "Category", not "Subcategory": which level the text is at is not
-               a distinction the header has to make — the colour carries the
-               main. */
             head("Category", "subcategory", {
               min: true,
               sizer: subcategorySizes,
@@ -888,8 +718,6 @@ export const TransactionsCard = ({
             }),
           ]}
           rows={sorted.map((t) => [
-            /* The whole row opens the details; the date is the same thing as a
-               button, so a keyboard reaches it too. */
             <button
               type="button"
               onClick={(e) => !highlighting(e) && setOpen(t)}
@@ -898,10 +726,6 @@ export const TransactionsCard = ({
               {t.date}
             </button>,
             <PickCell label={merchantOf(t)} onPick={onMerchant} />,
-            /* The main category is the colour, not a column of its own: the
-               name repeated on every row said less than a hue does, and
-               `Filters.categories` holds both levels, so the pair filters on
-               the same axis the bare category used to. */
             <PickCell
               label={rowLabel(t.category, t.subcategory)}
               value={subcategoryOf(t)}

@@ -1,29 +1,12 @@
-/**
- * The page's keys, and the dialog that lists them.
- *
- * One array is both: `useShortcuts` binds what it holds and `ShortcutsDialog`
- * prints the same array, so a key that works is a key that is documented and
- * there is no second list to keep in step.
- *
- * A shortcut with no `run` is one bound somewhere it can reach what it needs —
- * ⌘F belongs to the search box, the arrows inside a filter menu belong to the
- * menu — and is here to be printed only.
- */
 import { useEffect, useRef } from "react";
 
 export interface Shortcut {
-  /** The `KeyboardEvent.key`s that do this, and never the modifiers. */
   keys?: string[];
-  /** As it reads on the cap, which `ArrowLeft` does not. */
   cap: string;
   what: string;
   run?: () => void;
 }
 
-/**
- * Bound in `FilterBar`, where the panel and its highlight are. Printed here so
- * the dialog answers the whole question rather than the half this file binds.
- */
 export const MENU_SHORTCUTS: Shortcut[] = [
   { cap: "↑ ↓", what: "Move down the list" },
   { cap: "Enter", what: "Tick or untick the row" },
@@ -32,40 +15,19 @@ export const MENU_SHORTCUTS: Shortcut[] = [
   { cap: "Esc", what: "Close the menu" },
 ];
 
-/**
- * Where a keystroke is a character rather than a command. A select is in here
- * too: its own keys pick an option, and stepping the period out from under it
- * would fight them.
- */
 const typing = (t: EventTarget | null) =>
   t instanceof HTMLElement &&
   (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName));
 
-/**
- * Whether a bare keystroke is the page's, rather than belonging to whatever has
- * focus. Exported because the search box binds `/` itself — it is the only
- * thing that can reach the box — and must answer the same question.
- *
- * A modal dialog owns the keyboard while it is up: reading a list of keys is
- * not a reason to fire one, and it is the shortcuts dialog itself that is
- * usually the one open. Escape, the backdrop and its own button close it.
- */
 export const isPageKey = (e: KeyboardEvent) =>
   !typing(e.target) && !document.querySelector("dialog[open]");
 
-/**
- * The keys, bound once for the life of the page. The list is read through a ref
- * rather than closed over, so every `run` sees the render it was built in
- * without the listener being torn down and rebuilt on each of them.
- */
 export const useShortcuts = (shortcuts: Shortcut[]) => {
   const latest = useRef(shortcuts);
   latest.current = shortcuts;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      // Shift is allowed — `?` is one — but a modified key is the browser's or
-      // the search box's, never ours.
       if (e.metaKey || e.ctrlKey || e.altKey || !isPageKey(e)) return;
       const hit = latest.current.find((s) => s.keys?.includes(e.key));
       if (!hit?.run) return;
@@ -103,10 +65,6 @@ interface ShortcutsDialogProps {
   onClose: () => void;
 }
 
-/**
- * A native `<dialog>`, so Escape, the backdrop and the focus trap are the
- * browser's problem rather than three more effects here.
- */
 export const ShortcutsDialog = ({
   shortcuts,
   open,
@@ -124,11 +82,7 @@ export const ShortcutsDialog = ({
   return (
     <dialog
       ref={box}
-      // Escape closes it without asking us, so the state follows the DOM rather
-      // than the other way round.
       onClose={onClose}
-      // The backdrop is painted by the dialog element itself, so a click on
-      // `<dialog>` and not on anything inside it is a click outside.
       onClick={(e) => e.target === box.current && onClose()}
       className="m-auto w-[min(90vw,28rem)] rounded-[10px] border border-line bg-surface p-5 text-ink shadow-lg backdrop:bg-black/40"
     >

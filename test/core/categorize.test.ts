@@ -16,7 +16,6 @@ import {
 } from "../../src/core/categorize.ts";
 import type { Classified } from "../../src/core/types.ts";
 
-/** The card, as `rules/accounts.json` names it — the travel guess sees these rows and no others. */
 const CARDS = new Set(["card"]);
 
 function classified(overrides: Partial<Classified>): Classified {
@@ -49,12 +48,6 @@ test("falls back to bankCategory with no override", () => {
   assert.equal(out.category, "dagligvarer");
 });
 
-/**
- * Every excluded row is a transfer, whatever else it looks like. The bank has a
- * category for most of them and it describes the payment, not the money — a card
- * bill is `Avgifter` on the giro paying it — and the toggle that lists these is
- * the only place they are ever seen, with `reason` already on the row.
- */
 test("an excluded row is a transfer, ahead of every other rule", () => {
   const transfer = classified({
     bankCategory: null,
@@ -63,7 +56,6 @@ test("an excluded row is a transfer, ahead of every other rule", () => {
   });
   assert.equal(categorize([transfer], {})[0]!.category, "overfoering");
 
-  // Not the fallback any more: the bank's category and an override both lose.
   assert.equal(
     categorize([{ ...transfer, bankCategory: "sparing" }], {})[0]!.category,
     "overfoering",
@@ -79,7 +71,6 @@ test("an excluded row is a transfer, ahead of every other rule", () => {
     "overfoering",
   );
 
-  // And nothing that is still counted changes.
   assert.equal(
     categorize([classified({ bankCategory: null })], {})[0]!.category,
     "ukategorisert",
@@ -128,22 +119,18 @@ test("a card row bought abroad is travel, by the merchant country", () => {
       CARDS,
     )[0]!.category;
   assert.equal(cat("LAWSON, TOKYO, JAPAN"), "reise");
-  // The old Enable Banking wording, a three-letter code, reads the same way.
   assert.equal(cat("LAWSON, TOKYO, JPN"), "reise");
   assert.equal(cat("KAFFEBAR, Oslo, NORWAY"), "ukategorisert");
   assert.equal(cat("KAFFEBAR, OSLO, NOR"), "ukategorisert");
-  // A foreign terminal sometimes sends only the town. The bank writes NORWAY on
-  // every domestic one, so a bare town at the end still means abroad.
+  // The bank writes NORWAY on every domestic row. A town with no country is
+  // abroad.
   assert.equal(cat("ANISEED, MYTILINI"), "reise");
-  // No comma, so nothing that could be a place: the issuer's own rows, and
-  // Norwegian payees that carry no country at all.
   assert.equal(cat("Omkostninger regningsbetaling"), "ukategorisert");
   assert.equal(cat("DUTY-FREE GARDERMOEN"), "ukategorisert");
   assert.equal(cat(null), "ukategorisert");
 });
 
 test("the travel guess is card rows only — a deposit row of the same shape is not a trip", () => {
-  // 23 rows of the record match this pattern without being near a trip.
   const [out] = categorize(
     [
       classified({
@@ -161,9 +148,6 @@ test("the travel guess is card rows only — a deposit row of the same shape is 
 });
 
 test("the bank's own category beats the travel guess", () => {
-  // The guess is a fallback for rows the bank shrugged at. A supermarket in
-  // Vienna is groceries that happened abroad, and `Telenor Norge AS, Mobil`
-  // only looks foreign — the category is what stops both being read as a trip.
   const cat = (counterparty: string, bankCategory: string) =>
     categorize(
       [
@@ -187,14 +171,10 @@ test("the bank's own category beats the travel guess", () => {
     cat("Telenor Norge AS, Mobil", "faste_boutgifter"),
     "faste_utgifter",
   );
-  // …but the one real catch-all is no category, so those still fall through.
   assert.equal(
     cat("Centimeter am Spittel, WIEN, AUSTRIA", "ukategorisert"),
     "reise",
   );
-  // `diverse` is not one of those any more: it is the bank's largest main and
-  // every pair under it means something, so a Viennese cash machine is a cash
-  // machine rather than evidence of a holiday.
   assert.equal(
     categorize(
       [
@@ -238,8 +218,6 @@ test("the bank spelling out ukategorisert is the one real shrug", () => {
     )[0]!.category,
     "ukategorisert",
   );
-  // And `diverse` is not a second one: collapsing it throws away a level above
-  // where all of its signal is.
   const peer = categorize(
     [classified({ bankCategory: "diverse", bankSub: "vennebetaling" })],
     {},
@@ -263,8 +241,6 @@ test("an override still applies to a card row", () => {
 });
 
 test("an override matches the merchant, not only the raw description", () => {
-  // The card's raw description carries a terminal number the cleaned one drops,
-  // so a pattern written for the merchant has to reach `counterparty`.
   const [out] = categorize(
     [
       classified({
@@ -285,7 +261,7 @@ test("a slash-wrapped pattern is a regex, so a word can be matched as a word", (
     categorize([classified({ description })], rent)[0]!.category;
   assert.equal(cat("Til: Ola - Leie Juni & Juli"), "faste_boutgifter");
   assert.equal(cat("LEIE AUGUST"), "faste_boutgifter");
-  // the whole point: these contain "leie" but are not the word
+  // These names contain "leie" but they are not the word.
   assert.equal(cat("UTLEIE AS"), "dagligvarer");
   assert.equal(cat("LEIEBIL BERGEN"), "dagligvarer");
 });
@@ -313,10 +289,6 @@ test("loadOverrides returns {} when the file is absent", async () => {
   assert.deepEqual(await loadOverrides("does-not-exist.json"), {});
 });
 
-/**
- * The Vipps rules are read off the row, so the one thing that can overrule them
- * is a person saying otherwise — and rules/overrides.json runs first.
- */
 test("an explicit override beats the Vipps peer rules", async () => {
   const dir = await mkdtemp(join(tmpdir(), "categorize-"));
   const overrides = join(dir, "o.json");
@@ -325,7 +297,6 @@ test("an explicit override beats the Vipps peer rules", async () => {
     JSON.stringify({ "sit kafe": "kafe_og_restaurant" }),
   );
 
-  // A card row the bank filed as a money transfer, which is otherwise conclusive.
   const row = classified({
     description: "Vipps*Sit Kafe",
     counterparty: null,
@@ -342,14 +313,6 @@ test("an explicit override beats the Vipps peer rules", async () => {
   });
 });
 
-/**
- * A flatmate is two relationships at once — forty coffees and a standing monthly
- * rent — and the description is the bare name in both. Only the bank's own row
- * type separates them, and 158 000 kr of rent sat under `vipps` until it did.
- *
- * The lump half is the half a rules file still has to name. The peer half now
- * reads itself off the row, so these rows carry the Vipps shape they really have.
- */
 test("a named person is a peer payment or rent, by the row type the bank gave it", () => {
   const cat = (typeText: string | null, amount = -100) =>
     categorize(
@@ -367,26 +330,21 @@ test("a named person is a peer payment or rent, by the row type the bank gave it
       { "ola nordmann": "husleie" },
     )[0]!.category;
 
-  // Settled instantly, or on the card: a Vipps payment.
   assert.equal(cat("Straksbetaling"), "diverse");
   assert.equal(cat("Straksbetaling - ekstern betalingstjeneste"), "diverse");
   assert.equal(cat("VISA Varekjøp"), "diverse");
   assert.equal(cat(null), "diverse");
 
-  // Set up once and left running: rent. The lump rule runs above the Vipps
-  // rules, so it wins even on a row that carries the marker.
   assert.equal(cat("Overførsel", 6100), "husleie");
   assert.equal(cat("Giro", 6000), "husleie");
   assert.equal(cat("MobilGiro m/melding til forfall i dag", 5700), "husleie");
 
-  // Between own accounts is the bank's wording for a family transfer, not rent.
   assert.equal(cat("Overførsel mellom egne kontoer", 4000), "diverse");
   assert.equal(
     cat("Overførsel mellom egne kontoer i MobilBank, forfall i dag", 12200),
     "diverse",
   );
 
-  // The gate only applies to a name in giro.json; nobody else is touched.
   assert.equal(
     categorize(
       [classified({ description: "Rema 1000", typeText: "Overførsel" })],
@@ -398,11 +356,6 @@ test("a named person is a peer payment or rent, by the row type the bank gave it
   );
 });
 
-/**
- * The row type says how the money moved and never why, so the category is per
- * name: a lump from a flatmate is rent, and the identical lump from a friend
- * was a share of a trip. Nothing on the row separates those two.
- */
 test("a lump transfer takes the category its sender is named with, and only then", () => {
   const row = classified({
     description: "Vipps*Vipps*Kari Nordmann",
@@ -414,18 +367,15 @@ test("a lump transfer takes the category its sender is named with, and only then
   const cat = (giro: Record<string, string>, over = row) =>
     categorize([over], {}, [], giro)[0]!.category;
 
-  // Unnamed, so it stays what it always was: money from a person.
   assert.equal(cat({}), "diverse");
   assert.equal(cat({ "kari nordmann": "husleie" }), "husleie");
   assert.equal(cat({ "kari nordmann": "reise" }), "reise");
 
-  // Named, but settled instantly: still the coffee, not the standing payment.
   assert.equal(
     cat({ "kari nordmann": "husleie" }, { ...row, typeText: "Straksbetaling" }),
     "diverse",
   );
 
-  // A name here reaches nobody else's rows.
   assert.equal(cat({ "ola nordmann": "husleie" }), "diverse");
 });
 
@@ -446,7 +396,6 @@ test("a subscription pattern flags a card row the bank could never flag", () => 
     { youtubepremium: "medier_og_underholdning" },
     ["youtubepremium"],
   );
-  // the point of the second axis: a category *and* the flag, not one or the other
   assert.equal(out.category, "medier_og_underholdning");
   assert.equal(out.isSubscription, true);
 });
@@ -471,11 +420,6 @@ test("loadNotSubscriptions returns [] when the file is absent", async () => {
   assert.deepEqual(await loadNotSubscriptions("does-not-exist.json"), []);
 });
 
-/**
- * The bank flags a single purchase because it knows the *merchant* sells
- * subscriptions, not because this row repeats. Both flags have to come off:
- * a payee reaches the subscriptions card carrying either one.
- */
 test("a not-subscription pattern takes the bank's flags back off", () => {
   const oneOff = classified({
     description: "Vipps*DIONYSOS Medlemskap",
@@ -487,7 +431,6 @@ test("a not-subscription pattern takes the bank's flags back off", () => {
   assert.equal(out.isSubscription, false);
   assert.equal(out.isRecurring, false);
 
-  // and it is the pattern doing it, not the call shape
   const [kept] = categorize([oneOff], {}, [], {}, new Set(), [], ["nothing"]);
   assert.equal(kept.isSubscription, true);
   assert.equal(kept.isRecurring, true);
@@ -521,7 +464,6 @@ test("the bank's faste_boutgifter is renamed, and an override still wins over it
   );
   assert.equal(renamed.category, "faste_utgifter");
 
-  // Every other bank slug still passes through untouched.
   const [kept] = categorize(
     [classified({ bankCategory: "dagligvarer" })],
     {},
@@ -537,11 +479,6 @@ test("the bank's faste_boutgifter is renamed, and an override still wins over it
   assert.equal(overridden.category, "medier_og_underholdning");
 });
 
-/**
- * One payee, two things billed under one name. SiT sends rent and the gym as
- * `Sit` with the same type and the same bank category — the account number they
- * are billed from is the only field that differs, so it is in the haystack.
- */
 test("the payee account number is matchable, so one name can bill two things", () => {
   const sit = (remoteAccountNumber: string, amount: number) =>
     classified({
@@ -564,14 +501,9 @@ test("the payee account number is matchable, so one name can bill two things", (
     categorize([sit("42004151326", -10416)], rules)[0]!.category,
     "husleie",
   );
-  // No account number at all still falls through to the name.
   assert.equal(categorize([sit("", -3819)], rules)[0]!.category, "husleie");
 });
 
-/**
- * A landlord who writes the month into every payment is eleven payees to
- * anything counting by name, which listed one standing rent eleven times.
- */
 test("renamePayees collapses a payee that writes the month into every payment", () => {
   const row = (
     description: string,
@@ -597,20 +529,10 @@ test("renamePayees collapses a payee that writes the month into every payment", 
     renamed.map((r) => r.counterparty),
     ["Simen leie", "Simen leie", "Theo leie", "Theo leie", "Rema 1000"],
   );
-  // The month is still in the description, which is what the search box reads.
   assert.equal(renamed[0]!.description, "SIMEN LEIE Februar Husleie");
-  // With no rules there is nothing to collapse, and every name comes back with
-  // the same value — the shape cleaner runs regardless, but all five of these
-  // are mixed case, which it leaves alone. It is no longer the same *array*:
-  // cleaning does not depend on the rules file existing.
   assert.deepEqual(renamePayees(rows, {}), rows);
 });
 
-/**
- * SB1 sends a few transfers with no name on them at all — a bare `Overføring`
- * and an account number. The account is then the only thing that says who the
- * other party was, so the payee patterns have to be able to see it.
- */
 test("renamePayees names a row the bank left nameless, by account number", () => {
   const rows = [
     {
@@ -637,9 +559,6 @@ test("loadPayees returns {} when the file is absent", async () => {
 });
 
 test("a rule value carrying a slash sets both levels, and a bare one sets only the first", () => {
-  // The two forms coexist on purpose: rules/overrides.json is migrated a line
-  // at a time, and the category half is the same string either way, so the page
-  // does not move while half the file is still bare.
   const pair = categorize([classified({ description: "Bar Circus" })], {
     "bar circus": "kafe_og_restaurant/utesteder",
   })[0]!;
@@ -663,7 +582,6 @@ test("the bank's own subcategory rides along when no rule fires", () => {
 });
 
 test("the faste_boutgifter rename keeps the bank sub underneath it", () => {
-  // The rename is ours; the pair below it is still the bank's own answer.
   const out = categorize(
     [classified({ bankCategory: "faste_boutgifter", bankSub: "stroem" })],
     {},
@@ -687,8 +605,6 @@ test("a guess and an excluded row name no subcategory, because neither read one"
     CARDS,
   )[0]!;
   assert.equal(abroad.category, "reise");
-  // `reise/annen_reise` would be an invented claim — the guess reads a country
-  // off a merchant string and knows nothing about the second level.
   assert.equal(abroad.subcategory, null);
 
   const transfer = categorize(
@@ -706,8 +622,6 @@ test("a guess and an excluded row name no subcategory, because neither read one"
 });
 
 test("splitCategory keeps a stray second slash in the sub rather than trimming it", () => {
-  // No bank slug has ever held one, so `a/b/c` is a typo — better seen on the
-  // page than silently swallowed.
   assert.deepEqual(splitCategory("a/b/c"), {
     category: "a",
     subcategory: "b/c",
@@ -716,7 +630,6 @@ test("splitCategory keeps a stray second slash in the sub rather than trimming i
 });
 
 test("bankPair keeps the bank taxonomy, renaming only what misnames its own rows", () => {
-  // `diverse` comes through as itself, subcategory and all.
   assert.deepEqual(
     bankPair({ bankCategory: "diverse", bankSub: "vennebetaling" }),
     {
@@ -724,12 +637,10 @@ test("bankPair keeps the bank taxonomy, renaming only what misnames its own rows
       subcategory: "vennebetaling",
     },
   );
-  // Only `ukategorisert` is nothing.
   assert.equal(
     bankPair({ bankCategory: "ukategorisert", bankSub: "annet" }),
     null,
   );
-  // The one rename: the bank's fixed-cost bucket is not only housing.
   assert.deepEqual(
     bankPair({ bankCategory: "faste_boutgifter", bankSub: "stroem" }),
     {
@@ -740,8 +651,6 @@ test("bankPair keeps the bank taxonomy, renaming only what misnames its own rows
 });
 
 test("the bank finds peers no list ever named", () => {
-  // The bank recognises the payment type without being told who anyone is, so
-  // most peer rows never need a rule at all.
   const out = categorize(
     [
       classified({
@@ -756,14 +665,7 @@ test("the bank finds peers no list ever named", () => {
   assert.equal(out.subcategory, "vennebetaling");
 });
 
-/**
- * The two shapes that each say by themselves that the payee was a person. The
- * `Vipps*` marker alone never does.
- */
 test("a Vipps row the bank calls a transfer is a peer payment, on the card", () => {
-  // The card files these as `diverse/overforing`, which is the bank reading
-  // `mcc: 4829`, *MONEY TRANSF*. Naming the pair outright is the point — taking
-  // the bank's sub here is exactly what filed a peer payment as a transfer.
   const out = categorize(
     [
       classified({
@@ -779,8 +681,6 @@ test("a Vipps row the bank calls a transfer is a peer payment, on the card", () 
 });
 
 test("the doubled Vipps marker is a peer payment even where the bank shrugged", () => {
-  // `Straksbetaling - ekstern betalingstjeneste`: no bank category at all, and
-  // Vipps doubles its own marker on every one of them.
   const out = categorize(
     [
       classified({
@@ -796,8 +696,6 @@ test("the doubled Vipps marker is a peer payment even where the bank shrugged", 
 });
 
 test("a bare Vipps marker is never enough — Vipps bills merchants too", () => {
-  // Matching the marker alone moved 271 correctly-filed rows — canteen lunches,
-  // tram fares — into `vennebetaling`. The second signal is the whole rule.
   const merchant = (bankCategory: string, bankSub: string) =>
     categorize(
       [
@@ -817,7 +715,6 @@ test("a bare Vipps marker is never enough — Vipps bills merchants too", () => 
     merchant("bil_og_transport", "kollektivtransport").category,
     "bil_og_transport",
   );
-  // A merchant the bank shrugged at stays uncategorised rather than becoming a person.
   assert.equal(
     categorize(
       [classified({ description: "Vipps*Some Shop", bankCategory: null })],
@@ -828,10 +725,6 @@ test("a bare Vipps marker is never enough — Vipps bills merchants too", () => 
 });
 
 test("a rule that names one level takes no subcategory, not even the bank's own", () => {
-  // A bare value used to inherit the bank's sub wherever the mains agreed, which
-  // filed one payee under two labels depending on whether the bank had
-  // recognised the merchant. Every line names a pair now, and a bare one means
-  // what it says: this category, no second level.
   const out = categorize(
     [
       classified({
@@ -847,8 +740,6 @@ test("a rule that names one level takes no subcategory, not even the bank's own"
 });
 
 test("a sub from a category the rule overruled is not grafted on", () => {
-  // A hotel booking is a trip to us and a digital marketplace to the bank.
-  // `reise/digital_markedsplass` is a pair neither of us meant.
   const out = categorize(
     [
       classified({
@@ -912,13 +803,10 @@ test("money in from family is family support, money out to them is a peer paymen
       new Set(),
       ["a relative"],
     )[0]!;
-  // In: family support, which is why it sits under the bank's income main.
   assert.equal(
     `${from(500).category}/${from(500).subcategory}`,
     "innskudd/familie",
   );
-  // Out: paying a relative back is not income, and filing it under one would be
-  // a contradiction the category itself cannot hold.
   assert.equal(
     `${from(-500).category}/${from(-500).subcategory}`,
     "diverse/vennebetaling",
@@ -926,8 +814,6 @@ test("money in from family is family support, money out to them is a peer paymen
 });
 
 test("a standing arrangement keeps the name giro.json gave it, family or not", () => {
-  // Pocket money is family money that already has a better label, so the lump
-  // rule has to win — which means it runs above the family list.
   const out = categorize(
     [
       classified({

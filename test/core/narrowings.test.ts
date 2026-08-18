@@ -66,7 +66,6 @@ test("a narrowed pattern keeps its own rows and takes none back", () => {
   assert.equal(answer(overrides), "kafe_og_restaurant,husleie");
   assert.equal(answer(narrowed), "kafe_og_restaurant,husleie");
   assert.equal(answer(reversed), "kafe_og_restaurant,husleie");
-  // The loose form does not, which is what makes the narrowing worth doing.
   assert.equal(
     answer({ sit: "husleie", "sit kafe": "kafe_og_restaurant" }),
     "husleie,husleie",

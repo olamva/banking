@@ -17,9 +17,6 @@ import {
 } from "../../src/core/select.ts";
 import type { Categorized } from "../../src/core/types.ts";
 
-// Selection only. Aggregation is stats.ts, pinned by src/core/stats.test.ts —
-// the React app imports both directly, so what runs here is what runs there.
-
 function txn(
   partial: Partial<Categorized> & { id: string; amount: number },
 ): Categorized {
@@ -51,28 +48,20 @@ test("axisBounds stops a running period at the record, not at its last calendar 
   const now = "2026-08-09";
   const rows = [txn({ id: "1", amount: -10, date: "2026-08-03" })];
 
-  // Still running: the axis would otherwise draw three flat weeks to the 31st.
   assert.deepEqual(axisBounds(rows, period("2026-08", now), now), {
     from: "2026-08-01",
     to: "2026-08-09",
   });
 
-  // Finished: the whole month, `-31` bound and all — `dailySeries` walks it as a string.
   assert.deepEqual(axisBounds(rows, period("2026-02", now), now), {
     from: "2026-02-01",
     to: "2026-02-31",
   });
 
-  // The same for a year, either side of today.
   assert.equal(axisBounds(rows, period("2026", now), now).to, "2026-08-09");
   assert.equal(axisBounds(rows, period("2025", now), now).to, "2025-12-31");
 });
 
-/**
- * The bank books card rows a day or two ahead, so `data/raw/` holds dates later
- * than today as a matter of course. An axis cut at today drops them, and the
- * chart then ends on a smaller number than the tile above it.
- */
 test("axisBounds never stops short of a row dated past today", () => {
   const now = "2026-08-09";
   const rows = [
@@ -94,8 +83,6 @@ test("axisBounds falls back to the rows themselves when the period is open at bo
     to: "2026-08-09",
   });
 
-  // No rows at all is a single day, never an inverted range `dailySeries` would
-  // walk backwards forever on.
   const empty = axisBounds([], period("all", now), now);
   assert.deepEqual(empty, { from: now, to: now });
 });
@@ -117,11 +104,6 @@ test("matchesFilters: category and search", () => {
   assert.equal(matchesFilters(t, { ...NO_FILTERS, search: "kiwi" }), false);
 });
 
-/**
- * The transfer legs net to zero and no sum counts them, so they are hidden by
- * default — but the toggle has to reach them whatever else is filtered, or the
- * excluded set stops being auditable.
- */
 test("matchesFilters: excluded rows are hidden unless showExcluded, and no other filter overrides it", () => {
   const transfer = txn({
     id: "1",
@@ -138,7 +120,6 @@ test("matchesFilters: excluded rows are hidden unless showExcluded, and no other
     true,
   );
 
-  // Hidden even when a filter names it, and shown only when the toggle is on.
   const named = { ...NO_FILTERS, merchants: ["Kiwi"] };
   assert.equal(matchesFilters(transfer, named), false);
   assert.equal(
@@ -146,7 +127,6 @@ test("matchesFilters: excluded rows are hidden unless showExcluded, and no other
     true,
   );
 
-  // Still subject to the other filters once it is showing.
   assert.equal(
     matchesFilters(transfer, {
       ...NO_FILTERS,
@@ -157,7 +137,6 @@ test("matchesFilters: excluded rows are hidden unless showExcluded, and no other
   );
 });
 
-/** No categories means all of them, not none — an empty filter must not empty the page. */
 test("matchesFilters: several categories at once, and none means all", () => {
   const groceries = txn({ id: "1", amount: -100, category: "dagligvarer" });
   const transport = txn({ id: "2", amount: -50, category: "transport" });
@@ -172,7 +151,6 @@ test("matchesFilters: several categories at once, and none means all", () => {
   assert.equal(all.filter((t) => matchesFilters(t, NO_FILTERS)).length, 3);
 });
 
-/** The same list read the other way round: excluding is the complement of including. */
 test("matchesFilters: exclude hides exactly what include would have kept", () => {
   const groceries = txn({ id: "1", amount: -100, category: "dagligvarer" });
   const transport = txn({ id: "2", amount: -50, category: "transport" });
@@ -192,7 +170,6 @@ test("matchesFilters: exclude hides exactly what include would have kept", () =>
     all,
   );
 
-  // An empty list means every row either way — never an empty page.
   assert.equal(
     all.filter((t) => matchesFilters(t, { ...NO_FILTERS, categoriesOut: [] }))
       .length,
@@ -200,11 +177,6 @@ test("matchesFilters: exclude hides exactly what include would have kept", () =>
   );
 });
 
-/**
- * The two lists on one axis, which is the whole reason there are two: the
- * exception to a filter lives on the same field as the filter, so a mode could
- * never say it.
- */
 test("matchesFilters: a category, minus one subcategory of it", () => {
   const gift = txn({
     id: "1",
@@ -232,8 +204,6 @@ test("matchesFilters: a category, minus one subcategory of it", () => {
     [salary],
   );
 
-  // The exclusion wins where the two name the same rows, so the narrower word
-  // is always the one that decides.
   assert.equal(
     matchesFilters(gift, {
       ...NO_FILTERS,
@@ -243,7 +213,6 @@ test("matchesFilters: a category, minus one subcategory of it", () => {
     false,
   );
 
-  // And it holds on the other axes, which are the same pair of lists.
   assert.deepEqual(
     all.filter((t) =>
       matchesFilters(t, {
@@ -256,22 +225,18 @@ test("matchesFilters: a category, minus one subcategory of it", () => {
   );
 });
 
-/** One period for both views, so a wrong bound here is wrong on every number the page shows. */
 test("period: a month covers its own days and nothing either side of it", () => {
   const p = period("2026-02", "2026-08-09");
   assert.deepEqual(
     [p.kind, p.from, p.to],
     ["month", "2026-02-01", "2026-02-31"],
   );
-  // The bound is a string comparison, so a short month needs no special case:
-  // the 28th is in, and no March date sorts under it.
   const inside = (date: string) =>
     inRange(txn({ id: "1", amount: -1, date }), p.from, p.to);
   assert.equal(inside("2026-02-01"), true);
   assert.equal(inside("2026-02-28"), true);
   assert.equal(inside("2026-01-31"), false);
   assert.equal(inside("2026-03-01"), false);
-  // A month is judged against the same month a year back — see `period`.
   assert.deepEqual(p.prev, {
     from: "2025-02-01",
     to: "2025-02-31",
@@ -292,11 +257,6 @@ test("period: a year, and its previous window is the year before", () => {
   });
 });
 
-/**
- * Nine days of August against a whole August is a 70% fall drawn by the
- * calendar. The period still running compares against the same slice of the one
- * before it, and only that one — every finished period is still a full compare.
- */
 test("period: a period still running is compared against the same slice of the previous one", () => {
   assert.deepEqual(period("2026-08", "2026-08-09").prev, {
     from: "2025-08-01",
@@ -309,9 +269,6 @@ test("period: a period still running is compared against the same slice of the p
     label: "this time last year",
   });
 
-  // A day the previous window has not got needs no special case: the bound is a
-  // string. The 29th of a leap February cuts against a year that has no 29th of
-  // February at all, and every date it does have still sorts under it.
   assert.equal(period("2024-02", "2024-02-29").prev!.to, "2023-02-29");
   assert.equal(
     inRange(
@@ -330,23 +287,16 @@ test("period: a period still running is compared against the same slice of the p
     false,
   );
 
-  // Both windows before these are over, so both compare whole.
   assert.equal(period("2026-07", "2026-08-09").prev!.label, "last year");
   assert.equal(period("2025", "2026-08-09").prev!.label, "last year");
 });
 
-/** All time bounds nothing and has nothing before it — no deltas to draw. */
 test("period: all time, and anything unrecognised, is unbounded and has no previous", () => {
   for (const p of [period("all"), period("sideways"), period("")]) {
     assert.deepEqual([p.kind, p.from, p.to, p.prev], ["all", null, null, null]);
   }
 });
 
-/**
- * A hand-picked range bounds exactly what was typed, and compares against
- * nothing: it belongs to no calendar, so there is no window it is the successor
- * of. See `period` — the equally long span before it was tried and thrown out.
- */
 test("period: a custom range bounds what was typed and has no previous window", () => {
   const p = period("2026-03-04..2026-03-10");
   assert.deepEqual(
@@ -354,7 +304,6 @@ test("period: a custom range bounds what was typed and has no previous window", 
     ["custom", "2026-03-04", "2026-03-10", null],
   );
 
-  // One end cleared is an open bound, not an unparseable period.
   assert.deepEqual(
     [period("..2026-03-10").from, period("..2026-03-10").to],
     [null, "2026-03-10"],
@@ -362,11 +311,9 @@ test("period: a custom range bounds what was typed and has no previous window", 
   assert.equal(period("2026-03-04..").to, null);
   assert.equal(period("..").kind, "custom");
 
-  // Anything not two whole dates is not a range — no half-parsed bounds.
   assert.equal(period("2026-03..2026-05").kind, "all");
 });
 
-/** An open end is the empty date box, which must mean "no bound" and not "no rows". */
 test("inRange is inclusive at both ends, and an open end bounds nothing", () => {
   const t = txn({ id: "1", amount: -10, date: "2026-07-15" });
   assert.equal(inRange(t, "2026-07-15", "2026-07-15"), true);
@@ -393,7 +340,6 @@ test("distinctMonths is sorted and deduplicated", () => {
   assert.deepEqual(distinctMonths(txns), ["2026-06", "2026-07"]);
 });
 
-/** Both lists narrow at once, and a card row with no counterparty filters by the name the table shows. */
 test("matchesFilters: merchants, alongside the categories, and on the description when there is no counterparty", () => {
   const rema = txn({
     id: "1",
@@ -420,15 +366,12 @@ test("matchesFilters: merchants, alongside the categories, and on the descriptio
     all.filter((t) => matchesFilters(t, { ...NO_FILTERS, ...f }));
   assert.deepEqual(only({ merchants: ["Rema 1000"] }), [rema]);
   assert.deepEqual(only({ merchantsOut: ["Rema 1000"] }), [kiwi, card]);
-  // No counterparty, so the description is the merchant — the same string the table cell offers.
   assert.deepEqual(only({ merchants: ["Varekjøp"] }), [card]);
-  // The two lists are an AND: a merchant in the wrong category is out.
   assert.deepEqual(
     only({ merchants: ["Rema 1000"], categories: ["transport"] }),
     [],
   );
   assert.equal(only({ merchantsOut: [] }).length, 3);
-  // Both lists on the merchant axis at once, the same as the categories.
   assert.deepEqual(
     only({ merchants: ["Rema 1000", "Kiwi"], merchantsOut: ["Kiwi"] }),
     [rema],
@@ -465,9 +408,7 @@ test("the account filter is the third axis, and works either way round", () => {
 
   assert.deepEqual(shown({ accounts: ["Mastercard Ung"] }), ["2"]);
   assert.deepEqual(shown({ accountsOut: ["Mastercard Ung"] }), ["1"]);
-  // A filter nobody set must never empty the page, either list of it.
   assert.deepEqual(shown({ accountsOut: [] }), ["1", "2"]);
-  // The axes are ANDed, like the other two already are.
   assert.deepEqual(
     shown({ accounts: ["Brukskonto"], categories: ["reise"] }),
     [],
@@ -475,9 +416,6 @@ test("the account filter is the third axis, and works either way round", () => {
 });
 
 test("AXES names every list filter with the field holding its exclusions", () => {
-  // The UI toggles all four through this map, so a filter missing from it is a
-  // filter with no menu and no chip — and half an axis in it is one whose
-  // exclusions nothing can reach.
   for (const [list, out] of Object.entries(AXES)) {
     assert.ok(
       Array.isArray(NO_FILTERS[list as keyof typeof AXES]),
@@ -488,8 +426,6 @@ test("AXES names every list filter with the field holding its exclusions", () =>
 });
 
 test("the category filter matches the pair, so one sub under two mains stays apart", () => {
-  // `kollektivtransport` is a real sub under both `reise` and `bil_og_transport`.
-  // A bare-sub filter would show rows from both and quietly overcount.
   const trip = txn({
     id: "1",
     amount: -100,
@@ -507,11 +443,6 @@ test("the category filter matches the pair, so one sub under two mains stays apa
   assert.equal(matchesFilters(commute, f), false);
 });
 
-/**
- * The bug two axes had: `cat=annet_lan_og_gjeld&sub=dagligvarer/andre_dagligvarer`
- * asked for rows that were both at once and drew an empty page. A tree with
- * checkboxes means a union, and one list is what gives a union.
- */
 test("a category and a subcategory of some other category are a union, not an empty page", () => {
   const loan = txn({
     id: "1",
@@ -554,7 +485,6 @@ test("a category listed alone still takes all of its subcategories with it", () 
     ),
     true,
   );
-  // And excluding the parent excludes the children, for the same reason.
   const not = { ...NO_FILTERS, categoriesOut: ["dagligvarer"] };
   assert.equal(
     matchesFilters(
@@ -599,9 +529,6 @@ test("excluding one subcategory leaves its siblings in", () => {
 });
 
 test("a category whose rows have no subcategory is still selectable", () => {
-  // `overfoering`, `ukategorisert` and the travel guess name one level on
-  // purpose, so "the part nothing has named yet" has to stay reachable or the
-  // drill-down shows less than its parent.
   const bare = txn({
     id: "1",
     amount: -100,
@@ -630,17 +557,8 @@ test("distinctSubcategories lists the pairs, including the unnamed remainder", (
   );
 });
 
-/**
- * Who the other party was is not on the row, and no name shape answers it — a
- * person-name regex called about 190 businesses people over the real record.
- * The category does answer it, because a peer payment only ever has a human on
- * the other end.
- */
 test("a merchant is a person when any row of theirs is a peer payment", () => {
   const rows = [
-    // A flatmate: rent under housing, and small Vipps payments beside it. One
-    // peer row is enough — requiring all of them would file this person as a
-    // business on the strength of the rent.
     txn({
       id: "a",
       amount: -8000,
@@ -655,7 +573,6 @@ test("a merchant is a person when any row of theirs is a peer payment", () => {
       category: "diverse",
       subcategory: "vennebetaling",
     }),
-    // Money from a relative is the other half of the same question.
     txn({
       id: "c",
       amount: 500,
@@ -663,8 +580,6 @@ test("a merchant is a person when any row of theirs is a peer payment", () => {
       category: "innskudd",
       subcategory: "familie",
     }),
-    // A taverna whose name reads exactly like a person's, which is why the
-    // shape of the name is not what decides this.
     txn({
       id: "d",
       amount: -240,

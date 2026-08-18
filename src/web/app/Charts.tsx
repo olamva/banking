@@ -1,12 +1,3 @@
-/**
- * Hand-drawn SVG, no chart library. Each chart measures its own box and lays
- * out in pixel coordinates; colours come from the theme variables in
- * index.css, which is what makes them follow dark mode without a `dark:` twin
- * on every fill.
- *
- * Nothing here sums anything — every number arrives already aggregated by
- * src/core/stats.ts.
- */
 import { useId, useState, type ReactNode } from "react";
 import {
   spendTrend,
@@ -29,11 +20,9 @@ interface TipState {
   content: ReactNode;
 }
 
-/** One floating tooltip per chart — only one can be hovered at a time anyway. */
 const useTooltip = () => {
   const [tip, setTip] = useState<TipState | null>(null);
 
-  /** For a chart whose content depends on where the pointer is, not on what it is over. */
   const show = (e: React.PointerEvent, content: ReactNode) =>
     setTip({ x: e.clientX, y: e.clientY, content });
   const hide = () => setTip(null);
@@ -45,8 +34,6 @@ const useTooltip = () => {
 
   const node = tip ? (
     <div
-      /* Wide enough for two years of running totals side by side — six figures
-         in three columns is wider than a wrapped merchant name ever was. */
       className="pointer-events-none fixed z-10 max-w-72 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-ink shadow-lg"
       style={{
         left: Math.min(tip.x + 14, window.innerWidth - 300),
@@ -68,7 +55,7 @@ const Empty = ({ children }: EmptyProps) => (
   <div className="py-10 text-center text-ink-muted">{children}</div>
 );
 
-/** SVG has no text-overflow; 11px system-ui averages ~5.6px a character. */
+// SVG has no text-overflow. A character in 11px system-ui is about 5.6px wide.
 const ellipsis = (s: string, px: number) => {
   const max = Math.max(Math.floor(px / 5.6), 3);
   return s.length > max ? s.slice(0, max - 1) + "…" : s;
@@ -78,33 +65,10 @@ export interface BarItem {
   label: string;
   total: number;
   count?: number;
-  /**
-   * What a click reports, where that is not the label: categories arrive
-   * readable, and two slugs can tidy to one name.
-   */
   key?: string;
-  /**
-   * The level below this row. Given, the row gains a disclosure triangle and
-   * these appear indented under it, drawn on the same scale so a child bar reads
-   * as the slice of its parent that it is.
-   */
   subs?: BarItem[];
 }
 
-/**
- * Which direction the money went, as a colour. Red spent, green received — the
- * same pair `DivergingBars` diverges across, and the same meaning.
- *
- * Written out at both depths rather than composed from a stem, because Tailwind
- * scans source for whole class names and a string built at runtime is a class it
- * never emits.
- *
- * The two never share a chart: one card is one direction and its title says
- * which in words, so nothing here is identified by colour alone. That is what
- * makes the pair legitimate — judged as a *categorical* palette it fails deutan
- * separation on the dark surface (ΔE 3.8), which would matter if a red bar and a
- * green one ever had to be told apart side by side. They never do.
- */
 const TONE = {
   spend: ["bg-critical-strong", "bg-critical-strong/50"],
   income: ["bg-good-strong", "bg-good-strong/50"],
@@ -112,35 +76,12 @@ const TONE = {
 
 interface HorizontalBarsProps {
   items: BarItem[];
-  /**
-   * Every row is a filter button for its own label; the second argument is
-   * whether the meta key was held, which the chart reports without knowing what
-   * it means. Omit it and the rows are plain text.
-   */
   onPick?: (key: string, meta: boolean) => void;
-  /** The same, for a row's children. Omit it and children are plain text. */
   onPickSub?: (key: string, meta: boolean) => void;
   tone?: keyof typeof TONE;
-  /**
-   * How many rows before the list cuts off, the rest one click away — all at
-   * once, since paging ten at a time is the same gesture repeated.
-   */
   max?: number;
 }
 
-/**
- * Category totals or top counterparties. One hue — this encodes magnitude, not
- * identity.
- *
- * HTML rather than SVG, which has no text-overflow: a label in a fixed gutter
- * has to be cut by counting characters against an assumed width, and that guess
- * runs long names off the edge of the card. CSS truncates against the room
- * actually there.
- *
- * A row carrying `subs` expands in place, its children on the parent's scale so
- * the opened category reads as that bar cut up. Renormalising would draw the
- * largest child as wide as its parent and say the opposite.
- */
 export const HorizontalBars = ({
   items,
   onPick,
@@ -151,8 +92,6 @@ export const HorizontalBars = ({
   const { bind, node } = useTooltip();
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
   const [showAll, setShowAll] = useState(false);
-  // Off the whole list, not the visible slice: a bar that changed width on
-  // expand would be reporting a different number.
   const maxVal = Math.max(...items.map((i) => i.total), 1);
 
   if (items.length === 0) return <Empty>Nothing in this range.</Empty>;
@@ -176,10 +115,6 @@ export const HorizontalBars = ({
     const row = (
       <>
         <span
-          /* A share of the row once the row is narrow enough that a fixed
-             gutter would leave the bar nothing. 122px of label plus the 78px
-             held back for the value is most of a phone-width card, and a bar
-             chart whose bars are 20px wide has stopped being one. */
           className="shrink-0 truncate text-right text-ink-soft"
           style={{ width: `min(${122 - depth * 12}px, 34%)` }}
         >
@@ -229,8 +164,6 @@ export const HorizontalBars = ({
       <div className="flex flex-col">
         {visible.map((item) => {
           const id = item.key ?? item.label;
-          // One child is the parent again with an extra indent, so it is not a
-          // breakdown and gets no chevron.
           const subs = item.subs && item.subs.length > 1 ? item.subs : [];
           const expanded = open.has(id);
           return (
@@ -242,8 +175,6 @@ export const HorizontalBars = ({
                     onClick={() => toggle(id)}
                     aria-expanded={expanded}
                     aria-label={`${expanded ? "Hide" : "Show"} ${item.label} breakdown`}
-                    /* Same as the picker's triangle: 12px is a column, not a
-                       touch target, so the hit area is widened around it. */
                     className="relative mr-0.5 flex h-6.5 w-3 shrink-0 items-center justify-center text-ink-soft before:absolute before:-inset-2 before:content-[''] hover:text-ink"
                   >
                     <Icon
@@ -254,7 +185,6 @@ export const HorizontalBars = ({
                     />
                   </button>
                 ) : (
-                  // Holds the column so labels line up whether or not a row opens.
                   <span className="mr-0.5 w-3 shrink-0" />
                 )}
                 {bar(item, 0, onPick)}
@@ -296,21 +226,14 @@ export const HorizontalBars = ({
   );
 };
 
-/**
- * The bars worth drawing: the eight biggest moves, rounding noise dropped. The
- * caller trims, so it can tell an empty chart from a full one and hide the card.
- */
 export const visibleDeltas = (deltas: CategoryDelta[]): CategoryDelta[] =>
   deltas.filter((d) => Math.abs(d.delta) > 0.5).slice(0, 8);
 
 interface DivergingBarsProps {
-  /** Already trimmed by the caller — see `visibleDeltas`. */
   deltas: CategoryDelta[];
-  /** Given, every bar becomes a filter button for its own category; see `HorizontalBars`. */
   onPick?: (category: string, meta: boolean) => void;
 }
 
-/** Red spent more, green spent less. Diverging, because zero is the meaningful middle. */
 export const DivergingBars = ({
   deltas: shown,
   onPick,
@@ -322,8 +245,6 @@ export const DivergingBars = ({
   const mid = width / 2;
   const halfW = Math.max(width / 2 - 90, 20);
   const height = shown.length * rowH + 8;
-  // The real maximum, not a rounded-up one: the gridlines that wanted round
-  // numbers are gone, so the biggest bar may as well reach the edge of its half.
   const maxAbs = Math.max(...shown.map((d) => Math.abs(d.delta)), 1);
 
   return (
@@ -398,12 +319,6 @@ export const DivergingBars = ({
   );
 };
 
-/**
- * The unbroken stretches of a gapped series. The months either side of a gap
- * are not neighbours, so nothing may be drawn between them: each stretch gets
- * its own lines and its own band, and a stretch of one month draws no line at
- * all and is carried by its dot.
- */
 const runsOf = <T,>(dense: (T | null)[]): { m: T; i: number }[][] => {
   const runs: { m: T; i: number }[][] = [];
   dense.forEach((m, i) => {
@@ -417,49 +332,19 @@ const runsOf = <T,>(dense: (T | null)[]): { m: T; i: number }[][] => {
 
 export type Bucket = "day" | "month";
 
-/**
- * A thing the legend keys, and so a thing it can switch off. The shading is not
- * one: it is a reading of the two lines rather than a mark of its own, and
- * draws whenever the grain supports it.
- */
 type Mark = "out" | "in" | "compare" | "trend";
 
 interface SpendLinesProps {
-  /** Already in the bucket it says it is in — see `dailySeries` / `monthlySeries`. */
   series: SeriesPoint[];
   bucket: Bucket;
-  /**
-   * Whether any point has income at all. Filtered to a spending category there
-   * is none, and a green line along the axis is not a finding. The caller
-   * derives it because it titles the card.
-   */
   income: boolean;
-  /** The same the other way round: a category that only ever paid in spent nothing. */
   spend: boolean;
-  /**
-   * Whether to shade between the two lines — independent of `income` and
-   * `spend`, since a line the filter emptied sits on the axis and the gap
-   * against it is still the measurement. What the band does not survive is raw
-   * days, which is what the caller gates it on.
-   */
   band: boolean;
-  /**
-   * Whether a fitted line through spending is worth offering. False on a
-   * running total, where a cumulative series only climbs and the fit reports an
-   * average the tile above already gives. Switching it off where it does mean
-   * something is the legend's business, not this flag's.
-   */
   trend: boolean;
-  /**
-   * The same span one period back, drawn faint behind. Empty when there is
-   * nothing to compare against — see `vs` in App.tsx.
-   */
   compare?: SeriesPoint[];
-  /** What that window is called, for the legend and the tooltip. */
   compareLabel?: string;
 }
 
-/** Spent against income across a period, a point per day or per month. */
 export const SpendLines = ({
   series,
   bucket,
@@ -474,16 +359,6 @@ export const SpendLines = ({
   const { show, hide, node } = useTooltip();
   const [near, setNear] = useState<number | null>(null);
 
-  /**
-   * What the legend has switched off, by the mark it keys.
-   *
-   * Held as the hidden set rather than the shown one, so the default is empty:
-   * which marks exist depends on the window, and a set of what is on would be
-   * rebuilt every time one appeared, reviving what the reader just dismissed.
-   *
-   * Local rather than in the URL — it is how one card is being read, not what
-   * is on screen.
-   */
   const [hidden, setHidden] = useState<ReadonlySet<Mark>>(new Set());
   const shows = (m: Mark) => !hidden.has(m);
   const toggle = (m: Mark) =>
@@ -493,11 +368,6 @@ export const SpendLines = ({
       return next;
     });
 
-  /**
-   * The caption row only earns its 14px when the axis crosses a year boundary.
-   * A single year is already named by the filter that selected it, so there it
-   * is dead space, and the gutter goes back to one row.
-   */
   const multiYear = new Set(series.map((p) => p.at.slice(0, 4))).size > 1;
   const height = multiYear ? 234 : 220;
   const padL = 50;
@@ -505,8 +375,6 @@ export const SpendLines = ({
   const padT = 10;
   const plotW = Math.max(width - padL - 16, 20);
   const plotH = height - padB - padT;
-  // Over both series: a compared point that outspent every current one would
-  // otherwise draw off the top of the plot.
   const maxVal = Math.max(
     ...[...series, ...compare].map((p) => Math.max(p.totalIn, p.totalOut)),
     1,
@@ -514,35 +382,15 @@ export const SpendLines = ({
   const step = niceStep(maxVal);
   const gridMax = Math.ceil(maxVal / step) * step;
 
-  /**
-   * The x axis is the calendar, not the array. Only the monthly series needs
-   * help with that — without `withGaps` the axis relabels itself and May sits
-   * next to August looking like June. A daily series arrives dense.
-   */
   const dense = bucket === "month" ? withGaps(series) : series;
   const clusterW = plotW / Math.max(dense.length, 1);
   const px = (i: number) => padL + i * clusterW + clusterW / 2;
 
-  /**
-   * One straight line through spending, for the whole span. Deliberately drawn
-   * across a gap where the series is not: it is a summary of the span rather
-   * than a reading of any point on it, which is also why it takes no dot and no
-   * tooltip.
-   *
-   * Fitted whatever the legend says, and cheap enough to be: the key that turns
-   * it off has to know there was anything to turn off.
-   */
   const trend = offersTrend ? spendTrend(dense) : null;
   const ends = trend
     ? [0, dense.length - 1].map((x) => trend.intercept + trend.slope * x)
     : [];
 
-  /**
-   * Zero until the trend needs it not to be: spending can never be negative,
-   * but a line fitted through a falling one crosses zero on the way down, and
-   * clipping it at the floor loses it exactly where it says the most. Rounded
-   * onto the same step the top uses, so the gridlines stay even.
-   */
   const gridMin = Math.min(0, ...ends.map((v) => Math.floor(v / step) * step));
   const ticks = Array.from(
     { length: Math.round((gridMax - gridMin) / step) + 1 },
@@ -551,14 +399,6 @@ export const SpendLines = ({
   const py = (v: number) =>
     padT + plotH - ((v - gridMin) / (gridMax - gridMin)) * plotH;
 
-  /**
-   * The compared window laid over the same axis, matched on where in the
-   * calendar a point sits rather than how far into the array it is — matching
-   * by index drifts a day through a leap year.
-   *
-   * A monthly slot can be a hole, so its key comes from the position rather
-   * than the point: this year missing June must not stop last June drawing.
-   */
   const cmpBy = new Map(
     compare.map((p) => [
       bucket === "day" ? p.at.slice(5) : p.at.slice(5, 7),
@@ -575,14 +415,6 @@ export const SpendLines = ({
     return key === null ? null : (cmpBy.get(key) ?? null);
   });
 
-  /**
-   * Three axes share one row: a monthly series names months on a
-   * calendar-anchored stride, a daily series inside one month names days, and a
-   * longer daily series names months again at the slot each starts on.
-   *
-   * Every stride is chosen against `clusterW`, never fixed — the same year is
-   * twelve labels on a full-width card and four on a third of one.
-   */
   const labels: { i: number; text: string }[] = (() => {
     if (bucket === "month") {
       const every = [1, 2, 3, 4, 6, 12].find((n) => n * clusterW >= 30) ?? 12;
@@ -600,8 +432,6 @@ export const SpendLines = ({
           : [],
       );
     }
-    // The slot each month starts on, which is not always its 1st: the archive
-    // opens partway through a month, and that month still wants naming.
     const starts = series.flatMap((p, i) =>
       i === 0 || p.at.slice(0, 7) !== series[i - 1]!.at.slice(0, 7)
         ? [{ i, at: p.at }]
@@ -616,12 +446,6 @@ export const SpendLines = ({
     );
   })();
 
-  /**
-   * The year is named once, under the stretch it covers, rather than on one
-   * point of it — the row above repeats `jan..des`, or `1..28`, and says
-   * nothing about which pass through the calendar it is on. Centred on what is
-   * actually present, so a part year sits under its own half.
-   */
   const years = !multiYear
     ? []
     : [
@@ -633,12 +457,6 @@ export const SpendLines = ({
         return { y, x: (px(at[0]!) + px(at.at(-1)!)) / 2 };
       });
 
-  /**
-   * A dot per point stops being a mark and starts being the line once they
-   * touch, and a year of days is four thousand SVG nodes redrawn on every
-   * pointer move. Past that density the polyline carries the shape and the
-   * hover marker carries the reading.
-   */
   const dots = clusterW >= 8;
 
   const runs = runsOf(dense);
@@ -650,11 +468,6 @@ export const SpendLines = ({
 
   const clip = useId();
 
-  /**
-   * A small table rather than sentences: it puts each number directly above the
-   * one it is read against. The years are the headings, since the legend
-   * already says which line is dashed.
-   */
   const tipFor = (p: SeriesPoint, was: SeriesPoint | null) => (
     <div
       className={`grid gap-x-3 tabular-nums ${was ? "grid-cols-[auto_1fr_1fr]" : "grid-cols-[auto_1fr]"}`}
@@ -700,17 +513,11 @@ export const SpendLines = ({
     </div>
   );
 
-  /**
-   * The whole plot is the target, not the dots: a 3px circle is hard to hit,
-   * and at a point per day there may be no dot to aim at at all.
-   */
   const track = (e: React.PointerEvent<SVGRectElement>) => {
     const box = e.currentTarget.getBoundingClientRect();
     const i = Math.round((e.clientX - box.left - clusterW / 2) / clusterW);
     const at = Math.max(0, Math.min(dense.length - 1, i));
     const p = dense[at];
-    // Over a gap the nearest month is a guess in two directions, so the tooltip
-    // goes rather than naming a month the pointer is not on.
     if (!p) return leave();
     setNear(at);
     show(e, tipFor(p, cmp[at] ?? null));
@@ -1011,13 +818,9 @@ export const SpendLines = ({
 
 interface ChartLegendProps {
   income: boolean;
-  /** The same the other way round — no spending in view, no key for its line. */
   spend: boolean;
-  /** Whether the fitted line is drawn — it is keyed only where it exists. */
   trend: boolean;
-  /** Named when a compared period is drawn; the dashes are the same for both its lines. */
   compareLabel?: string;
-  /** Which marks are switched off, so the keys can say so. */
   hidden: ReadonlySet<Mark>;
   onToggle: (mark: Mark) => void;
 }
@@ -1025,18 +828,10 @@ interface ChartLegendProps {
 interface LegendKeyProps {
   on: boolean;
   onToggle: () => void;
-  /** What is being switched, for the reader who cannot see the swatch. */
   name: string;
   children: ReactNode;
 }
 
-/**
- * One key, and the switch for the mark it explains.
- *
- * Every key is a button: one interactive key among inert ones reads as a label
- * like the rest. Dimmed rather than struck through, since the swatch is what
- * says which mark this is and has to survive being switched off.
- */
 const LegendKey = ({ on, onToggle, name, children }: LegendKeyProps) => (
   <button
     type="button"
@@ -1049,7 +844,6 @@ const LegendKey = ({ on, onToggle, name, children }: LegendKeyProps) => (
   </button>
 );
 
-/** Drawn by `SpendLines` itself — it is the only chart with more than one series. */
 const ChartLegend = ({
   income,
   spend,

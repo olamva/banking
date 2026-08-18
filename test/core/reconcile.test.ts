@@ -42,21 +42,14 @@ test("an account whose rows explain its balance has no gap", () => {
   assert.deepEqual(unexplained(lines), []);
 });
 
-/**
- * SB1 serves no history before 2003, so an account older than that holds money
- * no row accounts for. `opening` is what closes it — 3 610,50 on the real
- * Sparekonto, whose first row is a 100 kr standing transfer in 2011.
- */
 test("an opening balance closes a gap the history cannot reach", () => {
   const rows = [txn({ id: "1", accountKey: "a", amount: 100 })];
   const balance = new Map([["a", 3710.5]]);
 
-  // Without it, the money is there and nothing explains it.
   const before = reconcile(rows, { a: { mine: true, name: "A" } }, balance);
   assert.equal(before[0].gap, 3610.5);
   assert.equal(unexplained(before).length, 1);
 
-  // With it, the account adds up.
   const after = reconcile(
     rows,
     { a: { mine: true, name: "A", opening: 3610.5 } },
@@ -67,13 +60,7 @@ test("an opening balance closes a gap the history cannot reach", () => {
   assert.deepEqual(unexplained(after), []);
 });
 
-/**
- * A balance question, not a spending one. `reconcile` is handed `Txn`, before
- * anything is flagged, precisely so no exclusion rule can hide a hole from the
- * one check that looks outside the repo for its answer.
- */
 test("every row counts, including the ones the totals exclude", () => {
-  // An internal transfer: money really did leave a and arrive at b.
   const lines = reconcile(
     [
       txn({ id: "1", accountKey: "a", amount: -500, typeText: "Overføring" }),
@@ -95,15 +82,12 @@ test("a float residue is not a discrepancy", () => {
       txn({ id: "2", accountKey: "a", amount: 0.2 }),
     ],
     { a: { mine: true, name: "A" } },
-    // 0.1 + 0.2 is 0.30000000000000004 in binary floating point.
     new Map([["a", 0.3]]),
   );
   assert.equal(lines[0].gap, 0);
 });
 
 test("an account the bank reported no balance for is left out", () => {
-  // `issuer` and `investment` entries exist for their number alone — there is
-  // no balance to check them against and no rows of their own.
   const lines = reconcile(
     [txn({ id: "1", accountKey: "a", amount: 10 })],
     { a: { mine: true, name: "A" }, issuer: { mine: false, number: "99" } },

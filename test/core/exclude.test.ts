@@ -34,7 +34,6 @@ const accounts = {
   issuer: { mine: false, issuer: true, number: "99", sync: false },
 };
 
-/** A transfer leg, as the bank types it. All four of SB1's spellings share the stem. */
 const leg = (over: Partial<Txn>) => txn({ typeText: "Overføring", ...over });
 
 test("flags both sides of an internal transfer", () => {
@@ -69,12 +68,6 @@ test("does not flag a transfer touching a non-mine account", () => {
   assert.equal(out[0].reason, null);
 });
 
-/**
- * The rule that made this necessary: amount + date + opposite sign is a weak
- * signal, and small round amounts collide. A 22 kr coffee met 22 kr of deposit
- * interest on the same day and the pair was excluded — 22 kr of real spending
- * and 22 kr of real income both vanished from the totals. Twice, in two years.
- */
 test("a purchase that happens to match an unrelated credit is not a transfer", () => {
   const out = exclude(
     [
@@ -102,10 +95,6 @@ test("a purchase that happens to match an unrelated credit is not a transfer", (
   );
 });
 
-/**
- * Both legs are checked, never one — the whole scheme rests on every excluded
- * reason netting to zero across the pair, and a half-matched pair breaks it.
- */
 test("a transfer-typed row needs a transfer-typed counterpart, not just any match", () => {
   const out = exclude(
     [
@@ -168,8 +157,6 @@ test("flags the bill payment the issuer books under its other name", () => {
 });
 
 test("flags a bill paid by hand, where the description names the channel and no payee", () => {
-  // `Mobilgiro m/KID, forfall i dag` — the issuer's name is nowhere on the row,
-  // only its collection account number.
   const out = exclude(
     [
       txn({
@@ -187,8 +174,6 @@ test("flags a bill paid by hand, where the description names the channel and no 
 });
 
 test("both legs of a bill payment are flagged, so the pair nets to zero", () => {
-  // The card credit posts days after the bank debit, so no amount+date rule
-  // pairs them — each leg is caught by its own description.
   const out = exclude(
     [
       txn({
@@ -248,8 +233,6 @@ test("a card credit that is not a payment stays in — a refund, or cashback", (
 });
 
 test("a card row is never a transfer leg, however well its amount lines up", () => {
-  // It used to be `typeText` being null that guaranteed this. The card carries
-  // one of its own now, so the guarantee has to rest on the value.
   const out = exclude(
     [
       txn({
@@ -292,12 +275,6 @@ const numbered = {
   c: { mine: false, number: "39910000003" },
 };
 
-/**
- * The real one: 5 572 kr moved between two of my own accounts as a *giro*, which
- * books as `NettGiro m/melding` against `Betaling med melding`. Neither says
- * `overfør`, so the type gate refused both legs and the money counted twice —
- * once as income, once as spending. The account number is what says it is mine.
- */
 test("flags a self-transfer the bank did not type as a transfer", () => {
   const out = exclude(
     [
@@ -344,13 +321,6 @@ test("a payment to someone else stays in, however it is typed", () => {
   assert.equal(out[0].excluded, false);
 });
 
-/**
- * The share savings account was missing from `rules/accounts.json` because
- * `/accounts` hides it unless asked, so its side of every withdrawal was not in
- * `data/raw/` and the counterpart search could never fire — 5 179 kr of my own
- * money counted as income. One leg is enough once the account is listed: the
- * number is proof on its own, with no counterpart to find.
- */
 test("flags a transfer to an account of mine whose other leg is not in the data", () => {
   const out = exclude(
     [
@@ -368,13 +338,6 @@ test("flags a transfer to an account of mine whose other leg is not in the data"
   assert.equal(out[0].reason, "internal transfer");
 });
 
-/**
- * Capital changing form, in both directions: a fund purchase leaving a deposit
- * account read as spending, and the settlement arriving in the share savings
- * account read as income. Neither is either. The fund manager's account is not
- * mine, so `mine`/`myNumbers` cannot express this — hence its own flag, and its
- * own reason, since no counter-leg exists to net against.
- */
 test("money crossing the fund manager is neither spending nor income", () => {
   const funds = {
     ...numbered,
@@ -407,12 +370,6 @@ test("money crossing the fund manager is neither spending nor income", () => {
   );
 });
 
-/**
- * Cash into a deposit machine books as `Innskudd automat` carrying the number of
- * the account it landed in, not of any other party. Treating that as a
- * self-transfer excluded real income, and left `internal transfer` netting to
- * 68 kr instead of zero — a single leg with nothing to pair against.
- */
 test("a row naming its own account is not a transfer", () => {
   const out = exclude(
     [
@@ -467,12 +424,6 @@ test("an account with no number falls back to the amount+date rule", () => {
   );
 });
 
-/**
- * A deposit machine stamps `remoteAccountNumber` with an account of mine, and
- * which one is arbitrary — it records the card fed into the terminal. Reading it
- * as a counterparty excluded a 27 950 kr cash deposit against a second leg that
- * exists nowhere in 284 months of record.
- */
 test("a cash deposit is income, whichever of my accounts the machine stamped", () => {
   const numbered = {
     a: { mine: true, number: "11" },
@@ -480,8 +431,6 @@ test("a cash deposit is income, whichever of my accounts the machine stamped", (
   };
   const out = exclude(
     [
-      // Stamped with account b while sitting on account a — the shape the old
-      // guard missed, because it only ignored the row's *own* number.
       txn({
         id: "1",
         accountKey: "a",
@@ -489,7 +438,6 @@ test("a cash deposit is income, whichever of my accounts the machine stamped", (
         typeText: "Innskudd automat",
         remoteAccountNumber: "22",
       }),
-      // Stamped with its own account — the shape the old guard did catch.
       txn({
         id: "2",
         accountKey: "a",
@@ -497,7 +445,6 @@ test("a cash deposit is income, whichever of my accounts the machine stamped", (
         typeText: "Innskudd automat",
         remoteAccountNumber: "11",
       }),
-      // The over-the-counter wording of the same thing.
       txn({
         id: "3",
         accountKey: "b",
@@ -514,11 +461,6 @@ test("a cash deposit is income, whichever of my accounts the machine stamped", (
   );
 });
 
-/**
- * A leg may be spent once. Two same-day +200 rows and a single −200 all used to
- * answer yes to "does an opposite leg exist?", so 200 kr left the totals against
- * a counterpart that was already taken.
- */
 test("one counterpart pairs with one leg, not with every leg of that amount", () => {
   const out = exclude(
     [
@@ -530,18 +472,14 @@ test("one counterpart pairs with one leg, not with every leg of that amount", ()
   );
   const flagged = out.filter((r) => r.excluded);
   assert.equal(flagged.length, 2, "exactly one pair, not all three rows");
-  // The pair nets to zero, which is the invariant the whole scheme rests on.
   assert.equal(
     flagged.reduce((n, r) => n + r.amount, 0),
     0,
   );
-  // The unpaired 200 is real money and stays counted.
   assert.equal(out.filter((r) => !r.excluded).length, 1);
 });
 
 test("a transfer still needs its counterpart on a different account", () => {
-  // Equal and opposite on one account: nothing moved between two accounts, so
-  // neither row is a transfer leg.
   const out = exclude(
     [
       leg({ id: "1", accountKey: "a", amount: 300, date: "2026-07-01" }),
