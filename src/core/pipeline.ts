@@ -1,8 +1,3 @@
-/**
- * The offline chain, in one place so the CLI and the dev server run
- * identically. Nothing here may import from src/net/: analysis never calls the
- * API, and this file's import list is what enforces it.
- */
 import { readdirSync, rmSync } from "node:fs";
 import { mkdir, readFile } from "node:fs/promises";
 import {
@@ -31,12 +26,6 @@ export function monthsOnDisk(): string[] {
     .sort();
 }
 
-/**
- * One month's raw files, from normalize to categorize.
- *
- * Exclusion runs per month because both legs of an internal transfer share a
- * date and so can never land in different months.
- */
 export async function pipeline(
   month: string,
   { rename = true } = {},
@@ -63,18 +52,9 @@ export async function pipeline(
     await loadFamily(),
     await loadNotSubscriptions(),
   );
-  // Last, so every rule above matched the name the bank actually sent.
   return rename ? renamePayees(rows, await loadPayees()) : rows;
 }
 
-/**
- * What each excluded reason sums to, which must be zero for all but one.
- *
- * `investment movement` is exempt: its counter-leg is booked at the fund
- * manager and is not in `data/raw/` at all, so its residue is the gain on the
- * funds. Every other reason has both legs here, so a non-zero sum is money one
- * rule took out of the totals and no rule put back.
- */
 export function netByReason(rows: Categorized[]): Map<string, number> {
   const net = new Map<string, number>();
   for (const r of rows) {
@@ -88,12 +68,6 @@ export function netByReason(rows: Categorized[]): Map<string, number> {
   return net;
 }
 
-/**
- * The database is derived and disposable: delete it and reconstruct from
- * data/raw/ alone. This is the only way rows get in — an incremental upsert
- * cannot notice a row it did not produce, and SB1 reissues a transaction under
- * a new id every time it is fetched.
- */
 export async function rebuildAll(): Promise<number> {
   rmSync(DB_FILE, { force: true });
   await mkdir("data", { recursive: true });
@@ -103,21 +77,14 @@ export async function rebuildAll(): Promise<number> {
     const rows: Categorized[] = [];
     for (const month of months) {
       try {
-        // Un-renamed, so the check below sees the names the rules matched
-        // against. The rename is applied once, after it.
         rows.push(...(await pipeline(month, { rename: false })));
       } catch (e) {
-        // The month is the one piece of context this loop has and the stack
-        // does not.
         throw new Error(
           `${RAW}/${month}: ${e instanceof Error ? e.message : e}`,
           { cause: e },
         );
       }
     }
-    // Two lines claiming one row under different categories make the file's
-    // order load-bearing, and the only symptom is rows quietly moving the next
-    // time it is tidied. Warned, not thrown: today's order is still right.
     const loose = narrowings(rows, await loadOverrides());
     for (const l of loose) {
       console.error(

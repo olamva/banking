@@ -21,8 +21,6 @@ function withMonthDir(
 }
 
 test("SB1 date formats at Oslo midnight, not UTC", () => {
-  // 2026-06-30T22:00:00Z is 2026-07-01 00:00 in Europe/Oslo (summer, UTC+2).
-  // Formatting as UTC would wrongly put this row in June.
   const midnightOslo = Date.UTC(2026, 5, 30, 22, 0, 0);
   withMonthDir(
     {
@@ -51,9 +49,6 @@ test("SB1 date formats at Oslo midnight, not UTC", () => {
       assert.equal(txn.account, "acct");
       assert.equal(txn.counterparty, "Clean Desc");
       assert.equal(txn.bankCategory, "dagligvarer");
-      // Carried through verbatim: `exclude` reads it to tell a transfer from a
-      // purchase that merely matches one, so dropping it here would silently
-      // turn every coincidence back into an internal transfer.
       assert.equal(txn.typeText, "VISA Varekjøp");
     },
   );
@@ -82,7 +77,6 @@ test("SB1 falls back to remoteAccountName when cleanedDescription is absent", ()
     },
     (dir) => {
       const [txn] = normalizeMonth(dir);
-      // description stays the bank's own type text — the exclusion rules match on it.
       assert.equal(txn.description, "Betaling med melding");
       assert.equal(txn.counterparty, "Theo leie");
     },
@@ -90,11 +84,6 @@ test("SB1 falls back to remoteAccountName when cleanedDescription is absent", ()
 });
 
 test("a cleanedDescription that names nobody loses to remoteAccountName", () => {
-  // SB1 cleans `Til: <account number>` down to a bare `Til:` — the preposition
-  // with the payee taken out of it. Preferring that over remoteAccountName cost
-  // the row its category as well as its name: `haystackOf` never sees
-  // remoteAccountName, so the row reached the page uncategorised while the same
-  // payee's other rows matched on the name the bank left on them.
   withMonthDir(
     {
       "acct.json": {
@@ -115,9 +104,6 @@ test("a cleanedDescription that names nobody loses to remoteAccountName", () => 
             subscription: false,
           },
           {
-            // The same wording with a payee still in it. It names somebody, so
-            // it stays the best string on the row — only the empty case falls
-            // through.
             transaction: {
               id: "named",
               accountKey: "acct",
@@ -138,7 +124,6 @@ test("a cleanedDescription that names nobody loses to remoteAccountName", () => 
     (dir) => {
       const [nameless, named] = normalizeMonth(dir);
       assert.equal(nameless!.counterparty, "A Named Payee");
-      // The raw string is untouched: the search box reads `description`.
       assert.equal(nameless!.description, "Til: 1234 56 78901");
       assert.equal(named!.counterparty, "Til: Someone - Online");
     },
@@ -146,8 +131,6 @@ test("a cleanedDescription that names nobody loses to remoteAccountName", () => 
 });
 
 test("an account is named by rules/accounts.json, and by its key when it is not", () => {
-  // Same file shape as any other account — the card is an SB1 account like the
-  // rest, and the rules file is the only thing that gives any of them a name.
   withMonthDir(
     {
       "card-key.json": {
@@ -162,8 +145,6 @@ test("an account is named by rules/accounts.json, and by its key when it is not"
               cleanedDescription: "SHOP, Oslo, NORWAY",
               typeText: "Transaksjon",
               bookingStatus: "BOOKED",
-              // The card sends this placeholder where there is no other party. It
-              // must not reach the override haystack looking like an account.
               remoteAccountNumber: "-1",
             },
             categories: [{ main: "dagligvarer" }],
@@ -183,17 +164,12 @@ test("an account is named by rules/accounts.json, and by its key when it is not"
       assert.equal(txn.bankCategory, "dagligvarer");
       assert.equal(txn.typeText, "Transaksjon");
       assert.equal(txn.remoteAccountNumber, null);
-      // An account the rules file has not named falls back to its key, so a row
-      // is never nameless on the page.
       assert.equal(normalizeMonth(dir)[0].account, "card-key");
     },
   );
 });
 
 test("pending rows are dropped, whichever account they are on", () => {
-  // A reservation is reissued under a new id once it books, and its amount can
-  // still move. Only booked rows go in the store, which is what makes a
-  // re-synced month idempotent.
   withMonthDir(
     {
       "acct.json": {
@@ -290,8 +266,6 @@ test("a month directory flattens every account file it holds", () => {
 });
 
 test("an SB1 row with no description at all falls back to typeText", () => {
-  // Both description keys are simply absent on some rows. `description` must
-  // stay a string: exclude() calls .includes() on it for every transaction.
   withMonthDir(
     {
       "acct.json": {
@@ -333,9 +307,6 @@ test("the bank subcategory and both i18n names come through, with the confidence
               cleanedDescription: "Apotek 1",
               typeText: "VISA Varekjøp",
             },
-            // More than one candidate, sorted by confidence down — 441 rows on
-            // record look like this. The first is the bank's answer; the rest are
-            // the runners-up and are dropped.
             categories: [
               {
                 confidence: 100,
@@ -383,8 +354,6 @@ test("a category with no sub reads as no sub, rather than crashing the rebuild",
               cleanedDescription: "Something",
               typeText: "VISA Varekjøp",
             },
-            // Every row on record carries all four, but the bank has never promised
-            // them and one missing key must not take four thousand rows with it.
             categories: [{ main: "dagligvarer" }],
             recurring: false,
             subscription: false,

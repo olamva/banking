@@ -88,20 +88,15 @@ test("bankLabel keeps a main the bank sent no sub for whole", () => {
 });
 
 test("fmtDate reads the date as the Oslo day it already is", () => {
-  // Midnight Oslo-local: UTC would push it back to the 30th, and the 1st of a
-  // month back into the previous one.
   assert.equal(fmtDate("2026-07-01"), "1. juli 2026");
 });
 
 test("txnFields names a field after its key when it reads as one", () => {
   const names = txnFields(row).map(([name]) => name);
   assert.ok(names.includes("Bank confidence"));
-  // The name the dialog truncates on, so a rename cannot quietly stop it.
   assert.ok(names.includes(ID_FIELD), "and after FIELD_NAMES when not");
 });
 
-// The 17 mains on record. A hash over these put two pairs on the same hue,
-// which is why the hue is positional — these are the checks that keep it so.
 const MAINS = [
   "annet_lan_og_gjeld",
   "bil_og_transport",
@@ -142,9 +137,6 @@ test("a category nobody registered keeps the ordinary text colour", () => {
 });
 
 test("a row with no subcategory reads as its category, never as Annet", () => {
-  // The tree calls the unnamed remainder "Annet", which says nothing standing
-  // alone in a table column — and every `ukategorisert` row on record has no
-  // second level at all, so the whole column read that way.
   setLabels(buildLabels([row]));
   assert.equal(rowLabel("ukategorisert", null), categoryLabel("ukategorisert"));
   assert.notEqual(rowLabel("ukategorisert", null), NO_SUB);

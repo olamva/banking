@@ -1,8 +1,3 @@
-/**
- * Storage for `Categorized` rows, over node:sqlite. The database is derived
- * and disposable: deleting it must never lose anything, and `rebuild` must
- * reconstruct it from whatever the caller re-derives from data/raw/ alone.
- */
 import { DatabaseSync } from "node:sqlite";
 import type { Categorized } from "./types.ts";
 
@@ -36,7 +31,6 @@ CREATE INDEX IF NOT EXISTS idx_transactions_month ON transactions(month);
 CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions(category, subcategory);
 `;
 
-/** Booking date is YYYY-MM-DD Europe/Oslo already, so this is a plain slice. */
 function monthOf(date: string): string {
   return date.slice(0, 7);
 }
@@ -180,11 +174,6 @@ export function queryRange(
   return rows.map(toCategorized);
 }
 
-/**
- * Wipes and reloads. Unlike upsertMany, this also removes rows no longer
- * produced by the pipeline (e.g. a transaction dropped from a re-synced
- * month) — the caller re-derives `rows` from data/raw/ before calling this.
- */
 export function rebuild(db: DatabaseSync, rows: Categorized[]): void {
   db.exec("BEGIN");
   try {

@@ -1,16 +1,7 @@
-/**
- * The one thing the page fetches: every transaction, from the local server.
- * Kept out of the component files, so nothing that renders also knows how the
- * data arrives.
- */
 import { useEffect, useState } from "react";
 import { buildLabels, type Labels, type Names } from "../../core/labels.ts";
 import type { Categorized } from "../../core/types.ts";
 
-/**
- * `names` is only what `rules/categories.json` overrides: the bank's own names
- * are already on the rows for `buildLabels` to learn from.
- */
 type Payload = { txns: Categorized[]; names: Names };
 
 type Load =
@@ -28,8 +19,6 @@ export const useTransactions = (): Load => {
         if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
         return (await r.json()) as Payload;
       })
-      // Built once here rather than per render: it walks every row to learn what
-      // the bank calls each pair, and the rows do not change after the fetch.
       .then(
         ({ txns, names }) =>
           live &&
@@ -51,16 +40,9 @@ export const useTransactions = (): Load => {
   return load;
 };
 
-/**
- * Theme is three-state: explicit dark, explicit light, or whatever the system
- * says. Picked outright rather than cycled — cycling ran off the stored value
- * while the CSS resolved from the system one, so the first click on an
- * already-dark page did nothing visible.
- */
 export const THEMES = ["system", "light", "dark"] as const;
 export type Theme = (typeof THEMES)[number];
 
-/** Clamped, so a hand-edited key cannot leave the picker with no option selected. */
 export const readTheme = (): Theme => {
   const saved = localStorage.getItem("dashboardTheme") as Theme | null;
   return saved && THEMES.includes(saved) ? saved : "system";

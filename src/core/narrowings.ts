@@ -1,10 +1,3 @@
-/**
- * Which lines of `rules/overrides.json` only work where they sit in the file.
- *
- * `categorize` takes the first pattern that matches, so two lines competing for
- * a row make the file's order load-bearing and invisible. An empty list is the
- * proof that the file can be sorted freely.
- */
 import { compile, haystackOf, type Overrides } from "./categorize.ts";
 import type { Categorized } from "./types.ts";
 
@@ -16,12 +9,10 @@ export type Overlap = {
   loser: string;
   loserValue: string;
   rows: number;
-  /** Both name the same category, so the order decides nothing. */
   harmless: boolean;
   examples: string[];
 };
 
-/** Every pair of override patterns that compete for the same rows. */
 export function overlaps(rows: Categorized[], overrides: Overrides): Overlap[] {
   const compiled = Object.keys(overrides).map((p) => ({
     pattern: p,
@@ -63,11 +54,9 @@ export type Narrowing = {
   pattern: string;
   value: string;
   beaten: { pattern: string; value: string; rows: number }[];
-  /** Empty where a winner cannot be inlined and the fix has to be by hand. */
   suggest: string;
 };
 
-/** `/\bsit\b/` -> `\bsit\b`, `sit kafe` -> the same, escaped. */
 function body(pattern: string): string | null {
   const asRegex = /^\/(.+)\/([a-z]*)$/.exec(pattern);
   if (!asRegex)
@@ -77,13 +66,6 @@ function body(pattern: string): string | null {
   return /[$^]/.test(asRegex[1]!) ? null : asRegex[1]!;
 }
 
-/**
- * The order-dependent lines, and the form that would work anywhere: refuse the
- * rows the sharper lines claim, then require what this line looks for. Both are
- * lookaheads, so neither consumes anything and position stops mattering.
- *
- *     "/\\bsit\\b/"  ->  "/^(?!.*(?:sit kafe|sit storkiosk))(?=.*\\bsit\\b)/"
- */
 export function narrowings(
   rows: Categorized[],
   overrides: Overrides,

@@ -1,13 +1,3 @@
-/**
- * The page. Two views, dashboard and transactions, over one shared period.
- * State is four things — view, period, chart grain, filters — all of them in
- * the query string, and everything else is derived on render from the full
- * transaction list.
- *
- * No aggregation lives here. `src/core/stats.ts` does all of it and is imported
- * directly, so the browser runs the exact code `node --test` pins; `src/core/
- * select.ts` decides which rows are in view. This file only arranges them.
- */
 import {
   useDeferredValue,
   useEffect,
@@ -94,23 +84,9 @@ import {
 } from "./icons.ts";
 import { GRAINS, readUrl, writeUrl, type Grain } from "./url.ts";
 
-/**
- * Two columns, and the last card takes the whole row **only when it would
- * otherwise sit alone in half of one** — either parity happens in practice, so
- * the span must not be unconditional.
- *
- * `min(…, 100%)` makes the 460 a *preference* rather than a floor: a bare pixel
- * minimum never goes narrower, so on a phone the page scrolls sideways under
- * it. `layout.test.ts` refuses the bare form anywhere in here.
- */
 const CARD_GRID =
   "grid grid-cols-[repeat(auto-fit,minmax(min(460px,100%),1fr))] gap-4 [&>*:last-child:nth-child(odd)]:col-span-full";
 
-/**
- * All time: three charts across, so each direction is its own row — it is the
- * one period with no changes card, leaving six. The last child always spans,
- * because over all time it is always the subscriptions table.
- */
 const CARD_GRID_3 =
   "grid grid-cols-[repeat(auto-fit,minmax(min(300px,100%),1fr))] gap-4 [&>*:last-child]:col-span-full";
 
@@ -122,11 +98,9 @@ const THEME_ICONS = {
 
 interface ExcludedNoteProps {
   excluded: ExcludedSummary;
-  /** The whole phrase — "this month", "in view" — since not every view has a period to name. */
   where: string;
 }
 
-/** An audit line, so it always reports the whole period and ignores the filters. */
 const ExcludedNote = ({ excluded, where }: ExcludedNoteProps) =>
   excluded.count === 0 ? null : (
     <div className="mt-3 flex items-start gap-1.5 text-[11px] text-ink-muted">
@@ -140,15 +114,6 @@ const ExcludedNote = ({ excluded, where }: ExcludedNoteProps) =>
 
 type SetFilters = Dispatch<SetStateAction<Filters>>;
 
-/**
- * A plain click means "show me this" and replaces what was shown, since showing
- * is naturally one thing at a time. Meta-click means "not this" and
- * accumulates, since hiding is naturally several.
- *
- * A value ends up on one list at a time, each gesture taking it off the other:
- * the exclusion would win anyway, and a tick that decides nothing reads as a
- * filter that is on and does nothing.
- */
 const pick =
   (onFilters: SetFilters, key: Axis) =>
   (value: string, exclude = false) =>
@@ -168,11 +133,6 @@ const pick =
       return { ...f, [key]: only ? [] : [value], [outKey]: without(out) };
     });
 
-/**
- * The charts draw whatever string they are handed, so categories go in already
- * readable — which means a click comes back as "Bil og transport" when the
- * filter needs `bil_og_transport`. One map back, built from the rows in view.
- */
 const slugsByLabel = (slugs: string[]) =>
   new Map(slugs.map((s) => [categoryLabel(s), s]));
 
@@ -188,10 +148,6 @@ interface GrainToggleProps {
   onGrain: (grain: Grain) => void;
 }
 
-/**
- * On the chart it belongs to rather than in the filter bar: it changes what one
- * card draws and nothing else on the page.
- */
 const GrainToggle = ({ grain, offered, onGrain }: GrainToggleProps) =>
   offered.length < 2 ? null : (
     <span className="inline-flex overflow-hidden rounded-md border border-line">
@@ -214,17 +170,11 @@ interface DashboardProps {
   filters: Filters;
   onFilters: SetFilters;
   period: Period;
-  /** Already narrowed to something this window offers — see `GRAINS`. */
   grain: Grain;
   offered: Grain[];
   onGrain: (grain: Grain) => void;
 }
 
-/**
- * One dashboard for every period: the same tiles and bars over two window
- * lengths, so what varies is the window and not the layout. `monthStats` uses
- * its month as a label only — hand it any two row sets and it compares them.
- */
 const Dashboard = ({
   txns,
   filters,
@@ -237,12 +187,6 @@ const Dashboard = ({
   const all = txns.filter((t) => inRange(t, p.from, p.to));
   const shown = all.filter((t) => matchesFilters(t, filters));
 
-  /**
-   * The window compared against, where there is one: a comparison against a
-   * window with no rows reads as a 100% rise against a zero that is an absence.
-   * Measured before the filters, since a filter that empties the previous
-   * window is a real zero worth keeping.
-   */
   const vs =
     p.prev && txns.some((t) => inRange(t, p.prev!.from, p.prev!.to))
       ? p.prev
@@ -257,15 +201,12 @@ const Dashboard = ({
   const stats = monthStats(p.label, shown, vs ? previous : undefined);
   const prev = monthStats("previous", previous);
 
-  // A single month has no "average month" — that is the total again.
   const months = byMonth(shown);
   const yearly = months.length > 1 ? yearStats(p.label, months) : null;
 
   const running = grain === "running";
   const bucket: Bucket = grain === "month" ? "month" : "day";
 
-  // From the whole period, never from `shown` — a filter thins the line, it
-  // does not shorten the axis. See `axisBounds`.
   const { from, to } = axisBounds(all, p);
 
   const build = (rows: Categorized[], a: string, b: string) => {
@@ -275,12 +216,8 @@ const Dashboard = ({
   };
 
   const series = build(shown, from, to);
-  // The same filters as `shown`, so the faint line behind the chart and the
-  // deltas beside it are measuring the same thing.
   const compare = vs ? build(previous, vs.from, vs.to) : [];
 
-  // Nothing about drawing a bar cares which direction the money went, so the
-  // two sides are the same two mappers called twice.
   const catBars = (
     categories: typeof stats.categories,
     subcategories: typeof stats.subcategories,
@@ -293,15 +230,11 @@ const Dashboard = ({
           label: subcategoryLabel(sub.category, sub.subcategory),
           total: sub.total,
         }));
-      // A category with one named child reads as that child, and filters as it —
-      // the same rows either way, under the more useful of the two names.
       const lone =
         subs.length === 1 && subs[0]!.key.split("/")[1] !== ""
           ? subs[0]!
           : null;
       return {
-        // The slug rides along so a click needs no reverse lookup: two slugs
-        // can tidy to the same display name.
         key: lone?.key ?? c.category,
         label: lone?.label ?? categoryLabel(c.category),
         total: c.total,
@@ -328,38 +261,24 @@ const Dashboard = ({
     ...stats.categories.map((c) => c.category),
     ...stats.categoryDeltas.map((d) => d.category),
   ]);
-  // `HorizontalBars` reports the slug it was given; `DivergingBars` still draws
-  // and reports display names, so the map back stays for that one.
   const onCategory = (slugOrLabel: string, meta: boolean) =>
     pick(onFilters, "categories")(slugOf.get(slugOrLabel) ?? slugOrLabel, meta);
-  // One axis: a subcategory is a value in the same list as its category.
   const onSubcategory = pick(onFilters, "categories");
   const onMerchant = pick(onFilters, "merchants");
   const onAccount = pick(onFilters, "accounts");
 
-  // One account is not a breakdown, it is the total again with a bar under it.
   const acctBars = (list: typeof stats.accounts): BarItem[] =>
     list.map((a) => ({ label: a.account, total: a.total }));
   const accounts = acctBars(stats.accounts);
   const inAccounts = acctBars(stats.incomeAccounts);
 
-  // A breakdown of one category is a bar chart of itself. Exclusions do not
-  // count: excluding a category leaves everything else in and worth breaking
-  // down.
   const single = filters.categories.length === 1;
 
-  // A line along the axis is not a finding, so a side with nothing in it is
-  // dropped and the title follows.
   const anyIncome = series.some((s) => s.totalIn > 0);
   const anySpend = series.some((s) => s.totalOut > 0);
 
-  // The shading reads the vertical gap as a surplus, which is only true of a
-  // whole window: income lands on about a third of days, so day by day it would
-  // call almost every one an overspend. It needs the grain, not either line.
   const band = running || bucket === "month";
 
-  // Nothing renders a box it has no rows for. Filtered to rent, "income" is a
-  // zero and "net" is the spend again with a minus sign; both are noise.
   return (
     <>
       <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(min(160px,100%),1fr))] gap-3">
@@ -432,9 +351,6 @@ const Dashboard = ({
               income={anyIncome}
               spend={anySpend}
               band={band}
-              // A line fitted to a running total is a straight line drawn over
-              // one, reporting an average the tile above already gives. It is
-              // fitted through spending, so it goes where the red line goes.
               trend={!running && anySpend}
               compare={compare}
               compareLabel={vs?.label}
@@ -517,25 +433,16 @@ const Dashboard = ({
 };
 
 interface TransactionsViewProps {
-  /** Already narrowed to the chosen period; the filters are applied in here. */
   rows: Categorized[];
   filters: Filters;
   onFilters: SetFilters;
 }
 
-/** The rows themselves, with what they add up to. No deltas — a range has no previous range. */
 const TransactionsView = ({
   rows,
   filters,
   onFilters,
 }: TransactionsViewProps) => {
-  /**
-   * The box keeps up with the typing; the table is allowed to lag behind it.
-   *
-   * A year is a couple of thousand rows, and re-rendering them between two
-   * keystrokes drops the second. Deferring the *filter* input — not the box's
-   * own value — lets React abandon a half-rendered table.
-   */
   const search = useDeferredValue(filters.search);
   const shown = rows.filter((t) => matchesFilters(t, { ...filters, search }));
   const sums = totals(shown);
@@ -570,7 +477,6 @@ const TransactionsView = ({
 
 export const App = () => {
   const load = useTransactions();
-  // Read once, not once per state — three reads would parse the same string three times.
   const [initial] = useState(readUrl);
   const [view, setView] = useState<View>(initial.view);
   const [chosen, setChosen] = useState<string | null>(initial.period);
@@ -579,8 +485,6 @@ export const App = () => {
   const [theme, onTheme] = useState<Theme>(readTheme);
   const [help, setHelp] = useState(false);
 
-  // Before anything renders a slug: `categoryLabel` has no other way to reach
-  // the names. Hues off every row rather than the filtered view.
   if (load.status === "ready") {
     setLabels(load.labels);
     setCategoryHues(distinctCategories(load.txns));
@@ -590,18 +494,8 @@ export const App = () => {
   const months = useMemo(() => distinctMonths(txns), [txns]);
   const years = useMemo(() => distinctYears(txns), [txns]);
 
-  /**
-   * The edges of the record, as far as the date boxes go: a range starting in
-   * 1998 draws an empty page and says nothing about why. `axisBounds` over all
-   * time answers exactly this, so the far end moves with the archive.
-   */
   const record = useMemo(() => axisBounds(txns, period("all")), [txns]);
 
-  // Latest month until something is picked, and derived rather than stored so
-  // the first render after the fetch is already on it. Anything the picker does
-  // not offer falls back too, so a hand-edited URL cannot leave the select
-  // showing one period while the page renders another. A range has no list to
-  // be in, so it is checked by shape.
   const offered = [...months, ...years, "all"];
   const active =
     chosen && (offered.includes(chosen) || period(chosen).kind === "custom")
@@ -609,61 +503,31 @@ export const App = () => {
       : (months[months.length - 1] ?? "all");
   const p = useMemo(() => period(active), [active]);
 
-  /**
-   * The same narrowing, for the same reason: a window draws only the grains it
-   * can carry. Derived rather than stored, so the choice survives a trip
-   * through a window that cannot show it.
-   */
   const grains = GRAINS[p.kind];
   const grain = grains.includes(chosenGrain) ? chosenGrain : grains[0]!;
 
-  /**
-   * The period goes in raw and the grain derived, which is not the
-   * inconsistency it looks: a null period means "the latest month", so storing
-   * the answer would freeze today's into the URL, while a grain has no such
-   * placeholder and a raw one would claim a mode the window does not draw.
-   */
   useEffect(
     () => writeUrl({ view, period: chosen, grain, filters }),
     [view, chosen, grain, filters],
   );
 
-  /**
-   * A search belongs to the table it was typed on: carried into the dashboard
-   * it leaves the charts filtered by a string with no box to clear it.
-   */
   const changeView = (next: View) => {
     if (view === "transactions" && next !== "transactions")
       setFilters((f) => ({ ...f, search: "" }));
     setView(next);
   };
 
-  /**
-   * The arrows step within the kind of period in view, because a month and the
-   * year holding it are two lengths of window rather than two neighbours in one
-   * list. Clamped at both ends: the archive stops.
-   */
   const steps = p.kind === "month" ? months : p.kind === "year" ? years : [];
   const step = (by: number) => {
     const next = steps[steps.indexOf(active) + by];
     if (next) setChosen(next);
   };
 
-  /**
-   * The other axis: `A`, `Y` and `M` change how long the window is, where the
-   * arrows move it. Without them all time is a dead end, holding no year to
-   * step through. The year is the one in view, or the latest on record.
-   */
   const inView = active.slice(0, 4);
   const year = years.includes(inView) ? inView : years[years.length - 1];
   const lastMonthOf = (y: string) =>
     months.filter((m) => m.startsWith(`${y}-`)).at(-1);
 
-  /**
-   * What the keys do, and what the dialog prints — one list for both, so a key
-   * that works is a key that is listed. `/` and ⌘F are listed here and bound on
-   * the search box, which is the only thing that can reach it.
-   */
   const shortcuts: Shortcut[] = [
     {
       keys: ["d"],
@@ -744,16 +608,10 @@ export const App = () => {
   ];
   useShortcuts(shortcuts);
 
-  // Chips for the period in view, not for all time — a category last spent in
-  // January is not a filter March has any use for. Narrowed by the period only:
-  // narrowing by the other filters too would let the search box empty the rail.
-  // Whatever is switched on stays listed, or turning it off becomes impossible.
   const inPeriod = useMemo(
     () => txns.filter((t) => inRange(t, p.from, p.to)),
     [txns, p],
   );
-  // Only bare categories are options; a picked *pair* contributes its parent,
-  // or the lone-child rule lists the same row twice under one name.
   const categories = useMemo(
     () =>
       [
@@ -766,8 +624,6 @@ export const App = () => {
       ].sort(),
     [inPeriod, filters.categories],
   );
-  // By display name, not by slug: the picker draws them under their category,
-  // and the slug's alphabet is not the one on screen.
   const subcategories = useMemo(
     () =>
       [
@@ -799,8 +655,6 @@ export const App = () => {
       ),
     [inPeriod, filters.merchants],
   );
-  // Off the whole period, not the filtered rows: a name would otherwise stop
-  // being a person as soon as you filtered its peer rows away.
   const people = useMemo(() => personMerchants(inPeriod), [inPeriod]);
   const accounts = useMemo(
     () =>
@@ -809,12 +663,8 @@ export const App = () => {
       ),
     [inPeriod, filters.accounts],
   );
-  // Not re-sorted: `distinctCountries` already puts the no-country dash last,
-  // and sorting again would pull it to the front under its punctuation.
   const countries = useMemo(() => {
     const inView = distinctCountries(inPeriod);
-    // A picked value stays listed even where the period has none of it, or
-    // narrowing the period drops the chip and leaves nothing to click off.
     return inView.concat(filters.countries.filter((c) => !inView.includes(c)));
   }, [inPeriod, filters.countries]);
 

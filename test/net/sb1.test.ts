@@ -11,7 +11,6 @@ import {
   ReauthRequired,
 } from "../../src/net/sb1.ts";
 
-/** Never the real ledger: these tests would spend the day's budget on paper. */
 const ledger = () =>
   join(mkdtempSync(join(tmpdir(), "sb1-")), "api-budget.json");
 
@@ -35,7 +34,6 @@ test("monthRange covers whole months", () => {
   assert.throws(() => monthRange("2026-7"));
 });
 
-/** `assert.throws` returns nothing, and these assertions are about the error itself. */
 const caught = (fn: () => void): unknown => {
   try {
     fn();
@@ -58,7 +56,6 @@ test("a 429 is the bank refusing outright, told apart from the ledger refusing f
   assert.equal(err.retryAfter, "42");
   assert.match(err.message, /42s/);
 
-  // SB1 sends no Retry-After of its own, so the message has to survive without one.
   const bare = limits(429, { "x-ratelimit-remaining": "0" });
   assert.ok(bare instanceof RateLimited);
   assert.match(bare.message, /does not say for how long/);
@@ -68,20 +65,15 @@ test("a 429 is the bank refusing outright, told apart from the ledger refusing f
 });
 
 test("the bank publishes what is left on every response, and that is the ledger", () => {
-  // The one place its real ceiling is ever visible, and now the only figure we
-  // keep — this repo assumed 60 an hour, which the API states nowhere.
   const path = ledger();
   noteLimits(200, new Headers({ "x-ratelimit-remaining": "57" }), path);
   assert.equal(remaining(path), 57);
 
-  // Even on the refusal, which is the response that most wants recording.
   assert.throws(() =>
     noteLimits(429, new Headers({ "x-ratelimit-remaining": "0" }), path),
   );
   assert.equal(remaining(path), 0);
 
-  // A response without the header leaves the last known figure alone rather
-  // than reading absence as zero.
   noteLimits(200, new Headers(), path);
   assert.equal(remaining(path), 0);
 });
@@ -93,7 +85,5 @@ test("recording the zero from a 429 is what starts the refill clock", () => {
     noteLimits(429, new Headers({ "x-ratelimit-remaining": "0" }), path, now),
   );
   assert.equal(remaining(path, now), 0);
-  // A minute on there is one to spend again, which is why a 429 does not need a
-  // Retry-After — SB1 sends none, and the refill rate answers the question.
   assert.equal(remaining(path, now + 60_000), 1);
 });

@@ -13,15 +13,6 @@ export class ReauthRequired extends Error {
   }
 }
 
-/**
- * The bank refusing outright, as opposed to the ledger refusing on its behalf.
- *
- * SB1 publishes `x-ratelimit-remaining` on **every** response and answers 429
- * once it reaches zero, so the real ceiling never has to be guessed at — which
- * is just as well, because the 60/hour this repo once assumed is not a number
- * the API ever states. A sweep treats this exactly like an empty budget: stop,
- * say where it got to, and let a re-run carry on.
- */
 export class RateLimited extends Error {
   // A plain field, not a parameter property: Node strips types rather than
   // compiling them, so `erasableSyntaxOnly` rules that shorthand out.
@@ -38,24 +29,6 @@ export class RateLimited extends Error {
   }
 }
 
-/**
- * What a response says about the bank's budget, and whether it refused.
- *
- * Split out of `get` so it can be tested at all: everything around it is the
- * keychain and the token exchange, and a test that reached those would either
- * need the real refresh token or would overwrite it with a fake one. `path` is
- * for those tests and nothing else — `get` writes the real ledger.
- *
- * `now` is for them too, and it is not cosmetic: the refill is counted in whole
- * minutes from the stamp this writes, so a test that reads its own `Date.now()`
- * a millisecond earlier and then asks about `now + 60_000` is a millisecond
- * short of the first credit and gets 0. Every other function in `budget.ts`
- * takes the clock for that reason; this one was the gap.
- *
- * The header is read before either throw, because a 429 carries it too — that
- * is the response that most wants recording. Recording the zero is what starts
- * the ledger's refill clock, so the next run knows how long to leave it.
- */
 export function noteLimits(
   status: number,
   headers: Headers,
@@ -127,17 +100,12 @@ async function postToken(
       ...params,
     }),
   });
-  // Deliberately no `noteLimits`: the FAQ's quota is per API, so writing the
-  // token endpoint's counter into the ledger would overstate what
-  // `/transactions` has left. `spend` above still charges for it, which errs
-  // the safe way round.
   const body = await res.text();
   if (!res.ok)
     throw new ReauthRequired(`token endpoint ${res.status}: ${body}`);
   return JSON.parse(body) as TokenResponse;
 }
 
-/** Full authorization-code flow: loopback listener + BankID in the browser. */
 export async function login(): Promise<void> {
   const redirectUri = env("REDIRECT_URI");
   const { port, pathname } = new URL(redirectUri);
@@ -217,7 +185,6 @@ async function getAccessToken(): Promise<string> {
   return accessToken;
 }
 
-/** GET an SB1 API path. Everything personal-banking answers to the v1 media type. */
 export async function get(path: string): Promise<unknown> {
   spend();
   const res = await fetch(`${API}${path}`, {
@@ -233,7 +200,6 @@ export async function get(path: string): Promise<unknown> {
   return JSON.parse(body);
 }
 
-/** Booking-date bounds for a YYYY-MM month, inclusive, as YYYY-MM-DD. */
 export function monthRange(month: string): { from: string; to: string } {
   const m = /^(\d{4})-(\d{2})$/.exec(month);
   if (!m) throw new Error(`--month must be YYYY-MM, got "${month}"`);
