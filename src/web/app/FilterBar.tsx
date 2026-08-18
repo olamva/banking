@@ -308,9 +308,10 @@ const Picker = ({
     });
 
   /**
-   * A closed menu forgets what was typed in it a few seconds later: long enough
-   * that closing it by accident keeps your place, short enough that coming back
-   * starts clean. Clearing on the spot empties the box in plain sight.
+   * A closed menu forgets what was typed in it, and which rows were opened, a
+   * few seconds later: long enough that closing it by accident keeps your
+   * place, short enough that coming back starts clean. Clearing on the spot
+   * empties the box in plain sight.
    */
   const toggled = (e: React.SyntheticEvent<HTMLDetailsElement>) => {
     clearTimeout(reset.current);
@@ -322,6 +323,7 @@ const Picker = ({
     reset.current = setTimeout(() => {
       setQuery("");
       setActive(null);
+      setExpanded(new Set());
     }, 3000);
   };
 
