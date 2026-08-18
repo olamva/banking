@@ -8,6 +8,30 @@ user. Not a product.
 to pass before anything is finished. The API contract — endpoints, auth, rate
 limits, the five-year range ceiling — is the `sb1-api` skill, not this file.
 
+## Language
+
+Write all prose in this repo in ASD-STE100 Simplified Technical English. This
+covers chat replies, code comments, documentation, commit messages and pull
+request bodies.
+
+Use short sentences of 20 words or less. Use the active voice. Use one idea for
+each sentence. Use the present tense. Do not use contractions, slang or
+metaphors. Keep one meaning for each word. Start each instruction with the verb.
+Do not change code or identifiers.
+
+Prose written before 2026-08-19 does not follow this rule. Convert a file when
+you edit it.
+
+## Comments
+
+Write almost no comments. Keep a comment only when it names a trap that the code
+cannot show: a unit, a sign, an order, a platform limit, or a fact about the real
+data. Use 40 words or less.
+
+Delete file-header essays. Delete a comment block on a type, a constant or a
+function when it only repeats the name. Delete design rationale and history. This
+file holds the invariants. Keep every `ponytail:` marker.
+
 ## Committing
 
 **Commit, push and PRs are authorised in this repo, standing** — commits granted

@@ -297,8 +297,8 @@ export const DataTable = ({ columns, rows, scroll, onRow }: DataTableProps) => {
         <tbody>
           {spacer(first * rowH)}
           {rows.slice(first, last).map((row, i) => (
-            // Keyed on where the row is in the whole list, not in the slice, or
-            // scrolling would reuse the same dozen keys for every row in turn.
+            // Key on the position in the whole list, not in the slice. A slice key
+            // repeats for each row as the user scrolls.
             <tr
               key={first + i}
               ref={i === 0 ? probe : undefined}
@@ -306,8 +306,8 @@ export const DataTable = ({ columns, rows, scroll, onRow }: DataTableProps) => {
               className={`hover:bg-hover ${onRow ? "cursor-pointer" : ""}`}
             >
               {row.map((cell, j) => (
-                // Nothing wraps in a windowed table: one tall row puts every
-                // row below it out of place by the difference.
+                // No cell wraps in a windowed table. One tall row moves every row below it
+                // out of position.
                 <td
                   key={j}
                   className={`border-b border-grid py-1 pr-2 ${columns[j]?.num ? "text-right" : "text-left"} ${columns[j]?.min ? "w-px whitespace-nowrap" : ""} ${windowed ? "whitespace-nowrap" : ""}`}

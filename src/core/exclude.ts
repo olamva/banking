@@ -21,7 +21,7 @@ const CARD_BILL = "Innbetaling";
 
 const TRANSFER_TYPE = /overf(ø|o)r/i;
 
-/** Card rows say `Transaksjon` or `Kredittkort`, neither of which is a transfer. */
+// A card row says `Transaksjon` or `Kredittkort`. Neither value is a transfer.
 const isTransferType = (t: Txn): boolean =>
   TRANSFER_TYPE.test(t.typeText ?? "");
 

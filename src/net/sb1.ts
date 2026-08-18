@@ -6,7 +6,8 @@ import { note, spend } from "./budget.ts";
 const API = "https://api.sparebank1.no";
 const KEYCHAIN_SERVICE = "sb1-banking";
 
-/** Thrown when the refresh chain is dead. Never swallow this into an empty result. */
+// The code throws this when the refresh chain fails. Do not convert it to an
+// empty result.
 export class ReauthRequired extends Error {
   constructor(cause: string) {
     super(`BankID login required (${cause}). Run: pnpm sb1 login`);
@@ -14,8 +15,8 @@ export class ReauthRequired extends Error {
 }
 
 export class RateLimited extends Error {
-  // A plain field, not a parameter property: Node strips types rather than
-  // compiling them, so `erasableSyntaxOnly` rules that shorthand out.
+  // Use a plain field, not a parameter property. Node removes types and does not
+  // compile them, so `erasableSyntaxOnly` forbids that shorthand.
   retryAfter: string | null;
 
   constructor(retryAfter: string | null) {
@@ -47,8 +48,8 @@ function env(key: string): string {
   return v;
 }
 
-// ponytail: refresh token goes through argv, so it is briefly visible in `ps`.
-// Swap for a stdin-fed helper if this box ever has untrusted local users.
+// ponytail: the refresh token goes through argv, so `ps` shows it for a short
+// time. Use a helper that reads stdin if this machine gets other local users.
 function keychainSet(token: string): void {
   execFileSync("security", [
     "add-generic-password",

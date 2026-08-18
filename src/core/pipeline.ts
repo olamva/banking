@@ -60,8 +60,8 @@ export function netByReason(rows: Categorized[]): Map<string, number> {
   for (const r of rows) {
     if (!r.excluded || !r.reason || r.reason === "investment movement")
       continue;
-    // A card bill's two legs are one pair under two names, so netting them
-    // apart would report every bill as an error forever.
+    // The two legs of a card bill are one pair with two names. Net them together,
+    // or every bill reports an error.
     const pair = r.reason.replace(/ \(card side\)$/, "");
     net.set(pair, (net.get(pair) ?? 0) + r.amount);
   }
@@ -95,8 +95,8 @@ export async function rebuildAll(): Promise<number> {
             : `\n  narrow it by hand — a winner is anchored and cannot be inlined`),
       );
     }
-    // A reason that does not net is one leg excluded while its counterpart is
-    // counted, which silently deletes real money from both totals.
+    // A reason that does not net to zero has one excluded leg and one counted leg.
+    // This removes real money from both totals.
     for (const [reason, net] of netByReason(rows)) {
       if (Math.abs(net) < 0.005) continue;
       console.error(

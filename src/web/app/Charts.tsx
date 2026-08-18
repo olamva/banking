@@ -55,7 +55,7 @@ const Empty = ({ children }: EmptyProps) => (
   <div className="py-10 text-center text-ink-muted">{children}</div>
 );
 
-/** SVG has no text-overflow; 11px system-ui averages ~5.6px a character. */
+// SVG has no text-overflow. A character in 11px system-ui is about 5.6px wide.
 const ellipsis = (s: string, px: number) => {
   const max = Math.max(Math.floor(px / 5.6), 3);
   return s.length > max ? s.slice(0, max - 1) + "…" : s;

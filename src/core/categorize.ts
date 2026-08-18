@@ -68,8 +68,8 @@ export function renamePayees<
   );
   return txns.map((t) => {
     const hit = rules.find((r) => r.matches(haystackOf(t)));
-    // A rule's name is used exactly as written — running the shape heuristic
-    // over a person's decision would hand back `Ikea` and `H&m`.
+    // Use the name from the rule exactly as written. The shape heuristic would
+    // change `IKEA` to `Ikea`.
     if (hit) return { ...t, counterparty: hit.name };
     return t.counterparty === null
       ? t
@@ -103,7 +103,7 @@ export function compile(pattern: string, source: string): Matcher {
     return (h) => h.includes(needle);
   }
   try {
-    // Always case-insensitive: the haystack is lowercased before matching.
+    // Match without case. The code makes the haystack lowercase first.
     const re = new RegExp(asRegex[1]!, asRegex[2]!.replace("i", "") + "i");
     return (h) => re.test(h);
   } catch (e) {

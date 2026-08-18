@@ -1,10 +1,10 @@
 export type Txn = {
-  /** SB1's id, reissued when a reservation books — never stable across syncs. */
+  // SB1 gives a new id when a reservation books. Do not rely on it across syncs.
   id: string;
   accountKey: string;
   account: string;
   date: string;
-  /** Signed. Negative is money out. */
+  // The amount is signed. A negative amount is money out.
   amount: number;
   description: string;
   counterparty: string | null;
@@ -20,7 +20,7 @@ export type Txn = {
   isSubscription: boolean;
 };
 
-/** Exclusions are flagged, never dropped, so always set `reason`. */
+// The code flags an exclusion. It does not remove the row. Always set `reason`.
 export type Classified = Txn & {
   excluded: boolean;
   reason: string | null;

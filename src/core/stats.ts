@@ -69,7 +69,7 @@ const toCents = (amount: number) => Math.round(amount * 100);
 const fromCents = (cents: number) => cents / 100;
 const byDate = (a: Categorized, b: Categorized) => a.date.localeCompare(b.date);
 
-/** Largest-remainder rounding: integer basis points that always sum to 10000, so shares always sum to 1. */
+// Largest-remainder rounding. The basis points sum to 10000, so shares sum to 1.
 function allocateShares(parts: number[]): number[] {
   const total = parts.reduce((sum, p) => sum + p, 0);
   if (total <= 0) return parts.map(() => 0);
@@ -458,8 +458,8 @@ export type SubscriptionGroup = {
   category: string;
   count: number;
   total: number;
-  // NOK charged on `last`, not the average — what it costs now.
-  // ponytail: assumes a monthly price, so a yearly bill reads as its yearly amount.
+  // NOK charged on `last`, not the average. This is the current price.
+  // ponytail: assumes a monthly price. A yearly bill shows its yearly amount.
   latest: number;
   last: string;
 };

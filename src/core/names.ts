@@ -7,7 +7,7 @@ export function countryOf(name: string): string | null {
     .at(-1)!
     .replace(/\s*\(.*\)\s*$/, "")
     .trim();
-  // A tail carrying a digit or a slash is a terminal reference, not a place.
+  // A tail with a digit or a slash is a terminal reference. It is not a place.
   if (!/^[\p{L} ]{3,}$/u.test(tail)) return null;
   return titleCase(tail);
 }
@@ -28,10 +28,11 @@ const PLACE_NAMES = 3;
 const STREET =
   /\d|(?:gt|gate|gata|gaten|vei|veg|veien|vegen|vn|plass|torg|bakken|haugen|svingen|alle|allé)\.?$/i;
 
-// Needs the whole corpus: one name cannot tell where its own street begins, but
-// a word ending a dozen unrelated names is a town.
-// ponytail: a heuristic. Fixed-width (15/12/rest) would be exact except SB1
-// space-joins the truncated fields rather than padding — check that first.
+// This function needs the whole corpus. One name does not show where its
+// street starts. A word that ends many unrelated names is a town.
+// ponytail: a heuristic. A fixed-width cut at 15/12/rest is exact, but SB1
+// joins the truncated fields with spaces and does not pad them. Check this
+// before you use a fixed width.
 export function makeCleaner(names: Iterable<string>): (name: string) => string {
   const endings = new Map<string, Set<string>>();
   for (const name of names) {
@@ -43,10 +44,11 @@ export function makeCleaner(names: Iterable<string>): (name: string) => string {
     (endings.get(token.toLowerCase())?.size ?? 0) >= PLACE_NAMES;
 
   return (name: string): string => {
-    // Exact, because the card comma-delimits these. Everything below is inference.
+    // The card separates these fields with a comma, so this cut is exact. The
+    // code below infers.
     const head = name.split(",")[0]!.trim();
     if (!head) return name;
-    // Mixed case means SB1 cleaned it. Leave it exactly as sent.
+    // Mixed case shows that SB1 cleaned the name. Return it as sent.
     if (head !== head.toUpperCase()) return head;
 
     const tokens = head.split(/\s+/);

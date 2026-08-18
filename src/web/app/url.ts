@@ -30,7 +30,7 @@ export const toParams = (s: UrlState): string => {
   if (s.filters.categories.length) p.set("cat", s.filters.categories.join(","));
   if (s.filters.categoriesOut.length)
     p.set("cat_not", s.filters.categoriesOut.join(","));
-  // One param each, not a joined list: a merchant name can hold a comma.
+  // Use one parameter for each merchant. A merchant name can contain a comma.
   for (const m of s.filters.merchants) p.append("m", m);
   for (const m of s.filters.merchantsOut) p.append("m_not", m);
   for (const a of s.filters.accounts) p.append("acct", a);
@@ -96,7 +96,8 @@ export const fromParams = (p: URLSearchParams): UrlState => {
 export const readUrl = (): UrlState =>
   fromParams(new URLSearchParams(location.search));
 
-/** replaceState, never push — back should leave the page, not undo one filter edit. */
+// Use replaceState, not push. The back button must leave the page. It must
+// not undo one filter edit.
 export const writeUrl = (s: UrlState): void => {
   const q = toParams(s);
   history.replaceState(null, "", q ? `?${q}` : location.pathname);

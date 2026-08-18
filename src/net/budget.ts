@@ -1,8 +1,8 @@
-// The bank's own count, not a local cap: a refilling bucket, so a `0` seen an
-// hour ago is worth a full bucket now. Where estimate and bank disagree, the
-// bank wins. Persisted so two tabs or a restart cannot forget it.
-// ponytail: one bucket for all of SB1 though the quota is per API. Split it if
-// an endpoint other than `/transactions` gets hot.
+// This is the bank's own count, not a local cap. The bucket refills with time,
+// so a `0` from an hour ago is now a full bucket. The figure from the bank wins
+// over the estimate. The file keeps the count across a restart.
+// ponytail: one bucket for all of SB1, but the quota is per API. Split it if an
+// endpoint other than `/transactions` becomes busy.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 

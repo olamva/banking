@@ -16,8 +16,8 @@ export const fmtNOKExact = (n: number): string => `${NOK_EXACT.format(n)} kr`;
 export const fmtPct = (share: number): string =>
   `${Math.round(share * 1000) / 10}%`;
 
-// ponytail: one module-level `Labels` rather than a prop through eight call
-// sites. Pass it from `App` if a second labelled dataset ever shares the page.
+// ponytail: one module-level `Labels`, not a prop through eight call sites.
+// Pass it from `App` if a second labelled dataset shares the page.
 let LABELS: Labels = buildLabels([]);
 
 export const setLabels = (l: Labels): void => {

@@ -90,9 +90,10 @@ interface PickerProps {
 
 type Kind = "all" | "people" | "business";
 
-// Plain tick includes, meta-tick excludes. A phone cannot create an exclusion —
-// deliberate, on the account holder's instruction; a tap still clears one.
-// ponytail: renders every option — virtualise only if opening it feels slow.
+// A plain tick includes. A meta-tick excludes. A phone cannot create an
+// exclusion. The account holder accepts this. A tap still clears one.
+// ponytail: this renders every option. Virtualise it only if the panel is slow
+// to open.
 
 const Picker = ({
   title,
@@ -247,9 +248,10 @@ const Picker = ({
       {open && (
         <div
           onKeyDown={navigate}
-          /* No `max-w-full`: the containing block is the `details`, only as
-             wide as its summary above `sm`, so it would clamp a 256px panel to
-             a 130px button. Below `sm` the `details` is already full width. */
+          /* Do not add `max-w-full`. The containing block is the `details`. Above `sm`
+             the `details` is only as wide as its summary, so `max-w-full` would clamp a
+             256px panel to a 130px button. Below `sm` the `details` already fills the
+             width. */
           className="absolute left-0 z-20 mt-1 flex max-h-72 w-64 flex-col rounded-md border border-line bg-surface p-1.5 shadow-lg"
         >
           {/* Only where the caller says the list splits, which is merchants
@@ -537,8 +539,8 @@ const PeriodMenu = ({
   return (
     <details
       ref={menu}
-      // The panel is positioned against this, so below `sm` it must be the full
-      // width of the bar or it hangs off the right edge.
+      // The panel is positioned against this element. Below `sm` it must fill the
+      // width of the bar, or it goes past the right edge.
       className="group relative max-sm:w-full"
       onToggle={(e) => {
         if (!e.currentTarget.open) setLooking(null);

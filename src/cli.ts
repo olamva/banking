@@ -25,9 +25,8 @@ async function dump(file: string, data: unknown): Promise<void> {
 
 async function accounts(): Promise<void> {
   const { get } = await import("./net/sb1.ts");
-  // All five, because every one of them defaults to false and an account left
-  // out here is invisible everywhere downstream — the share savings account
-  // was, and its transfers counted as income until `exclude` learned its number.
+  // Request all five flags. Each flag defaults to false. An account that you
+  // omit here is not visible in any later step.
   const include = new URLSearchParams({
     includeCreditCardAccounts: "true",
     includeBsuAccounts: "true",

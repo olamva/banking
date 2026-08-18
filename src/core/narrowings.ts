@@ -61,8 +61,7 @@ function body(pattern: string): string | null {
   const asRegex = /^\/(.+)\/([a-z]*)$/.exec(pattern);
   if (!asRegex)
     return pattern.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  // An anchor is positional, so dropping it into a lookahead moves what it
-  // anchors to.
+  // An anchor is positional. A lookahead moves what the anchor applies to.
   return /[$^]/.test(asRegex[1]!) ? null : asRegex[1]!;
 }
 

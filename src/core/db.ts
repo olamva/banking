@@ -160,7 +160,7 @@ function toCategorized(row: Row): Categorized {
   };
 }
 
-/** Inclusive on both ends. Months are YYYY-MM, so string comparison sorts correctly. */
+// Both bounds are inclusive. A month is YYYY-MM, so a string compare sorts it.
 export function queryRange(
   db: DatabaseSync,
   fromMonth: string,

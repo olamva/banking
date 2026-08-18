@@ -122,7 +122,8 @@ test("a card row bought abroad is travel, by the merchant country", () => {
   assert.equal(cat("LAWSON, TOKYO, JPN"), "reise");
   assert.equal(cat("KAFFEBAR, Oslo, NORWAY"), "ukategorisert");
   assert.equal(cat("KAFFEBAR, OSLO, NOR"), "ukategorisert");
-  // The bank writes NORWAY on every domestic row, so a bare town means abroad.
+  // The bank writes NORWAY on every domestic row. A town with no country is
+  // abroad.
   assert.equal(cat("ANISEED, MYTILINI"), "reise");
   assert.equal(cat("Omkostninger regningsbetaling"), "ukategorisert");
   assert.equal(cat("DUTY-FREE GARDERMOEN"), "ukategorisert");
@@ -260,7 +261,7 @@ test("a slash-wrapped pattern is a regex, so a word can be matched as a word", (
     categorize([classified({ description })], rent)[0]!.category;
   assert.equal(cat("Til: Ola - Leie Juni & Juli"), "faste_boutgifter");
   assert.equal(cat("LEIE AUGUST"), "faste_boutgifter");
-  // the whole point: these contain "leie" but are not the word
+  // These names contain "leie" but they are not the word.
   assert.equal(cat("UTLEIE AS"), "dagligvarer");
   assert.equal(cat("LEIEBIL BERGEN"), "dagligvarer");
 });

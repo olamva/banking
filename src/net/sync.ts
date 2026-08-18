@@ -193,8 +193,8 @@ export async function syncRange(
     `${months.length} months, ${months[0]} to ${months.at(-1)}: ` +
       `${cost} request${cost === 1 ? "" : "s"}, ${files} files`,
   );
-  // `null` is "the bank has not said recently", not "nothing left" — in that
-  // case there is no estimate to give and the first response will supply one.
+  // `null` means the bank has not reported recently. It does not mean zero left.
+  // The first response supplies a new figure.
   if (left !== null && cost > left) {
     console.error(
       `SB1 last reported only ${left} left — expect to stop after ${left} of ` +

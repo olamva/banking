@@ -9,7 +9,7 @@ type Sb1File = {
       id: string;
       accountKey: string;
       amount: number;
-      /** Epoch millis at Oslo midnight — never format as UTC. */
+      // Epoch milliseconds at Oslo midnight. Do not format this value as UTC.
       date: number;
       description?: string;
       cleanedDescription?: string;
@@ -46,9 +46,8 @@ const named = (s?: string) =>
 function normalizeSb1(file: Sb1File, names: Record<string, string>): Txn[] {
   return (
     file.transactions
-      // A reservation is reissued under a *new* id when it books and its amount
-      // can still move, so keeping it is how one purchase becomes two rows.
-      // Not a card rule: pending rows land on the deposit accounts too.
+      // SB1 gives a reservation a new id when it books. The amount can also change.
+      // A kept reservation becomes a second row. Deposit accounts also send these.
       .filter(({ transaction: t }) => t.bookingStatus !== "PENDING")
       .map(({ transaction: t, categories, recurring, subscription }) => ({
         id: t.id,
@@ -59,8 +58,8 @@ function normalizeSb1(file: Sb1File, names: Record<string, string>): Txn[] {
         description: t.description ?? t.typeText ?? "",
         counterparty:
           named(t.cleanedDescription) ?? t.remoteAccountName ?? null,
-        // Off the same string, before any rename touches it: a payee renamed to
-        // `Yoshinoya` no longer carries the tail the country is written in.
+        // Read the country before any rename. A renamed payee loses the tail that
+        // holds the country.
         country: countryOf(named(t.cleanedDescription) ?? ""),
         bankCategory: categories[0]?.main ?? null,
         bankSub: categories[0]?.sub ?? null,
