@@ -20,19 +20,21 @@ Delete file-header essays. Delete a comment block on a type, a constant or a fun
 
 ## Committing
 
-Commit, push and PRs are authorised in this repo. Commit as the work reaches a state worth keeping. Push your own branch, and open the PR against `main` when the work is done. `.claude/settings.json` carries the matching permissions, so none of it prompts.
+Commit, push and PRs are authorised in this repo. Commit when the work reaches a state worth keeping. Push your own branch. Open the PR against `main` when the work is done. `.claude/settings.json` holds the matching permissions, so none of these actions prompts.
 
-And nothing under `rules/` or `data/` is committable at all — the whole point of them being gitignored, and the only reason a remote is safe here. That gitignore is now what stands between the transactions and GitHub, so treat an edit to it as an edit to a security control: never loosen the `data` or `rules` lines, and never `git add -f` a path under either. Push is also not a licence to publish anything else — the dashboard rule below is untouched, and a PR body carries no account numbers, payee names or amounts.
+Never commit anything under `rules/` or `data/`. The gitignore keeps them out, and that is the only reason a remote is safe here. The gitignore is the control that separates the transactions from GitHub. Treat an edit to it as an edit to a security control. Never weaken the `data` or `rules` lines. Never run `git add -f` on a path under either one. Push does not permit you to publish anything else. The dashboard rule below still applies. A PR body holds no account numbers, no payee names and no amounts.
 
-**`rules/` is versioned, in its own git repo, on this machine only.** It has no remote and must never be given one, and it is deliberately **not** a submodule: a gitlink would put `rules` back on a tracked path here.
+**`rules/` is versioned in its own git repo, on this machine only.** It has no remote. Never give it one. It is deliberately **not** a submodule, because a gitlink would put `rules` back on a tracked path here.
 
-**An edit under `rules/` is finished only when it is committed there**, in the same turn — this repo's `git status` stays clean however much of `overrides.json` you rewrote, so an uncommitted rules change is invisible to every later session:
+**An edit under `rules/` is finished only after you commit it there**, in the same turn. The `git status` of this repo stays clean however much of `overrides.json` you rewrite. An uncommitted rules change is therefore invisible to every later session:
+
+The last paragraph, below the code block, becomes:
 
 ```bash
 git -C rules add -A && git -C rules commit -m "chore: ..."
 ```
 
-This is required, not merely allowed, and it is the one commit the global never-commit rule does not reach. It publishes nothing.
+This commit is required, not only permitted. It is the one commit that the global never-commit rule does not cover. It publishes nothing.
 
 ## Working in a worktree
 
