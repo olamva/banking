@@ -115,6 +115,20 @@ export const loadSubscriptions = (path = "rules/subscriptions.json") =>
   loadJson<Subscriptions>(path, []);
 
 /**
+ * rules/not-subscriptions.json: the mirror of the file above, and the only way
+ * a flag comes back off.
+ *
+ * SB1 guesses the flag from the merchant, so one purchase from a shop that
+ * bills *other* people monthly arrives flagged and never repeats. Left alone it
+ * is a permanent line on the subscriptions card for a thing paid for once.
+ *
+ * It clears `isRecurring` as well, because a payee reaches that card carrying
+ * either flag, so taking one off would change nothing.
+ */
+export const loadNotSubscriptions = (path = "rules/not-subscriptions.json") =>
+  loadJson<Subscriptions>(path, []);
+
+/**
  * rules/payees.json: `{ "<pattern>": "<name>" }` — the one name a payee goes by.
  *
  * A landlord who writes the month into every payment is eleven payees to
@@ -207,6 +221,7 @@ export function categorize(
   /** Account keys of the credit cards — the only rows the travel guess may see. */
   cards: Set<string> = new Set(),
   family: string[] = [],
+  notSubscriptions: Subscriptions = [],
 ): Categorized[] {
   const rules: Rule[] = Object.entries(overrides).map(
     ([pattern, category]) => ({
@@ -224,13 +239,23 @@ export function categorize(
   const subs = subscriptions.map((pattern) =>
     compile(pattern, "rules/subscriptions.json"),
   );
+  const nots = notSubscriptions.map((pattern) =>
+    compile(pattern, "rules/not-subscriptions.json"),
+  );
   return txns.map((t) => {
     const haystack = haystackOf(t);
+    // A denial wins, the same way it does on every filter axis: a row named by
+    // both files is a contradiction in the rules, and the safe reading of one
+    // is the flag the bank should never have set.
+    const denied = nots.some((m) => m(haystack));
     return {
       ...t,
       ...categoryFor(t, rules, giroRules, familyRules, haystack, cards),
-      // The bank's own flag stands; a pattern only ever adds to it.
-      isSubscription: t.isSubscription || subs.some((m) => m(haystack)),
+      isRecurring: t.isRecurring && !denied,
+      // The bank's own flag stands unless a denial takes it off; a
+      // subscriptions.json pattern only ever adds to it.
+      isSubscription:
+        !denied && (t.isSubscription || subs.some((m) => m(haystack))),
     };
   });
 }

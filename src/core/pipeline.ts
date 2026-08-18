@@ -9,6 +9,7 @@ import {
   categorize,
   loadFamily,
   loadGiro,
+  loadNotSubscriptions,
   loadOverrides,
   loadPayees,
   loadSubscriptions,
@@ -60,6 +61,7 @@ export async function pipeline(
     await loadGiro(),
     cards,
     await loadFamily(),
+    await loadNotSubscriptions(),
   );
   // Last, so every rule above matched the name the bank actually sent.
   return rename ? renamePayees(rows, await loadPayees()) : rows;

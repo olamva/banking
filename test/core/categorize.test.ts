@@ -7,6 +7,7 @@ import {
   bankPair,
   categorize,
   loadFamily,
+  loadNotSubscriptions,
   loadOverrides,
   loadPayees,
   loadSubscriptions,
@@ -463,6 +464,52 @@ test("a subscription pattern names its own file when the regex is broken", () =>
   assert.throws(
     () => categorize([classified({})], {}, ["/[unclosed/"]),
     /subscriptions\.json/,
+  );
+});
+
+test("loadNotSubscriptions returns [] when the file is absent", async () => {
+  assert.deepEqual(await loadNotSubscriptions("does-not-exist.json"), []);
+});
+
+/**
+ * The bank flags a single purchase because it knows the *merchant* sells
+ * subscriptions, not because this row repeats. Both flags have to come off:
+ * a payee reaches the subscriptions card carrying either one.
+ */
+test("a not-subscription pattern takes the bank's flags back off", () => {
+  const oneOff = classified({
+    description: "Vipps*DIONYSOS Medlemskap",
+    counterparty: "DIONYSOS",
+    isRecurring: true,
+    isSubscription: true,
+  });
+  const [out] = categorize([oneOff], {}, [], {}, new Set(), [], ["dionysos"]);
+  assert.equal(out.isSubscription, false);
+  assert.equal(out.isRecurring, false);
+
+  // and it is the pattern doing it, not the call shape
+  const [kept] = categorize([oneOff], {}, [], {}, new Set(), [], ["nothing"]);
+  assert.equal(kept.isSubscription, true);
+  assert.equal(kept.isRecurring, true);
+});
+
+test("a denial beats subscriptions.json naming the same row", () => {
+  const [out] = categorize(
+    [classified({ description: "TALKMORE.NO" })],
+    {},
+    ["talkmore"],
+    {},
+    new Set(),
+    [],
+    ["talkmore"],
+  );
+  assert.equal(out.isSubscription, false);
+});
+
+test("a not-subscription pattern names its own file when the regex is broken", () => {
+  assert.throws(
+    () => categorize([classified({})], {}, [], {}, new Set(), [], ["/[bad/"]),
+    /not-subscriptions\.json/,
   );
 });
 
