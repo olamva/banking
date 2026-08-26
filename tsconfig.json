@@ -13,5 +13,5 @@
     "lib": ["esnext", "dom", "dom.iterable"],
     "types": ["node", "vite/client"]
   },
-  "include": ["src", "test", "api", "types", "vite.config.ts", "middleware.ts"]
+  "include": ["src", "test", "vite.config.ts"]
 }

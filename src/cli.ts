@@ -11,7 +11,6 @@ const raise = (msg: string): never => {
 };
 
 const ACCOUNTS_RAW = `${RAW}/accounts.json`;
-const CATEGORY_NAMES = "rules/categories.json";
 
 async function dump(file: string, data: unknown): Promise<void> {
   await mkdir(file.slice(0, file.lastIndexOf("/")), { recursive: true });
@@ -69,30 +68,6 @@ async function accounts(): Promise<void> {
   console.error(`${found.length} account keys.`);
 }
 
-// The page reads one payload and aggregates in the browser, so the hosted build
-// needs a file and not an endpoint. `pnpm dev` still reads the database live.
-async function exportWeb(): Promise<void> {
-  const { openDb, queryRange } = await import("./core/db.ts");
-  const { DB_FILE, WEB } = await import("./core/pipeline.ts");
-  const db = openDb(DB_FILE);
-  try {
-    await mkdir(WEB, { recursive: true });
-    const file = `${WEB}/txns.json`;
-    await writeFile(
-      file,
-      JSON.stringify({
-        txns: queryRange(db, "0000-00", "9999-99"),
-        names: existsSync(CATEGORY_NAMES)
-          ? JSON.parse(await readFile(CATEGORY_NAMES, "utf8"))
-          : {},
-      }),
-    );
-    console.error(`wrote ${file}`);
-  } finally {
-    db.close();
-  }
-}
-
 async function reconcileCmd(): Promise<void> {
   const { normalizeMonth } = await import("./core/normalize.ts");
   const { reconcile, unexplained } = await import("./core/reconcile.ts");
@@ -143,7 +118,6 @@ try {
     raise("sync is retired — press Refresh on the dashboard (`pnpm dev`)");
   else if (cmd === "rebuild")
     await (await import("./core/pipeline.ts")).rebuildAll();
-  else if (cmd === "export") await exportWeb();
   else if (cmd === "reconcile") await reconcileCmd();
   else if (cmd === "budget") {
     const left = (await import("./net/budget.ts")).remaining();
@@ -153,9 +127,7 @@ try {
         : `SB1 last reported ${left} requests left; it refills continuously.`,
     );
   } else {
-    console.error(
-      "usage: pnpm sb1 <login | accounts | rebuild | budget | export",
-    );
+    console.error("usage: pnpm sb1 <login | accounts | rebuild | budget");
     console.error(
       "                | reconcile  (does the history explain the balances?)>",
     );
