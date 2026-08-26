@@ -9,8 +9,9 @@ type Load =
   | { status: "error"; message: string }
   | { status: "ready"; txns: Categorized[]; labels: Labels };
 
-export const useTransactions = (): Load => {
+export const useTransactions = (): [Load, () => void] => {
   const [load, setLoad] = useState<Load>({ status: "loading" });
+  const [nonce, setNonce] = useState(0);
 
   useEffect(() => {
     let live = true;
@@ -35,9 +36,54 @@ export const useTransactions = (): Load => {
     return () => {
       live = false;
     };
-  }, []);
+  }, [nonce]);
 
-  return load;
+  return [load, () => setNonce((n) => n + 1)];
+};
+
+type Refresh = {
+  busy: boolean;
+  note: string | null;
+  bad: boolean;
+  run: () => void;
+};
+
+export const useRefresh = (onDone: () => void): Refresh => {
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const [bad, setBad] = useState(false);
+
+  const run = () => {
+    setBusy(true);
+    setNote(null);
+    fetch("/api/refresh", {
+      method: "POST",
+      headers: { "X-Banking-Refresh": "1" },
+    })
+      .then(async (r) => {
+        const body = (await r.json()) as {
+          rows?: number;
+          fetched?: number;
+          stopped?: string | null;
+          error?: string;
+        };
+        if (body.error) throw new Error(body.error);
+        // A stopped run still wrote every file it got, so the rebuild stands.
+        setBad(!!body.stopped);
+        setNote(
+          body.stopped ??
+            `${body.fetched} file(s) fetched, ${body.rows} rows rebuilt.`,
+        );
+        onDone();
+      })
+      .catch((e: unknown) => {
+        setBad(true);
+        setNote(e instanceof Error ? e.message : String(e));
+      })
+      .finally(() => setBusy(false));
+  };
+
+  return { busy, note, bad, run };
 };
 
 export const THEMES = ["system", "light", "dark"] as const;

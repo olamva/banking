@@ -87,9 +87,15 @@ Both Node and the browser import everything under `src/core/`. That code must ha
 
 **Analysis never calls the API.** `src/net/` holds the fetching. Every later step reads `data/raw/`. **No file in `src/core/` may import from `src/net/`.** This includes an indirect import. Extend `sync` and run it again when an analysis step needs a field that the raw JSON does not hold.
 
-**The dev server never calls the API.** `/api/txns` lives in `vite.config.ts`. It reads only `data/banking.db`. No page view can cost a request. Run `pnpm sb1 sync` by hand to sync.
+**No page view costs a request.** `/api/txns` reads only `data/banking.db`. Only `/api/refresh` calls the API, and only a press of the Refresh button reaches it. Both live in `vite.config.ts`. Never make a request on load, on a filter, on a reload or on a timer.
 
-**Raw data is immutable.** Never rewrite a file under `data/raw/` in place. Sync again with `--force` when the bank restates a month.
+**`/api/refresh` is a POST, and it needs the `X-Banking-Refresh: 1` header.** The header is the guard. A custom header forces a preflight, and no preflight is answered. A page on another site therefore cannot make this machine spend its bank quota. Keep the guard on any endpoint that is added beside it.
+
+**Refresh syncs the whole record with `--force`, then rebuilds.** `syncAll` opens at the earliest `from` in `rules/accounts.json`. That is about four requests of the 60 an hour. One refresh runs at a time, and a second press joins the first. The CLI `sync` command is retired.
+
+**`pnpm dev` reads `.env.local` through `loadEnv`.** Vite runs the config, not `node --env-file`. `sb1.get` needs the credentials in `process.env`.
+
+**Raw data is immutable.** Never rewrite a file under `data/raw/` in place. Refresh forces every month again when the bank restates one.
 
 **The code ledgers every SB1 request against the count from the bank.** `sb1.get` and the token exchange call `budget.spend` before the request. They call `sb1.noteLimits` after it. Code that avoids `sb1.get` gets none of this, so always use `sb1.get`. There is no local cap and there must not be one. The quota refills continuously. A rolling window of our own timestamps refuses a request long after the bank permits it.
 
@@ -101,7 +107,7 @@ Both Node and the browser import everything under `src/core/`. That code must ha
 
 **The dependency list is short on purpose.** The dashboard uses React, Vite, Tailwind v4 and Hugeicons. Nothing else uses a dependency. Import Hugeicons one icon module at a time through `src/web/app/icons.ts`. Its barrel export is 6 MB, and no build step removes the unused parts. All server-side code uses the standard library: the built-in TS execution in Node, `fetch`, `node:sqlite` and the macOS `security` keychain. Do not add an ORM, a chart library, a component library, a state manager, a router or a date library. Ask first when you think the work needs another package.
 
-**There is no build step.** `pnpm dev` runs Vite. Vite serves the app and `/api/txns` from one config. The page is served only to localhost, which makes this safe. Do not add `vite build`. There is no production.
+**There is no build step.** `pnpm dev` runs Vite. Vite serves the app, `/api/txns` and `/api/refresh` from one config. The page is served only to localhost, which makes this safe. Do not add `vite build`. There is no production.
 
 **Money logic leaves a test behind.** Add one `node --test` case in `test/` for any code that signs, sums, excludes or categorises. Use no frameworks. Do not build fixtures from real transactions. The React components are deliberately simple to keep this possible. Put logic that needs a test in `src/core/`.
 

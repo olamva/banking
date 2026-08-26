@@ -11,6 +11,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import {
   accountKeys,
+  earliestMonth,
   monthsBetween,
   rangeCost,
   rangeToDate,
@@ -235,4 +236,23 @@ test("a numeric --force refetches, but leaves what this run already wrote", asyn
 
   assert.equal(await rangeCost(months, true), 2);
   assert.equal(await rangeCost(months, false), 1);
+});
+
+test("all time opens at the earliest account, and skips one that does not sync", () => {
+  assert.equal(
+    earliestMonth(
+      {
+        old: { mine: true, from: "2011-02", sync: false },
+        card: { mine: false, from: "2026-02" },
+        main: { mine: true, from: "2016-08" },
+        noFrom: { mine: true },
+      },
+      "2020-01",
+    ),
+    "2016-08",
+  );
+});
+
+test("all time falls back when no account names a first month", () => {
+  assert.equal(earliestMonth({ a: { mine: true } }, "2020-01"), "2020-01");
 });

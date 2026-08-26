@@ -2,7 +2,7 @@ import { existsSync, statSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import type { Accounts } from "../core/exclude.ts";
 import { osloDate } from "../core/normalize.ts";
-import { RAW } from "../core/pipeline.ts";
+import { monthsOnDisk, RAW } from "../core/pipeline.ts";
 import { BudgetExhausted, remaining } from "./budget.ts";
 import { get, monthRange, RateLimited } from "./sb1.ts";
 
@@ -37,6 +37,8 @@ export const thisMonth = (today = new Date()): string =>
 const fileFor = (month: string, key: string) => `${RAW}/${month}/${key}.json`;
 
 export type Force = boolean | number;
+
+export type SyncResult = { fetched: number; stopped: string | null };
 
 const fresh = (file: string, force: Force): boolean => {
   if (!existsSync(file)) return false;
@@ -178,7 +180,7 @@ export async function syncRange(
   from: string,
   to: string,
   force: Force = false,
-): Promise<void> {
+): Promise<SyncResult> {
   const months = monthsBetween(from, to);
   const parts = spans(months);
   const files = await rangeCost(months, force);
@@ -209,20 +211,34 @@ export async function syncRange(
     } catch (e) {
       if (!(e instanceof BudgetExhausted) && !(e instanceof RateLimited))
         throw e;
-      console.error(`\n${e.message}`);
-      console.error(
-        `stopped at ${part[0]}..${part.at(-1)}. ${fetched} files fetched — re-run to carry on.`,
-      );
-      return;
+      const stopped =
+        `${e.message} Stopped at ${part[0]}..${part.at(-1)}, ` +
+        `${fetched} files fetched. Refresh again to carry on.`;
+      console.error(`\n${stopped}`);
+      return { fetched, stopped };
     }
   }
   console.error(`\n${fetched} files fetched across ${months.length} months.`);
+  return { fetched, stopped: null };
 }
 
-export async function syncMonth(
-  month: string,
-  force: Force = false,
-  onFile?: () => void,
-): Promise<number> {
-  return syncSpan([month], force, onFile);
+export function earliestMonth(accounts: Accounts, fallback: string): string {
+  const froms = Object.values(accounts)
+    .filter((a) => a.sync !== false)
+    .map((a) => a.from)
+    .filter((m): m is string => !!m)
+    .sort();
+  return froms[0] ?? fallback;
+}
+
+export async function syncAll(force: Force = true): Promise<SyncResult> {
+  const accounts: Accounts = JSON.parse(
+    await readFile("rules/accounts.json", "utf8"),
+  );
+  const now = thisMonth();
+  return syncRange(
+    earliestMonth(accounts, monthsOnDisk()[0] ?? now),
+    now,
+    force,
+  );
 }
