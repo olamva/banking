@@ -228,4 +228,6 @@ There is no separate mobile page, and there must not be one. Use one layout that
 
 Deleting only the affected month does not fix this either. A directory that owns its month is a property of the current endpoints. It is not an invariant.
 
+**No sort may break a tie on `id`.** The id is new after every fetch, so it puts one day's rows in a new order after every sync. `queryRange` therefore orders on content: month, date, account, amount, description. The id stays last, to make the order of two identical rows fixed rather than undefined. The page sorts by date alone, and a JavaScript sort is stable, so this order is the order a reader sees inside a day.
+
 At a few thousand rows this takes a few hundred milliseconds. Revisit it when that stops being true, and not before.
