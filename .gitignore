@@ -20,3 +20,5 @@ data
 
 # hand-edited local rules — they carry account keys, names and descriptions
 rules
+.vercel
+.env*
