@@ -26,7 +26,7 @@ type Refreshed = { rows: number; fetched: number; stopped: string | null };
 async function refresh(): Promise<Refreshed> {
   const { syncAll } = await import("./src/net/sync.ts");
   const { rebuildAll } = await import("./src/core/pipeline.ts");
-  const { fetched, stopped } = await syncAll(true);
+  const { fetched, stopped } = await syncAll();
   return { rows: await rebuildAll(), fetched, stopped };
 }
 

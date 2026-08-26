@@ -31,7 +31,7 @@ pnpm dev --port 4001                # the main checkout uses 4000
 
 ## Commands
 
-**Refresh on the dashboard is how you get new transactions.** It syncs the whole record again and rebuilds the database. It is the only control on the page that touches the network.
+**Refresh on the dashboard is how you get new transactions.** It sweeps the whole record, fetches the months that can still change, and rebuilds the database. It is the only control on the page that touches the network. A typical press is one request.
 
 ```bash
 # online. These are the only commands that touch the network
@@ -48,7 +48,7 @@ pnpm test                           # node --test, no framework
 pnpm typecheck
 ```
 
-A card transaction posts late, and it arrives pending first. A month is therefore final only a few days after it ends. The code drops a pending row rather than counting it. Press Refresh again to collect the tail, because every refresh forces every month.
+A card transaction posts late, and it arrives pending first. A month is therefore final only a few days after it ends. The code drops a pending row rather than counting it. Press Refresh again to collect the tail. A refresh always asks for the months that have not closed.
 
 ## The dashboard
 
@@ -62,7 +62,13 @@ A card transaction posts late, and it arrives pending first. A month is therefor
 
 **The page lists subscriptions per subscription**, not per charge. Each line shows what it is, what it costs each month, what it has taken across the window, and when it last went out. _Per month_ shows the **last payment**, not the average. An old price inside an average shows what a subscription has cost. The question is what it costs now.
 
-**Refresh pulls the record again and rebuilds.** It is a button in the header. It syncs every month from the earliest account with `--force`, so a restated month and a late card row both arrive. It then rebuilds `data/banking.db` and reloads the page. It reports what it fetched, or why it stopped. One refresh runs at a time.
+**Refresh pulls what can still change, and rebuilds.** It is a button in the header. It then rebuilds `data/banking.db` and reloads the page. It reports what it fetched, or why it stopped. One refresh runs at a time.
+
+**A file written after its month closed is never fetched again.** A month closes four days after it ends, which is the window a late card row books in. Only the open months therefore cost a request. The rule reads the file, not the calendar: a month that closed while its file was captured mid-month is fetched once more, because that file is missing the rest of the month.
+
+The rebuild is whole every time, and it is the slow half now: about a second for the record.
+
+**To make the bank restate a month, delete it.** There is no force flag. Remove `data/raw/<month>/*.json` and press Refresh. `pnpm sb1 reconcile` is what tells you a month is owed.
 
 **Never share the dashboard.** It holds every transaction you have, and so does a screenshot. The server binds to `127.0.0.1`. Keep it there.
 
@@ -72,7 +78,7 @@ A card transaction posts late, and it arrives pending first. A month is therefor
 
 The SB1 quota is 60 requests each hour for each API. Every response publishes `x-ratelimit-remaining`. The quota refills continuously. It does not hold each call against you for a full hour. `data/api-budget.json` keeps the last figure and its timestamp, and it derives the rest. `sb1.get` refuses when the bank reports zero. The 429 response is the brake when nothing is on disk.
 
-A refresh prices the whole span first. It stops rather than fails, and a second press resumes it. `accountKey` is repeatable, and the date range may be five years wide. **A span therefore costs one request for each five years, and it covers every account.** The whole record costs about four requests rather than one for each month.
+A refresh prices the whole sweep first, and the pricing costs nothing. It stops rather than fails, and a second press resumes it. `accountKey` is repeatable, and the date range may be five years wide, so **one request covers up to five years and every account**. A span with nothing owed makes no request at all, and the request that is made asks only for the months owed. A refresh with one open month is therefore one request, whatever the record holds behind it.
 
 ## Categories
 
