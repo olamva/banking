@@ -130,6 +130,29 @@ test("openDb on an existing file is idempotent and keeps prior data", () => {
   }
 });
 
+// SB1 mints a new id for a transaction every time the code fetches it. A sort
+// that breaks a tie on id therefore reshuffles one day's rows on every refresh.
+test("rows on one date keep their order when every id changes", () => {
+  const day = "2026-07-15";
+  const three = (ids: [string, string, string]) => [
+    row({ id: ids[0], date: day, amount: -50, description: "Rema" }),
+    row({ id: ids[1], date: day, amount: -20, description: "Narvesen" }),
+    row({ id: ids[2], date: day, amount: -90, description: "Coop" }),
+  ];
+  const seen = (rows: ReturnType<typeof three>) => {
+    const db = openDb(":memory:");
+    rebuild(db, rows);
+    const out = queryRange(db, "2026-07", "2026-07").map((t) => t.description);
+    db.close();
+    return out;
+  };
+
+  const first = seen(three(["zzz", "mmm", "aaa"]));
+  const second = seen(three(["aaa", "zzz", "mmm"]));
+  assert.deepEqual(second, first);
+  assert.equal(new Set(first).size, 3, "all three rows survive");
+});
+
 test("the bank pair, its names and its confidence round-trip, subcategory included", () => {
   const db = openDb(":memory:");
   const populated = row({

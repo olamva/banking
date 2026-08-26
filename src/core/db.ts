@@ -161,6 +161,12 @@ function toCategorized(row: Row): Categorized {
 }
 
 // Both bounds are inclusive. A month is YYYY-MM, so a string compare sorts it.
+// The tie-break is content, never id alone: SB1 mints a new id on every fetch,
+// so ordering one day's rows by id reshuffles them after each sync. The page
+// sorts by date only, and its sort is stable, so this order is what a reader
+// sees inside a day.
+const ORDER = "ORDER BY month, date, accountKey, amount, description, id";
+
 export function queryRange(
   db: DatabaseSync,
   fromMonth: string,
@@ -168,7 +174,7 @@ export function queryRange(
 ): Categorized[] {
   const rows = db
     .prepare(
-      "SELECT * FROM transactions WHERE month >= ? AND month <= ? ORDER BY month, date, id",
+      `SELECT * FROM transactions WHERE month >= ? AND month <= ? ${ORDER}`,
     )
     .all(fromMonth, toMonth) as unknown as Row[];
   return rows.map(toCategorized);

@@ -13,12 +13,14 @@ node_modules
 # guard against one ever landing loose rather than covering a directory of them.
 *.pem
 *.key
-.env.local
+.env*
 
 # personal data: raw API responses, the derived database, the dashboard
 data
 
 # hand-edited local rules — they carry account keys, names and descriptions
 rules
+
+# the Vercel CLI working directory. It holds the built site and whatever
+# `vercel env pull` writes, so it carries both transactions and secrets.
 .vercel
-.env*

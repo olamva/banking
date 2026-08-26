@@ -11,7 +11,11 @@ import { join } from "node:path";
 import { test } from "node:test";
 import {
   accountKeys,
+  closesAt,
+  earliestMonth,
   monthsBetween,
+  owedMonths,
+  settled,
   rangeCost,
   rangeToDate,
   spans,
@@ -95,20 +99,15 @@ test("a span costs the files it is missing, not the months it covers", async (t)
   );
   const months = ["2026-06", "2026-07"];
 
-  assert.equal(await rangeCost(months, false), 4);
+  assert.equal(await rangeCost(months), 4);
 
   mkdirSync("data/raw/2026-06", { recursive: true });
   writeFileSync("data/raw/2026-06/a.json", "{}");
-  assert.equal(await rangeCost(months, false), 3);
-  assert.equal(await rangeCost(months, true), 4);
+  assert.equal(await rangeCost(months), 3);
 
-  assert.equal(await rangeCost(months, 60), 3);
-  utimesSync(
-    "data/raw/2026-06/a.json",
-    new Date(),
-    new Date(Date.now() - 2 * 3600_000),
-  );
-  assert.equal(await rangeCost(months, 60), 4);
+  // Captured while June was still open, so June can still gain a row.
+  utimesSync("data/raw/2026-06/a.json", new Date(), new Date("2026-06-20"));
+  assert.equal(await rangeCost(months), 4);
 });
 
 test("an account is not fetched for months before it opened", async (t) => {
@@ -132,10 +131,7 @@ test("an account is not fetched for months before it opened", async (t) => {
   assert.deepEqual(await accountKeys("2026-01"), ["old"]);
   assert.deepEqual(await accountKeys(), ["old", "card"]);
 
-  assert.equal(
-    await rangeCost(["2025-12", "2026-01", "2026-02"], false),
-    1 + 1 + 2,
-  );
+  assert.equal(await rangeCost(["2025-12", "2026-01", "2026-02"]), 1 + 1 + 2);
 });
 
 test("a missing --to means the month we are standing in", () => {
@@ -210,29 +206,69 @@ test("a span response splits into one bucket per month per account", () => {
   );
 });
 
-test("a numeric --force refetches, but leaves what this run already wrote", async (t) => {
-  const dir = mkdtempSync(join(tmpdir(), "sync-force-"));
-  const cwd = process.cwd();
-  process.chdir(dir);
-  t.after(() => {
-    process.chdir(cwd);
-    rmSync(dir, { recursive: true, force: true });
-  });
-  mkdirSync("rules", { recursive: true });
-  writeFileSync(
-    "rules/accounts.json",
-    JSON.stringify({ a: { mine: true }, b: { mine: true } }),
+test("a month closes four days after it ends, December included", () => {
+  assert.equal(closesAt("2026-01"), Date.UTC(2026, 1, 5));
+  assert.equal(closesAt("2026-12"), Date.UTC(2027, 0, 5));
+});
+
+test("a file is settled only when it was written after its month closed", (t) => {
+  const dir = mkdtempSync(join(tmpdir(), "sync-settled-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const file = join(dir, "a.json");
+
+  assert.equal(
+    settled(file, "2026-06"),
+    false,
+    "a missing file is never settled",
   );
-  mkdirSync("data/raw/2026-06", { recursive: true });
-  writeFileSync("data/raw/2026-06/a.json", "{}");
 
-  const months = ["2026-06"];
-  assert.equal(await rangeCost(months, 60), 1);
+  writeFileSync(file, "{}");
+  const after = new Date(closesAt("2026-06") + 86_400_000);
+  utimesSync(file, after, after);
+  assert.equal(settled(file, "2026-06"), true);
 
-  const twoHoursAgo = new Date(Date.now() - 2 * 3600_000);
-  utimesSync("data/raw/2026-06/a.json", twoHoursAgo, twoHoursAgo);
-  assert.equal(await rangeCost(months, 60), 2);
+  const during = new Date(closesAt("2026-06") - 86_400_000);
+  utimesSync(file, during, during);
+  assert.equal(settled(file, "2026-06"), false);
+});
 
-  assert.equal(await rangeCost(months, true), 2);
-  assert.equal(await rangeCost(months, false), 1);
+// The trap this rule exists to avoid: a month captured while it was open would
+// otherwise be skipped forever, and it would keep the rows it was missing.
+test("the open month is never settled, however new the file is", (t) => {
+  const dir = mkdtempSync(join(tmpdir(), "sync-open-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const file = join(dir, "a.json");
+  writeFileSync(file, "{}");
+  assert.equal(settled(file, thisMonth()), false);
+});
+
+test("the request covers the months owed, not the bucket they sit in", () => {
+  assert.deepEqual(
+    owedMonths(
+      new Map([
+        ["a", ["2026-08"]],
+        ["b", ["2026-07", "2026-08"]],
+      ]),
+    ),
+    ["2026-07", "2026-08"],
+  );
+});
+
+test("all time opens at the earliest account, and skips one that does not sync", () => {
+  assert.equal(
+    earliestMonth(
+      {
+        old: { mine: true, from: "2011-02", sync: false },
+        card: { mine: false, from: "2026-02" },
+        main: { mine: true, from: "2016-08" },
+        noFrom: { mine: true },
+      },
+      "2020-01",
+    ),
+    "2016-08",
+  );
+});
+
+test("all time falls back when no account names a first month", () => {
+  assert.equal(earliestMonth({ a: { mine: true } }, "2020-01"), "2020-01");
 });

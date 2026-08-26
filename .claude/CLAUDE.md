@@ -98,7 +98,8 @@ src/cli.ts            command dispatch
 
 middleware.ts     the Vercel gate. It runs before every request but the sign-in
 api/auth/         login, callback, logout. Edge functions, Vercel only
-vite.config.ts    pnpm dev. The app, plus /api/txns. Also the build, to deploy
+api/refresh.ts    the hosted refresh. It calls no bank. It explains why
+vite.config.ts    pnpm dev. The app, /api/txns and /api/refresh. Also the build
 vercel.json       framework, build command, the /api/txns rewrite, headers
 types/            declaration stubs for what a dependency fails to bring
 test/             node --test, mirroring src/
@@ -118,9 +119,23 @@ Both Node and the browser import everything under `src/core/`. That code must ha
 
 **Analysis never calls the API.** `src/net/` holds the fetching. Every later step reads `data/raw/`. **No file in `src/core/` may import from `src/net/`.** This includes an indirect import. Extend `sync` and run it again when an analysis step needs a field that the raw JSON does not hold.
 
-**The dev server never calls the API.** `/api/txns` lives in `vite.config.ts`. It reads only `data/banking.db`. No page view can cost a request. Run `pnpm sb1 sync` by hand to sync.
+**No page view costs a request.** `/api/txns` reads only `data/banking.db`. Only `/api/refresh` calls the API, and only a press of the Refresh button reaches it. Both live in `vite.config.ts`. Never make a request on load, on a filter, on a reload or on a timer.
 
-**Raw data is immutable.** Never rewrite a file under `data/raw/` in place. Sync again with `--force` when the bank restates a month.
+**`/api/refresh` is a POST, and it needs the `X-Banking-Refresh: 1` header.** The header is the guard. A custom header forces a preflight, and no preflight is answered. A page on another site therefore cannot make this machine spend its bank quota. Keep the guard on any endpoint that is added beside it.
+
+**Refresh sweeps the whole record, then rebuilds.** `syncAll` opens at the earliest `from` in `rules/accounts.json` and runs to this month. One refresh runs at a time, and a second press joins the first. The CLI `sync` command is retired.
+
+**A file written after its month closed is never fetched again.** That is the whole staleness rule, and `settled()` is all of it. `closesAt` puts the close four days after the month ends, because SB1 dates a card row by the purchase and the booking follows up to three days later. The open months therefore cost a request and no others do. A typical refresh is one request for one month.
+
+**The rule tests the file, not the calendar.** A month that is closed _now_ may still hold a file that was captured while it was open, and that file is missing rows. A plain "old month, file exists, skip" would keep it missing forever. Compare the mtime against the close of that month. Never against a fixed horizon.
+
+**The request asks for the months owed, not for the span they sit in.** `spans` cuts the sweep into five-year buckets, because that is the ceiling of the endpoint. `syncSpan` then narrows `fromDate`/`toDate` to `owedMonths(plan)`. Without that, one open month re-reads five years.
+
+**Deleting a raw file is how you make the bank restate one.** No force flag exists. Remove `data/raw/<month>/*.json` and press Refresh. `reconcile` is what tells you a month is owed.
+
+**`pnpm dev` reads `.env.local` through `loadEnv`.** Vite runs the config, not `node --env-file`. `sb1.get` needs the credentials in `process.env`.
+
+**Raw data is immutable.** Never rewrite a file under `data/raw/` in place. Delete the month and press Refresh when the bank restates one.
 
 **The code ledgers every SB1 request against the count from the bank.** `sb1.get` and the token exchange call `budget.spend` before the request. They call `sb1.noteLimits` after it. Code that avoids `sb1.get` gets none of this, so always use `sb1.get`. There is no local cap and there must not be one. The quota refills continuously. A rolling window of our own timestamps refuses a request long after the bank permits it.
 
@@ -147,6 +162,15 @@ Both Node and the browser import everything under `src/core/`. That code must ha
 **The deploy builds here and uploads the output alone.** `pnpm deploy:web` runs `vercel build` and then `vercel deploy --prebuilt`. Only `.vercel/output` leaves this machine. `data/raw/`, `data/banking.db` and `rules/` never do. Never deploy from git and never let Vercel build the project itself, because a remote build would need the raw data uploaded to reach it.
 
 **Every file that holds transactions sits under `data/`.** This includes `data/web/txns.json` and the whole build output at `data/dist/`. The gitignore already refuses `data`, so no build output can land on a tracked path. Keep `outputDirectory` and `publicDir` inside `data/`. Moving either one out of `data/` puts every transaction one `git add` away from GitHub.
+
+**The hosted deployment never calls SpareBank 1, and it cannot.** `/api/refresh` works under `pnpm dev` alone. Four separate things stop it on Vercel, and the last one is decisive:
+
+1. The refresh token lives in the macOS keychain, through the `security` binary. Vercel runs Linux.
+2. `syncAll` writes `data/raw/` and reads the mtime of each file to decide what is settled. A Vercel function has a read-only filesystem, and `/tmp` disappears between calls.
+3. `rules/accounts.json` names the accounts to sync. That file deliberately never leaves this machine.
+4. **The SB1 refresh token rotates on every exchange.** Two clients cannot hold one rotating token. Each use kills the other copy. A refresh on Vercel therefore breaks `pnpm sb1 sync` here, and the next local sync breaks Vercel. BankID is the only way back.
+
+Point 4 is not a problem of effort. Do not try to solve it with a token in an environment variable. **The bank calls happen on this machine. The deployment may ask for a refresh. It may never perform one.**
 
 **Money logic leaves a test behind.** Add one `node --test` case in `test/` for any code that signs, sums, excludes or categorises. Use no frameworks. Do not build fixtures from real transactions. The React components are deliberately simple to keep this possible. Put logic that needs a test in `src/core/`.
 
@@ -238,7 +262,7 @@ An entry may carry `sync: false`. That means the entry exists for its _number_ a
 
 **A floor makes itself unfalsifiable.** A `from` value stops every sweep from asking below it. No empty files exist to prove it right. To test one, remove it and sweep again.
 
-**`pnpm sb1 reconcile` is the one check that looks outside the repo.** It compares the opening balance plus every row against the balance that the bank reports. It runs per account, and it runs offline. Every other check here shows the raw data agreeing with itself. A rule that quietly drops rows agrees with itself perfectly. `reconcile` takes `Txn` **before any flag is set, and it counts excluded rows**. Money moved whether or not it counts as earning or spending. Try these causes for a gap, in this order: the balances are stale, rows are missing, or an `opening` value is missing.
+**`pnpm sb1 reconcile` is the one check that looks outside the repo.** It compares the opening balance plus every row against the balance that the bank reports. It runs per account, and it runs offline. Every other check here shows the raw data agreeing with itself. A rule that quietly drops rows agrees with itself perfectly. `reconcile` takes `Txn` **before any flag is set, and it counts excluded rows**. Money moved whether or not it counts as earning or spending. Try these causes for a gap, in this order: the balances are stale, rows are missing, or an `opening` value is missing. Delete the months you doubt and press Refresh when rows are missing.
 
 **Every excluded reason must net to zero across its pair.** `investment movement` is the one exception. That check runs at every `rebuild`. `netByReason` sums the excluded rows by reason, and it warns on any non-zero result. The two card-bill legs fold into one bucket first, because they are one pair with two names.
 
@@ -272,5 +296,7 @@ There is no separate mobile page, and there must not be one. Use one layout that
 `rebuild` empties the table and builds it again from `data/raw/`. There is no incremental path. Adding one back needs more thought than it appears to need. **SB1 gives a transaction a new id every time the code fetches it.** It gives another new id when a reservation books. Nothing keyed on `id` is therefore stable across syncs. An upsert cannot detect a row that it did not produce.
 
 Deleting only the affected month does not fix this either. A directory that owns its month is a property of the current endpoints. It is not an invariant.
+
+**No sort may break a tie on `id`.** The id is new after every fetch, so it puts one day's rows in a new order after every sync. `queryRange` therefore orders on content: month, date, account, amount, description. The id stays last, to make the order of two identical rows fixed rather than undefined. The page sorts by date alone, and a JavaScript sort is stable, so this order is the order a reader sees inside a day.
 
 At a few thousand rows this takes a few hundred milliseconds. Revisit it when that stops being true, and not before.

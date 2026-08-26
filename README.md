@@ -31,41 +31,30 @@ pnpm dev --port 4001                # the main checkout uses 4000
 
 ## Commands
 
+**Refresh on the dashboard is how you get new transactions.** It sweeps the whole record, fetches the months that can still change, and rebuilds the database. It is the only control on the page that touches the network. A typical press is one request.
+
 ```bash
 # online. These are the only commands that touch the network
 pnpm sb1 login                      # BankID in the browser. Refresh token to the keychain
 pnpm sb1 accounts                   # writes data/raw/accounts.json and rules/accounts.json
-pnpm sb1 sync --month YYYY-MM       # one file for each account. Skips a file that exists
-pnpm sb1 sync --month YYYY-MM --force
-pnpm sb1 sync --month YYYY-MM --stale 60  # a force that resumes. Keeps files under 60 min old
-pnpm sb1 sync --from 2022 --to 2026  # a whole span. Either end may be YYYY-MM
-pnpm sb1 sync --from 2022            # --to defaults to this month
-                                     # a span costs ONE request for each five years, all accounts
 
 # offline
-pnpm sb1 rebuild                    # rebuild data/banking.db from data/raw/
+pnpm sb1 rebuild                    # rebuild data/banking.db from data/raw/, after a rules edit
 pnpm sb1 reconcile                  # does the history explain the balances?
 pnpm sb1 budget                     # what SB1 last reported as left of its limit
 pnpm sb1 export                     # data/banking.db -> data/web/txns.json
 pnpm deploy:web                     # export, build and upload to Vercel
 
-pnpm dev                            # the dashboard on :4000, offline
+pnpm dev                            # the dashboard on :4000
 pnpm test                           # node --test, no framework
 pnpm typecheck
 ```
 
-A typical month:
-
-```bash
-pnpm sb1 sync --month 2026-08
-pnpm sb1 rebuild
-```
-
-A card transaction posts late, and it arrives pending first. A month is therefore final only a few days after it ends. The code drops a pending row rather than counting it. Run the sync again with `--force` to collect the tail.
+A card transaction posts late, and it arrives pending first. A month is therefore final only a few days after it ends. The code drops a pending row rather than counting it. Press Refresh again to collect the tail. A refresh always asks for the months that have not closed.
 
 ## The dashboard
 
-`pnpm dev` runs Vite. The app is `src/web/app/`. `/api/txns` is a plugin in `vite.config.ts`. It reads the database again for each request, so a `rebuild` in another terminal appears on reload. The browser computes everything, because the page imports `src/core/stats.ts` directly. The page therefore aggregates with the code that the tests pin. Local work needs no build step.
+`pnpm dev` runs Vite. The app is `src/web/app/`. `/api/txns` and `/api/refresh` are one plugin in `vite.config.ts`. `/api/txns` reads the database again for each request, so a `rebuild` in another terminal appears on reload. The browser computes everything, because the page imports `src/core/stats.ts` directly. The page therefore aggregates with the code that the tests pin. Local work needs no build step.
 
 **Two views over one period.** _Dashboard_ shows the tiles and the charts. _Transactions_ shows the rows behind them. One pair of pickers chooses what both views show. A delta compares against **one year back**. Spending has a shape over a year that the month before cannot show. January against December says only that Christmas happened. A period that still runs compares against the same slice one year back. Without that, every delta would read as a collapse that the calendar drew.
 
@@ -74,6 +63,14 @@ A card transaction posts late, and it arrives pending first. A month is therefor
 **Categories, merchants, accounts and countries each filter as two lists.** A click includes. A meta-click excludes. An exclusion wins. Click any number of them. None means all. A bar, a table cell or a menu entry filters to itself.
 
 **The page lists subscriptions per subscription**, not per charge. Each line shows what it is, what it costs each month, what it has taken across the window, and when it last went out. _Per month_ shows the **last payment**, not the average. An old price inside an average shows what a subscription has cost. The question is what it costs now.
+
+**Refresh pulls what can still change, and rebuilds.** It is a button in the header. It then rebuilds `data/banking.db` and reloads the page. It reports what it fetched, or why it stopped. One refresh runs at a time. **It works under `pnpm dev` alone.** The hosted page explains why instead, below.
+
+**A file written after its month closed is never fetched again.** A month closes four days after it ends, which is the window a late card row books in. Only the open months therefore cost a request. The rule reads the file, not the calendar: a month that closed while its file was captured mid-month is fetched once more, because that file is missing the rest of the month.
+
+The rebuild is whole every time, and it is the slow half now: about a second for the record.
+
+**To make the bank restate a month, delete it.** There is no force flag. Remove `data/raw/<month>/*.json` and press Refresh. `pnpm sb1 reconcile` is what tells you a month is owed.
 
 **Never share the dashboard.** It holds every transaction you have, and so does a screenshot. It has two homes and no third one: `127.0.0.1` here, and the private Vercel deployment below.
 
@@ -110,13 +107,21 @@ pnpm deploy:web
 
 A missing variable denies everybody. That is the correct failure. To sign every open session out at once, change `SESSION_SECRET` and deploy. Removing an address stops the next sign-in, and it does not end a session that already runs. `/api/auth/logout` clears the cookie in one browser.
 
+### Refresh does not work on the hosted page
+
+The button is there, and it answers with an explanation. The deployment cannot call SpareBank 1. The refresh token lives in the macOS keychain, `syncAll` writes `data/raw/` and reads its mtimes, and `rules/accounts.json` never leaves this machine.
+
+The token is the part that no amount of work fixes. **SB1 rotates the refresh token on every exchange.** Two clients cannot share one. A refresh on Vercel would kill the token here, and the next sync here would kill the one there. BankID would be the only way back, every time.
+
+So the bank calls stay on this machine. Run the refresh under `pnpm dev`, then `pnpm deploy:web` to put the result on the phone.
+
 ### Staying inside the rate limit
 
-**`pnpm dev` never touches the network.** You run the sync as a command. No number of tabs, reloads or restarts therefore costs a request.
+**Only Refresh touches the network.** No number of tabs, reloads, filters or restarts costs a request.
 
 The SB1 quota is 60 requests each hour for each API. Every response publishes `x-ratelimit-remaining`. The quota refills continuously. It does not hold each call against you for a full hour. `data/api-budget.json` keeps the last figure and its timestamp, and it derives the rest. `sb1.get` refuses when the bank reports zero. The 429 response is the brake when nothing is on disk.
 
-`sync --from …` prices the whole span first and reports how far it expects to get. It stops rather than fails, and a second run resumes it. It is rarely near the limit. `accountKey` is repeatable, and the date range may be five years wide. **A span therefore costs one request for each five years, and it covers every account.** The whole record from 2018 costs two requests rather than 455.
+A refresh prices the whole sweep first, and the pricing costs nothing. It stops rather than fails, and a second press resumes it. `accountKey` is repeatable, and the date range may be five years wide, so **one request covers up to five years and every account**. A span with nothing owed makes no request at all, and the request that is made asks only for the months owed. A refresh with one open month is therefore one request, whatever the record holds behind it.
 
 ## Categories
 
