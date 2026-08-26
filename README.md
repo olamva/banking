@@ -46,6 +46,8 @@ pnpm sb1 sync --from 2022            # --to defaults to this month
 pnpm sb1 rebuild                    # rebuild data/banking.db from data/raw/
 pnpm sb1 reconcile                  # does the history explain the balances?
 pnpm sb1 budget                     # what SB1 last reported as left of its limit
+pnpm sb1 export                     # data/banking.db -> data/web/txns.json
+pnpm deploy:web                     # export, build and upload to Vercel
 
 pnpm dev                            # the dashboard on :4000, offline
 pnpm test                           # node --test, no framework
@@ -63,7 +65,7 @@ A card transaction posts late, and it arrives pending first. A month is therefor
 
 ## The dashboard
 
-`pnpm dev` runs Vite. The app is `src/web/app/`. `/api/txns` is a plugin in `vite.config.ts`. It reads the database again for each request, so a `rebuild` in another terminal appears on reload. The browser computes everything, because the page imports `src/core/stats.ts` directly. The page therefore aggregates with the code that the tests pin. There is no build step and no `dist/`.
+`pnpm dev` runs Vite. The app is `src/web/app/`. `/api/txns` is a plugin in `vite.config.ts`. It reads the database again for each request, so a `rebuild` in another terminal appears on reload. The browser computes everything, because the page imports `src/core/stats.ts` directly. The page therefore aggregates with the code that the tests pin. Local work needs no build step.
 
 **Two views over one period.** _Dashboard_ shows the tiles and the charts. _Transactions_ shows the rows behind them. One pair of pickers chooses what both views show. A delta compares against **one year back**. Spending has a shape over a year that the month before cannot show. January against December says only that Christmas happened. A period that still runs compares against the same slice one year back. Without that, every delta would read as a collapse that the calendar drew.
 
@@ -73,7 +75,40 @@ A card transaction posts late, and it arrives pending first. A month is therefor
 
 **The page lists subscriptions per subscription**, not per charge. Each line shows what it is, what it costs each month, what it has taken across the window, and when it last went out. _Per month_ shows the **last payment**, not the average. An old price inside an average shows what a subscription has cost. The question is what it costs now.
 
-**Never share the dashboard.** It holds every transaction you have, and so does a screenshot. The server binds to `127.0.0.1`. Keep it there.
+**Never share the dashboard.** It holds every transaction you have, and so does a screenshot. It has two homes and no third one: `127.0.0.1` here, and the private Vercel deployment below.
+
+## The hosted dashboard
+
+The same page runs on Vercel, behind Google sign-in, so that a phone can read it away from this wifi. Only an address in `ALLOWED_EMAILS` gets in.
+
+`middleware.ts` is the gate. It runs before every request except the sign-in routes, and it refuses a request with no valid session cookie. The page bundle and the transactions are both static files, so the gate is the only thing that holds them. `src/auth/session.ts` holds the cookie, the HMAC and the allowlist. There is no auth library, and `test/auth/session.test.ts` pins every refusal.
+
+The deploy builds here and uploads the output alone:
+
+```bash
+pnpm sb1 rebuild
+pnpm deploy:web
+```
+
+`data/raw/`, `data/banking.db` and `rules/` never leave this machine. `data/dist/` does, and it holds every transaction. That is why the gate exists. Every file that carries transactions sits under `data/`, which the gitignore refuses, so no build output can reach git.
+
+### Setting it up
+
+1. Create a Google Cloud project. Open **APIs and Services**, then **Credentials**. Create an **OAuth client ID** of type **Web application**.
+2. Deploy one time with `pnpm deploy:web` to learn the domain. The page will not sign in yet.
+3. Add `https://<domain>/api/auth/callback` to the **Authorised redirect URIs** of the client. It must match exactly.
+4. Set four variables on the Vercel project, with `vercel env add` or the dashboard:
+
+   | Variable               | What it is                                          |
+   | ---------------------- | --------------------------------------------------- |
+   | `GOOGLE_CLIENT_ID`     | the OAuth client                                    |
+   | `GOOGLE_CLIENT_SECRET` | its secret                                          |
+   | `SESSION_SECRET`       | 32 random bytes, `openssl rand -base64 32`          |
+   | `ALLOWED_EMAILS`       | the addresses that may sign in, separated by commas |
+
+5. Deploy again.
+
+A missing variable denies everybody. That is the correct failure. To sign every open session out at once, change `SESSION_SECRET` and deploy. Removing an address stops the next sign-in, and it does not end a session that already runs. `/api/auth/logout` clears the cookie in one browser.
 
 ### Staying inside the rate limit
 
@@ -124,12 +159,15 @@ A person-to-person Vipps payment needs **no rule**. The code cannot match a bare
 src/net/       may make requests
 src/core/      may not. Both Node and the browser import it
 src/web/app/   the React app
+src/auth/      the hosted gate: cookie, session, allowlist. Pure and tested
 src/cli.ts     command dispatch
-vite.config.ts pnpm dev: the app plus /api/txns
+middleware.ts  the Vercel gate, above every request but the sign-in
+api/auth/      login, callback, logout. Vercel only
+vite.config.ts pnpm dev: the app plus /api/txns. Also the deploy build
 test/          node --test, mirroring src/
 rules/         hand-edited JSON, gitignored
 ```
 
-The dashboard uses React, Vite and Tailwind. Everything else uses the Node standard library, including SQLite, HTTP and TypeScript execution. There is no ORM, no chart library, no component library and no state manager. The charts are hand-written SVG. `data/raw/` is the source of truth, and the code never rewrites it in place. The database is derived, and you may delete it at any time. Analysis never calls the API. Any code that sums money leaves a test behind.
+The dashboard uses React, Vite and Tailwind. `@vercel/functions` supplies one call that Vercel middleware cannot work without. Everything else uses the Node standard library, including SQLite, HTTP and TypeScript execution. The sign-in uses Web Crypto and no auth library. There is no ORM, no chart library, no component library and no state manager. The charts are hand-written SVG. `data/raw/` is the source of truth, and the code never rewrites it in place. The database is derived, and you may delete it at any time. Analysis never calls the API. Any code that sums money leaves a test behind.
 
 `.claude/CLAUDE.md` holds the rest, including the exclusion rules and the reasons for them.

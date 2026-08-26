@@ -1,0 +1,13 @@
+{
+  "id": "ab47286c",
+  "ts": "2026-08-26T21:59:27+00:00",
+  "text": "@vercel/functions 3.9.5 ships websocket types importing 'ws' but does not depend on it \u2014 tsc --noEmit fails with TS2307 on a clean install; needed a declare module stub",
+  "tags": [
+    "deps",
+    "types"
+  ],
+  "who": "agent",
+  "model": "opus-5",
+  "session": "a7a8dbc1",
+  "where": "node_modules/@vercel/functions/index.d.ts"
+}

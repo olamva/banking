@@ -18,6 +18,7 @@ import type { Categorized } from "./types.ts";
 
 export const DB_FILE = "data/banking.db";
 export const RAW = "data/raw";
+export const WEB = "data/web";
 
 export function monthsOnDisk(): string[] {
   return readdirSync(RAW, { withFileTypes: true })

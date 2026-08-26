@@ -1,9 +1,10 @@
 import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
 import { openDb, queryRange } from "./src/core/db.ts";
-import { DB_FILE } from "./src/core/pipeline.ts";
+import { DB_FILE, WEB } from "./src/core/pipeline.ts";
 
 const CATEGORY_NAMES = "rules/categories.json";
 
@@ -42,6 +43,14 @@ const api = (): Plugin => ({
 
 export default defineConfig({
   root: "src/web/app",
+  // The payload and the build output both hold transactions, so both sit under
+  // data/, where the gitignore already refuses them. Neither may reach a
+  // tracked path.
+  publicDir: resolve(import.meta.dirname, WEB),
+  build: {
+    outDir: resolve(import.meta.dirname, "data/dist"),
+    emptyOutDir: true,
+  },
   plugins: [react(), tailwindcss(), api()],
   server: {
     host: "127.0.0.1",

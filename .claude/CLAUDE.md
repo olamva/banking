@@ -46,6 +46,29 @@ Run `pnpm install`, then run `pnpm worktree:link`. These two commands are the wh
 
 `EnterWorktree` branches from `origin/main`. Check the base before you build on it. A branch that appears to stack on work that is not on `main` shows this error.
 
+**Deploy from the main checkout.** The deploy reads `data/banking.db` and writes `data/dist/`. Both resolve to the shared path, so a worktree cannot do it.
+
+## Deploying
+
+```bash
+pnpm sb1 sync --month YYYY-MM   # only when new rows are wanted
+pnpm sb1 rebuild
+pnpm deploy:web                 # export, build, upload .vercel/output
+```
+
+`pnpm deploy:web` is the only command that sends transactions off this machine. Run it from the main checkout. Vercel holds four variables, and the deployment refuses every request while any of them is missing:
+
+| Variable               | What it is                                          |
+| ---------------------- | --------------------------------------------------- |
+| `GOOGLE_CLIENT_ID`     | the OAuth client of the Google Cloud project        |
+| `GOOGLE_CLIENT_SECRET` | its secret                                          |
+| `SESSION_SECRET`       | 32 random bytes. It signs the session cookie        |
+| `ALLOWED_EMAILS`       | the addresses that may sign in, separated by commas |
+
+Set the authorised redirect URI of the Google client to `https://<domain>/api/auth/callback`. It must match the deployment domain exactly, or Google refuses the sign-in.
+
+Changing `SESSION_SECRET` signs every open session out. That is the way to revoke access at once. Removing an address from `ALLOWED_EMAILS` stops the next sign-in, and it does not end a session that already runs.
+
 ## Layout
 
 `src/` is split by the side of the rule that each file is on. `net/` may make requests. `core/` may not. `web/` composes them. Ask which side of "analysis never calls the API" a new file sits on when its directory is not obvious.
@@ -69,12 +92,20 @@ src/core/select.ts    which rows are in view. No money logic, ever
 src/core/pipeline.ts  the offline chain. The CLI and Vite both import it
 
 src/web/app/          the React app: App, FilterBar, Charts, Cards, icons
+src/auth/session.ts   the hosted gate: cookie, HMAC session, allowlist, id token.
+                      Pure. It makes no request, so node --test pins all of it
 src/cli.ts            command dispatch
 
-vite.config.ts    pnpm dev. The app, plus /api/txns. No build step, no dist/
+middleware.ts     the Vercel gate. It runs before every request but the sign-in
+api/auth/         login, callback, logout. Edge functions, Vercel only
+vite.config.ts    pnpm dev. The app, plus /api/txns. Also the build, to deploy
+vercel.json       framework, build command, the /api/txns rewrite, headers
+types/            declaration stubs for what a dependency fails to bring
 test/             node --test, mirroring src/
 data/raw/         API responses, verbatim, gitignored
 data/banking.db   derived SQLite store, rebuildable from data/raw, gitignored
+data/web/         the exported payload for the hosted build, gitignored
+data/dist/        the built site, holding every transaction, gitignored
 rules/*.json      hand-edited, gitignored: accounts, overrides, giro, family,
                   payees, subscriptions, categories
 ```
@@ -95,13 +126,27 @@ Both Node and the browser import everything under `src/core/`. That code must ha
 
 **Dates are Oslo-local.** The `date` field from the API is epoch milliseconds at Norwegian midnight. Every summer timestamp is therefore `22:00Z`. Format with `Europe/Oslo`. UTC moves the first day of the month into the previous month.
 
-**No personal data enters git or the network.** Do not put account numbers, keys, names, balances or descriptions in source, tests, fixtures, commit messages or documentation. The JSON and CSV output is unredacted.
+**No personal data enters git.** Do not put account numbers, keys, names, balances or descriptions in source, tests, fixtures, commit messages or documentation. The JSON and CSV output is unredacted.
 
-**The dashboard is served on 127.0.0.1 and read locally.** Never publish it. Do not publish it as a hosted artifact, to a gist, or to any preview or sharing service. It holds every transaction you have. The same rule applies to screenshots.
+**One route sends personal data off this machine, and only one.** `pnpm deploy:web` uploads `data/dist/` to Vercel, and that directory holds every transaction. This is deliberate, and it is the reason the sign-in gate exists. No other command may send this data anywhere. Adding a second route needs a decision, not a patch.
 
-**The dependency list is short on purpose.** The dashboard uses React, Vite, Tailwind v4 and Hugeicons. Nothing else uses a dependency. Import Hugeicons one icon module at a time through `src/web/app/icons.ts`. Its barrel export is 6 MB, and no build step removes the unused parts. All server-side code uses the standard library: the built-in TS execution in Node, `fetch`, `node:sqlite` and the macOS `security` keychain. Do not add an ORM, a chart library, a component library, a state manager, a router or a date library. Ask first when you think the work needs another package.
+**The dashboard has exactly two homes: 127.0.0.1, and the private Vercel deployment behind Google sign-in.** There is no third one. Do not publish it as a hosted artifact, to a gist, or to any preview or sharing service. It holds every transaction you have. The same rule applies to screenshots.
 
-**There is no build step.** `pnpm dev` runs Vite. Vite serves the app and `/api/txns` from one config. The page is served only to localhost, which makes this safe. Do not add `vite build`. There is no production.
+**The Vercel deployment is private, and one gate makes it private.** `middleware.ts` runs before every request that is not a sign-in route. It refuses a request that carries no valid session cookie. The page bundle and `txns.json` are both static files, so the CDN would serve them to anybody without that gate. Treat `middleware.ts` and its `matcher` as a security control. Never narrow the matcher to let a path through. Never add a path that skips it.
+
+**The allowlist is the whole access rule.** `ALLOWED_EMAILS` holds the addresses that may sign in. An empty or missing variable denies everybody, which is the correct failure. Never make a missing variable open the door. A Google account proves only who somebody is. The allowlist decides whether that person may read the money.
+
+**The dependency list is short on purpose.** The dashboard uses React, Vite, Tailwind v4 and Hugeicons. Nothing else uses a dependency. Import Hugeicons one icon module at a time through `src/web/app/icons.ts`. Its barrel export is 6 MB, and no build step removes the unused parts. All server-side code uses the standard library: the built-in TS execution in Node, `fetch`, `node:sqlite` and the macOS `security` keychain. `@vercel/functions` is the one exception, and it supplies `next()` alone. Vercel middleware cannot continue a request without it. Do not add an ORM, a chart library, a component library, a state manager, a router or a date library. Ask first when you think the work needs another package.
+
+**The sign-in uses no auth library.** It is one OAuth code exchange and one HMAC cookie, in `src/auth/session.ts`, on Web Crypto. Do not add Auth.js, Passport or a JWT package. The whole gate is under 200 lines, and `test/auth/session.test.ts` pins every refusal.
+
+**The build step exists only to deploy.** `pnpm dev` runs Vite and serves the app and `/api/txns` from one config. It reads the database live, so a `rebuild` in another terminal appears on reload. Never make local work depend on a build. `vite build` runs only inside `pnpm deploy:web`.
+
+**The hosted `/api/txns` is a file, not a function.** The page reads one payload and aggregates in the browser, so the endpoint takes no parameters and there is no query to run in production. `pnpm sb1 export` writes `data/web/txns.json`, the build copies it, and `vercel.json` rewrites `/api/txns` to it. A Vercel function may return 4.5 MB. The payload passed 6.7 MB in August 2026, so it must never go back to being a function.
+
+**The deploy builds here and uploads the output alone.** `pnpm deploy:web` runs `vercel build` and then `vercel deploy --prebuilt`. Only `.vercel/output` leaves this machine. `data/raw/`, `data/banking.db` and `rules/` never do. Never deploy from git and never let Vercel build the project itself, because a remote build would need the raw data uploaded to reach it.
+
+**Every file that holds transactions sits under `data/`.** This includes `data/web/txns.json` and the whole build output at `data/dist/`. The gitignore already refuses `data`, so no build output can land on a tracked path. Keep `outputDirectory` and `publicDir` inside `data/`. Moving either one out of `data/` puts every transaction one `git add` away from GitHub.
 
 **Money logic leaves a test behind.** Add one `node --test` case in `test/` for any code that signs, sums, excludes or categorises. Use no frameworks. Do not build fixtures from real transactions. The React components are deliberately simple to keep this possible. Put logic that needs a test in `src/core/`.
 
