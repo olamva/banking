@@ -8,7 +8,7 @@
     "test": "node --test 'test/**/*.test.ts'",
     "worktree:link": "main=$(dirname \"$(git rev-parse --git-common-dir)\") && ln -sfn \"$main/.env.local\" \"$main/data\" \"$main/rules\" .",
     "typecheck": "tsc --noEmit",
-    "deploy:web": "pnpm dlx vercel@latest build && pnpm dlx vercel@latest deploy --prebuilt --prod",
+    "deploy:web": "pnpm dlx vercel@latest build --prod --yes && pnpm dlx vercel@latest deploy --prebuilt --prod",
     "format": "prettier --write ."
   },
   "devDependencies": {

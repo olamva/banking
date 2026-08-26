@@ -5,7 +5,7 @@ import {
   redirect,
   safeNext,
   setCookie,
-} from "../../src/auth/session.ts";
+} from "../../src/auth/session.js";
 
 export const config = { runtime: "edge" };
 

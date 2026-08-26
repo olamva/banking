@@ -1,0 +1,14 @@
+{
+  "id": "953d12ac",
+  "ts": "2026-08-26T22:20:58+00:00",
+  "text": "Vercel edge builder emits each TS file as .js but leaves the '.ts' import specifier untouched, so a repo using .ts specifiers fails at DEPLOY time with 'referencing unsupported modules' while 'vercel build' reports status ok",
+  "tags": [
+    "build",
+    "typescript",
+    "vercel"
+  ],
+  "who": "agent",
+  "model": "opus-5",
+  "session": "a7a8dbc1",
+  "where": "/Users/olavassbotn/Documents/banking/.claude/worktrees/deploy"
+}

@@ -12,7 +12,7 @@ import {
   SESSION_MAX_AGE,
   setCookie,
   signSession,
-} from "../../src/auth/session.ts";
+} from "../../src/auth/session.js";
 
 export const config = { runtime: "edge" };
 
