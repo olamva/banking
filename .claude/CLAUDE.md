@@ -71,7 +71,7 @@ src/core/pipeline.ts  the offline chain. The CLI and Vite both import it
 src/web/app/          the React app: App, FilterBar, Charts, Cards, icons
 src/cli.ts            command dispatch
 
-vite.config.ts    pnpm dev. The app, plus /api/txns. No build step, no dist/
+vite.config.ts    pnpm dev. The app, /api/txns and /api/refresh. No dist/
 test/             node --test, mirroring src/
 data/raw/         API responses, verbatim, gitignored
 data/banking.db   derived SQLite store, rebuildable from data/raw, gitignored
@@ -87,9 +87,23 @@ Both Node and the browser import everything under `src/core/`. That code must ha
 
 **Analysis never calls the API.** `src/net/` holds the fetching. Every later step reads `data/raw/`. **No file in `src/core/` may import from `src/net/`.** This includes an indirect import. Extend `sync` and run it again when an analysis step needs a field that the raw JSON does not hold.
 
-**The dev server never calls the API.** `/api/txns` lives in `vite.config.ts`. It reads only `data/banking.db`. No page view can cost a request. Run `pnpm sb1 sync` by hand to sync.
+**No page view costs a request.** `/api/txns` reads only `data/banking.db`. Only `/api/refresh` calls the API, and only a press of the Refresh button reaches it. Both live in `vite.config.ts`. Never make a request on load, on a filter, on a reload or on a timer.
 
-**Raw data is immutable.** Never rewrite a file under `data/raw/` in place. Sync again with `--force` when the bank restates a month.
+**`/api/refresh` is a POST, and it needs the `X-Banking-Refresh: 1` header.** The header is the guard. A custom header forces a preflight, and no preflight is answered. A page on another site therefore cannot make this machine spend its bank quota. Keep the guard on any endpoint that is added beside it.
+
+**Refresh sweeps the whole record, then rebuilds.** `syncAll` opens at the earliest `from` in `rules/accounts.json` and runs to this month. One refresh runs at a time, and a second press joins the first. The CLI `sync` command is retired.
+
+**A file written after its month closed is never fetched again.** That is the whole staleness rule, and `settled()` is all of it. `closesAt` puts the close four days after the month ends, because SB1 dates a card row by the purchase and the booking follows up to three days later. The open months therefore cost a request and no others do. A typical refresh is one request for one month.
+
+**The rule tests the file, not the calendar.** A month that is closed _now_ may still hold a file that was captured while it was open, and that file is missing rows. A plain "old month, file exists, skip" would keep it missing forever. Compare the mtime against the close of that month. Never against a fixed horizon.
+
+**The request asks for the months owed, not for the span they sit in.** `spans` cuts the sweep into five-year buckets, because that is the ceiling of the endpoint. `syncSpan` then narrows `fromDate`/`toDate` to `owedMonths(plan)`. Without that, one open month re-reads five years.
+
+**Deleting a raw file is how you make the bank restate one.** No force flag exists. Remove `data/raw/<month>/*.json` and press Refresh. `reconcile` is what tells you a month is owed.
+
+**`pnpm dev` reads `.env.local` through `loadEnv`.** Vite runs the config, not `node --env-file`. `sb1.get` needs the credentials in `process.env`.
+
+**Raw data is immutable.** Never rewrite a file under `data/raw/` in place. Delete the month and press Refresh when the bank restates one.
 
 **The code ledgers every SB1 request against the count from the bank.** `sb1.get` and the token exchange call `budget.spend` before the request. They call `sb1.noteLimits` after it. Code that avoids `sb1.get` gets none of this, so always use `sb1.get`. There is no local cap and there must not be one. The quota refills continuously. A rolling window of our own timestamps refuses a request long after the bank permits it.
 
@@ -101,7 +115,7 @@ Both Node and the browser import everything under `src/core/`. That code must ha
 
 **The dependency list is short on purpose.** The dashboard uses React, Vite, Tailwind v4 and Hugeicons. Nothing else uses a dependency. Import Hugeicons one icon module at a time through `src/web/app/icons.ts`. Its barrel export is 6 MB, and no build step removes the unused parts. All server-side code uses the standard library: the built-in TS execution in Node, `fetch`, `node:sqlite` and the macOS `security` keychain. Do not add an ORM, a chart library, a component library, a state manager, a router or a date library. Ask first when you think the work needs another package.
 
-**There is no build step.** `pnpm dev` runs Vite. Vite serves the app and `/api/txns` from one config. The page is served only to localhost, which makes this safe. Do not add `vite build`. There is no production.
+**There is no build step.** `pnpm dev` runs Vite. Vite serves the app, `/api/txns` and `/api/refresh` from one config. The page is served only to localhost, which makes this safe. Do not add `vite build`. There is no production.
 
 **Money logic leaves a test behind.** Add one `node --test` case in `test/` for any code that signs, sums, excludes or categorises. Use no frameworks. Do not build fixtures from real transactions. The React components are deliberately simple to keep this possible. Put logic that needs a test in `src/core/`.
 
@@ -193,7 +207,7 @@ An entry may carry `sync: false`. That means the entry exists for its _number_ a
 
 **A floor makes itself unfalsifiable.** A `from` value stops every sweep from asking below it. No empty files exist to prove it right. To test one, remove it and sweep again.
 
-**`pnpm sb1 reconcile` is the one check that looks outside the repo.** It compares the opening balance plus every row against the balance that the bank reports. It runs per account, and it runs offline. Every other check here shows the raw data agreeing with itself. A rule that quietly drops rows agrees with itself perfectly. `reconcile` takes `Txn` **before any flag is set, and it counts excluded rows**. Money moved whether or not it counts as earning or spending. Try these causes for a gap, in this order: the balances are stale, rows are missing, or an `opening` value is missing.
+**`pnpm sb1 reconcile` is the one check that looks outside the repo.** It compares the opening balance plus every row against the balance that the bank reports. It runs per account, and it runs offline. Every other check here shows the raw data agreeing with itself. A rule that quietly drops rows agrees with itself perfectly. `reconcile` takes `Txn` **before any flag is set, and it counts excluded rows**. Money moved whether or not it counts as earning or spending. Try these causes for a gap, in this order: the balances are stale, rows are missing, or an `opening` value is missing. Delete the months you doubt and press Refresh when rows are missing.
 
 **Every excluded reason must net to zero across its pair.** `investment movement` is the one exception. That check runs at every `rebuild`. `netByReason` sums the excluded rows by reason, and it warns on any non-zero result. The two card-bill legs fold into one bucket first, because they are one pair with two names.
 

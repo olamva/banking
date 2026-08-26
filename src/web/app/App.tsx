@@ -57,6 +57,7 @@ import {
   THEMES,
   readTheme,
   setTheme,
+  useRefresh,
   useTransactions,
   type Theme,
 } from "./data.ts";
@@ -80,6 +81,7 @@ import {
   LightThemeIcon,
   LoadingIcon,
   MonthlyIcon,
+  RefreshIcon,
   SystemThemeIcon,
 } from "./icons.ts";
 import { GRAINS, readUrl, writeUrl, type Grain } from "./url.ts";
@@ -476,7 +478,8 @@ const TransactionsView = ({
 };
 
 export const App = () => {
-  const load = useTransactions();
+  const [load, reload] = useTransactions();
+  const refresh = useRefresh(reload);
   const [initial] = useState(readUrl);
   const [view, setView] = useState<View>(initial.view);
   const [chosen, setChosen] = useState<string | null>(initial.period);
@@ -672,7 +675,26 @@ export const App = () => {
     <div className="mx-auto max-w-295 p-3 sm:p-6">
       <header className="mb-4 flex flex-wrap items-baseline justify-between gap-4">
         <h1 className="text-xl font-semibold">Spending dashboard</h1>
-        <div className="flex items-center gap-2">
+        {/* Three controls, and 375px is a supported width. Let them wrap
+            rather than push the page sideways. */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* The one control on this page that costs a bank request. It syncs
+              the whole record with --force, then rebuilds the database. */}
+          <button
+            type="button"
+            onClick={refresh.run}
+            disabled={refresh.busy}
+            aria-label="Refresh from the bank"
+            className="flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-ink-soft disabled:opacity-60"
+          >
+            <Icon
+              aria-hidden
+              icon={refresh.busy ? LoadingIcon : RefreshIcon}
+              size={14}
+              className={refresh.busy ? "animate-spin" : undefined}
+            />
+            {refresh.busy ? "Refreshing…" : "Refresh"}
+          </button>
           <button
             type="button"
             onClick={() => setHelp(true)}
@@ -712,6 +734,21 @@ export const App = () => {
           </div>
         </div>
       </header>
+
+      {/* On the page, not in a tooltip — a phone has no hover. */}
+      {refresh.note && (
+        <p
+          className={`mb-4 flex items-start gap-1.5 text-[11px] ${refresh.bad ? "text-critical" : "text-ink-muted"}`}
+        >
+          <Icon
+            aria-hidden
+            icon={refresh.bad ? ErrorIcon : InfoIcon}
+            size={13}
+            className="mt-px shrink-0"
+          />
+          {refresh.note}
+        </p>
+      )}
 
       <ShortcutsDialog
         shortcuts={shortcuts}
@@ -760,7 +797,7 @@ export const App = () => {
       )}
       {load.status === "ready" && txns.length === 0 && (
         <div className="py-10 text-center text-ink-muted">
-          No transactions yet — run `pnpm sb1 rebuild`.
+          No transactions yet — press Refresh.
         </div>
       )}
       {load.status === "ready" && txns.length > 0 && view === "dashboard" && (

@@ -6,11 +6,6 @@ import type { Txn } from "./core/types.ts";
 
 const args = process.argv.slice(2);
 const cmd = args[0];
-const flag = (name: string) => {
-  const i = args.indexOf(`--${name}`);
-  return i === -1 ? undefined : args[i + 1];
-};
-const has = (name: string) => args.includes(`--${name}`);
 const raise = (msg: string): never => {
   throw new Error(msg);
 };
@@ -119,24 +114,9 @@ async function reconcileCmd(): Promise<void> {
 try {
   if (cmd === "login") await (await import("./net/sb1.ts")).login();
   else if (cmd === "accounts") await accounts();
-  else if (cmd === "sync") {
-    const { syncMonth, syncRange, thisMonth } = await import("./net/sync.ts");
-    const from = flag("from");
-    const to = flag("to");
-    const stale = flag("stale");
-    if (stale !== undefined && !(Number(stale) > 0))
-      raise("--stale wants minutes, e.g. --stale 60");
-    const force = stale === undefined ? has("force") : Number(stale);
-    if (from || to) {
-      if (!from) raise("sync needs --from, as YYYY or YYYY-MM");
-      await syncRange(from!, to ?? thisMonth(), force);
-    } else {
-      await syncMonth(
-        flag("month") ?? raise("sync needs --month YYYY-MM"),
-        force,
-      );
-    }
-  } else if (cmd === "rebuild")
+  else if (cmd === "sync")
+    raise("sync is retired — press Refresh on the dashboard (`pnpm dev`)");
+  else if (cmd === "rebuild")
     await (await import("./core/pipeline.ts")).rebuildAll();
   else if (cmd === "reconcile") await reconcileCmd();
   else if (cmd === "budget") {
@@ -149,18 +129,11 @@ try {
   } else {
     console.error("usage: pnpm sb1 <login | accounts | rebuild | budget");
     console.error(
-      "                | sync --month YYYY-MM [--force | --stale MINUTES]",
-    );
-    console.error(
-      "                | sync --from YYYY[-MM] [--to YYYY[-MM]] [--force | --stale MINUTES]",
-    );
-    console.error(
-      "                    (--to defaults to this month; one request per five years)",
-    );
-    console.error(
       "                | reconcile  (does the history explain the balances?)>",
     );
-    console.error("\nthe dashboard is `pnpm dev`");
+    console.error(
+      "\nthe dashboard is `pnpm dev`. Refresh there syncs and rebuilds.",
+    );
     process.exit(1);
   }
 } catch (e) {

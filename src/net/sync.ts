@@ -2,7 +2,7 @@ import { existsSync, statSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import type { Accounts } from "../core/exclude.ts";
 import { osloDate } from "../core/normalize.ts";
-import { RAW } from "../core/pipeline.ts";
+import { monthsOnDisk, RAW } from "../core/pipeline.ts";
 import { BudgetExhausted, remaining } from "./budget.ts";
 import { get, monthRange, RateLimited } from "./sb1.ts";
 
@@ -36,31 +36,34 @@ export const thisMonth = (today = new Date()): string =>
 
 const fileFor = (month: string, key: string) => `${RAW}/${month}/${key}.json`;
 
-export type Force = boolean | number;
+export type SyncResult = { fetched: number; stopped: string | null };
 
-const fresh = (file: string, force: Force): boolean => {
-  if (!existsSync(file)) return false;
-  if (typeof force === "number")
-    return Date.now() - statSync(file).mtimeMs < force * 60_000;
-  return !force;
-};
+// A month closes a few days after it ends. SB1 dates a card row by the purchase,
+// and the booking follows up to three days later. Oslo is an hour or two off UTC,
+// which this margin swallows.
+const CLOSE_DAYS = 4;
 
-export async function rangeCost(
-  months: string[],
-  force: Force,
-): Promise<number> {
-  const plan = await spanPlan(months, force);
+export function closesAt(month: string): number {
+  const [y, m] = month.split("-").map(Number);
+  return Date.UTC(y!, m!, 1) + CLOSE_DAYS * 86_400_000;
+}
+
+// The whole rule: a file written after its month closed can never gain a row.
+// A file captured while its month was still open can, so it is asked for again.
+// This makes the open months, and only those, cost a request.
+export const settled = (file: string, month: string): boolean =>
+  existsSync(file) && statSync(file).mtimeMs > closesAt(month);
+
+export async function rangeCost(months: string[]): Promise<number> {
+  const plan = await spanPlan(months);
   return [...plan.values()].reduce((n, ms) => n + ms.length, 0);
 }
 
-async function spanPlan(
-  months: string[],
-  force: Force,
-): Promise<Map<string, string[]>> {
+async function spanPlan(months: string[]): Promise<Map<string, string[]>> {
   const plan = new Map<string, string[]>();
   for (const month of months) {
     for (const key of await accountKeys(month)) {
-      if (fresh(fileFor(month, key), force)) continue;
+      if (settled(fileFor(month, key), month)) continue;
       const owed = plan.get(key);
       if (owed) owed.push(month);
       else plan.set(key, [month]);
@@ -117,19 +120,24 @@ export function spans(months: string[], size = SPAN_MONTHS): string[][] {
   return out;
 }
 
+export const owedMonths = (plan: Map<string, string[]>): string[] =>
+  [...new Set([...plan.values()].flat())].sort();
+
 export async function syncSpan(
   months: string[],
-  force: Force = false,
   onFile?: () => void,
 ): Promise<number> {
-  const plan = await spanPlan(months, force);
+  const plan = await spanPlan(months);
   if (!plan.size) {
     console.error(`skip ${months[0]}..${months.at(-1)} — nothing owed`);
     return 0;
   }
 
-  const from = monthRange(months[0]).from;
-  const to = rangeToDate(months.at(-1)!).to;
+  // Ask for the months owed, not for the whole five-year bucket they sit in.
+  // One open month is then one small request, not a re-read of the record.
+  const owed = owedMonths(plan);
+  const from = monthRange(owed[0]!).from;
+  const to = rangeToDate(owed.at(-1)!).to;
   const q = [...plan.keys()]
     .map((k) => `accountKey=${encodeURIComponent(k)}`)
     .join("&");
@@ -150,8 +158,8 @@ export async function syncSpan(
   const byFile = splitSpan(rows);
 
   let fetched = 0;
-  for (const [key, owed] of plan) {
-    for (const month of owed) {
+  for (const [key, wanted] of plan) {
+    for (const month of wanted) {
       await dump(fileFor(month, key), {
         transactions: byFile.get(`${month}/${key}`) ?? [],
         errors: res.errors ?? [],
@@ -165,7 +173,7 @@ export async function syncSpan(
   for (const [key] of byFile) {
     const [month, account] = key.split("/");
     if (!months.includes(month)) continue;
-    if (fresh(fileFor(month, account), force)) continue;
+    if (settled(fileFor(month, account), month)) continue;
     console.error(
       `warning: ${byFile.get(key)!.length} row(s) came back for ${key}, which was not requested — ` +
         `check the account's "from" in rules/accounts.json.`,
@@ -174,18 +182,12 @@ export async function syncSpan(
   return fetched;
 }
 
-export async function syncRange(
-  from: string,
-  to: string,
-  force: Force = false,
-): Promise<void> {
+export async function syncRange(from: string, to: string): Promise<SyncResult> {
   const months = monthsBetween(from, to);
   const parts = spans(months);
-  const files = await rangeCost(months, force);
+  const files = await rangeCost(months);
   const costs = await Promise.all(
-    parts.map(
-      async (part) => ((await rangeCost(part, force)) ? 1 : 0) as number,
-    ),
+    parts.map(async (part) => ((await rangeCost(part)) ? 1 : 0) as number),
   );
   const cost = costs.reduce((a, b) => a + b, 0);
   const left = remaining();
@@ -205,24 +207,34 @@ export async function syncRange(
   let fetched = 0;
   for (const part of parts) {
     try {
-      await syncSpan(part, force, () => fetched++);
+      await syncSpan(part, () => fetched++);
     } catch (e) {
       if (!(e instanceof BudgetExhausted) && !(e instanceof RateLimited))
         throw e;
-      console.error(`\n${e.message}`);
-      console.error(
-        `stopped at ${part[0]}..${part.at(-1)}. ${fetched} files fetched — re-run to carry on.`,
-      );
-      return;
+      const stopped =
+        `${e.message} Stopped at ${part[0]}..${part.at(-1)}, ` +
+        `${fetched} files fetched. Refresh again to carry on.`;
+      console.error(`\n${stopped}`);
+      return { fetched, stopped };
     }
   }
   console.error(`\n${fetched} files fetched across ${months.length} months.`);
+  return { fetched, stopped: null };
 }
 
-export async function syncMonth(
-  month: string,
-  force: Force = false,
-  onFile?: () => void,
-): Promise<number> {
-  return syncSpan([month], force, onFile);
+export function earliestMonth(accounts: Accounts, fallback: string): string {
+  const froms = Object.values(accounts)
+    .filter((a) => a.sync !== false)
+    .map((a) => a.from)
+    .filter((m): m is string => !!m)
+    .sort();
+  return froms[0] ?? fallback;
+}
+
+export async function syncAll(): Promise<SyncResult> {
+  const accounts: Accounts = JSON.parse(
+    await readFile("rules/accounts.json", "utf8"),
+  );
+  const now = thisMonth();
+  return syncRange(earliestMonth(accounts, monthsOnDisk()[0] ?? now), now);
 }

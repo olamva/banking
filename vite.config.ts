@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { defineConfig, type Plugin } from "vite";
+import { defineConfig, loadEnv, type Plugin } from "vite";
 import { openDb, queryRange } from "./src/core/db.ts";
 import { DB_FILE } from "./src/core/pipeline.ts";
 
@@ -21,6 +21,19 @@ function payload(): string {
   }
 }
 
+type Refreshed = { rows: number; fetched: number; stopped: string | null };
+
+async function refresh(): Promise<Refreshed> {
+  const { syncAll } = await import("./src/net/sync.ts");
+  const { rebuildAll } = await import("./src/core/pipeline.ts");
+  const { fetched, stopped } = await syncAll();
+  return { rows: await rebuildAll(), fetched, stopped };
+}
+
+// One refresh at a time. A second press joins the first rather than starting a
+// second full-history sync against the same quota.
+let running: Promise<Refreshed> | null = null;
+
 const api = (): Plugin => ({
   name: "banking-api",
   configureServer(server) {
@@ -37,15 +50,44 @@ const api = (): Plugin => ({
         res.end(`${e instanceof Error ? e.message : e}\n`);
       }
     });
+
+    server.middlewares.use("/api/refresh", (req, res) => {
+      const json = (status: number, body: unknown) => {
+        res.writeHead(status, {
+          "Content-Type": "application/json; charset=utf-8",
+          "Cache-Control": "no-store",
+        });
+        res.end(JSON.stringify(body));
+      };
+      // A custom header cannot be set on a cross-origin request without a
+      // preflight, and no preflight is answered here. A page on another site
+      // therefore cannot make this machine spend its bank quota.
+      if (req.method !== "POST" || req.headers["x-banking-refresh"] !== "1")
+        return json(405, { error: "POST with X-Banking-Refresh: 1" });
+
+      running ??= refresh().finally(() => {
+        running = null;
+      });
+      running.then(
+        (r) => json(200, r),
+        (e: unknown) =>
+          json(500, { error: e instanceof Error ? e.message : String(e) }),
+      );
+    });
   },
 });
 
-export default defineConfig({
-  root: "src/web/app",
-  plugins: [react(), tailwindcss(), api()],
-  server: {
-    host: "127.0.0.1",
-    port: 4000,
-    fs: { allow: [import.meta.dirname] },
-  },
+export default defineConfig(({ mode }) => {
+  // The dashboard is offline, but the refresh endpoint is not. `pnpm dev` runs
+  // vite, not `node --env-file`, so load .env.local here.
+  Object.assign(process.env, loadEnv(mode, import.meta.dirname, ""));
+  return {
+    root: "src/web/app",
+    plugins: [react(), tailwindcss(), api()],
+    server: {
+      host: "127.0.0.1",
+      port: 4000,
+      fs: { allow: [import.meta.dirname] },
+    },
+  };
 });

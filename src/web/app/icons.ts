@@ -13,6 +13,7 @@ export { default as DropdownIcon } from "@hugeicons/core-free-icons/ArrowDown01I
 export { default as CloseIcon } from "@hugeicons/core-free-icons/Cancel01Icon";
 export { default as ResetFiltersIcon } from "@hugeicons/core-free-icons/FilterResetIcon";
 export { default as KeyboardIcon } from "@hugeicons/core-free-icons/KeyboardIcon";
+export { default as RefreshIcon } from "@hugeicons/core-free-icons/RefreshIcon";
 export { default as SearchIcon } from "@hugeicons/core-free-icons/Search01Icon";
 export { default as ExpandIcon } from "@hugeicons/core-free-icons/ArrowRight01Icon";
 export { default as SystemThemeIcon } from "@hugeicons/core-free-icons/ComputerIcon";
