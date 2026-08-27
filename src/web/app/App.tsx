@@ -2,6 +2,7 @@ import {
   useDeferredValue,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type Dispatch,
   type SetStateAction,
@@ -651,7 +652,8 @@ export const App = () => {
   const [chosenGrain, setChosenGrain] = useState<Grain>(initial.grain);
   const [theme, onTheme] = useState<Theme>(readTheme);
   const [help, setHelp] = useState(false);
-  const hidden = useHideOnScroll();
+  const header = useRef<HTMLElement>(null);
+  const hidden = useHideOnScroll(header);
 
   if (load.status === "ready") {
     setLabels(load.labels);
@@ -853,6 +855,7 @@ export const App = () => {
           the top. An open picker holds it, because a long list scrolls the page
           on at its end, and that would take the list off the screen. */}
       <header
+        ref={header}
         className={`sticky top-0 z-30 border-b border-line bg-page transition-transform duration-200 has-[details[open]]:translate-y-0 motion-reduce:transition-none ${hidden ? "-translate-y-full" : ""}`}
       >
         <div className="mx-auto max-w-295 space-y-2.5 px-3 py-2.5 sm:px-6 sm:py-3">

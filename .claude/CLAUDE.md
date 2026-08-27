@@ -313,7 +313,7 @@ There is no separate mobile page, and there must not be one. Use one layout that
 **Nothing may make the page scroll sideways.** That is the single test that the rest of this section serves. Two things caused it here. Both are the same error: _a width that someone wrote down instead of measuring._
 
 - **A minimum on a grid track is a floor. A floor wider than the phone is the bug.** Always write `minmax(min(460px, 100%), 1fr)`. `test/web/app/layout.test.ts` refuses the bare form anywhere in `src/web/app/`.
-- **An absolutely-positioned panel anchors where its trigger wrapped to.** Add `max-sm:w-full` to the `details`. Do not make the panel narrower. A narrower panel only moves the width at which it breaks.
+- **An absolutely-positioned panel anchors where its trigger wrapped to.** Give the trigger the whole width with `max-sm:w-full`, or hang the panel from the edge that holds it on the screen. A trigger that shares a line takes the second route, so the right-hand one anchors `right-0`. Do not make the panel narrower. A narrower panel only moves the width at which it breaks.
 
 **Charts measure. They never assume.** `useWidth` is a `ResizeObserver`. Every chart reads its box through it, draws into a `viewBox`, and computes its label stride against `clusterW`. A hardcoded chart width repeats the rule above. A label gutter in fixed pixels is the same error.
 

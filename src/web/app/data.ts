@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type RefObject } from "react";
 import { buildLabels, type Labels, type Names } from "../../core/labels.ts";
 import type { Categorized } from "../../core/types.ts";
 
@@ -89,27 +89,35 @@ export const useRefresh = (onDone: () => void): Refresh => {
   return { busy, note, bad, run };
 };
 
-// 8 px ignores the jitter that a tap makes on iOS, and the rubber band at both
-// ends. 80 px keeps the header up over the top of the page, where it starts.
+// A sticky header keeps its place in the flow, so the space it sat in is still
+// on the screen until the page scrolls its own height. Hiding it before that
+// leaves a hole at the top. 8 px ignores the jitter that a tap makes on iOS,
+// and the rubber band at both ends.
 export const headerHidden = (
   y: number,
   last: number,
   hidden: boolean,
-): boolean => (Math.abs(y - last) < 8 ? hidden : y > last && y > 80);
+  height: number,
+): boolean => (Math.abs(y - last) < 8 ? hidden : y > last && y > height);
 
-export const useHideOnScroll = (): boolean => {
+// Measured, never assumed: the bar grows a line as the filters wrap, and it
+// grows another when a refresh reports.
+export const useHideOnScroll = (
+  header: RefObject<HTMLElement | null>,
+): boolean => {
   const [hidden, setHidden] = useState(false);
 
   useEffect(() => {
     let last = window.scrollY;
     const onScroll = () => {
       const y = window.scrollY;
-      setHidden((was) => headerHidden(y, last, was));
+      const height = header.current?.offsetHeight ?? 0;
+      setHidden((was) => headerHidden(y, last, was, height));
       if (Math.abs(y - last) >= 8) last = y;
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+  }, [header]);
 
   return hidden;
 };
