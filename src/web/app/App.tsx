@@ -510,6 +510,24 @@ const TransactionsView = ({
   );
 };
 
+const RefreshButton = ({ refresh }: { refresh: Refresh }) => (
+  <button
+    type="button"
+    onClick={refresh.run}
+    disabled={refresh.busy}
+    aria-label="Refresh from the bank"
+    className="flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-ink-soft disabled:opacity-60"
+  >
+    <Icon
+      aria-hidden
+      icon={refresh.busy ? LoadingIcon : RefreshIcon}
+      size={14}
+      className={refresh.busy ? "animate-spin" : undefined}
+    />
+    {refresh.busy ? <span className="glow">Refreshing…</span> : "Refresh"}
+  </button>
+);
+
 interface ToolbarProps {
   refresh: Refresh;
   theme: Theme;
@@ -526,21 +544,7 @@ const Toolbar = ({ refresh, theme, onTheme, onHelp }: ToolbarProps) => (
       <div className="flex flex-wrap items-center gap-2">
         {/* The one control on this page that costs a bank request. It syncs
             the whole record with --force, then rebuilds the database. */}
-        <button
-          type="button"
-          onClick={refresh.run}
-          disabled={refresh.busy}
-          aria-label="Refresh from the bank"
-          className="flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-ink-soft disabled:opacity-60"
-        >
-          <Icon
-            aria-hidden
-            icon={refresh.busy ? LoadingIcon : RefreshIcon}
-            size={14}
-            className={refresh.busy ? "animate-spin" : undefined}
-          />
-          {refresh.busy ? "Refreshing…" : "Refresh"}
-        </button>
+        <RefreshButton refresh={refresh} />
         <button
           type="button"
           onClick={onHelp}
@@ -598,7 +602,15 @@ const Toolbar = ({ refresh, theme, onTheme, onHelp }: ToolbarProps) => (
   </>
 );
 
-const LoadNote = ({ load, count }: { load: Load; count: number }) => {
+const LoadNote = ({
+  load,
+  count,
+  refresh,
+}: {
+  load: Load;
+  count: number;
+  refresh: Refresh;
+}) => {
   if (load.status === "loading")
     return (
       <div className="flex items-center justify-center gap-2 py-10 text-ink-muted">
@@ -620,8 +632,9 @@ const LoadNote = ({ load, count }: { load: Load; count: number }) => {
     );
   if (count === 0)
     return (
-      <div className="py-10 text-center text-ink-muted">
+      <div className="flex flex-col items-center gap-3 py-10 text-center text-ink-muted">
         No transactions yet — press Refresh.
+        <RefreshButton refresh={refresh} />
       </div>
     );
   return null;
@@ -752,6 +765,14 @@ export const App = () => {
         setTheme(next);
       },
     },
+    {
+      keys: ["R"],
+      cap: "⇧R",
+      what: "Refresh from the bank",
+      run: () => {
+        if (!refresh.busy) refresh.run();
+      },
+    },
     { cap: "/ ⌘F", what: "Search the transactions table" },
     {
       keys: ["?"],
@@ -859,7 +880,7 @@ export const App = () => {
         onFilters={setFilters}
       />
 
-      <LoadNote load={load} count={txns.length} />
+      <LoadNote load={load} count={txns.length} refresh={refresh} />
       {ready &&
         (view === "dashboard" ? (
           <Dashboard

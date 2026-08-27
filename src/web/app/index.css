@@ -147,6 +147,54 @@
   }
 }
 
+@layer components {
+  /*
+   * The refresh label, while the refresh runs. The highlight is a gradient
+   * tile twice the width of the text, clipped to the glyphs. The tile slides
+   * right, so the bright band crosses the word left to right. The band is half
+   * a tile wide, so the next band enters the left as the last one leaves the
+   * right. A narrower band leaves a wait between the passes.
+   */
+  .glow {
+    background: linear-gradient(
+      90deg,
+      var(--color-ink-soft) 0%,
+      var(--color-ink-soft) 25%,
+      var(--color-ink) 50%,
+      var(--color-ink-soft) 75%,
+      var(--color-ink-soft) 100%
+    );
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: glow-sweep 2.5s linear infinite;
+  }
+
+  /*
+   * 100% to -100% is a shift of one whole tile, and the gradient ends on the
+   * same colour it starts on. The loop therefore has no seam. Half a tile ends
+   * with the band on the far side of the word and restarts it on the near
+   * side, which reads as a jump.
+   */
+  @keyframes glow-sweep {
+    from {
+      background-position: 100% 0;
+    }
+    to {
+      background-position: -100% 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .glow {
+      background: none;
+      color: var(--color-ink-soft);
+      animation: none;
+    }
+  }
+}
+
 /**
  * iOS Safari zooms the whole page in when you focus a field whose text is under
  * 16px, and does not zoom back out — so typing in the transactions search left
