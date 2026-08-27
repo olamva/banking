@@ -147,7 +147,7 @@ const Sizer = ({ of }: { of: string[] }) => (
 );
 
 export const AMOUNT_SIZE = [fmtNOK(-100000)];
-export const AMOUNT_SIZE_EXACT = [fmtNOKExact(-100000)];
+export const AMOUNT_SIZE_EXACT = [fmtNOKExact(-100000.5)];
 
 export interface Column {
   label: string;
