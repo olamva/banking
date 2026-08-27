@@ -32,9 +32,16 @@ variable "image" {
 }
 
 variable "allowed_emails" {
-  type        = string
+  type        = list(string)
   sensitive   = true
-  description = "Comma separated. An empty list denies everybody."
+  description = "The addresses that may read the money. An empty list denies everybody."
+
+  # A typo here does not fail. It locks you out of your own dashboard, and the
+  # page says only that the address is not allowed.
+  validation {
+    condition     = alltrue([for e in var.allowed_emails : can(regex("^[^@[:space:],]+@[^@[:space:],]+$", e))])
+    error_message = "Each entry is one address, and it carries no comma or space."
+  }
 }
 
 variable "google_client_id" {

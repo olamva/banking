@@ -125,7 +125,7 @@ The SB1 values arrive last, because the developer portal wants a redirect before
 
 9. Open the site and press Refresh. The first sweep fetches the whole record in about two requests, because a date range may be five years wide.
 
-A missing `ALLOWED_EMAILS` denies everybody. That is the correct failure. Removing an address stops the next request from that person.
+`allowed_emails` is a list, so adding a reader is one more line. A missing or empty list denies everybody. That is the correct failure. Removing an address stops the next request from that person.
 
 ### What it costs
 

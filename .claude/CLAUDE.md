@@ -61,15 +61,16 @@ pnpm deploy                     # build, push the code and the page, upload the 
 
 `infra/terraform.tfvars` holds every secret in the clear. The gitignore refuses `*.tfvars`, and that line is a security control. Never commit one, and never weaken the rule.
 
-| Application setting     | What it is                                             |
-| ----------------------- | ------------------------------------------------------ |
-| `ALLOWED_EMAILS`        | the addresses that may read the money, comma separated |
-| `DATA_DIR`              | `/data`. The mounted volume, and the only durable path |
-| `RULES_DIR`             | `/data/rules`                                          |
-| `KEY_VAULT_NAME`        | the vault that holds the SB1 refresh token             |
-| `CLIENT_ID`             | the **second** SB1 client, not the one on the Mac      |
-| `CLIENT_SECRET`         | its secret                                             |
-| `FINANCIAL_INSTITUTION` | the bank that BankID signs into                        |
+| Application setting | What it is                                             |
+| ------------------- | ------------------------------------------------------ |
+| `ALLOWED_EMAILS`    | the addresses that may read the money, comma separated |
+
+| `DATA_DIR` | `/data`. The mounted volume, and the only durable path |
+| `RULES_DIR` | `/data/rules` |
+| `KEY_VAULT_NAME` | the vault that holds the SB1 refresh token |
+| `CLIENT_ID` | the **second** SB1 client, not the one on the Mac |
+| `CLIENT_SECRET` | its secret |
+| `FINANCIAL_INSTITUTION` | the bank that BankID signs into |
 
 Terraform sets all of them. Do not set one by hand, because the next `terraform apply` puts it back.
 
@@ -162,6 +163,8 @@ Both Node and the browser import everything under `src/core/`. That code must ha
 **Trust the principal header, and nothing else.** Container Apps strips `X-MS-CLIENT-PRINCIPAL` off an inbound request and sets it itself. That property holds only while Easy Auth is on. Never read the address out of a query string, a cookie or a body.
 
 **The allowlist is the whole access rule.** `ALLOWED_EMAILS` holds the addresses that may read the money. An empty or missing variable denies everybody, which is the correct failure. Never make a missing variable open the door. A Google account proves only who somebody is. The allowlist decides whether that person may read the money.
+
+**The list is a list in terraform and a string in the container.** `var.allowed_emails` is a `list(string)`, because that is the shape a reader adds an address to. An environment variable holds no list, so `main.tf` joins it with commas and `allowed()` splits it again. Do not make the two agree. Changing either one alone breaks the gate.
 
 **The dependency list is short on purpose.** The dashboard uses React, Vite, Tailwind v4 and Hugeicons. Nothing else uses a dependency. Import Hugeicons one icon module at a time through `src/web/app/icons.ts`. Its barrel export is 6 MB, and no build step removes the unused parts. All server-side code uses the standard library: the built-in TS execution in Node, `fetch`, `node:http`, `node:sqlite` and the macOS `security` keychain. `@azure/identity` and `@azure/keyvault-secrets` are the one exception. They read and rotate the refresh token on Azure, and `src/net/token.ts` imports them only where `KEY_VAULT_NAME` is set. Do not add an ORM, a chart library, a component library, a state manager, a router or a date library. Ask first when you think the work needs another package.
 

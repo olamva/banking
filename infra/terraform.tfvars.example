@@ -4,8 +4,8 @@
 
 subscription_id = "00000000-0000-0000-0000-000000000000"
 
-# Comma separated. An empty list denies everybody.
-allowed_emails = "you@example.com"
+# An empty list denies everybody.
+allowed_emails = ["you@example.com"]
 
 # Google Cloud console, OAuth client, type "Web application". Add the redirect
 # that `terraform output google_redirect_uri` prints.

@@ -173,7 +173,7 @@ resource "azurerm_container_app" "bank" {
       }
       env {
         name  = "ALLOWED_EMAILS"
-        value = var.allowed_emails
+        value = join(",", var.allowed_emails)
       }
       env {
         name  = "CLIENT_ID"
