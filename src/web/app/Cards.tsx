@@ -201,7 +201,7 @@ const OVERSCAN = 12;
 const VIEWPORT = 460;
 
 export const DataTable = ({ columns, rows, scroll, onRow }: DataTableProps) => {
-  const [win, setWin] = useState({ top: 0, height: VIEWPORT });
+  const [scrollTop, setScrollTop] = useState(0);
   const [rowH, setRowH] = useState(24);
   const probe = useRef<HTMLTableRowElement>(null);
   const box = useRef<HTMLDivElement>(null);
@@ -212,15 +212,15 @@ export const DataTable = ({ columns, rows, scroll, onRow }: DataTableProps) => {
     const h = probe.current?.getBoundingClientRect().height;
     if (h && Math.abs(h - rowH) > 0.5) setRowH(h);
 
-    const el = box.current;
-    if (el && (el.scrollTop !== win.top || el.clientHeight !== win.height))
-      setWin({ top: el.scrollTop, height: el.clientHeight });
   });
 
-  const top = Math.min(win.top, Math.max(0, rows.length * rowH - win.height));
+  const top = Math.min(
+    scrollTop,
+    Math.max(0, rows.length * rowH - VIEWPORT),
+  );
   const first = windowed ? Math.max(0, Math.floor(top / rowH) - OVERSCAN) : 0;
   const last = windowed
-    ? Math.min(rows.length, Math.ceil((top + win.height) / rowH) + OVERSCAN)
+    ? Math.min(rows.length, Math.ceil((top + VIEWPORT) / rowH) + OVERSCAN)
     : rows.length;
 
   const spacer = (h: number) =>
@@ -235,11 +235,7 @@ export const DataTable = ({ columns, rows, scroll, onRow }: DataTableProps) => {
       ref={box}
       onScroll={
         windowed
-          ? (e) =>
-              setWin({
-                top: e.currentTarget.scrollTop,
-                height: e.currentTarget.clientHeight,
-              })
+          ? (e) => setScrollTop(e.currentTarget.scrollTop)
           : undefined
       }
       className={`mt-2 overflow-x-auto ${scroll ? "max-h-115 overflow-y-auto" : ""}`}
