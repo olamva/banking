@@ -20,11 +20,24 @@ cp -R "$repo/src" "$stage/src"
 cp -R "$repo/data/dist" "$stage/data-dist-tmp"
 mkdir -p "$stage/data"
 mv "$stage/data-dist-tmp" "$stage/data/dist"
-cp "$repo/package.json" "$repo/pnpm-lock.yaml" "$repo/tsconfig.json" "$stage/"
+cp "$repo/tsconfig.json" "$stage/"
+
+# Vite bundles React and the icons into data/dist, so the process needs neither.
+# Only the vault client survives into the deployment.
+node -e '
+const pkg = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"));
+const keep = ["@azure/identity", "@azure/keyvault-secrets"];
+require("node:fs").writeFileSync(process.argv[2], JSON.stringify({
+  name: "banking",
+  private: true,
+  type: "module",
+  dependencies: Object.fromEntries(keep.map((k) => [k, pkg.dependencies[k]])),
+}, null, 2));
+' "$repo/package.json" "$stage/package.json"
 
 # App Service runs a plain node_modules, so the hoisted linker is required.
 echo "==> install the runtime dependencies"
-pnpm install --dir "$stage" --prod --frozen-lockfile --node-linker=hoisted --ignore-scripts
+pnpm install --dir "$stage" --prod --node-linker=hoisted --ignore-scripts
 
 echo "==> zip"
 rm -f "$repo/data/app.zip"
