@@ -121,9 +121,12 @@ resource "azurerm_container_app" "bank" {
     type = "SystemAssigned"
   }
 
+  # "system" here, not "SystemAssigned". The identity block above names the
+  # kind of identity. This names which identity pulls the image, and the API
+  # takes "system", "system-environment" or the id of a user-assigned one.
   registry {
     server   = azurerm_container_registry.bank.login_server
-    identity = "SystemAssigned"
+    identity = "system"
   }
 
   secret {
