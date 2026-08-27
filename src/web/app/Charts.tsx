@@ -332,6 +332,46 @@ const runsOf = <T,>(dense: (T | null)[]): { m: T; i: number }[][] => {
 
 export type Bucket = "day" | "month";
 
+// The stride comes from the measured cluster width, never from a fixed count.
+const axisLabels = (
+  bucket: Bucket,
+  series: SeriesPoint[],
+  dense: (SeriesPoint | null)[],
+  clusterW: number,
+): { i: number; text: string }[] => {
+  const stride = (steps: number[], room: number, per = 1) =>
+    steps.find((n) => n * clusterW * per >= room) ?? steps.at(-1)!;
+
+  if (bucket === "month") {
+    const every = stride([1, 2, 3, 4, 6, 12], 30);
+    return dense.flatMap((p, i) =>
+      p && (Number(p.at.slice(5)) - 1) % every === 0
+        ? [{ i, text: monthLabel(p.at) }]
+        : [],
+    );
+  }
+  if (new Set(series.map((p) => p.at.slice(0, 7))).size === 1) {
+    const every = stride([1, 2, 5, 10], 26);
+    return series.flatMap((p, i) =>
+      (Number(p.at.slice(8)) - 1) % every === 0
+        ? [{ i, text: String(Number(p.at.slice(8))) }]
+        : [],
+    );
+  }
+  const starts = series.flatMap((p, i) =>
+    i === 0 || p.at.slice(0, 7) !== series[i - 1]!.at.slice(0, 7)
+      ? [{ i, at: p.at }]
+      : [],
+  );
+  // 30 days to a cluster, because a day bucket puts each month that far apart.
+  const every = stride([1, 2, 3, 4, 6, 12], 34, 30);
+  return starts.flatMap(({ i, at }) =>
+    (Number(at.slice(5, 7)) - 1) % every === 0
+      ? [{ i, text: monthLabel(at) }]
+      : [],
+  );
+};
+
 type Mark = "out" | "in" | "compare" | "trend";
 
 interface SpendLinesProps {
@@ -415,36 +455,7 @@ export const SpendLines = ({
     return key === null ? null : (cmpBy.get(key) ?? null);
   });
 
-  const labels: { i: number; text: string }[] = (() => {
-    if (bucket === "month") {
-      const every = [1, 2, 3, 4, 6, 12].find((n) => n * clusterW >= 30) ?? 12;
-      return dense.flatMap((p, i) =>
-        p && (Number(p.at.slice(5)) - 1) % every === 0
-          ? [{ i, text: monthLabel(p.at) }]
-          : [],
-      );
-    }
-    if (new Set(series.map((p) => p.at.slice(0, 7))).size === 1) {
-      const every = [1, 2, 5, 10].find((n) => n * clusterW >= 26) ?? 10;
-      return series.flatMap((p, i) =>
-        (Number(p.at.slice(8)) - 1) % every === 0
-          ? [{ i, text: String(Number(p.at.slice(8))) }]
-          : [],
-      );
-    }
-    const starts = series.flatMap((p, i) =>
-      i === 0 || p.at.slice(0, 7) !== series[i - 1]!.at.slice(0, 7)
-        ? [{ i, at: p.at }]
-        : [],
-    );
-    const every =
-      [1, 2, 3, 4, 6, 12].find((n) => n * clusterW * 30 >= 34) ?? 12;
-    return starts.flatMap(({ i, at }) =>
-      (Number(at.slice(5, 7)) - 1) % every === 0
-        ? [{ i, text: monthLabel(at) }]
-        : [],
-    );
-  })();
+  const labels = axisLabels(bucket, series, dense, clusterW);
 
   const years = !multiYear
     ? []
@@ -707,52 +718,31 @@ export const SpendLines = ({
               className="stroke-ink-muted"
             />
           )}
-          {dots &&
-            dense.map((p, i) =>
-              p === null ? null : (
-                <g key={p.at}>
-                  {/* A stretch of one point draws no polyline, so the dots are what carries it. */}
-                  {hasSpend && shows("out") && (
-                    <circle
-                      cx={px(i)}
-                      cy={py(p.totalOut)}
-                      r={near === i ? 5 : 3}
-                      className="fill-critical-strong"
-                    />
-                  )}
-                  {hasIncome && shows("in") && (
-                    <circle
-                      cx={px(i)}
-                      cy={py(p.totalIn)}
-                      r={near === i ? 5 : 3}
-                      className="fill-good-strong"
-                    />
-                  )}
-                </g>
-              ),
-            )}
-          {/* Too dense for dots, so the hovered point gets the only one there
-              is — otherwise the rule marks a spot on the line with nothing on
-              it to say which point it landed on. */}
-          {!dots && near !== null && dense[near] && (
-            <g>
-              {hasSpend && shows("out") && (
-                <circle
-                  cx={px(near)}
-                  cy={py(dense[near].totalOut)}
-                  r={4}
-                  className="fill-critical-strong"
-                />
-              )}
-              {hasIncome && shows("in") && (
-                <circle
-                  cx={px(near)}
-                  cy={py(dense[near].totalIn)}
-                  r={4}
-                  className="fill-good-strong"
-                />
-              )}
-            </g>
+          {/* A stretch of one point draws no polyline, so the dots are what
+              carries it. Too dense for dots, and the hovered point gets the
+              only one there is — otherwise the rule marks a spot on the line
+              with nothing on it to say which point it landed on. */}
+          {dense.map((p, i) =>
+            p === null || (!dots && i !== near) ? null : (
+              <g key={p.at}>
+                {hasSpend && shows("out") && (
+                  <circle
+                    cx={px(i)}
+                    cy={py(p.totalOut)}
+                    r={near === i ? (dots ? 5 : 4) : 3}
+                    className="fill-critical-strong"
+                  />
+                )}
+                {hasIncome && shows("in") && (
+                  <circle
+                    cx={px(i)}
+                    cy={py(p.totalIn)}
+                    r={near === i ? (dots ? 5 : 4) : 3}
+                    className="fill-good-strong"
+                  />
+                )}
+              </g>
+            ),
           )}
           {labels.map(({ i, text }) => (
             <text

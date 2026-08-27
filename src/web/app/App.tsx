@@ -59,6 +59,8 @@ import {
   setTheme,
   useRefresh,
   useTransactions,
+  type Load,
+  type Refresh,
   type Theme,
 } from "./data.ts";
 import {
@@ -167,6 +169,192 @@ const GrainToggle = ({ grain, offered, onGrain }: GrainToggleProps) =>
     </span>
   );
 
+type Stats = ReturnType<typeof monthStats>;
+
+interface TotalsProps {
+  stats: Stats;
+  prev: Stats;
+  yearly: ReturnType<typeof yearStats> | null;
+  vsLabel?: string;
+}
+
+const Totals = ({ stats, prev, yearly, vsLabel }: TotalsProps) => (
+  <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(min(160px,100%),1fr))] gap-3">
+    {stats.totalOut > 0 && (
+      <StatTile
+        label="Spent"
+        value={fmtNOK(stats.totalOut)}
+        sub={
+          yearly ? `${fmtNOK(yearly.averageMonth.totalOut)} / month` : undefined
+        }
+        vs={vsLabel}
+        delta={
+          vsLabel ? deltaInfo(stats.totalOut, prev.totalOut, false) : undefined
+        }
+      />
+    )}
+    {stats.totalIn > 0 && (
+      <StatTile
+        label="Income"
+        value={fmtNOK(stats.totalIn)}
+        sub={
+          yearly ? `${fmtNOK(yearly.averageMonth.totalIn)} / month` : undefined
+        }
+        vs={vsLabel}
+        delta={
+          vsLabel ? deltaInfo(stats.totalIn, prev.totalIn, true) : undefined
+        }
+      />
+    )}
+    {stats.totalIn > 0 && stats.totalOut > 0 && (
+      <StatTile
+        label="Net"
+        value={fmtNOK(stats.net)}
+        sub={yearly ? `${fmtNOK(yearly.averageMonth.net)} / month` : undefined}
+        vs={vsLabel}
+        delta={vsLabel ? deltaInfo(stats.net, prev.net, true) : undefined}
+      />
+    )}
+  </div>
+);
+
+interface BreakdownsProps {
+  stats: Stats;
+  txns: Categorized[];
+  onFilters: SetFilters;
+  single: boolean;
+  grid: string;
+  vsLabel?: string;
+}
+
+const Breakdowns = ({
+  stats,
+  txns,
+  onFilters,
+  single,
+  grid,
+  vsLabel,
+}: BreakdownsProps) => {
+  const catBars = (
+    categories: Stats["categories"],
+    subcategories: Stats["subcategories"],
+  ) =>
+    categories.map((c) => {
+      const subs = subcategories
+        .filter((sub) => sub.category === c.category)
+        .map((sub) => ({
+          key: `${sub.category}/${sub.subcategory ?? ""}`,
+          label: subcategoryLabel(sub.category, sub.subcategory),
+          total: sub.total,
+        }));
+      const lone =
+        subs.length === 1 && subs[0]!.key.split("/")[1] !== ""
+          ? subs[0]!
+          : null;
+      return {
+        key: lone?.key ?? c.category,
+        label: lone?.label ?? categoryLabel(c.category),
+        total: c.total,
+        subs,
+      };
+    });
+  const cpBars = (list: Stats["topCounterparties"]) =>
+    list.map((c) => ({
+      label: c.counterparty,
+      total: c.total,
+      count: c.count,
+    }));
+  const acctBars = (list: Stats["accounts"]): BarItem[] =>
+    list.map((a) => ({ label: a.account, total: a.total }));
+
+  const cats = catBars(stats.categories, stats.subcategories);
+  const cps = cpBars(stats.topCounterparties);
+  const inCats = catBars(stats.incomeCategories, stats.incomeSubcategories);
+  const inCps = cpBars(stats.topIncomeCounterparties);
+  const accounts = acctBars(stats.accounts);
+  const inAccounts = acctBars(stats.incomeAccounts);
+  const deltas = visibleDeltas(stats.categoryDeltas).map((d) => ({
+    ...d,
+    category: categoryLabel(d.category),
+  }));
+
+  const slugOf = slugsByLabel([
+    ...stats.categories.map((c) => c.category),
+    ...stats.categoryDeltas.map((d) => d.category),
+  ]);
+  const onCategory = (slugOrLabel: string, meta: boolean) =>
+    pick(onFilters, "categories")(slugOf.get(slugOrLabel) ?? slugOrLabel, meta);
+  const onSubcategory = pick(onFilters, "categories");
+  const onMerchant = pick(onFilters, "merchants");
+  const onAccount = pick(onFilters, "accounts");
+
+  return (
+    <div className={grid}>
+      {/* Three breakdowns per direction, named the same way on both sides:
+          "<direction> by <axis>". The income half hides itself period by
+          period, on exactly the same emptiness rules as the spending half. */}
+      {!single && cats.length > 0 && (
+        <Card title="Spending by category" icon={CategoryIcon}>
+          <HorizontalBars
+            items={cats}
+            onPick={onCategory}
+            onPickSub={onSubcategory}
+            tone="spend"
+          />
+        </Card>
+      )}
+
+      {!single && deltas.length > 0 && (
+        <Card title={`Biggest changes vs ${vsLabel}`} icon={ChangesIcon}>
+          <DivergingBars deltas={deltas} onPick={onCategory} />
+        </Card>
+      )}
+
+      {cps.length > 0 && (
+        <Card title="Spending by merchant" icon={CounterpartyIcon}>
+          <HorizontalBars items={cps} onPick={onMerchant} tone="spend" />
+        </Card>
+      )}
+
+      {accounts.length > 1 && (
+        <Card title="Spending by account" icon={AccountIcon}>
+          <HorizontalBars items={accounts} onPick={onAccount} tone="spend" />
+        </Card>
+      )}
+
+      {!single && inCats.length > 0 && (
+        <Card title="Income by category" icon={CategoryIcon}>
+          <HorizontalBars
+            items={inCats}
+            onPick={onCategory}
+            onPickSub={onSubcategory}
+            tone="income"
+          />
+        </Card>
+      )}
+
+      {inCps.length > 0 && (
+        <Card title="Income by merchant" icon={CounterpartyIcon}>
+          <HorizontalBars items={inCps} onPick={onMerchant} tone="income" />
+        </Card>
+      )}
+
+      {inAccounts.length > 1 && (
+        <Card title="Income by account" icon={AccountIcon}>
+          <HorizontalBars items={inAccounts} onPick={onAccount} tone="income" />
+        </Card>
+      )}
+
+      {/* Hides itself when the period has nothing recurring in it. */}
+      <SubscriptionsCard
+        txns={txns}
+        onMerchant={onMerchant}
+        onCategory={pick(onFilters, "categories")}
+      />
+    </div>
+  );
+};
+
 interface DashboardProps {
   txns: Categorized[];
   filters: Filters;
@@ -220,60 +408,6 @@ const Dashboard = ({
   const series = build(shown, from, to);
   const compare = vs ? build(previous, vs.from, vs.to) : [];
 
-  const catBars = (
-    categories: typeof stats.categories,
-    subcategories: typeof stats.subcategories,
-  ) =>
-    categories.map((c) => {
-      const subs = subcategories
-        .filter((sub) => sub.category === c.category)
-        .map((sub) => ({
-          key: `${sub.category}/${sub.subcategory ?? ""}`,
-          label: subcategoryLabel(sub.category, sub.subcategory),
-          total: sub.total,
-        }));
-      const lone =
-        subs.length === 1 && subs[0]!.key.split("/")[1] !== ""
-          ? subs[0]!
-          : null;
-      return {
-        key: lone?.key ?? c.category,
-        label: lone?.label ?? categoryLabel(c.category),
-        total: c.total,
-        subs,
-      };
-    });
-  const cpBars = (list: typeof stats.topCounterparties) =>
-    list.map((c) => ({
-      label: c.counterparty,
-      total: c.total,
-      count: c.count,
-    }));
-
-  const cats = catBars(stats.categories, stats.subcategories);
-  const cps = cpBars(stats.topCounterparties);
-  const inCats = catBars(stats.incomeCategories, stats.incomeSubcategories);
-  const inCps = cpBars(stats.topIncomeCounterparties);
-  const deltas = visibleDeltas(stats.categoryDeltas).map((d) => ({
-    ...d,
-    category: categoryLabel(d.category),
-  }));
-
-  const slugOf = slugsByLabel([
-    ...stats.categories.map((c) => c.category),
-    ...stats.categoryDeltas.map((d) => d.category),
-  ]);
-  const onCategory = (slugOrLabel: string, meta: boolean) =>
-    pick(onFilters, "categories")(slugOf.get(slugOrLabel) ?? slugOrLabel, meta);
-  const onSubcategory = pick(onFilters, "categories");
-  const onMerchant = pick(onFilters, "merchants");
-  const onAccount = pick(onFilters, "accounts");
-
-  const acctBars = (list: typeof stats.accounts): BarItem[] =>
-    list.map((a) => ({ label: a.account, total: a.total }));
-  const accounts = acctBars(stats.accounts);
-  const inAccounts = acctBars(stats.incomeAccounts);
-
   const single = filters.categories.length === 1;
 
   const anyIncome = series.some((s) => s.totalIn > 0);
@@ -283,49 +417,7 @@ const Dashboard = ({
 
   return (
     <>
-      <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(min(160px,100%),1fr))] gap-3">
-        {stats.totalOut > 0 && (
-          <StatTile
-            label="Spent"
-            value={fmtNOK(stats.totalOut)}
-            sub={
-              yearly
-                ? `${fmtNOK(yearly.averageMonth.totalOut)} / month`
-                : undefined
-            }
-            vs={vs?.label}
-            delta={
-              vs ? deltaInfo(stats.totalOut, prev.totalOut, false) : undefined
-            }
-          />
-        )}
-        {stats.totalIn > 0 && (
-          <StatTile
-            label="Income"
-            value={fmtNOK(stats.totalIn)}
-            sub={
-              yearly
-                ? `${fmtNOK(yearly.averageMonth.totalIn)} / month`
-                : undefined
-            }
-            vs={vs?.label}
-            delta={
-              vs ? deltaInfo(stats.totalIn, prev.totalIn, true) : undefined
-            }
-          />
-        )}
-        {stats.totalIn > 0 && stats.totalOut > 0 && (
-          <StatTile
-            label="Net"
-            value={fmtNOK(stats.net)}
-            sub={
-              yearly ? `${fmtNOK(yearly.averageMonth.net)} / month` : undefined
-            }
-            vs={vs?.label}
-            delta={vs ? deltaInfo(stats.net, prev.net, true) : undefined}
-          />
-        )}
-      </div>
+      <Totals stats={stats} prev={prev} yearly={yearly} vsLabel={vs?.label} />
 
       {/* Outside the grid, not a `col-span-full` inside it. `nth-child` counts
           DOM children, but a full-width card owns a whole row on its own — so
@@ -361,73 +453,14 @@ const Dashboard = ({
         </div>
       )}
 
-      <div className={p.kind === "all" ? CARD_GRID_3 : CARD_GRID}>
-        {/* Three breakdowns per direction, named the same way on both sides:
-            "<direction> by <axis>". The income half hides itself period by
-            period, on exactly the same emptiness rules as the spending half. */}
-        {!single && cats.length > 0 && (
-          <Card title="Spending by category" icon={CategoryIcon}>
-            <HorizontalBars
-              items={cats}
-              onPick={onCategory}
-              onPickSub={onSubcategory}
-              tone="spend"
-            />
-          </Card>
-        )}
-
-        {!single && deltas.length > 0 && (
-          <Card title={`Biggest changes vs ${vs?.label}`} icon={ChangesIcon}>
-            <DivergingBars deltas={deltas} onPick={onCategory} />
-          </Card>
-        )}
-
-        {cps.length > 0 && (
-          <Card title="Spending by merchant" icon={CounterpartyIcon}>
-            <HorizontalBars items={cps} onPick={onMerchant} tone="spend" />
-          </Card>
-        )}
-
-        {accounts.length > 1 && (
-          <Card title="Spending by account" icon={AccountIcon}>
-            <HorizontalBars items={accounts} onPick={onAccount} tone="spend" />
-          </Card>
-        )}
-
-        {!single && inCats.length > 0 && (
-          <Card title="Income by category" icon={CategoryIcon}>
-            <HorizontalBars
-              items={inCats}
-              onPick={onCategory}
-              onPickSub={onSubcategory}
-              tone="income"
-            />
-          </Card>
-        )}
-
-        {inCps.length > 0 && (
-          <Card title="Income by merchant" icon={CounterpartyIcon}>
-            <HorizontalBars items={inCps} onPick={onMerchant} tone="income" />
-          </Card>
-        )}
-
-        {inAccounts.length > 1 && (
-          <Card title="Income by account" icon={AccountIcon}>
-            <HorizontalBars
-              items={inAccounts}
-              onPick={onAccount}
-              tone="income"
-            />
-          </Card>
-        )}
-
-        {/* Hides itself when the period has nothing recurring in it. */}
-        <SubscriptionsCard
-          txns={shown}
-          onMerchant={onMerchant}
-          onCategory={pick(onFilters, "categories")}
-        />
-      </div>
+      <Breakdowns
+        stats={stats}
+        txns={shown}
+        onFilters={onFilters}
+        single={single}
+        grid={p.kind === "all" ? CARD_GRID_3 : CARD_GRID}
+        vsLabel={vs?.label}
+      />
 
       <ExcludedNote excluded={totals(all).excluded} where="in this period" />
     </>
@@ -477,6 +510,123 @@ const TransactionsView = ({
   );
 };
 
+interface ToolbarProps {
+  refresh: Refresh;
+  theme: Theme;
+  onTheme: (theme: Theme) => void;
+  onHelp: () => void;
+}
+
+const Toolbar = ({ refresh, theme, onTheme, onHelp }: ToolbarProps) => (
+  <>
+    <header className="mb-4 flex flex-wrap items-baseline justify-between gap-4">
+      <h1 className="text-xl font-semibold">Spending dashboard</h1>
+      {/* Three controls, and 375px is a supported width. Let them wrap
+          rather than push the page sideways. */}
+      <div className="flex flex-wrap items-center gap-2">
+        {/* The one control on this page that costs a bank request. It syncs
+            the whole record with --force, then rebuilds the database. */}
+        <button
+          type="button"
+          onClick={refresh.run}
+          disabled={refresh.busy}
+          aria-label="Refresh from the bank"
+          className="flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-ink-soft disabled:opacity-60"
+        >
+          <Icon
+            aria-hidden
+            icon={refresh.busy ? LoadingIcon : RefreshIcon}
+            size={14}
+            className={refresh.busy ? "animate-spin" : undefined}
+          />
+          {refresh.busy ? "Refreshing…" : "Refresh"}
+        </button>
+        <button
+          type="button"
+          onClick={onHelp}
+          aria-label="Keyboard shortcuts"
+          className="flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-ink-soft"
+        >
+          <Icon aria-hidden icon={KeyboardIcon} size={14} />
+          Shortcuts
+        </button>
+        {/* Three named options rather than a cycling button: a toggle whose next
+          state you cannot see is a toggle you press twice. The icon names the
+          option picked — "system" is the machine, not the way it resolved. */}
+        <div className="relative">
+          <Icon
+            aria-hidden
+            icon={THEME_ICONS[theme]}
+            size={14}
+            className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-ink-soft"
+          />
+          <select
+            className="w-full appearance-none rounded-md border border-line bg-surface py-1.5 pr-3 pl-8 text-xs text-ink-soft"
+            value={theme}
+            onChange={(e) => {
+              const next = e.target.value as Theme;
+              onTheme(next);
+              setTheme(next);
+            }}
+            aria-label="Theme"
+          >
+            {/* Capitalised here, not in CSS — a native select menu ignores text-transform. */}
+            {THEMES.map((t) => (
+              <option key={t} value={t}>
+                {t[0]!.toUpperCase() + t.slice(1)}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+    </header>
+
+    {/* On the page, not in a tooltip — a phone has no hover. */}
+    {refresh.note && (
+      <p
+        className={`mb-4 flex items-start gap-1.5 text-[11px] ${refresh.bad ? "text-critical" : "text-ink-muted"}`}
+      >
+        <Icon
+          aria-hidden
+          icon={refresh.bad ? ErrorIcon : InfoIcon}
+          size={13}
+          className="mt-px shrink-0"
+        />
+        {refresh.note}
+      </p>
+    )}
+  </>
+);
+
+const LoadNote = ({ load, count }: { load: Load; count: number }) => {
+  if (load.status === "loading")
+    return (
+      <div className="flex items-center justify-center gap-2 py-10 text-ink-muted">
+        <Icon
+          aria-hidden
+          icon={LoadingIcon}
+          size={16}
+          className="animate-spin"
+        />
+        Loading…
+      </div>
+    );
+  if (load.status === "error")
+    return (
+      <div className="flex items-center justify-center gap-2 py-10 text-critical">
+        <Icon aria-hidden icon={ErrorIcon} size={16} className="shrink-0" />
+        Could not load transactions: {load.message}
+      </div>
+    );
+  if (count === 0)
+    return (
+      <div className="py-10 text-center text-ink-muted">
+        No transactions yet — press Refresh.
+      </div>
+    );
+  return null;
+};
+
 export const App = () => {
   const [load, reload] = useTransactions();
   const refresh = useRefresh(reload);
@@ -494,6 +644,7 @@ export const App = () => {
   }
 
   const txns = load.status === "ready" ? load.txns : [];
+  const ready = txns.length > 0;
   const months = useMemo(() => distinctMonths(txns), [txns]);
   const years = useMemo(() => distinctYears(txns), [txns]);
 
@@ -673,82 +824,12 @@ export const App = () => {
 
   return (
     <div className="mx-auto max-w-295 p-3 sm:p-6">
-      <header className="mb-4 flex flex-wrap items-baseline justify-between gap-4">
-        <h1 className="text-xl font-semibold">Spending dashboard</h1>
-        {/* Three controls, and 375px is a supported width. Let them wrap
-            rather than push the page sideways. */}
-        <div className="flex flex-wrap items-center gap-2">
-          {/* The one control on this page that costs a bank request. It syncs
-              the whole record with --force, then rebuilds the database. */}
-          <button
-            type="button"
-            onClick={refresh.run}
-            disabled={refresh.busy}
-            aria-label="Refresh from the bank"
-            className="flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-ink-soft disabled:opacity-60"
-          >
-            <Icon
-              aria-hidden
-              icon={refresh.busy ? LoadingIcon : RefreshIcon}
-              size={14}
-              className={refresh.busy ? "animate-spin" : undefined}
-            />
-            {refresh.busy ? "Refreshing…" : "Refresh"}
-          </button>
-          <button
-            type="button"
-            onClick={() => setHelp(true)}
-            aria-label="Keyboard shortcuts"
-            className="flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-ink-soft"
-          >
-            <Icon aria-hidden icon={KeyboardIcon} size={14} />
-            Shortcuts
-          </button>
-          {/* Three named options rather than a cycling button: a toggle whose next
-            state you cannot see is a toggle you press twice. The icon names the
-            option picked — "system" is the machine, not the way it resolved. */}
-          <div className="relative">
-            <Icon
-              aria-hidden
-              icon={THEME_ICONS[theme]}
-              size={14}
-              className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-ink-soft"
-            />
-            <select
-              className="w-full appearance-none rounded-md border border-line bg-surface py-1.5 pr-3 pl-8 text-xs text-ink-soft"
-              value={theme}
-              onChange={(e) => {
-                const next = e.target.value as Theme;
-                onTheme(next);
-                setTheme(next);
-              }}
-              aria-label="Theme"
-            >
-              {/* Capitalised here, not in CSS — a native select menu ignores text-transform. */}
-              {THEMES.map((t) => (
-                <option key={t} value={t}>
-                  {t[0]!.toUpperCase() + t.slice(1)}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </header>
-
-      {/* On the page, not in a tooltip — a phone has no hover. */}
-      {refresh.note && (
-        <p
-          className={`mb-4 flex items-start gap-1.5 text-[11px] ${refresh.bad ? "text-critical" : "text-ink-muted"}`}
-        >
-          <Icon
-            aria-hidden
-            icon={refresh.bad ? ErrorIcon : InfoIcon}
-            size={13}
-            className="mt-px shrink-0"
-          />
-          {refresh.note}
-        </p>
-      )}
+      <Toolbar
+        refresh={refresh}
+        theme={theme}
+        onTheme={onTheme}
+        onHelp={() => setHelp(true)}
+      />
 
       <ShortcutsDialog
         shortcuts={shortcuts}
@@ -778,48 +859,25 @@ export const App = () => {
         onFilters={setFilters}
       />
 
-      {load.status === "loading" && (
-        <div className="flex items-center justify-center gap-2 py-10 text-ink-muted">
-          <Icon
-            aria-hidden
-            icon={LoadingIcon}
-            size={16}
-            className="animate-spin"
+      <LoadNote load={load} count={txns.length} />
+      {ready &&
+        (view === "dashboard" ? (
+          <Dashboard
+            txns={txns}
+            filters={filters}
+            onFilters={setFilters}
+            period={p}
+            grain={grain}
+            offered={grains}
+            onGrain={setChosenGrain}
           />
-          Loading…
-        </div>
-      )}
-      {load.status === "error" && (
-        <div className="flex items-center justify-center gap-2 py-10 text-critical">
-          <Icon aria-hidden icon={ErrorIcon} size={16} className="shrink-0" />
-          Could not load transactions: {load.message}
-        </div>
-      )}
-      {load.status === "ready" && txns.length === 0 && (
-        <div className="py-10 text-center text-ink-muted">
-          No transactions yet — press Refresh.
-        </div>
-      )}
-      {load.status === "ready" && txns.length > 0 && view === "dashboard" && (
-        <Dashboard
-          txns={txns}
-          filters={filters}
-          onFilters={setFilters}
-          period={p}
-          grain={grain}
-          offered={grains}
-          onGrain={setChosenGrain}
-        />
-      )}
-      {load.status === "ready" &&
-        txns.length > 0 &&
-        view === "transactions" && (
+        ) : (
           <TransactionsView
             rows={inPeriod}
             filters={filters}
             onFilters={setFilters}
           />
-        )}
+        ))}
     </div>
   );
 };
