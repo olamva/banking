@@ -1,1 +1,6 @@
-{ "rules": { "complexity": "error" } }
+{
+  "rules": {
+    "complexity": "error",
+    "max-depth": ["error", { "max": 3 }]
+  }
+}
