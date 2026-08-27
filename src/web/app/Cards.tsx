@@ -246,8 +246,12 @@ export const DataTable = ({ columns, rows, scroll, onRow }: DataTableProps) => {
     >
       {/* Tabular figures for the whole table, not just the money column: it is
           what makes every date exactly as wide as every other one, so the date
-          column has a width the rows cannot argue with. */}
-      <table className="w-full border-collapse text-xs tabular-nums">
+          column has a width the rows cannot argue with.
+
+          The borders stay separate. A collapsed border belongs to the table,
+          so a sticky header cell paints no bottom edge of its own, and the
+          rows then show through that strip. */}
+      <table className="w-full border-separate border-spacing-0 text-xs tabular-nums">
         <thead>
           <tr>
             {columns.map((c) => (
