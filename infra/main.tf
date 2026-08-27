@@ -91,11 +91,17 @@ resource "azurerm_key_vault" "bank" {
   rbac_authorization_enabled = true
 }
 
+resource "azurerm_user_assigned_identity" "app" {
+  name                = "${var.name}-app"
+  resource_group_name = azurerm_resource_group.bank.name
+  location            = azurerm_resource_group.bank.location
+}
+
 # The app rotates the refresh token on every exchange, so it needs to write.
 resource "azurerm_role_assignment" "app_secrets" {
   scope                = azurerm_key_vault.bank.id
   role_definition_name = "Key Vault Secrets Officer"
-  principal_id         = azurerm_container_app.bank.identity[0].principal_id
+  principal_id         = azurerm_user_assigned_identity.app.principal_id
 }
 
 # You seed the first token from the Mac, so you need the same right.
@@ -108,7 +114,7 @@ resource "azurerm_role_assignment" "me_secrets" {
 resource "azurerm_role_assignment" "app_pull" {
   scope                = azurerm_container_registry.bank.id
   role_definition_name = "AcrPull"
-  principal_id         = azurerm_container_app.bank.identity[0].principal_id
+  principal_id         = azurerm_user_assigned_identity.app.principal_id
 }
 
 resource "azurerm_container_app" "bank" {
@@ -118,15 +124,13 @@ resource "azurerm_container_app" "bank" {
   revision_mode                = "Single"
 
   identity {
-    type = "SystemAssigned"
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.app.id]
   }
 
-  # "system" here, not "SystemAssigned". The identity block above names the
-  # kind of identity. This names which identity pulls the image, and the API
-  # takes "system", "system-environment" or the id of a user-assigned one.
   registry {
     server   = azurerm_container_registry.bank.login_server
-    identity = "system"
+    identity = azurerm_user_assigned_identity.app.id
   }
 
   secret {
@@ -173,6 +177,10 @@ resource "azurerm_container_app" "bank" {
         value = "/data/rules"
       }
       env {
+        name  = "AZURE_CLIENT_ID"
+        value = azurerm_user_assigned_identity.app.client_id
+      }
+      env {
         name  = "KEY_VAULT_NAME"
         value = azurerm_key_vault.bank.name
       }
@@ -209,6 +217,11 @@ resource "azurerm_container_app" "bank" {
       storage_name = azurerm_container_app_environment_storage.data.name
     }
   }
+
+  depends_on = [
+    azurerm_role_assignment.app_pull,
+    azurerm_role_assignment.app_secrets,
+  ]
 
   lifecycle {
     # Terraform owns the resource. `pnpm deploy` owns the image it runs.

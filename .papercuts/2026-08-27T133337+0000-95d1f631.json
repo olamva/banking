@@ -1,0 +1,13 @@
+{
+  "id": "95d1f631",
+  "ts": "2026-08-27T13:33:37+00:00",
+  "text": "zsh shadows /usr/bin/log with a builtin, so 'log show ...' fails with 'too many arguments' \u2014 macOS log queries need the absolute path",
+  "tags": [
+    "macos",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "opus-5",
+  "session": "cb9fcedf",
+  "where": "/Users/olavassbotn/Documents/banking"
+}
