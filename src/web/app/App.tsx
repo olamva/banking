@@ -57,6 +57,7 @@ import {
   THEMES,
   readTheme,
   setTheme,
+  useHideOnScroll,
   useRefresh,
   useTransactions,
   type Load,
@@ -537,8 +538,8 @@ interface ToolbarProps {
 
 const Toolbar = ({ refresh, theme, onTheme, onHelp }: ToolbarProps) => (
   <>
-    <header className="mb-4 flex flex-wrap items-baseline justify-between gap-4">
-      <h1 className="text-xl font-semibold">Spending dashboard</h1>
+    <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
+      <h1 className="text-lg font-semibold sm:text-xl">Spending dashboard</h1>
       {/* Three controls, and 375px is a supported width. Let them wrap
           rather than push the page sideways. */}
       <div className="flex flex-wrap items-center gap-2">
@@ -583,12 +584,12 @@ const Toolbar = ({ refresh, theme, onTheme, onHelp }: ToolbarProps) => (
           </select>
         </div>
       </div>
-    </header>
+    </div>
 
     {/* On the page, not in a tooltip — a phone has no hover. */}
     {refresh.note && (
       <p
-        className={`mb-4 flex items-start gap-1.5 text-[11px] ${refresh.bad ? "text-critical" : "text-ink-muted"}`}
+        className={`flex items-start gap-1.5 text-[11px] ${refresh.bad ? "text-critical" : "text-ink-muted"}`}
       >
         <Icon
           aria-hidden
@@ -650,6 +651,7 @@ export const App = () => {
   const [chosenGrain, setChosenGrain] = useState<Grain>(initial.grain);
   const [theme, onTheme] = useState<Theme>(readTheme);
   const [help, setHelp] = useState(false);
+  const hidden = useHideOnScroll();
 
   if (load.status === "ready") {
     setLabels(load.labels);
@@ -844,13 +846,46 @@ export const App = () => {
   }, [inPeriod, filters.countries]);
 
   return (
-    <div className="mx-auto max-w-295 p-3 sm:p-6">
-      <Toolbar
-        refresh={refresh}
-        theme={theme}
-        onTheme={onTheme}
-        onHelp={() => setHelp(true)}
-      />
+    <>
+      {/* One bar holds the title, the three controls and every filter. It
+          leaves on a scroll down and returns on a scroll up, so a phone reads
+          the page at full height and reaches the filters without a scroll to
+          the top. An open picker holds it, because a long list scrolls the page
+          on at its end, and that would take the list off the screen. */}
+      <header
+        className={`sticky top-0 z-30 border-b border-line bg-page transition-transform duration-200 has-[details[open]]:translate-y-0 motion-reduce:transition-none ${hidden ? "-translate-y-full" : ""}`}
+      >
+        <div className="mx-auto max-w-295 space-y-2.5 px-3 py-2.5 sm:px-6 sm:py-3">
+          <Toolbar
+            refresh={refresh}
+            theme={theme}
+            onTheme={onTheme}
+            onHelp={() => setHelp(true)}
+          />
+
+          <FilterBar
+            view={view}
+            onView={changeView}
+            months={months}
+            years={years}
+            period={active}
+            kind={p.kind}
+            from={p.from}
+            to={p.to}
+            earliest={record.from}
+            latest={record.to}
+            onPeriod={setChosen}
+            categories={categories}
+            subcategories={subcategories}
+            merchants={merchants}
+            people={people}
+            accounts={accounts}
+            countries={countries}
+            filters={filters}
+            onFilters={setFilters}
+          />
+        </div>
+      </header>
 
       <ShortcutsDialog
         shortcuts={shortcuts}
@@ -858,47 +893,27 @@ export const App = () => {
         onClose={() => setHelp(false)}
       />
 
-      <FilterBar
-        view={view}
-        onView={changeView}
-        months={months}
-        years={years}
-        period={active}
-        kind={p.kind}
-        from={p.from}
-        to={p.to}
-        earliest={record.from}
-        latest={record.to}
-        onPeriod={setChosen}
-        categories={categories}
-        subcategories={subcategories}
-        merchants={merchants}
-        people={people}
-        accounts={accounts}
-        countries={countries}
-        filters={filters}
-        onFilters={setFilters}
-      />
-
-      <LoadNote load={load} count={txns.length} refresh={refresh} />
-      {ready &&
-        (view === "dashboard" ? (
-          <Dashboard
-            txns={txns}
-            filters={filters}
-            onFilters={setFilters}
-            period={p}
-            grain={grain}
-            offered={grains}
-            onGrain={setChosenGrain}
-          />
-        ) : (
-          <TransactionsView
-            rows={inPeriod}
-            filters={filters}
-            onFilters={setFilters}
-          />
-        ))}
-    </div>
+      <div className="mx-auto max-w-295 px-3 py-4 sm:px-6 sm:py-6">
+        <LoadNote load={load} count={txns.length} refresh={refresh} />
+        {ready &&
+          (view === "dashboard" ? (
+            <Dashboard
+              txns={txns}
+              filters={filters}
+              onFilters={setFilters}
+              period={p}
+              grain={grain}
+              offered={grains}
+              onGrain={setChosenGrain}
+            />
+          ) : (
+            <TransactionsView
+              rows={inPeriod}
+              filters={filters}
+              onFilters={setFilters}
+            />
+          ))}
+      </div>
+    </>
   );
 };

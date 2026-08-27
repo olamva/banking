@@ -700,7 +700,7 @@ export const FilterBar = ({
   const dirty = picked > 0 || filters.search !== "" || filters.showExcluded;
 
   return (
-    <div className="mb-5 flex flex-wrap items-center gap-2 rounded-[10px] border border-line bg-surface px-3 py-2.5">
+    <div className="flex flex-wrap items-center gap-2">
       <div className="inline-flex overflow-hidden rounded-md border border-line">
         {(["dashboard", "transactions"] as const).map((v) => (
           <button

@@ -89,6 +89,31 @@ export const useRefresh = (onDone: () => void): Refresh => {
   return { busy, note, bad, run };
 };
 
+// 8 px ignores the jitter that a tap makes on iOS, and the rubber band at both
+// ends. 80 px keeps the header up over the top of the page, where it starts.
+export const headerHidden = (
+  y: number,
+  last: number,
+  hidden: boolean,
+): boolean => (Math.abs(y - last) < 8 ? hidden : y > last && y > 80);
+
+export const useHideOnScroll = (): boolean => {
+  const [hidden, setHidden] = useState(false);
+
+  useEffect(() => {
+    let last = window.scrollY;
+    const onScroll = () => {
+      const y = window.scrollY;
+      setHidden((was) => headerHidden(y, last, was));
+      if (Math.abs(y - last) >= 8) last = y;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  return hidden;
+};
+
 export const THEMES = ["system", "light", "dark"] as const;
 export type Theme = (typeof THEMES)[number];
 
