@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import type { Accounts } from "./core/exclude.ts";
+import { RULES_DIR } from "./core/paths.ts";
 import { monthsOnDisk, RAW } from "./core/pipeline.ts";
 import type { Txn } from "./core/types.ts";
 
@@ -48,10 +49,10 @@ async function accounts(): Promise<void> {
     );
     return;
   }
-  if (!existsSync("rules/accounts.json")) {
+  if (!existsSync(`${RULES_DIR}/accounts.json`)) {
     const card = (a: Account) => a.type === "CREDITCARD";
     await dump(
-      "rules/accounts.json",
+      `${RULES_DIR}/accounts.json`,
       Object.fromEntries(
         found.map((a) => [
           a.key,
@@ -72,7 +73,7 @@ async function reconcileCmd(): Promise<void> {
   const { normalizeMonth } = await import("./core/normalize.ts");
   const { reconcile, unexplained } = await import("./core/reconcile.ts");
   const accounts: Accounts = JSON.parse(
-    await readFile("rules/accounts.json", "utf8"),
+    await readFile(`${RULES_DIR}/accounts.json`, "utf8"),
   );
   const snap = JSON.parse(await readFile(ACCOUNTS_RAW, "utf8")) as {
     accounts?: Array<{ key: string; balance: number }>;

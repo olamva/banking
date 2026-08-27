@@ -2,6 +2,7 @@ import { existsSync, statSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import type { Accounts } from "../core/exclude.ts";
 import { osloDate } from "../core/normalize.ts";
+import { RULES_DIR } from "../core/paths.ts";
 import { monthsOnDisk, RAW } from "../core/pipeline.ts";
 import { BudgetExhausted, remaining } from "./budget.ts";
 import { get, monthRange, RateLimited } from "./sb1.ts";
@@ -14,7 +15,7 @@ async function dump(file: string, data: unknown): Promise<void> {
 
 export async function accountKeys(month?: string): Promise<string[]> {
   const accounts: Accounts = JSON.parse(
-    await readFile("rules/accounts.json", "utf8"),
+    await readFile(`${RULES_DIR}/accounts.json`, "utf8"),
   );
   return Object.entries(accounts)
     .filter(([, a]) => a.sync !== false)
@@ -233,7 +234,7 @@ export function earliestMonth(accounts: Accounts, fallback: string): string {
 
 export async function syncAll(): Promise<SyncResult> {
   const accounts: Accounts = JSON.parse(
-    await readFile("rules/accounts.json", "utf8"),
+    await readFile(`${RULES_DIR}/accounts.json`, "utf8"),
   );
   const now = thisMonth();
   return syncRange(earliestMonth(accounts, monthsOnDisk()[0] ?? now), now);

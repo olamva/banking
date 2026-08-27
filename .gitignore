@@ -13,7 +13,7 @@ node_modules
 # guard against one ever landing loose rather than covering a directory of them.
 *.pem
 *.key
-.env.local
+.env*
 
 # personal data: raw API responses, the derived database, the dashboard
 data
@@ -21,4 +21,10 @@ data
 # hand-edited local rules — they carry account keys, names and descriptions
 rules
 
-.vercel/
+# a tfvars file holds every secret in the clear, and so does a saved plan.
+# The state itself lives in Azure, not here.
+infra/.terraform
+infra/*.tfstate*
+infra/tfplan
+*.tfplan
+*.tfvars

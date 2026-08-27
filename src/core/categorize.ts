@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { makeCleaner } from "./names.ts";
+import { RULES_DIR } from "./paths.ts";
 import type { Categorized, Classified } from "./types.ts";
 
 export type Overrides = Record<string, string>;
@@ -32,24 +33,25 @@ const VIPPS_PEER_DOUBLED = /vipps\*\s*vipps\*/i;
 
 const LUMP_TYPE = /^(giro|mobilgiro|overførsel|avtale)\b(?! mellom egne)/i;
 
-export const loadOverrides = (path = "rules/overrides.json") =>
+export const loadOverrides = (path = `${RULES_DIR}/overrides.json`) =>
   loadJson<Overrides>(path, {});
 
-export const loadGiro = (path = "rules/giro.json") =>
+export const loadGiro = (path = `${RULES_DIR}/giro.json`) =>
   loadJson<Overrides>(path, {});
 
-export const loadFamily = (path = "rules/family.json") =>
+export const loadFamily = (path = `${RULES_DIR}/family.json`) =>
   loadJson<string[]>(path, []);
 
 const FAMILY = "innskudd/familie";
 
-export const loadSubscriptions = (path = "rules/subscriptions.json") =>
+export const loadSubscriptions = (path = `${RULES_DIR}/subscriptions.json`) =>
   loadJson<Subscriptions>(path, []);
 
-export const loadNotSubscriptions = (path = "rules/not-subscriptions.json") =>
-  loadJson<Subscriptions>(path, []);
+export const loadNotSubscriptions = (
+  path = `${RULES_DIR}/not-subscriptions.json`,
+) => loadJson<Subscriptions>(path, []);
 
-export const loadPayees = (path = "rules/payees.json") =>
+export const loadPayees = (path = `${RULES_DIR}/payees.json`) =>
   loadJson<Overrides>(path, {});
 
 export function renamePayees<

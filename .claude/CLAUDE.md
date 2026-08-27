@@ -46,6 +46,40 @@ Run `pnpm install`, then run `pnpm worktree:link`. These two commands are the wh
 
 `EnterWorktree` branches from `origin/main`. Check the base before you build on it. A branch that appears to stack on work that is not on `main` shows this error.
 
+**Deploy from the main checkout.** The deploy reads `data/banking.db` and `rules/`, and it writes `data/dist`. All of them resolve to the shared path, so a worktree cannot do it.
+
+## Deploying
+
+```bash
+pnpm sb1 rebuild                # only when the rules changed
+pnpm deploy                     # build, push the code and the page, upload the rules
+```
+
+`terraform -chdir=infra apply` creates the resources. `pnpm deploy` fills them. Run the deploy from the main checkout.
+
+**`bootstrap.sh` registers the resource providers.** A subscription serves a namespace only after it is registered, and a fresh subscription registers almost nothing. The failure arrives late, as a 409 on the first resource in that namespace, and it reads like a bug in the configuration. It is not one.
+
+**The state lives in Azure.** `infra/backend.tf` names the storage account, and `infra/bootstrap.sh` creates it. That script runs on `az` alone, because the state cannot describe the storage that holds it, and it reads the names out of `backend.tf` so that the two cannot drift. **A backend block takes literals only.** It reads no variable, local or function, so never try to derive those names. **The state records every resource that exists**, so a checkout that owns it orphans the whole deployment when it is deleted, and only the portal can then find those resources.
+
+`infra/terraform.tfvars` holds every secret in the clear. The gitignore refuses `*.tfvars`, and that line is a security control. Never commit one, and never weaken the rule.
+
+| Application setting | What it is                                             |
+| ------------------- | ------------------------------------------------------ |
+| `ALLOWED_EMAILS`    | the addresses that may read the money, comma separated |
+
+| `DATA_DIR` | `/data`. The mounted volume, and the only durable path |
+| `RULES_DIR` | `/data/rules` |
+| `KEY_VAULT_NAME` | the vault that holds the SB1 refresh token |
+| `CLIENT_ID` | the **second** SB1 client, not the one on the Mac |
+| `CLIENT_SECRET` | its secret |
+| `FINANCIAL_INSTITUTION` | the bank that BankID signs into |
+
+Terraform sets all of them. Do not set one by hand, because the next `terraform apply` puts it back.
+
+Set the authorised redirect URI of the Google client to the `google_redirect_uri` output. It must match exactly, or Google refuses the sign-in.
+
+Removing an address from `ALLOWED_EMAILS` stops the next request from that person. Easy Auth keeps its own session, so a sign-out needs the `/.auth/logout` route.
+
 ## Layout
 
 `src/` is split by the side of the rule that each file is on. `net/` may make requests. `core/` may not. `web/` composes them. Ask which side of "analysis never calls the API" a new file sits on when its directory is not obvious.
@@ -68,13 +102,24 @@ src/core/reconcile.ts opening + every row == the balance that the bank reports
 src/core/select.ts    which rows are in view. No money logic, ever
 src/core/pipeline.ts  the offline chain. The CLI and Vite both import it
 
+src/core/paths.ts     DATA_DIR and RULES_DIR. Every other path derives from them
+
 src/web/app/          the React app: App, FilterBar, Charts, Cards, icons
+src/web/server.ts     the hosted site. node:http, no framework
+src/web/api.ts        payload() and the single-flight refresh. Vite and the
+                      server both import it, so there is one of each
+src/web/principal.ts  X-MS-CLIENT-PRINCIPAL -> the address Easy Auth proved
+src/auth/session.ts   allowed(). Pure, so node --test pins all of it
+src/net/token.ts      the refresh token: keychain here, Key Vault on Azure
 src/cli.ts            command dispatch
 
-vite.config.ts    pnpm dev. The app, /api/txns and /api/refresh. No dist/
+vite.config.ts    pnpm dev. The app, /api/txns and /api/refresh
+infra/main.tf     the Azure resources: plan, site, Easy Auth, Key Vault
+infra/deploy.sh   build, zip, push the code, upload the rules
 test/             node --test, mirroring src/
 data/raw/         API responses, verbatim, gitignored
 data/banking.db   derived SQLite store, rebuildable from data/raw, gitignored
+data/dist/        the built page: index.html, one JS bundle, one CSS file
 rules/*.json      hand-edited, gitignored: accounts, overrides, giro, family,
                   payees, subscriptions, categories
 ```
@@ -89,7 +134,7 @@ Both Node and the browser import everything under `src/core/`. That code must ha
 
 **No page view costs a request.** `/api/txns` reads only `data/banking.db`. Only `/api/refresh` calls the API, and only a press of the Refresh button reaches it. Both live in `vite.config.ts`. Never make a request on load, on a filter, on a reload or on a timer.
 
-**`/api/refresh` is a POST, and it needs the `X-Banking-Refresh: 1` header.** The header is the guard. A custom header forces a preflight, and no preflight is answered. A page on another site therefore cannot make this machine spend its bank quota. Keep the guard on any endpoint that is added beside it.
+**`/api/refresh` needs the `X-Banking-Refresh: 1` header, and the header is the whole guard.** A custom header forces a preflight, and no preflight is answered, so a page on another site cannot make this machine spend its bank quota. **The method carries none of that.** It is a GET, because Easy Auth authenticates a session cookie on GET alone and answers 403 to every other method before the request reaches the process. Keep the header on any endpoint added beside it.
 
 **Refresh sweeps the whole record, then rebuilds.** `syncAll` opens at the earliest `from` in `rules/accounts.json` and runs to this month. One refresh runs at a time, and a second press joins the first. The CLI `sync` command is retired.
 
@@ -109,13 +154,61 @@ Both Node and the browser import everything under `src/core/`. That code must ha
 
 **Dates are Oslo-local.** The `date` field from the API is epoch milliseconds at Norwegian midnight. Every summer timestamp is therefore `22:00Z`. Format with `Europe/Oslo`. UTC moves the first day of the month into the previous month.
 
-**No personal data enters git or the network.** Do not put account numbers, keys, names, balances or descriptions in source, tests, fixtures, commit messages or documentation. The JSON and CSV output is unredacted.
+**No personal data enters git.** Do not put account numbers, keys, names, balances or descriptions in source, tests, fixtures, commit messages or documentation. The JSON and CSV output is unredacted.
 
-**The dashboard is served on 127.0.0.1 and read locally.** Never publish it. Do not publish it as a hosted artifact, to a gist, or to any preview or sharing service. It holds every transaction you have. The same rule applies to screenshots.
+**One route sends personal data off this machine, and only one.** `pnpm deploy` uploads `data/dist` and `rules/*.json` to the Azure site. Both hold personal data. This is deliberate, and it is the reason the gate exists. No other command may send this data anywhere. Adding a second route needs a decision, not a patch.
 
-**The dependency list is short on purpose.** The dashboard uses React, Vite, Tailwind v4 and Hugeicons. Nothing else uses a dependency. Import Hugeicons one icon module at a time through `src/web/app/icons.ts`. Its barrel export is 6 MB, and no build step removes the unused parts. All server-side code uses the standard library: the built-in TS execution in Node, `fetch`, `node:sqlite` and the macOS `security` keychain. Do not add an ORM, a chart library, a component library, a state manager, a router or a date library. Ask first when you think the work needs another package.
+**The dashboard has exactly two homes: 127.0.0.1, and the private Azure site behind Google sign-in.** There is no third one. Do not publish it as a hosted artifact, to a gist, or to any preview or sharing service. It holds every transaction you have. The same rule applies to screenshots.
 
-**There is no build step.** `pnpm dev` runs Vite. Vite serves the app, `/api/txns` and `/api/refresh` from one config. The page is served only to localhost, which makes this safe. Do not add `vite build`. There is no production.
+**The Azure site is private, and two gates make it private.** Easy Auth refuses a request that carries no session, before the process sees it. The server then reads `X-MS-CLIENT-PRINCIPAL` and tests the address against `allowed()`. **Easy Auth cannot restrict to one person, so the second gate is not optional.** The check sits above the router in `src/web/server.ts`, so one refusal covers the page, the payload and the refresh. Treat that check as a security control. Never move a route above it. Never add a route that skips it.
+
+**Trust the principal header, and nothing else.** Container Apps strips `X-MS-CLIENT-PRINCIPAL` off an inbound request and sets it itself. That property holds only while Easy Auth is on. Never read the address out of a query string, a cookie or a body.
+
+**The allowlist is the whole access rule.** `ALLOWED_EMAILS` holds the addresses that may read the money. An empty or missing variable denies everybody, which is the correct failure. Never make a missing variable open the door. A Google account proves only who somebody is. The allowlist decides whether that person may read the money.
+
+**The list is a list in terraform and a string in the container.** `var.allowed_emails` is a `list(string)`, because that is the shape a reader adds an address to. An environment variable holds no list, so `main.tf` joins it with commas and `allowed()` splits it again. Do not make the two agree. Changing either one alone breaks the gate.
+
+**The dependency list is short on purpose.** The dashboard uses React, Vite, Tailwind v4 and Hugeicons. Nothing else uses a dependency. Import Hugeicons one icon module at a time through `src/web/app/icons.ts`. Its barrel export is 6 MB, and no build step removes the unused parts. All server-side code uses the standard library: the built-in TS execution in Node, `fetch`, `node:http`, `node:sqlite` and the macOS `security` keychain. `@azure/identity` and `@azure/keyvault-secrets` are the one exception. They read and rotate the refresh token on Azure, and `src/net/token.ts` imports them only where `KEY_VAULT_NAME` is set. Do not add an ORM, a chart library, a component library, a state manager, a router or a date library. Ask first when you think the work needs another package.
+
+**The sign-in uses no auth library, and no code of ours.** Easy Auth is Container Apps configuration, in `infra/main.tf`. Do not add Auth.js, Passport or a JWT package, and do not write another OAuth exchange. Our whole share of the gate is `principalEmail()` and `allowed()`, and `test/web/` pins every refusal.
+
+**The build step exists only to deploy.** `pnpm dev` runs Vite and serves the app and `/api/txns` from one config. It reads the database live, so a `rebuild` in another terminal appears on reload. Never make local work depend on a build. `vite build` runs only inside `pnpm deploy`.
+
+**The hosted `/api/txns` reads the database, exactly as `pnpm dev` does.** One long-lived process serves both, so there is one code path and no export step. The payload passed 6.76 MB in August 2026, over 10,525 rows. Container Apps caps no response, so that size is not a problem. A serverless function caps well below it. Never put this endpoint on one, and never go back to a static file.
+
+**The deploy builds here and pushes the result.** `pnpm deploy` runs `vite build`, stages the source, the page and the vault client, and hands that directory to `az acr build`. The registry builds the image, so this machine needs no container runtime. The script then points the app at the new tag and uploads `rules/*.json` to the volume. `data/raw/` and `data/banking.db` stay here, and the site fetches its own copy. Never deploy from git, because git holds neither the rules nor the data.
+
+**Terraform owns the resource. The deploy owns the image.** `infra/main.tf` creates the app with a placeholder image, because no image exists before the first apply. `ignore_changes` on that field then keeps Terraform from dragging it back. Never move the image into a variable that apply enforces, or every deploy fights the next apply.
+
+**Azure syncs, and the Mac syncs, and they need separate SB1 clients.** The refresh token rotates on every exchange, so one chain cannot serve two processes. The Mac holds the first client in the keychain. The site holds the second in Key Vault. `src/net/token.ts` chooses by `KEY_VAULT_NAME` alone. Never point both at one client.
+
+**Seed the vault with `pnpm seed:azure`, never with `pnpm sb1 login`.** The `sb1` script passes `--env-file=.env.local`, and that file holds the client of this machine. Setting `KEY_VAULT_NAME` in front of it therefore writes the wrong token into the vault, and the two chains collide on the next refresh. The failure is silent until one side locks the other out. `infra/seed-token.sh` reads the second client out of `infra/terraform.tfvars`, passes no env file, and refuses when the client matches the one in `.env.local`.
+
+**Every file that holds transactions sits under `data/`.** The gitignore refuses `data`, so none of them can land on a tracked path. Keep `build.outDir` and the deploy staging directory inside `data` as well. Neither holds a transaction now, and both are derived, so neither belongs in git either way.
+
+**`data/dist` carries the page, not the money.** It is `index.html`, one JS bundle and one CSS file, and it is about 300 kB. The transactions reach the browser from `/api/txns`, which reads the database for each request. The build output held `txns.json` while the hosted `/api/txns` was a static file. It does not any more, and it must not again.
+
+**The hosted site calls SpareBank 1, and `/api/refresh` works there.** Four things must hold for that. The last one needed a decision rather than code:
+
+1. The refresh token lives in Key Vault, not in the macOS keychain. `src/net/token.ts` holds both, and `KEY_VAULT_NAME` chooses.
+2. `syncAll` writes `data/raw/` and reads the mtime of each file to decide what is settled. The mounted share is durable and its mtimes are stable, so `settled()` works. Never move the data root off the volume, or every refresh re-reads the whole record.
+3. `rules/accounts.json` names the accounts to sync. `pnpm deploy` uploads the rules to the volume on every run.
+4. **The SB1 refresh token rotates on every exchange.** A second client in the developer portal gives the site its own chain. That is the whole answer, and there is no other one. Never point two processes at one client.
+
+**The site scales to zero, and one replica is the ceiling.** `min_replicas` is 0, so an idle dashboard bills no compute. `max_replicas` is 1, and that is not a cost decision. Two replicas would hold two SB1 refresh chains against one client, and each use of one kills the other. Two would also give SQLite two writers on one SMB share. **Never raise `max_replicas`.**
+
+**The volume is the only durable thing.** The container filesystem disappears on every scale to zero. `DATA_DIR` and `RULES_DIR` both point into the mount. The image carries the code and `data/dist`, and nothing that must survive.
+
+**The database never sits on the volume.** SQLite needs byte-range locks and an
+SMB share does not carry them. `openDb` runs `CREATE TABLE IF NOT EXISTS` on
+every open, so even a read writes, and on the share that fails with "database is
+locked". `DB_FILE` therefore points at the container disk. The raw files stay on
+the volume, because they are the only part that costs an API call to reproduce.
+
+**A cold start builds the database again.** The container disk is new on every
+scale to zero, so `server.ts` rebuilds from `DATA_DIR/raw` before it serves.
+That takes about a second for the record. `monthsOnDisk` returns nothing when no
+raw directory exists yet, which is a fresh deployment rather than a fault.
 
 **Money logic leaves a test behind.** Add one `node --test` case in `test/` for any code that signs, sums, excludes or categorises. Use no frameworks. Do not build fixtures from real transactions. The React components are deliberately simple to keep this possible. Put logic that needs a test in `src/core/`.
 

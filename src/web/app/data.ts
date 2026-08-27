@@ -56,11 +56,14 @@ export const useRefresh = (onDone: () => void): Refresh => {
   const run = () => {
     setBusy(true);
     setNote(null);
-    fetch("/api/refresh", {
-      method: "POST",
-      headers: { "X-Banking-Refresh": "1" },
-    })
+    // Not POST. Easy Auth authenticates a session cookie on GET alone, and
+    // refuses every other method with 403 before the request arrives.
+    fetch("/api/refresh", { headers: { "X-Banking-Refresh": "1" } })
       .then(async (r) => {
+        // Check the status first. A gateway answers with an empty body, and
+        // `json()` on that reports a parse error rather than the status.
+        if (!r.ok)
+          throw new Error(`${r.status} ${(await r.text()) || "(no body)"}`);
         const body = (await r.json()) as {
           rows?: number;
           fetched?: number;

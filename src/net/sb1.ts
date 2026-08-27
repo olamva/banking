@@ -1,10 +1,10 @@
-import { execFile, execFileSync } from "node:child_process";
+import { execFile } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { createServer } from "node:http";
 import { note, spend } from "./budget.ts";
+import { getToken, setToken, store } from "./token.ts";
 
 const API = "https://api.sparebank1.no";
-const KEYCHAIN_SERVICE = "sb1-banking";
 
 // The code throws this when the refresh chain fails. Do not convert it to an
 // empty result.
@@ -46,40 +46,6 @@ function env(key: string): string {
   const v = process.env[key];
   if (!v) throw new Error(`Missing ${key} — is .env.local present?`);
   return v;
-}
-
-// ponytail: the refresh token goes through argv, so `ps` shows it for a short
-// time. Use a helper that reads stdin if this machine gets other local users.
-function keychainSet(token: string): void {
-  execFileSync("security", [
-    "add-generic-password",
-    "-U",
-    "-s",
-    KEYCHAIN_SERVICE,
-    "-a",
-    "refresh_token",
-    "-w",
-    token,
-  ]);
-}
-
-function keychainGet(): string | null {
-  try {
-    return execFileSync(
-      "security",
-      [
-        "find-generic-password",
-        "-s",
-        KEYCHAIN_SERVICE,
-        "-a",
-        "refresh_token",
-        "-w",
-      ],
-      { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
-    ).trim();
-  } catch {
-    return null;
-  }
 }
 
 type TokenResponse = {
@@ -167,21 +133,21 @@ export async function login(): Promise<void> {
     redirect_uri: redirectUri,
     state,
   });
-  keychainSet(t.refresh_token);
-  console.error("Refresh token stored in keychain.");
+  await setToken(t.refresh_token);
+  console.error(`Refresh token stored in the ${store()}.`);
 }
 
 let accessToken: string | undefined;
 
 async function getAccessToken(): Promise<string> {
   if (accessToken) return accessToken;
-  const refresh = keychainGet();
-  if (!refresh) throw new ReauthRequired("no refresh token in keychain");
+  const refresh = await getToken();
+  if (!refresh) throw new ReauthRequired(`no refresh token in the ${store()}`);
   const t = await postToken({
     grant_type: "refresh_token",
     refresh_token: refresh,
   });
-  keychainSet(t.refresh_token); // rotates on every use
+  await setToken(t.refresh_token); // rotates on every use
   accessToken = t.access_token;
   return accessToken;
 }
