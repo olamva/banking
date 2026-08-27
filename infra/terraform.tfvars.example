@@ -1,0 +1,19 @@
+# Copy to terraform.tfvars and fill it in. The gitignore refuses *.tfvars,
+# because every value below is a secret or an address.
+
+subscription_id = "00000000-0000-0000-0000-000000000000"
+
+# Comma separated. An empty list denies everybody.
+allowed_emails = "you@example.com"
+
+# Google Cloud console, OAuth client, type "Web application". Add the redirect
+# that `terraform output google_redirect_uri` prints.
+google_client_id     = "....apps.googleusercontent.com"
+google_client_secret = ""
+
+# The SECOND SB1 client, not the one the Mac uses. The refresh token rotates on
+# every exchange, so two processes on one chain invalidate each other.
+sb1_client_id             = ""
+sb1_client_secret         = ""
+sb1_redirect_uri          = "http://localhost:8080/callback"
+sb1_financial_institution = ""

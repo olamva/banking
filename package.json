@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
     "build": "vite build",
-    "start": "node src/web/server.ts"
+    "start": "node src/web/server.ts",
+    "deploy": "bash infra/deploy.sh"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",

@@ -21,3 +21,8 @@ data
 # hand-edited local rules — they carry account keys, names and descriptions
 rules
 
+# terraform state records every value it was given, secrets included, and a
+# tfvars file holds them in the clear. Neither may reach the remote.
+infra/.terraform
+infra/*.tfstate*
+*.tfvars
