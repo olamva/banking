@@ -110,9 +110,11 @@ export const server = createServer((req, res) => {
   if (path === "/api/refresh") {
     // A custom header cannot be set on a cross-origin request without a
     // preflight, and no preflight is answered here. A page on another site
-    // therefore cannot make this machine spend its bank quota.
-    if (req.method !== "POST" || req.headers["x-banking-refresh"] !== "1") {
-      json(res, 405, { error: "POST with X-Banking-Refresh: 1" });
+    // therefore cannot make this machine spend its bank quota. The header is
+    // the whole guard, and the method carries none of it: Easy Auth refuses a
+    // cookie on any method but GET, so the button cannot use POST.
+    if (req.headers["x-banking-refresh"] !== "1") {
+      json(res, 405, { error: "needs X-Banking-Refresh: 1" });
       return;
     }
     refresh().then(

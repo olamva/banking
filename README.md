@@ -115,13 +115,15 @@ The SB1 values arrive last, because the developer portal wants a redirect before
 5. Run `pnpm deploy`. The page now works, and it reads an empty database.
 6. Register a **second SpareBank 1 client** in the developer portal. The Mac keeps the first one, and the reason is below. **The BankID login runs on this machine, not on Azure**, so the redirect is a localhost URL like the first one. Use a port that the first client does not use.
 7. Put the four SB1 values in `infra/terraform.tfvars` and run `terraform -chdir=infra apply` again.
-8. Seed the refresh token from this machine, with the credentials of the second client:
+8. Seed the refresh token for the **second** client:
 
    ```bash
-   KEY_VAULT_NAME=$(terraform -chdir=infra output -raw vault) pnpm sb1 login
+   pnpm seed:azure
    ```
 
-   The BankID login runs here, and the token lands in Key Vault instead of the keychain. The site reads it from there.
+   The BankID login runs on this machine, and the token lands in Key Vault instead of the keychain. The site reads it from there.
+
+   **Do not use `pnpm sb1 login` for this.** That command reads `.env.local`, which holds the client of this machine, so it would put this machine's token in the vault. Both processes would then share one rotating chain and each refresh would lock the other one out. `pnpm seed:azure` reads the second client out of `infra/terraform.tfvars` and passes no env file, and it refuses to run when the two clients match.
 
 9. Open the site and press Refresh. The first sweep fetches the whole record in about two requests, because a date range may be five years wide.
 

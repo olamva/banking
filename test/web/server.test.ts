@@ -49,6 +49,19 @@ test("the refresh endpoint still needs the custom header", async () => {
   assert.equal(posted.status, 405);
 });
 
+// Easy Auth refuses a cookie on any method but GET, so the guard cannot lean
+// on the method. The header carries all of it.
+test("the refresh endpoint answers a GET that carries the header", async () => {
+  const res = await fetch(`${base}/api/refresh`, {
+    headers: {
+      "x-ms-client-principal": header("ola@example.com"),
+      "x-banking-refresh": "1",
+    },
+  });
+  assert.notEqual(res.status, 405);
+  assert.notEqual(res.status, 403);
+});
+
 test("an allowed address gets past the gate", async () => {
   const res = await fetch(`${base}/nothing-here.js`, {
     headers: { "x-ms-client-principal": header("OLA@example.com") },

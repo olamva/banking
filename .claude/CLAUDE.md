@@ -134,7 +134,7 @@ Both Node and the browser import everything under `src/core/`. That code must ha
 
 **No page view costs a request.** `/api/txns` reads only `data/banking.db`. Only `/api/refresh` calls the API, and only a press of the Refresh button reaches it. Both live in `vite.config.ts`. Never make a request on load, on a filter, on a reload or on a timer.
 
-**`/api/refresh` is a POST, and it needs the `X-Banking-Refresh: 1` header.** The header is the guard. A custom header forces a preflight, and no preflight is answered. A page on another site therefore cannot make this machine spend its bank quota. Keep the guard on any endpoint that is added beside it.
+**`/api/refresh` needs the `X-Banking-Refresh: 1` header, and the header is the whole guard.** A custom header forces a preflight, and no preflight is answered, so a page on another site cannot make this machine spend its bank quota. **The method carries none of that.** It is a GET, because Easy Auth authenticates a session cookie on GET alone and answers 403 to every other method before the request reaches the process. Keep the header on any endpoint added beside it.
 
 **Refresh sweeps the whole record, then rebuilds.** `syncAll` opens at the earliest `from` in `rules/accounts.json` and runs to this month. One refresh runs at a time, and a second press joins the first. The CLI `sync` command is retired.
 
@@ -181,6 +181,8 @@ Both Node and the browser import everything under `src/core/`. That code must ha
 **Terraform owns the resource. The deploy owns the image.** `infra/main.tf` creates the app with a placeholder image, because no image exists before the first apply. `ignore_changes` on that field then keeps Terraform from dragging it back. Never move the image into a variable that apply enforces, or every deploy fights the next apply.
 
 **Azure syncs, and the Mac syncs, and they need separate SB1 clients.** The refresh token rotates on every exchange, so one chain cannot serve two processes. The Mac holds the first client in the keychain. The site holds the second in Key Vault. `src/net/token.ts` chooses by `KEY_VAULT_NAME` alone. Never point both at one client.
+
+**Seed the vault with `pnpm seed:azure`, never with `pnpm sb1 login`.** The `sb1` script passes `--env-file=.env.local`, and that file holds the client of this machine. Setting `KEY_VAULT_NAME` in front of it therefore writes the wrong token into the vault, and the two chains collide on the next refresh. The failure is silent until one side locks the other out. `infra/seed-token.sh` reads the second client out of `infra/terraform.tfvars`, passes no env file, and refuses when the client matches the one in `.env.local`.
 
 **Every file that holds transactions sits under `data/`.** The gitignore refuses `data`, so none of them can land on a tracked path. Keep `build.outDir` and the deploy staging directory inside `data` as well. Neither holds a transaction now, and both are derived, so neither belongs in git either way.
 

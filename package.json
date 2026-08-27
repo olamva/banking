@@ -11,7 +11,8 @@
     "format": "prettier --write .",
     "build": "vite build",
     "start": "node src/web/server.ts",
-    "deploy": "bash infra/deploy.sh"
+    "deploy": "bash infra/deploy.sh",
+    "seed:azure": "bash infra/seed-token.sh"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
