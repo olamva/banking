@@ -55,9 +55,14 @@ pnpm sb1 rebuild                # only when the rules changed
 pnpm deploy                     # build, push the code and the page, upload the rules
 ```
 
-`terraform apply` in `infra/` creates the resources. `pnpm deploy` fills them. Run the deploy from the main checkout.
+`infra/tf.sh apply` creates the resources. `pnpm deploy` fills them. Run the deploy from the main checkout.
 
-Terraform holds every secret in `infra/terraform.tfvars`, which the gitignore refuses. The state file holds the same values, so the gitignore refuses that too. Treat both lines as a security control.
+**The state and the variables live in `~/.config/banking-azure`, outside the repository.** `infra/tf.sh` is the wrapper that points terraform at both, and every command must go through it. Two reasons, and the second is the sharp one:
+
+1. The file holds every secret in the clear, and the state holds them again.
+2. **The state records every resource that exists.** A worktree that holds it orphans the whole deployment when the worktree is removed. Nothing then knows those resources exist, and only the portal can find them.
+
+The gitignore still refuses `*.tfvars` and `*.tfstate*`, as a second line rather than the first.
 
 | Application setting     | What it is                                             |
 | ----------------------- | ------------------------------------------------------ |
