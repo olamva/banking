@@ -1,0 +1,13 @@
+{
+  "id": "a43ab2cf",
+  "ts": "2026-08-27T18:51:02+00:00",
+  "text": "vite build in a worktree writes the shared data/dist through the worktree:link symlink, so a worktree build silently replaces the main checkout's built page",
+  "tags": [
+    "build",
+    "worktree"
+  ],
+  "who": "agent",
+  "model": "opus-5",
+  "session": "45454630",
+  "where": "vite.config.ts"
+}
