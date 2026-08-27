@@ -3,7 +3,7 @@ import { createServer, type ServerResponse } from "node:http";
 import { extname, join, resolve, sep } from "node:path";
 import { allowed } from "../auth/session.ts";
 import { payload, refresh } from "./api.ts";
-import { principalEmail } from "./principal.ts";
+import { claimTypes, principalEmail } from "./principal.ts";
 
 const DIST = resolve(import.meta.dirname, "../../data/dist");
 
@@ -74,10 +74,19 @@ function file(res: ServerResponse, path: string): void {
 }
 
 export const server = createServer((req, res) => {
+  const principal = req.headers["x-ms-client-principal"] as string | undefined;
   const email = principalEmail(
-    req.headers["x-ms-client-principal"] as string | undefined,
+    principal,
+    req.headers["x-ms-client-principal-name"] as string | undefined,
   );
   if (!email || !allowed(email, process.env.ALLOWED_EMAILS)) {
+    // The types alone, never a value. A refusal that says nothing is a refusal
+    // nobody can debug.
+    console.error(
+      `refused: principal header ${principal ? "present" : "absent"}, ` +
+        `address ${email ? "found" : "not found"}, ` +
+        `claims [${claimTypes(principal).join(", ")}]`,
+    );
     send(res, 403, "text/plain; charset=utf-8", "Not your dashboard.\n");
     return;
   }

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { allowed } from "../../src/auth/session.ts";
-import { principalEmail } from "../../src/web/principal.ts";
+import { claimTypes, principalEmail } from "../../src/web/principal.ts";
 
 const GOOGLE_EMAIL =
   "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress";
@@ -50,4 +50,39 @@ test("a signed-in address that is not on the list is still refused", () => {
   assert.equal(allowed(other!, list), false);
   // Easy Auth authenticates. An unset list must still deny.
   assert.equal(allowed(mine!, undefined), false);
+});
+
+test("the name header carries the address when no claim type does", () => {
+  const odd = Buffer.from(
+    JSON.stringify({ claims: [{ typ: "sub", val: "1234567890" }] }),
+  ).toString("base64");
+  assert.equal(principalEmail(odd, "ola@example.com"), "ola@example.com");
+  assert.equal(principalEmail(undefined, "ola@example.com"), "ola@example.com");
+});
+
+test("the name header is refused when it is not an address", () => {
+  assert.equal(principalEmail(undefined, "A Person"), null);
+  assert.equal(principalEmail(undefined, ""), null);
+  assert.equal(principalEmail(undefined, undefined), null);
+});
+
+test("an address under an unknown claim type is still found", () => {
+  const odd = Buffer.from(
+    JSON.stringify({
+      claims: [
+        { typ: "sub", val: "123" },
+        { typ: "some/other/type", val: "ola@example.com" },
+      ],
+    }),
+  ).toString("base64");
+  assert.equal(principalEmail(odd), "ola@example.com");
+});
+
+test("the claim types are readable for a log, and carry no address", () => {
+  const h = Buffer.from(
+    JSON.stringify({ claims: [{ typ: "email", val: "ola@example.com" }] }),
+  ).toString("base64");
+  assert.deepEqual(claimTypes(h), ["email"]);
+  assert.deepEqual(claimTypes(undefined), []);
+  assert.deepEqual(claimTypes("not base64"), []);
 });
