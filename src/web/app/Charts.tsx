@@ -431,7 +431,9 @@ export const SpendLines = ({
     ? [0, dense.length - 1].map((x) => trend.intercept + trend.slope * x)
     : [];
 
-  const gridMin = Math.min(0, ...ends.map((v) => Math.floor(v / step) * step));
+  const gridMin = shows("trend")
+    ? Math.min(0, ...ends.map((v) => Math.floor(v / step) * step))
+    : 0;
   const ticks = Array.from(
     { length: Math.round((gridMax - gridMin) / step) + 1 },
     (_, i) => gridMin + i * step,
