@@ -1,0 +1,13 @@
+{
+  "id": "e48a6fa4",
+  "ts": "2026-08-27T23:31:59+00:00",
+  "text": "codex exec rejects --ask-for-approval after the exec subcommand although the top-level help lists it",
+  "tags": [
+    "docs",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "codex-cli"
+}

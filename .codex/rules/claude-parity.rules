@@ -1,0 +1,23 @@
+# Claude project permissions, expressed as Codex execution rules.
+prefix_rule(pattern=["git", "add"], decision="allow")
+prefix_rule(pattern=["git", "commit"], decision="allow")
+prefix_rule(pattern=["git", "push"], decision="allow")
+prefix_rule(pattern=["git", "push", "--force"], decision="forbidden", justification="Do not force-push this repository.")
+prefix_rule(pattern=["git", "push", "--force-with-lease"], decision="forbidden", justification="Do not force-push this repository.")
+prefix_rule(pattern=["git", "push", "-f"], decision="forbidden", justification="Do not force-push this repository.")
+
+prefix_rule(pattern=["gh", "pr", "create"], decision="allow")
+prefix_rule(pattern=["gh", "pr", "view"], decision="allow")
+prefix_rule(pattern=["gh", "pr", "list"], decision="allow")
+prefix_rule(pattern=["gh", "pr", "comment"], decision="allow")
+prefix_rule(pattern=["gh", "pr", "merge"], decision="forbidden", justification="Do not merge pull requests from Codex.")
+
+prefix_rule(pattern=["git", "worktree"], decision="allow")
+prefix_rule(pattern=["git", "worktree", "remove", "--force"], decision="forbidden", justification="Remove worktrees only without force.")
+prefix_rule(pattern=["git", "worktree", "remove", "-f"], decision="forbidden", justification="Remove worktrees only without force.")
+
+prefix_rule(pattern=["git", "-C", "rules", "add"], decision="allow")
+prefix_rule(pattern=["git", "-C", "rules", "commit"], decision="allow")
+prefix_rule(pattern=["git", "-C", "rules", "status"], decision="allow")
+prefix_rule(pattern=["git", "-C", "rules", "diff"], decision="allow")
+prefix_rule(pattern=["git", "-C", "rules", "log"], decision="allow")
