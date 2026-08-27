@@ -92,8 +92,11 @@ type Kind = "all" | "people" | "business";
 
 // A plain tick includes. A meta-tick excludes. A phone cannot create an
 // exclusion. The account holder accepts this. A tap still clears one.
-// ponytail: this renders every option. Virtualise it only if the panel is slow
-// to open.
+
+// The panel shows about ten rows. Merchants offers 816, so it renders a page at
+// a time and grows on scroll. Do not raise this to cover the list: the cost is
+// the React element, not the pixel.
+const PAGE = 80;
 
 const Picker = ({
   title,
@@ -110,6 +113,7 @@ const Picker = ({
   const [kind, setKind] = useState<Kind>("all");
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const [active, setActive] = useState<number | null>(null);
+  const [limit, setLimit] = useState(PAGE);
   const on = (v: string) => picked.includes(v) || excluded.includes(v);
 
   const menu = useRef<HTMLDetailsElement>(null);
@@ -188,6 +192,7 @@ const Picker = ({
       setQuery("");
       setActive(null);
       setExpanded(new Set());
+      setLimit(PAGE);
     }, 3000);
   };
 
@@ -215,7 +220,12 @@ const Picker = ({
     const step = e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0;
     if (step) {
       e.preventDefault();
-      setActive(at < 0 ? 0 : Math.max(0, Math.min(at + step, rows.length - 1)));
+      const next =
+        at < 0 ? 0 : Math.max(0, Math.min(at + step, rows.length - 1));
+      setActive(next);
+      // The arrow keys reach past the rendered page. Render up to the row that
+      // is now active, or it cannot be scrolled to.
+      if (next >= limit) setLimit(next + PAGE);
     } else if (e.key === "Enter") {
       if (e.target instanceof HTMLButtonElement) return;
       const i = at < 0 ? 0 : at;
@@ -277,6 +287,7 @@ const Picker = ({
                   onClick={() => {
                     setKind(value);
                     setActive(null);
+                    setLimit(PAGE);
                   }}
                   className={`flex-1 px-2 py-1 ${kind === value ? "bg-series-1 text-white" : "bg-page text-ink-soft"}`}
                 >
@@ -305,19 +316,27 @@ const Picker = ({
               onChange={(e) => {
                 setQuery(e.target.value);
                 setActive(null);
+                setLimit(PAGE);
               }}
               aria-label={`Search ${title.toLowerCase()}`}
             />
           </div>
           {/* Only the list scrolls: the mode toggle and the search box stay put
             rather than sliding away as you scroll past them. */}
-          <div className="min-h-0 overflow-y-auto">
+          <div
+            className="min-h-0 overflow-y-auto"
+            onScroll={(e) => {
+              const el = e.currentTarget;
+              if (el.scrollHeight - el.scrollTop - el.clientHeight < 120)
+                setLimit((n) => n + PAGE);
+            }}
+          >
             {rows.length === 0 ? (
               <div className="px-1.5 py-1 text-xs text-ink-muted">
                 {options.length === 0 ? "Nothing in this period." : "No match."}
               </div>
             ) : (
-              rows.map((row, i) => {
+              rows.slice(0, limit).map((row, i) => {
                 const kids = row.sub ? [] : childrenOf(row.value);
                 const openHere = isOpenAt(i);
                 return (

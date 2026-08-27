@@ -1,0 +1,13 @@
+{
+  "id": "bd014497",
+  "ts": "2026-08-27T22:29:23+00:00",
+  "text": "pnpm build in a git worktree writes through the data symlink into the MAIN checkout's data/dist, silently clobbering its build output",
+  "tags": [
+    "build",
+    "worktree"
+  ],
+  "who": "agent",
+  "model": "opus-5",
+  "session": "b1371624",
+  "where": "package.json build script"
+}

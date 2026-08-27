@@ -32,8 +32,10 @@ import {
   dailySeries,
   monthStats,
   monthlySeries,
+  subscriptionGroups,
   totals,
   yearStats,
+  type SubscriptionGroup,
 } from "../../core/stats.ts";
 import type { Categorized } from "../../core/types.ts";
 import {
@@ -220,7 +222,7 @@ const Totals = ({ stats, prev, yearly, vsLabel }: TotalsProps) => (
 
 interface BreakdownsProps {
   stats: Stats;
-  txns: Categorized[];
+  groups: SubscriptionGroup[];
   onFilters: SetFilters;
   single: boolean;
   grid: string;
@@ -229,7 +231,7 @@ interface BreakdownsProps {
 
 const Breakdowns = ({
   stats,
-  txns,
+  groups,
   onFilters,
   single,
   grid,
@@ -347,7 +349,7 @@ const Breakdowns = ({
 
       {/* Hides itself when the period has nothing recurring in it. */}
       <SubscriptionsCard
-        txns={txns}
+        groups={groups}
         onMerchant={onMerchant}
         onCategory={pick(onFilters, "categories")}
       />
@@ -357,6 +359,7 @@ const Breakdowns = ({
 
 interface DashboardProps {
   txns: Categorized[];
+  all: Categorized[];
   filters: Filters;
   onFilters: SetFilters;
   period: Period;
@@ -367,6 +370,7 @@ interface DashboardProps {
 
 const Dashboard = ({
   txns,
+  all,
   filters,
   onFilters,
   period: p,
@@ -374,7 +378,8 @@ const Dashboard = ({
   offered,
   onGrain,
 }: DashboardProps) => {
-  const all = txns.filter((t) => inRange(t, p.from, p.to));
+  // `all` is the period. `txns` is the record, and only the comparison period
+  // needs it, because that period sits outside this one.
   const shown = all.filter((t) => matchesFilters(t, filters));
 
   const vs =
@@ -455,7 +460,7 @@ const Dashboard = ({
 
       <Breakdowns
         stats={stats}
-        txns={shown}
+        groups={subscriptionGroups(shown)}
         onFilters={onFilters}
         single={single}
         grid={p.kind === "all" ? CARD_GRID_3 : CARD_GRID}
@@ -885,6 +890,7 @@ export const App = () => {
         (view === "dashboard" ? (
           <Dashboard
             txns={txns}
+            all={inPeriod}
             filters={filters}
             onFilters={setFilters}
             period={p}
