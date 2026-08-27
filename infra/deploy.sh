@@ -1,5 +1,5 @@
 #!/bin/bash
-# Push the code, the built page and the rules to App Service.
+# Build the image, push it, and upload the rules.
 # Terraform owns the resources. This script owns their contents.
 set -euo pipefail
 
@@ -9,25 +9,27 @@ stage="$repo/data/deploy"
 
 app="$(terraform -chdir="$here" output -raw app)"
 group="$(terraform -chdir="$here" output -raw resource_group)"
+registry="$(terraform -chdir="$here" output -raw registry)"
+storage="$(terraform -chdir="$here" output -raw storage_account)"
+tag="$(date -u +%Y%m%d%H%M%S)"
 
 echo "==> build the page"
 pnpm --dir "$repo" build
 
 echo "==> stage $stage"
 rm -rf "$stage"
-mkdir -p "$stage"
-cp -R "$repo/src" "$stage/src"
-cp -R "$repo/data/dist" "$stage/data-dist-tmp"
 mkdir -p "$stage/data"
-mv "$stage/data-dist-tmp" "$stage/data/dist"
-cp "$repo/tsconfig.json" "$stage/"
+cp -R "$repo/src" "$stage/src"
+cp -R "$repo/data/dist" "$stage/data/dist"
+cp "$here/Dockerfile" "$stage/Dockerfile"
 
 # Vite bundles React and the icons into data/dist, so the process needs neither.
-# Only the vault client survives into the deployment.
+# Only the vault client survives into the image.
 node -e '
-const pkg = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"));
+const fs = require("node:fs");
+const pkg = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
 const keep = ["@azure/identity", "@azure/keyvault-secrets"];
-require("node:fs").writeFileSync(process.argv[2], JSON.stringify({
+fs.writeFileSync(process.argv[2], JSON.stringify({
   name: "banking",
   private: true,
   type: "module",
@@ -35,28 +37,28 @@ require("node:fs").writeFileSync(process.argv[2], JSON.stringify({
 }, null, 2));
 ' "$repo/package.json" "$stage/package.json"
 
-# App Service runs a plain node_modules, so the hoisted linker is required.
 echo "==> install the runtime dependencies"
 pnpm install --dir "$stage" --prod --node-linker=hoisted --ignore-scripts
 
-echo "==> zip"
-rm -f "$repo/data/app.zip"
-(cd "$stage" && zip -qr "$repo/data/app.zip" .)
+# ACR builds the image itself, so this machine needs no container runtime.
+echo "==> build the image in the registry"
+az acr build --registry "$registry" --image "banking:$tag" --image "banking:latest" \
+  --file Dockerfile "$stage" --only-show-errors >/dev/null
 
-echo "==> deploy the code"
-az webapp deploy --resource-group "$group" --name "$app" \
-  --src-path "$repo/data/app.zip" --type zip --only-show-errors >/dev/null
+echo "==> point the app at the new image"
+az containerapp update --resource-group "$group" --name "$app" \
+  --image "$(az acr show --name "$registry" --query loginServer -o tsv)/banking:$tag" \
+  --only-show-errors >/dev/null
 
 # The rules never enter git. They reach Azure only here, and every deploy
 # re-sends them, so an edit on the Mac cannot drift out of step.
 echo "==> upload the rules"
-for f in "$repo"/rules/*.json; do
-  name="$(basename "$f")"
-  echo "    $name"
-  az webapp deploy --resource-group "$group" --name "$app" \
-    --src-path "$f" --type static --target-path "/home/data/rules/$name" \
-    --only-show-errors >/dev/null
-done
+key="$(az storage account keys list --account-name "$storage" --query '[0].value' -o tsv)"
+az storage directory create --account-name "$storage" --account-key "$key" \
+  --share-name data --name rules --only-show-errors >/dev/null
+az storage file upload-batch --account-name "$storage" --account-key "$key" \
+  --destination "data/rules" --source "$repo/rules" --pattern "*.json" \
+  --only-show-errors >/dev/null
 
-rm -rf "$stage" "$repo/data/app.zip"
+rm -rf "$stage"
 echo "==> done: $(terraform -chdir="$here" output -raw url)"

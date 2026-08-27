@@ -13,7 +13,12 @@ google_client_secret = ""
 
 # The SECOND SB1 client, not the one the Mac uses. The refresh token rotates on
 # every exchange, so two processes on one chain invalidate each other.
+#
+# These four may stay empty through the first apply. The portal wants a redirect
+# before it issues a client, and the site serves the page without them. The
+# BankID login runs on the Mac, so the redirect is a localhost URL. Use a port
+# that the first client does not use.
 sb1_client_id             = ""
 sb1_client_secret         = ""
-sb1_redirect_uri          = "http://localhost:8080/callback"
+sb1_redirect_uri          = "http://localhost:12346/callback"
 sb1_financial_institution = ""

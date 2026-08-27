@@ -1,10 +1,10 @@
 output "url" {
-  value = "https://${azurerm_linux_web_app.bank.default_hostname}"
+  value = "https://${azurerm_container_app.bank.ingress[0].fqdn}"
 }
 
 output "google_redirect_uri" {
   description = "Add this to the Google OAuth client before you sign in."
-  value       = "https://${azurerm_linux_web_app.bank.default_hostname}/.auth/login/google/callback"
+  value       = "https://${azurerm_container_app.bank.ingress[0].fqdn}/.auth/login/google/callback"
 }
 
 output "vault" {
@@ -12,9 +12,17 @@ output "vault" {
 }
 
 output "app" {
-  value = azurerm_linux_web_app.bank.name
+  value = azurerm_container_app.bank.name
 }
 
 output "resource_group" {
   value = azurerm_resource_group.bank.name
+}
+
+output "registry" {
+  value = azurerm_container_registry.bank.name
+}
+
+output "storage_account" {
+  value = azurerm_storage_account.bank.name
 }

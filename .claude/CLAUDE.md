@@ -62,8 +62,8 @@ Terraform holds every secret in `infra/terraform.tfvars`, which the gitignore re
 | Application setting     | What it is                                             |
 | ----------------------- | ------------------------------------------------------ |
 | `ALLOWED_EMAILS`        | the addresses that may read the money, comma separated |
-| `DATA_DIR`              | `/home/data`. The only path that survives a restart    |
-| `RULES_DIR`             | `/home/data/rules`                                     |
+| `DATA_DIR`              | `/data`. The mounted volume, and the only durable path |
+| `RULES_DIR`             | `/data/rules`                                          |
 | `KEY_VAULT_NAME`        | the vault that holds the SB1 refresh token             |
 | `CLIENT_ID`             | the **second** SB1 client, not the one on the Mac      |
 | `CLIENT_SECRET`         | its secret                                             |
@@ -157,19 +157,21 @@ Both Node and the browser import everything under `src/core/`. That code must ha
 
 **The Azure site is private, and two gates make it private.** Easy Auth refuses a request that carries no session, before the process sees it. The server then reads `X-MS-CLIENT-PRINCIPAL` and tests the address against `allowed()`. **Easy Auth cannot restrict to one person, so the second gate is not optional.** The check sits above the router in `src/web/server.ts`, so one refusal covers the page, the payload and the refresh. Treat that check as a security control. Never move a route above it. Never add a route that skips it.
 
-**Trust the principal header, and nothing else.** App Service strips `X-MS-CLIENT-PRINCIPAL` off an inbound request and sets it itself. That property holds only while Easy Auth is on. Never read the address out of a query string, a cookie or a body.
+**Trust the principal header, and nothing else.** Container Apps strips `X-MS-CLIENT-PRINCIPAL` off an inbound request and sets it itself. That property holds only while Easy Auth is on. Never read the address out of a query string, a cookie or a body.
 
 **The allowlist is the whole access rule.** `ALLOWED_EMAILS` holds the addresses that may read the money. An empty or missing variable denies everybody, which is the correct failure. Never make a missing variable open the door. A Google account proves only who somebody is. The allowlist decides whether that person may read the money.
 
 **The dependency list is short on purpose.** The dashboard uses React, Vite, Tailwind v4 and Hugeicons. Nothing else uses a dependency. Import Hugeicons one icon module at a time through `src/web/app/icons.ts`. Its barrel export is 6 MB, and no build step removes the unused parts. All server-side code uses the standard library: the built-in TS execution in Node, `fetch`, `node:http`, `node:sqlite` and the macOS `security` keychain. `@azure/identity` and `@azure/keyvault-secrets` are the one exception. They read and rotate the refresh token on Azure, and `src/net/token.ts` imports them only where `KEY_VAULT_NAME` is set. Do not add an ORM, a chart library, a component library, a state manager, a router or a date library. Ask first when you think the work needs another package.
 
-**The sign-in uses no auth library, and no code of ours.** Easy Auth is App Service configuration, in `infra/main.tf`. Do not add Auth.js, Passport or a JWT package, and do not write another OAuth exchange. Our whole share of the gate is `principalEmail()` and `allowed()`, and `test/web/` pins every refusal.
+**The sign-in uses no auth library, and no code of ours.** Easy Auth is Container Apps configuration, in `infra/main.tf`. Do not add Auth.js, Passport or a JWT package, and do not write another OAuth exchange. Our whole share of the gate is `principalEmail()` and `allowed()`, and `test/web/` pins every refusal.
 
 **The build step exists only to deploy.** `pnpm dev` runs Vite and serves the app and `/api/txns` from one config. It reads the database live, so a `rebuild` in another terminal appears on reload. Never make local work depend on a build. `vite build` runs only inside `pnpm deploy`.
 
-**The hosted `/api/txns` reads the database, exactly as `pnpm dev` does.** One long-lived process serves both, so there is one code path and no export step. The payload passed 6.76 MB in August 2026, over 10,525 rows. App Service caps no response, so that size is not a problem. A serverless function caps well below it. Never put this endpoint on one, and never go back to a static file.
+**The hosted `/api/txns` reads the database, exactly as `pnpm dev` does.** One long-lived process serves both, so there is one code path and no export step. The payload passed 6.76 MB in August 2026, over 10,525 rows. Container Apps caps no response, so that size is not a problem. A serverless function caps well below it. Never put this endpoint on one, and never go back to a static file.
 
-**The deploy builds here and pushes the result.** `pnpm deploy` runs `vite build`, stages the source, the page and the runtime dependencies, and pushes one zip. It then uploads `rules/*.json` to `/home/data/rules`. `data/raw/` and `data/banking.db` stay here, and the site fetches its own copy. Never deploy from git, because git holds neither the rules nor the data.
+**The deploy builds here and pushes the result.** `pnpm deploy` runs `vite build`, stages the source, the page and the vault client, and hands that directory to `az acr build`. The registry builds the image, so this machine needs no container runtime. The script then points the app at the new tag and uploads `rules/*.json` to the volume. `data/raw/` and `data/banking.db` stay here, and the site fetches its own copy. Never deploy from git, because git holds neither the rules nor the data.
+
+**Terraform owns the resource. The deploy owns the image.** `infra/main.tf` creates the app with a placeholder image, because no image exists before the first apply. `ignore_changes` on that field then keeps Terraform from dragging it back. Never move the image into a variable that apply enforces, or every deploy fights the next apply.
 
 **Azure syncs, and the Mac syncs, and they need separate SB1 clients.** The refresh token rotates on every exchange, so one chain cannot serve two processes. The Mac holds the first client in the keychain. The site holds the second in Key Vault. `src/net/token.ts` chooses by `KEY_VAULT_NAME` alone. Never point both at one client.
 
@@ -178,11 +180,18 @@ Both Node and the browser import everything under `src/core/`. That code must ha
 **The hosted site calls SpareBank 1, and `/api/refresh` works there.** Four things must hold for that. The last one needed a decision rather than code:
 
 1. The refresh token lives in Key Vault, not in the macOS keychain. `src/net/token.ts` holds both, and `KEY_VAULT_NAME` chooses.
-2. `syncAll` writes `data/raw/` and reads the mtime of each file to decide what is settled. `/home` is persistent and its mtimes are stable, so `settled()` works. Never move the data root off `/home`.
-3. `rules/accounts.json` names the accounts to sync. `pnpm deploy` uploads the rules to `/home/data/rules` on every run.
+2. `syncAll` writes `data/raw/` and reads the mtime of each file to decide what is settled. The mounted share is durable and its mtimes are stable, so `settled()` works. Never move the data root off the volume, or every refresh re-reads the whole record.
+3. `rules/accounts.json` names the accounts to sync. `pnpm deploy` uploads the rules to the volume on every run.
 4. **The SB1 refresh token rotates on every exchange.** A second client in the developer portal gives the site its own chain. That is the whole answer, and there is no other one. Never point two processes at one client.
 
-**`WEBSITE_RUN_FROM_PACKAGE` stays off.** It makes `wwwroot` read-only. The sync writes, so the data root sits under `/home/data` instead, beside the code rather than inside it.
+**The site scales to zero, and one replica is the ceiling.** `min_replicas` is 0, so an idle dashboard bills no compute. `max_replicas` is 1, and that is not a cost decision. Two replicas would hold two SB1 refresh chains against one client, and each use of one kills the other. Two would also give SQLite two writers on one SMB share. **Never raise `max_replicas`.**
+
+**The volume is the only durable thing.** The container filesystem disappears on every scale to zero. `DATA_DIR` and `RULES_DIR` both point into the mount. The image carries the code and `data/dist`, and nothing that must survive.
+
+<!-- ponytail: SQLite lives on an SMB share, which is the known weak spot here.
+One replica means one writer, so it holds. If locking ever bites, move the
+database to the container filesystem and rebuild it on cold start: the rebuild
+reads data/raw from the volume and takes about a second. -->
 
 **Money logic leaves a test behind.** Add one `node --test` case in `test/` for any code that signs, sums, excludes or categorises. Use no frameworks. Do not build fixtures from real transactions. The React components are deliberately simple to keep this possible. Put logic that needs a test in `src/core/`.
 

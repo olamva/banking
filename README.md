@@ -77,13 +77,15 @@ The rebuild is whole every time, and it is the slow half now: about a second for
 
 ## The hosted dashboard
 
-The same page runs on Azure App Service, behind Google sign-in, so that a phone can read it away from this wifi. Only an address in `ALLOWED_EMAILS` gets in.
+The same page runs on Azure Container Apps, behind Google sign-in, so that a phone can read it away from this wifi. Only an address in `ALLOWED_EMAILS` gets in.
 
-**Easy Auth is the gate, and it is configuration and not code.** App Service runs the whole OAuth exchange. It refuses a request that carries no session, and it sends that request to Google. It then gives the identity to the process in the `X-MS-CLIENT-PRINCIPAL` header.
+**The site scales to zero.** Nobody reading it means no replica running and no compute billed. The first request after an idle period starts a container, so that page load waits a few seconds. Every later one is immediate.
+
+**Easy Auth is the gate, and it is configuration and not code.** Container Apps runs the whole OAuth exchange. It refuses a request that carries no session, and it sends that request to Google. It then gives the identity to the process in the `X-MS-CLIENT-PRINCIPAL` header.
 
 **Easy Auth proves who somebody is. It does not restrict to one person.** `src/web/principal.ts` decodes that header. `allowed()` in `src/auth/session.ts` tests the address against `ALLOWED_EMAILS`. An empty list denies everybody. `test/web/` pins every refusal.
 
-**One Node process serves the whole site.** `src/web/server.ts` serves `data/dist`, `/api/txns` and `/api/refresh`. It uses `node:http` and no framework. `/api/txns` reads `data/banking.db` for each request, exactly as `pnpm dev` does. App Service caps no response, so the payload needs no file.
+**One Node process serves the whole site.** `src/web/server.ts` serves `data/dist`, `/api/txns` and `/api/refresh`. It uses `node:http` and no framework. `/api/txns` reads `data/banking.db` for each request, exactly as `pnpm dev` does. Container Apps caps no response, so the payload needs no file.
 
 **Terraform owns the resources. The deploy script owns their contents.**
 
@@ -93,19 +95,25 @@ cp terraform.tfvars.example terraform.tfvars   # then fill it in
 terraform init
 terraform apply
 cd ..
-pnpm deploy
+pnpm deploy                                    # builds the image, uploads the rules
 ```
 
-`data/raw/`, `data/banking.db` and the built page all live under `/home/data` on the site. `/home` is the only path that survives a restart.
+The registry builds the image, so this machine needs no container runtime.
+
+**The container is disposable, so the state sits on a volume.** An Azure Files share mounts at `/data`. It holds `data/raw`, the database, the rules and the request ledger. The image holds only the code and the built page. A scale to zero therefore loses nothing.
 
 ### Setting it up
 
+The SB1 values arrive last, because the developer portal wants a redirect before it issues a client. Apply once without them, then fill them in and apply again.
+
 1. Create a Google Cloud project. Open **APIs and Services**, then **Credentials**. Create an **OAuth client ID** of type **Web application**.
-2. Register a **second SpareBank 1 client** in the developer portal. The Mac keeps the first one. The reason is below.
-3. Fill in `infra/terraform.tfvars`. The gitignore refuses that file, because every value in it is a secret.
-4. Run `terraform apply`. It prints `google_redirect_uri`.
-5. Add that URI to the **Authorised redirect URIs** of the Google client. It must match exactly.
-6. Seed the refresh token from this machine, with the credentials of the second client:
+2. Copy `infra/terraform.tfvars.example` to `infra/terraform.tfvars`. Fill in the subscription, the allowlist and the two Google values. Leave the four SB1 values empty. The gitignore refuses that file, because every value in it is a secret.
+3. Run `terraform apply`. It prints `google_redirect_uri`.
+4. Add that URI to the **Authorised redirect URIs** of the Google client. It must match exactly.
+5. Run `pnpm deploy`. The page now works, and it reads an empty database.
+6. Register a **second SpareBank 1 client** in the developer portal. The Mac keeps the first one, and the reason is below. **The BankID login runs on this machine, not on Azure**, so the redirect is a localhost URL like the first one. Use a port that the first client does not use.
+7. Put the four SB1 values in `infra/terraform.tfvars` and run `terraform apply` again.
+8. Seed the refresh token from this machine, with the credentials of the second client:
 
    ```bash
    KEY_VAULT_NAME=$(terraform -chdir=infra output -raw vault) pnpm sb1 login
@@ -113,14 +121,17 @@ pnpm deploy
 
    The BankID login runs here, and the token lands in Key Vault instead of the keychain. The site reads it from there.
 
-7. Run `pnpm deploy`.
-8. Open the site and press Refresh. The first sweep fetches the whole record in about two requests, because a date range may be five years wide.
+9. Open the site and press Refresh. The first sweep fetches the whole record in about two requests, because a date range may be five years wide.
 
 A missing `ALLOWED_EMAILS` denies everybody. That is the correct failure. Removing an address stops the next request from that person.
 
+### What it costs
+
+The compute scales to zero, so an idle dashboard bills nothing for it. Two resources bill whatever happens: the container registry that holds the image, and the file share that holds the data. Both are small. The registry is the larger of the two, and it is the price of running a container at all.
+
 ### The rules reach Azure through the deploy, and only through it
 
-The sync needs `rules/accounts.json`. The rebuild needs the rest. `pnpm deploy` uploads every `rules/*.json` to `/home/data/rules` on each run, so an edit on the Mac cannot drift out of step with the site. The files stay out of git, exactly as before.
+The sync needs `rules/accounts.json`. The rebuild needs the rest. `pnpm deploy` uploads every `rules/*.json` to the volume on each run, so an edit on the Mac cannot drift out of step with the site. The files stay out of git, exactly as before.
 
 ### Refresh works on the hosted page, and it needs a second SB1 client
 
@@ -186,6 +197,6 @@ test/          node --test, mirroring src/
 rules/         hand-edited JSON, gitignored
 ```
 
-The dashboard uses React, Vite and Tailwind. The Azure SDK reads the refresh token out of Key Vault, and it loads only where a vault is named. Everything else uses the Node standard library, including SQLite, HTTP and TypeScript execution. The sign-in is App Service configuration, and it uses no auth library. There is no ORM, no chart library, no component library and no state manager. The charts are hand-written SVG. `data/raw/` is the source of truth, and the code never rewrites it in place. The database is derived, and you may delete it at any time. Analysis never calls the API. Any code that sums money leaves a test behind.
+The dashboard uses React, Vite and Tailwind. The Azure SDK reads the refresh token out of Key Vault, and it loads only where a vault is named. Everything else uses the Node standard library, including SQLite, HTTP and TypeScript execution. The sign-in is Container Apps configuration, and it uses no auth library. There is no ORM, no chart library, no component library and no state manager. The charts are hand-written SVG. `data/raw/` is the source of truth, and the code never rewrites it in place. The database is derived, and you may delete it at any time. Analysis never calls the API. Any code that sums money leaves a test behind.
 
 `.claude/CLAUDE.md` holds the rest, including the exclusion rules and the reasons for them.
