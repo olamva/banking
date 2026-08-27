@@ -57,6 +57,8 @@ pnpm deploy                     # build, push the code and the page, upload the 
 
 `terraform -chdir=infra apply` creates the resources. `pnpm deploy` fills them. Run the deploy from the main checkout.
 
+**`bootstrap.sh` registers the resource providers.** A subscription serves a namespace only after it is registered, and a fresh subscription registers almost nothing. The failure arrives late, as a 409 on the first resource in that namespace, and it reads like a bug in the configuration. It is not one.
+
 **The state lives in Azure.** `infra/backend.tf` names the storage account, and `infra/bootstrap.sh` creates it. That script runs on `az` alone, because the state cannot describe the storage that holds it, and it reads the names out of `backend.tf` so that the two cannot drift. **A backend block takes literals only.** It reads no variable, local or function, so never try to derive those names. **The state records every resource that exists**, so a checkout that owns it orphans the whole deployment when it is deleted, and only the portal can then find those resources.
 
 `infra/terraform.tfvars` holds every secret in the clear. The gitignore refuses `*.tfvars`, and that line is a security control. Never commit one, and never weaken the rule.

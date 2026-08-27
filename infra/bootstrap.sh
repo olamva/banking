@@ -25,6 +25,17 @@ if [ -z "$group" ] || [ -z "$account" ] || [ -z "$container" ]; then
 fi
 
 echo "==> subscription $(az account show --query id -o tsv)"
+
+# A subscription serves a namespace only after it is registered, and a fresh one
+# registers almost nothing. The failure arrives late, as a 409 from the first
+# resource in that namespace, so do it here rather than read it as a bug.
+echo "==> resource providers"
+for ns in Microsoft.App Microsoft.ContainerRegistry Microsoft.KeyVault Microsoft.Storage; do
+  if [ "$(az provider show --namespace "$ns" --query registrationState -o tsv 2>/dev/null)" != "Registered" ]; then
+    echo "    registering $ns"
+    az provider register --namespace "$ns" --wait --only-show-errors
+  fi
+done
 echo "==> resource group $group in $location"
 az group create --name "$group" --location "$location" --only-show-errors >/dev/null
 
