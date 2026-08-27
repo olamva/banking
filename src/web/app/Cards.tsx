@@ -260,7 +260,7 @@ export const DataTable = ({ columns, rows, scroll, onRow }: DataTableProps) => {
                       : "descending"
                     : undefined
                 }
-                className={`border-b border-grid bg-surface py-1 pr-2 font-semibold ${c.num ? "text-right" : "text-left"} ${c.min ? "w-px whitespace-nowrap" : ""} ${scroll ? "sticky top-0" : ""}`}
+                className={`border-b border-grid bg-surface py-1 pr-2 font-semibold ${c.num ? "text-right" : "text-left"} ${c.min ? "w-px whitespace-nowrap" : ""} ${scroll ? "sticky top-0 z-10" : ""}`}
               >
                 {c.sizer && <Sizer of={c.sizer} />}
                 {c.onClick ? (
