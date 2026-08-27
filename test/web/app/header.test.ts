@@ -1,27 +1,22 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { headerHidden } from "../../../src/web/app/data.ts";
+import { headerShown } from "../../../src/web/app/data.ts";
 
-test("the header leaves on a scroll down and returns on a scroll up", () => {
-  assert.equal(headerHidden(400, 200, false, 160), true);
-  assert.equal(headerHidden(200, 400, true, 160), false);
+test("the header sticks on a scroll up and lets go on a scroll down", () => {
+  assert.equal(headerShown(200, 400, false), true);
+  assert.equal(headerShown(400, 200, true), false);
 });
 
-test("the header stays while the space it sat in is still on the screen", () => {
-  assert.equal(headerHidden(150, 20, false, 160), false);
-  assert.equal(headerHidden(170, 20, false, 160), true);
-});
-
-test("a taller bar holds the header down the page for longer", () => {
-  assert.equal(headerHidden(200, 20, false, 160), true);
-  assert.equal(headerHidden(200, 20, false, 240), false);
+test("the header lets go from the first pixel, wherever the page sits", () => {
+  assert.equal(headerShown(20, 0, true), false);
+  assert.equal(headerShown(900, 800, true), false);
 });
 
 test("a move under 8 px changes nothing", () => {
-  assert.equal(headerHidden(304, 300, false, 160), false);
-  assert.equal(headerHidden(296, 300, true, 160), true);
+  assert.equal(headerShown(304, 300, false), false);
+  assert.equal(headerShown(296, 300, true), true);
 });
 
-test("the rubber band at the top does not hide the header", () => {
-  assert.equal(headerHidden(-40, 0, false, 160), false);
+test("the rubber band at the top counts as a scroll up", () => {
+  assert.equal(headerShown(-40, 0, false), true);
 });
