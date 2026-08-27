@@ -248,7 +248,7 @@ export const DataTable = ({ columns, rows, scroll, onRow }: DataTableProps) => {
           so a sticky header cell paints no bottom edge of its own, and the
           rows then show through that strip. */}
       <table className="w-full border-separate border-spacing-0 text-xs tabular-nums">
-        <thead>
+        <thead className={scroll ? "sticky top-0 z-10 bg-surface" : ""}>
           <tr>
             {columns.map((c) => (
               <th
@@ -260,7 +260,7 @@ export const DataTable = ({ columns, rows, scroll, onRow }: DataTableProps) => {
                       : "descending"
                     : undefined
                 }
-                className={`border-b border-grid bg-surface py-1 pr-2 font-semibold ${c.num ? "text-right" : "text-left"} ${c.min ? "w-px whitespace-nowrap" : ""} ${scroll ? "sticky top-0 z-10" : ""}`}
+                className={`border-b border-grid bg-surface py-1 pr-2 font-semibold ${c.num ? "text-right" : "text-left"} ${c.min ? "w-px whitespace-nowrap" : ""}`}
               >
                 {c.sizer && <Sizer of={c.sizer} />}
                 {c.onClick ? (
