@@ -7,10 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { merchantOf, subcategoryOf } from "../../core/select.ts";
-import {
-  subscriptionGroups,
-  type SubscriptionGroup,
-} from "../../core/stats.ts";
+import { type SubscriptionGroup } from "../../core/stats.ts";
 import type { Categorized } from "../../core/types.ts";
 import {
   ID_FIELD,
@@ -445,18 +442,17 @@ const GROUP_SORTS = {
 };
 
 interface SubscriptionsCardProps {
-  txns: Categorized[];
+  groups: SubscriptionGroup[];
   onMerchant: (merchant: string, meta: boolean) => void;
   onCategory: (category: string, meta: boolean) => void;
 }
 
 export const SubscriptionsCard = ({
-  txns,
+  groups,
   onMerchant,
   onCategory,
 }: SubscriptionsCardProps) => {
   const [search, setSearch] = useState("");
-  const groups = useMemo(() => subscriptionGroups(txns), [txns]);
   const shown = useMemo(() => {
     const q = search.toLowerCase();
     return q
