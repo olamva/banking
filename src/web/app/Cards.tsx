@@ -147,6 +147,7 @@ const Sizer = ({ of }: { of: string[] }) => (
 );
 
 export const AMOUNT_SIZE = [fmtNOK(-100000)];
+export const AMOUNT_SIZE_EXACT = [fmtNOKExact(-100000)];
 
 export interface Column {
   label: string;
@@ -710,7 +711,7 @@ export const TransactionsCard = ({
             head("Amount", "amount", {
               num: true,
               min: true,
-              sizer: AMOUNT_SIZE,
+              sizer: AMOUNT_SIZE_EXACT,
             }),
           ]}
           rows={sorted.map((t) => [
@@ -729,7 +730,7 @@ export const TransactionsCard = ({
               onPick={onCategory}
             />,
             <PickCell label={t.account} onPick={onAccount} />,
-            fmtNOK(t.amount),
+            fmtNOKExact(t.amount),
           ])}
         />
       )}
