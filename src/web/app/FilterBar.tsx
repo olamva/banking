@@ -191,24 +191,28 @@ const Picker = ({
     }, 3000);
   };
 
+  // Space toggles. An arrow acts only in the direction that it names.
+  const expand = (e: React.KeyboardEvent) => {
+    const row = at < 0 ? undefined : rows[at];
+    if (!row || row.sub || childrenOf(row.value).length < 2) return false;
+    const open = isOpenAt(at);
+    const want =
+      e.key === " "
+        ? !open
+        : e.key === "ArrowRight"
+          ? true
+          : e.key === "ArrowLeft"
+            ? false
+            : null;
+    if (want === null) return false;
+    e.preventDefault();
+    if (want !== open) toggleOpen(row.value);
+    return true;
+  };
+
   const navigate = (e: React.KeyboardEvent) => {
+    if (expand(e)) return;
     const step = e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0;
-    if (e.key === " " && at >= 0) {
-      const row = rows[at];
-      if (row && !row.sub && childrenOf(row.value).length > 1) {
-        e.preventDefault();
-        toggleOpen(row.value);
-        return;
-      }
-    }
-    if ((e.key === "ArrowRight" || e.key === "ArrowLeft") && at >= 0) {
-      const row = rows[at];
-      if (row && !row.sub && childrenOf(row.value).length > 1) {
-        e.preventDefault();
-        if (isOpenAt(at) === (e.key === "ArrowLeft")) toggleOpen(row.value);
-        return;
-      }
-    }
     if (step) {
       e.preventDefault();
       setActive(at < 0 ? 0 : Math.max(0, Math.min(at + step, rows.length - 1)));
