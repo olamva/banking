@@ -21,8 +21,9 @@ data
 # hand-edited local rules — they carry account keys, names and descriptions
 rules
 
-# terraform state records every value it was given, secrets included, and a
-# tfvars file holds them in the clear. Neither may reach the remote.
+# a tfvars file holds every secret in the clear. backend.hcl names the storage
+# that holds the state. The state itself lives in Azure, not here.
 infra/.terraform
 infra/*.tfstate*
+infra/backend.hcl
 *.tfvars

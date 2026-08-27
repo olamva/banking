@@ -1,7 +1,9 @@
-# The state records every resource that exists, so it must outlive the checkout.
-# A worktree is disposable, and deleting one with the state inside would orphan
-# the whole deployment. `infra/tf.sh` points both the state and the variables at
-# ~/.config/banking-azure, outside the repository.
+# The state records every resource that exists, so it lives in Azure and not in
+# a checkout. `infra/bootstrap.sh` creates the account and writes backend.hcl,
+# because the state cannot describe the storage that holds it.
+#
+#   infra/bootstrap.sh
+#   terraform -chdir=infra init -backend-config=backend.hcl
 terraform {
-  backend "local" {}
+  backend "azurerm" {}
 }

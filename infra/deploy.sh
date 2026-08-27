@@ -7,11 +7,10 @@ here="$(cd "$(dirname "$0")" && pwd)"
 repo="$(dirname "$here")"
 stage="$repo/data/deploy"
 
-tf="$here/tf.sh"
-app="$("$tf" output -raw app)"
-group="$("$tf" output -raw resource_group)"
-registry="$("$tf" output -raw registry)"
-storage="$("$tf" output -raw storage_account)"
+app="$(terraform -chdir="$here" output -raw app)"
+group="$(terraform -chdir="$here" output -raw resource_group)"
+registry="$(terraform -chdir="$here" output -raw registry)"
+storage="$(terraform -chdir="$here" output -raw storage_account)"
 tag="$(date -u +%Y%m%d%H%M%S)"
 
 echo "==> build the page"
@@ -62,4 +61,4 @@ az storage file upload-batch --account-name "$storage" --account-key "$key" \
   --only-show-errors >/dev/null
 
 rm -rf "$stage"
-echo "==> done: $("$tf" output -raw url)"
+echo "==> done: $(terraform -chdir="$here" output -raw url)"

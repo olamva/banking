@@ -90,16 +90,17 @@ The same page runs on Azure Container Apps, behind Google sign-in, so that a pho
 **Terraform owns the resources. The deploy script owns their contents.**
 
 ```bash
-cp infra/terraform.tfvars.example ~/.config/banking-azure/terraform.tfvars
-$EDITOR ~/.config/banking-azure/terraform.tfvars
-infra/tf.sh init
-infra/tf.sh apply
+cp infra/terraform.tfvars.example infra/terraform.tfvars
+$EDITOR infra/terraform.tfvars                 # the gitignore refuses it
+infra/bootstrap.sh                             # once: the storage for the state
+terraform -chdir=infra init -backend-config=backend.hcl
+terraform -chdir=infra apply
 pnpm deploy                                    # builds the image, uploads the rules
 ```
 
 The registry builds the image, so this machine needs no container runtime.
 
-**The state and the secrets live outside the repository**, in `~/.config/banking-azure`. Use `infra/tf.sh` rather than bare `terraform`, and it finds both. The state records every resource that exists, so a checkout that holds it is a checkout that can orphan the deployment when it is deleted. A worktree makes that easy to do by accident.
+**The state lives in Azure, not in a checkout.** It records every resource that exists, so a checkout that owns it can orphan the whole deployment when it is deleted. `infra/bootstrap.sh` creates the storage account that holds it and writes `backend.hcl`. It runs one time, on `az` alone, because the state cannot describe the storage that holds it.
 
 **The container is disposable, so the state sits on a volume.** An Azure Files share mounts at `/data`. It holds `data/raw`, the database, the rules and the request ledger. The image holds only the code and the built page. A scale to zero therefore loses nothing.
 
@@ -108,16 +109,16 @@ The registry builds the image, so this machine needs no container runtime.
 The SB1 values arrive last, because the developer portal wants a redirect before it issues a client. Apply once without them, then fill them in and apply again.
 
 1. Create a Google Cloud project. Open **APIs and Services**, then **Credentials**. Create an **OAuth client ID** of type **Web application**.
-2. Copy `infra/terraform.tfvars.example` to `~/.config/banking-azure/terraform.tfvars`. Fill in the subscription, the allowlist and the two Google values. Leave the four SB1 values empty on the first pass.
-3. Run `infra/tf.sh init`, then `infra/tf.sh apply`. It prints `google_redirect_uri`.
+2. Copy `infra/terraform.tfvars.example` to `infra/terraform.tfvars`. Fill in the subscription, the allowlist and the two Google values. Leave the four SB1 values empty on the first pass.
+3. Run `infra/bootstrap.sh`, then `terraform -chdir=infra init -backend-config=backend.hcl`, then `terraform -chdir=infra apply`. It prints `google_redirect_uri`.
 4. Add that URI to the **Authorised redirect URIs** of the Google client. It must match exactly.
 5. Run `pnpm deploy`. The page now works, and it reads an empty database.
 6. Register a **second SpareBank 1 client** in the developer portal. The Mac keeps the first one, and the reason is below. **The BankID login runs on this machine, not on Azure**, so the redirect is a localhost URL like the first one. Use a port that the first client does not use.
-7. Put the four SB1 values in `~/.config/banking-azure/terraform.tfvars` and run `infra/tf.sh apply` again.
+7. Put the four SB1 values in `infra/terraform.tfvars` and run `terraform -chdir=infra apply` again.
 8. Seed the refresh token from this machine, with the credentials of the second client:
 
    ```bash
-   KEY_VAULT_NAME=$(infra/tf.sh output -raw vault) pnpm sb1 login
+   KEY_VAULT_NAME=$(terraform -chdir=infra output -raw vault) pnpm sb1 login
    ```
 
    The BankID login runs here, and the token lands in Key Vault instead of the keychain. The site reads it from there.

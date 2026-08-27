@@ -55,14 +55,11 @@ pnpm sb1 rebuild                # only when the rules changed
 pnpm deploy                     # build, push the code and the page, upload the rules
 ```
 
-`infra/tf.sh apply` creates the resources. `pnpm deploy` fills them. Run the deploy from the main checkout.
+`terraform -chdir=infra apply` creates the resources. `pnpm deploy` fills them. Run the deploy from the main checkout.
 
-**The state and the variables live in `~/.config/banking-azure`, outside the repository.** `infra/tf.sh` is the wrapper that points terraform at both, and every command must go through it. Two reasons, and the second is the sharp one:
+**The state lives in Azure.** `infra/bootstrap.sh` creates the storage account for it and writes `backend.hcl`. That script runs on `az` alone, because the state cannot describe the storage that holds it. **The state records every resource that exists**, so a checkout that owns it orphans the whole deployment when it is deleted, and only the portal can then find those resources.
 
-1. The file holds every secret in the clear, and the state holds them again.
-2. **The state records every resource that exists.** A worktree that holds it orphans the whole deployment when the worktree is removed. Nothing then knows those resources exist, and only the portal can find them.
-
-The gitignore still refuses `*.tfvars` and `*.tfstate*`, as a second line rather than the first.
+`infra/terraform.tfvars` holds every secret in the clear. The gitignore refuses `*.tfvars`, and that line is a security control. Never commit one, and never weaken the rule.
 
 | Application setting     | What it is                                             |
 | ----------------------- | ------------------------------------------------------ |
@@ -119,7 +116,7 @@ infra/deploy.sh   build, zip, push the code, upload the rules
 test/             node --test, mirroring src/
 data/raw/         API responses, verbatim, gitignored
 data/banking.db   derived SQLite store, rebuildable from data/raw, gitignored
-data/dist/        the built site, holding every transaction, gitignored
+data/dist/        the built page: index.html, one JS bundle, one CSS file
 rules/*.json      hand-edited, gitignored: accounts, overrides, giro, family,
                   payees, subscriptions, categories
 ```
@@ -180,7 +177,9 @@ Both Node and the browser import everything under `src/core/`. That code must ha
 
 **Azure syncs, and the Mac syncs, and they need separate SB1 clients.** The refresh token rotates on every exchange, so one chain cannot serve two processes. The Mac holds the first client in the keychain. The site holds the second in Key Vault. `src/net/token.ts` chooses by `KEY_VAULT_NAME` alone. Never point both at one client.
 
-**Every file that holds transactions sits under `data/`.** This includes the whole build output at `data/dist` and the deploy staging directory. The gitignore already refuses `data`, so no build output can land on a tracked path. Keep `build.outDir` inside `data`. Moving it out puts every transaction one `git add` away from GitHub.
+**Every file that holds transactions sits under `data/`.** The gitignore refuses `data`, so none of them can land on a tracked path. Keep `build.outDir` and the deploy staging directory inside `data` as well. Neither holds a transaction now, and both are derived, so neither belongs in git either way.
+
+**`data/dist` carries the page, not the money.** It is `index.html`, one JS bundle and one CSS file, and it is about 300 kB. The transactions reach the browser from `/api/txns`, which reads the database for each request. The build output held `txns.json` while the hosted `/api/txns` was a static file. It does not any more, and it must not again.
 
 **The hosted site calls SpareBank 1, and `/api/refresh` works there.** Four things must hold for that. The last one needed a decision rather than code:
 

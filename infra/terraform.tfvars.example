@@ -1,7 +1,6 @@
-# Copy to ~/.config/banking-azure/terraform.tfvars and fill it in. That path is
-# outside the repository on purpose: the file holds secrets, and the state file
-# beside it records every resource that exists. A checkout must not own either.
-# Run terraform through infra/tf.sh, which finds both.
+# Copy to infra/terraform.tfvars and fill it in. The gitignore refuses *.tfvars,
+# because every value below is a secret or an address. The state does not sit
+# beside it: infra/bootstrap.sh puts that in Azure.
 
 subscription_id = "00000000-0000-0000-0000-000000000000"
 
