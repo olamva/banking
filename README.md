@@ -42,8 +42,9 @@ pnpm sb1 accounts                   # writes data/raw/accounts.json and rules/ac
 pnpm sb1 rebuild                    # rebuild data/banking.db from data/raw/, after a rules edit
 pnpm sb1 reconcile                  # does the history explain the balances?
 pnpm sb1 budget                     # what SB1 last reported as left of its limit
-pnpm sb1 export                     # data/banking.db -> data/web/txns.json
-pnpm deploy:web                     # export, build and upload to Vercel
+
+pnpm build                          # vite build -> data/dist. The hosted page only
+pnpm deploy                         # push the code, the page and the rules to Azure
 
 pnpm dev                            # the dashboard on :4000
 pnpm test                           # node --test, no framework
@@ -64,7 +65,7 @@ A card transaction posts late, and it arrives pending first. A month is therefor
 
 **The page lists subscriptions per subscription**, not per charge. Each line shows what it is, what it costs each month, what it has taken across the window, and when it last went out. _Per month_ shows the **last payment**, not the average. An old price inside an average shows what a subscription has cost. The question is what it costs now.
 
-**Refresh pulls what can still change, and rebuilds.** It is a button in the header. It then rebuilds `data/banking.db` and reloads the page. It reports what it fetched, or why it stopped. One refresh runs at a time. **It works under `pnpm dev` alone.** The hosted page explains why instead, below.
+**Refresh pulls what can still change, and rebuilds.** It is a button in the header. It then rebuilds `data/banking.db` and reloads the page. It reports what it fetched, or why it stopped. One refresh runs at a time. It works under `pnpm dev`, and it works on the hosted page.
 
 **A file written after its month closed is never fetched again.** A month closes four days after it ends, which is the window a late card row books in. Only the open months therefore cost a request. The rule reads the file, not the calendar: a month that closed while its file was captured mid-month is fetched once more, because that file is missing the rest of the month.
 
@@ -72,48 +73,60 @@ The rebuild is whole every time, and it is the slow half now: about a second for
 
 **To make the bank restate a month, delete it.** There is no force flag. Remove `data/raw/<month>/*.json` and press Refresh. `pnpm sb1 reconcile` is what tells you a month is owed.
 
-**Never share the dashboard.** It holds every transaction you have, and so does a screenshot. It has two homes and no third one: `127.0.0.1` here, and the private Vercel deployment below.
+**Never share the dashboard.** It holds every transaction you have, and so does a screenshot. It has two homes and no third one: `127.0.0.1` here, and the private Azure site below.
 
 ## The hosted dashboard
 
-The same page runs on Vercel, behind Google sign-in, so that a phone can read it away from this wifi. Only an address in `ALLOWED_EMAILS` gets in.
+The same page runs on Azure App Service, behind Google sign-in, so that a phone can read it away from this wifi. Only an address in `ALLOWED_EMAILS` gets in.
 
-`middleware.ts` is the gate. It runs before every request except the sign-in routes, and it refuses a request with no valid session cookie. The page bundle and the transactions are both static files, so the gate is the only thing that holds them. `src/auth/session.ts` holds the cookie, the HMAC and the allowlist. There is no auth library, and `test/auth/session.test.ts` pins every refusal.
+**Easy Auth is the gate, and it is configuration and not code.** App Service runs the whole OAuth exchange. It refuses a request that carries no session, and it sends that request to Google. It then gives the identity to the process in the `X-MS-CLIENT-PRINCIPAL` header.
 
-The deploy builds here and uploads the output alone:
+**Easy Auth proves who somebody is. It does not restrict to one person.** `src/web/principal.ts` decodes that header. `allowed()` in `src/auth/session.ts` tests the address against `ALLOWED_EMAILS`. An empty list denies everybody. `test/web/` pins every refusal.
+
+**One Node process serves the whole site.** `src/web/server.ts` serves `data/dist`, `/api/txns` and `/api/refresh`. It uses `node:http` and no framework. `/api/txns` reads `data/banking.db` for each request, exactly as `pnpm dev` does. App Service caps no response, so the payload needs no file.
+
+**Terraform owns the resources. The deploy script owns their contents.**
 
 ```bash
-pnpm sb1 rebuild
-pnpm deploy:web
+cd infra
+cp terraform.tfvars.example terraform.tfvars   # then fill it in
+terraform init
+terraform apply
+cd ..
+pnpm deploy
 ```
 
-`data/raw/`, `data/banking.db` and `rules/` never leave this machine. `data/dist/` does, and it holds every transaction. That is why the gate exists. Every file that carries transactions sits under `data/`, which the gitignore refuses, so no build output can reach git.
+`data/raw/`, `data/banking.db` and the built page all live under `/home/data` on the site. `/home` is the only path that survives a restart.
 
 ### Setting it up
 
 1. Create a Google Cloud project. Open **APIs and Services**, then **Credentials**. Create an **OAuth client ID** of type **Web application**.
-2. Deploy one time with `pnpm deploy:web` to learn the domain. The page will not sign in yet.
-3. Add `https://<domain>/api/auth/callback` to the **Authorised redirect URIs** of the client. It must match exactly.
-4. Set four variables on the Vercel project, with `vercel env add` or the dashboard:
+2. Register a **second SpareBank 1 client** in the developer portal. The Mac keeps the first one. The reason is below.
+3. Fill in `infra/terraform.tfvars`. The gitignore refuses that file, because every value in it is a secret.
+4. Run `terraform apply`. It prints `google_redirect_uri`.
+5. Add that URI to the **Authorised redirect URIs** of the Google client. It must match exactly.
+6. Seed the refresh token from this machine, with the credentials of the second client:
 
-   | Variable               | What it is                                          |
-   | ---------------------- | --------------------------------------------------- |
-   | `GOOGLE_CLIENT_ID`     | the OAuth client                                    |
-   | `GOOGLE_CLIENT_SECRET` | its secret                                          |
-   | `SESSION_SECRET`       | 32 random bytes, `openssl rand -base64 32`          |
-   | `ALLOWED_EMAILS`       | the addresses that may sign in, separated by commas |
+   ```bash
+   KEY_VAULT_NAME=$(terraform -chdir=infra output -raw vault) pnpm sb1 login
+   ```
 
-5. Deploy again.
+   The BankID login runs here, and the token lands in Key Vault instead of the keychain. The site reads it from there.
 
-A missing variable denies everybody. That is the correct failure. To sign every open session out at once, change `SESSION_SECRET` and deploy. Removing an address stops the next sign-in, and it does not end a session that already runs. `/api/auth/logout` clears the cookie in one browser.
+7. Run `pnpm deploy`.
+8. Open the site and press Refresh. The first sweep fetches the whole record in about two requests, because a date range may be five years wide.
 
-### Refresh does not work on the hosted page
+A missing `ALLOWED_EMAILS` denies everybody. That is the correct failure. Removing an address stops the next request from that person.
 
-The button is there, and it answers with an explanation. The deployment cannot call SpareBank 1. The refresh token lives in the macOS keychain, `syncAll` writes `data/raw/` and reads its mtimes, and `rules/accounts.json` never leaves this machine.
+### The rules reach Azure through the deploy, and only through it
 
-The token is the part that no amount of work fixes. **SB1 rotates the refresh token on every exchange.** Two clients cannot share one. A refresh on Vercel would kill the token here, and the next sync here would kill the one there. BankID would be the only way back, every time.
+The sync needs `rules/accounts.json`. The rebuild needs the rest. `pnpm deploy` uploads every `rules/*.json` to `/home/data/rules` on each run, so an edit on the Mac cannot drift out of step with the site. The files stay out of git, exactly as before.
 
-So the bank calls stay on this machine. Run the refresh under `pnpm dev`, then `pnpm deploy:web` to put the result on the phone.
+### Refresh works on the hosted page, and it needs a second SB1 client
+
+**SB1 rotates the refresh token on every exchange.** Two processes on one chain therefore invalidate each other. Each use kills the other copy, and BankID is the only way back.
+
+A second client in the developer portal gives an independent chain. The Mac holds the first client in the keychain. Azure holds the second one in Key Vault. Both machines then sync, and neither one breaks the other.
 
 ### Staying inside the rate limit
 
@@ -164,15 +177,15 @@ A person-to-person Vipps payment needs **no rule**. The code cannot match a bare
 src/net/       may make requests
 src/core/      may not. Both Node and the browser import it
 src/web/app/   the React app
-src/auth/      the hosted gate: cookie, session, allowlist. Pure and tested
+src/web/server.ts  the hosted site: the page, /api/txns and /api/refresh
+src/auth/      allowed(), the whole access rule. Pure and tested
 src/cli.ts     command dispatch
-middleware.ts  the Vercel gate, above every request but the sign-in
-api/auth/      login, callback, logout. Vercel only
-vite.config.ts pnpm dev: the app plus /api/txns. Also the deploy build
+vite.config.ts pnpm dev: the app plus /api/txns
+infra/         terraform for Azure, and the deploy script
 test/          node --test, mirroring src/
 rules/         hand-edited JSON, gitignored
 ```
 
-The dashboard uses React, Vite and Tailwind. `@vercel/functions` supplies one call that Vercel middleware cannot work without. Everything else uses the Node standard library, including SQLite, HTTP and TypeScript execution. The sign-in uses Web Crypto and no auth library. There is no ORM, no chart library, no component library and no state manager. The charts are hand-written SVG. `data/raw/` is the source of truth, and the code never rewrites it in place. The database is derived, and you may delete it at any time. Analysis never calls the API. Any code that sums money leaves a test behind.
+The dashboard uses React, Vite and Tailwind. The Azure SDK reads the refresh token out of Key Vault, and it loads only where a vault is named. Everything else uses the Node standard library, including SQLite, HTTP and TypeScript execution. The sign-in is App Service configuration, and it uses no auth library. There is no ORM, no chart library, no component library and no state manager. The charts are hand-written SVG. `data/raw/` is the source of truth, and the code never rewrites it in place. The database is derived, and you may delete it at any time. Analysis never calls the API. Any code that sums money leaves a test behind.
 
 `.claude/CLAUDE.md` holds the rest, including the exclusion rules and the reasons for them.

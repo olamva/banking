@@ -46,28 +46,34 @@ Run `pnpm install`, then run `pnpm worktree:link`. These two commands are the wh
 
 `EnterWorktree` branches from `origin/main`. Check the base before you build on it. A branch that appears to stack on work that is not on `main` shows this error.
 
-**Deploy from the main checkout.** The deploy reads `data/banking.db` and writes `data/dist/`. Both resolve to the shared path, so a worktree cannot do it.
+**Deploy from the main checkout.** The deploy reads `data/banking.db` and `rules/`, and it writes `data/dist`. All of them resolve to the shared path, so a worktree cannot do it.
 
 ## Deploying
 
 ```bash
-pnpm sb1 sync --month YYYY-MM   # only when new rows are wanted
-pnpm sb1 rebuild
-pnpm deploy:web                 # export, build, upload .vercel/output
+pnpm sb1 rebuild                # only when the rules changed
+pnpm deploy                     # build, push the code and the page, upload the rules
 ```
 
-`pnpm deploy:web` is the only command that sends transactions off this machine. Run it from the main checkout. Vercel holds four variables, and the deployment refuses every request while any of them is missing:
+`terraform apply` in `infra/` creates the resources. `pnpm deploy` fills them. Run the deploy from the main checkout.
 
-| Variable               | What it is                                          |
-| ---------------------- | --------------------------------------------------- |
-| `GOOGLE_CLIENT_ID`     | the OAuth client of the Google Cloud project        |
-| `GOOGLE_CLIENT_SECRET` | its secret                                          |
-| `SESSION_SECRET`       | 32 random bytes. It signs the session cookie        |
-| `ALLOWED_EMAILS`       | the addresses that may sign in, separated by commas |
+Terraform holds every secret in `infra/terraform.tfvars`, which the gitignore refuses. The state file holds the same values, so the gitignore refuses that too. Treat both lines as a security control.
 
-Set the authorised redirect URI of the Google client to `https://<domain>/api/auth/callback`. It must match the deployment domain exactly, or Google refuses the sign-in.
+| Application setting     | What it is                                             |
+| ----------------------- | ------------------------------------------------------ |
+| `ALLOWED_EMAILS`        | the addresses that may read the money, comma separated |
+| `DATA_DIR`              | `/home/data`. The only path that survives a restart    |
+| `RULES_DIR`             | `/home/data/rules`                                     |
+| `KEY_VAULT_NAME`        | the vault that holds the SB1 refresh token             |
+| `CLIENT_ID`             | the **second** SB1 client, not the one on the Mac      |
+| `CLIENT_SECRET`         | its secret                                             |
+| `FINANCIAL_INSTITUTION` | the bank that BankID signs into                        |
 
-Changing `SESSION_SECRET` signs every open session out. That is the way to revoke access at once. Removing an address from `ALLOWED_EMAILS` stops the next sign-in, and it does not end a session that already runs.
+Terraform sets all of them. Do not set one by hand, because the next `terraform apply` puts it back.
+
+Set the authorised redirect URI of the Google client to the `google_redirect_uri` output. It must match exactly, or Google refuses the sign-in.
+
+Removing an address from `ALLOWED_EMAILS` stops the next request from that person. Easy Auth keeps its own session, so a sign-out needs the `/.auth/logout` route.
 
 ## Layout
 
@@ -91,21 +97,23 @@ src/core/reconcile.ts opening + every row == the balance that the bank reports
 src/core/select.ts    which rows are in view. No money logic, ever
 src/core/pipeline.ts  the offline chain. The CLI and Vite both import it
 
+src/core/paths.ts     DATA_DIR and RULES_DIR. Every other path derives from them
+
 src/web/app/          the React app: App, FilterBar, Charts, Cards, icons
-src/auth/session.ts   the hosted gate: cookie, HMAC session, allowlist, id token.
-                      Pure. It makes no request, so node --test pins all of it
+src/web/server.ts     the hosted site. node:http, no framework
+src/web/api.ts        payload() and the single-flight refresh. Vite and the
+                      server both import it, so there is one of each
+src/web/principal.ts  X-MS-CLIENT-PRINCIPAL -> the address Easy Auth proved
+src/auth/session.ts   allowed(). Pure, so node --test pins all of it
+src/net/token.ts      the refresh token: keychain here, Key Vault on Azure
 src/cli.ts            command dispatch
 
-middleware.ts     the Vercel gate. It runs before every request but the sign-in
-api/auth/         login, callback, logout. Edge functions, Vercel only
-api/refresh.ts    the hosted refresh. It calls no bank. It explains why
-vite.config.ts    pnpm dev. The app, /api/txns and /api/refresh. Also the build
-vercel.json       framework, build command, the /api/txns rewrite, headers
-types/            declaration stubs for what a dependency fails to bring
+vite.config.ts    pnpm dev. The app, /api/txns and /api/refresh
+infra/main.tf     the Azure resources: plan, site, Easy Auth, Key Vault
+infra/deploy.sh   build, zip, push the code, upload the rules
 test/             node --test, mirroring src/
 data/raw/         API responses, verbatim, gitignored
 data/banking.db   derived SQLite store, rebuildable from data/raw, gitignored
-data/web/         the exported payload for the hosted build, gitignored
 data/dist/        the built site, holding every transaction, gitignored
 rules/*.json      hand-edited, gitignored: accounts, overrides, giro, family,
                   payees, subscriptions, categories
@@ -143,34 +151,38 @@ Both Node and the browser import everything under `src/core/`. That code must ha
 
 **No personal data enters git.** Do not put account numbers, keys, names, balances or descriptions in source, tests, fixtures, commit messages or documentation. The JSON and CSV output is unredacted.
 
-**One route sends personal data off this machine, and only one.** `pnpm deploy:web` uploads `data/dist/` to Vercel, and that directory holds every transaction. This is deliberate, and it is the reason the sign-in gate exists. No other command may send this data anywhere. Adding a second route needs a decision, not a patch.
+**One route sends personal data off this machine, and only one.** `pnpm deploy` uploads `data/dist` and `rules/*.json` to the Azure site. Both hold personal data. This is deliberate, and it is the reason the gate exists. No other command may send this data anywhere. Adding a second route needs a decision, not a patch.
 
-**The dashboard has exactly two homes: 127.0.0.1, and the private Vercel deployment behind Google sign-in.** There is no third one. Do not publish it as a hosted artifact, to a gist, or to any preview or sharing service. It holds every transaction you have. The same rule applies to screenshots.
+**The dashboard has exactly two homes: 127.0.0.1, and the private Azure site behind Google sign-in.** There is no third one. Do not publish it as a hosted artifact, to a gist, or to any preview or sharing service. It holds every transaction you have. The same rule applies to screenshots.
 
-**The Vercel deployment is private, and one gate makes it private.** `middleware.ts` runs before every request that is not a sign-in route. It refuses a request that carries no valid session cookie. The page bundle and `txns.json` are both static files, so the CDN would serve them to anybody without that gate. Treat `middleware.ts` and its `matcher` as a security control. Never narrow the matcher to let a path through. Never add a path that skips it.
+**The Azure site is private, and two gates make it private.** Easy Auth refuses a request that carries no session, before the process sees it. The server then reads `X-MS-CLIENT-PRINCIPAL` and tests the address against `allowed()`. **Easy Auth cannot restrict to one person, so the second gate is not optional.** The check sits above the router in `src/web/server.ts`, so one refusal covers the page, the payload and the refresh. Treat that check as a security control. Never move a route above it. Never add a route that skips it.
 
-**The allowlist is the whole access rule.** `ALLOWED_EMAILS` holds the addresses that may sign in. An empty or missing variable denies everybody, which is the correct failure. Never make a missing variable open the door. A Google account proves only who somebody is. The allowlist decides whether that person may read the money.
+**Trust the principal header, and nothing else.** App Service strips `X-MS-CLIENT-PRINCIPAL` off an inbound request and sets it itself. That property holds only while Easy Auth is on. Never read the address out of a query string, a cookie or a body.
 
-**The dependency list is short on purpose.** The dashboard uses React, Vite, Tailwind v4 and Hugeicons. Nothing else uses a dependency. Import Hugeicons one icon module at a time through `src/web/app/icons.ts`. Its barrel export is 6 MB, and no build step removes the unused parts. All server-side code uses the standard library: the built-in TS execution in Node, `fetch`, `node:sqlite` and the macOS `security` keychain. `@vercel/functions` is the one exception, and it supplies `next()` alone. Vercel middleware cannot continue a request without it. Do not add an ORM, a chart library, a component library, a state manager, a router or a date library. Ask first when you think the work needs another package.
+**The allowlist is the whole access rule.** `ALLOWED_EMAILS` holds the addresses that may read the money. An empty or missing variable denies everybody, which is the correct failure. Never make a missing variable open the door. A Google account proves only who somebody is. The allowlist decides whether that person may read the money.
 
-**The sign-in uses no auth library.** It is one OAuth code exchange and one HMAC cookie, in `src/auth/session.ts`, on Web Crypto. Do not add Auth.js, Passport or a JWT package. The whole gate is under 200 lines, and `test/auth/session.test.ts` pins every refusal.
+**The dependency list is short on purpose.** The dashboard uses React, Vite, Tailwind v4 and Hugeicons. Nothing else uses a dependency. Import Hugeicons one icon module at a time through `src/web/app/icons.ts`. Its barrel export is 6 MB, and no build step removes the unused parts. All server-side code uses the standard library: the built-in TS execution in Node, `fetch`, `node:http`, `node:sqlite` and the macOS `security` keychain. `@azure/identity` and `@azure/keyvault-secrets` are the one exception. They read and rotate the refresh token on Azure, and `src/net/token.ts` imports them only where `KEY_VAULT_NAME` is set. Do not add an ORM, a chart library, a component library, a state manager, a router or a date library. Ask first when you think the work needs another package.
 
-**The build step exists only to deploy.** `pnpm dev` runs Vite and serves the app and `/api/txns` from one config. It reads the database live, so a `rebuild` in another terminal appears on reload. Never make local work depend on a build. `vite build` runs only inside `pnpm deploy:web`.
+**The sign-in uses no auth library, and no code of ours.** Easy Auth is App Service configuration, in `infra/main.tf`. Do not add Auth.js, Passport or a JWT package, and do not write another OAuth exchange. Our whole share of the gate is `principalEmail()` and `allowed()`, and `test/web/` pins every refusal.
 
-**The hosted `/api/txns` is a file, not a function.** The page reads one payload and aggregates in the browser, so the endpoint takes no parameters and there is no query to run in production. `pnpm sb1 export` writes `data/web/txns.json`, the build copies it, and `vercel.json` rewrites `/api/txns` to it. A Vercel function may return 4.5 MB. The payload passed 6.7 MB in August 2026, so it must never go back to being a function.
+**The build step exists only to deploy.** `pnpm dev` runs Vite and serves the app and `/api/txns` from one config. It reads the database live, so a `rebuild` in another terminal appears on reload. Never make local work depend on a build. `vite build` runs only inside `pnpm deploy`.
 
-**The deploy builds here and uploads the output alone.** `pnpm deploy:web` runs `vercel build` and then `vercel deploy --prebuilt`. Only `.vercel/output` leaves this machine. `data/raw/`, `data/banking.db` and `rules/` never do. Never deploy from git and never let Vercel build the project itself, because a remote build would need the raw data uploaded to reach it.
+**The hosted `/api/txns` reads the database, exactly as `pnpm dev` does.** One long-lived process serves both, so there is one code path and no export step. The payload passed 6.76 MB in August 2026, over 10,525 rows. App Service caps no response, so that size is not a problem. A serverless function caps well below it. Never put this endpoint on one, and never go back to a static file.
 
-**Every file that holds transactions sits under `data/`.** This includes `data/web/txns.json` and the whole build output at `data/dist/`. The gitignore already refuses `data`, so no build output can land on a tracked path. Keep `outputDirectory` and `publicDir` inside `data/`. Moving either one out of `data/` puts every transaction one `git add` away from GitHub.
+**The deploy builds here and pushes the result.** `pnpm deploy` runs `vite build`, stages the source, the page and the runtime dependencies, and pushes one zip. It then uploads `rules/*.json` to `/home/data/rules`. `data/raw/` and `data/banking.db` stay here, and the site fetches its own copy. Never deploy from git, because git holds neither the rules nor the data.
 
-**The hosted deployment never calls SpareBank 1, and it cannot.** `/api/refresh` works under `pnpm dev` alone. Four separate things stop it on Vercel, and the last one is decisive:
+**Azure syncs, and the Mac syncs, and they need separate SB1 clients.** The refresh token rotates on every exchange, so one chain cannot serve two processes. The Mac holds the first client in the keychain. The site holds the second in Key Vault. `src/net/token.ts` chooses by `KEY_VAULT_NAME` alone. Never point both at one client.
 
-1. The refresh token lives in the macOS keychain, through the `security` binary. Vercel runs Linux.
-2. `syncAll` writes `data/raw/` and reads the mtime of each file to decide what is settled. A Vercel function has a read-only filesystem, and `/tmp` disappears between calls.
-3. `rules/accounts.json` names the accounts to sync. That file deliberately never leaves this machine.
-4. **The SB1 refresh token rotates on every exchange.** Two clients cannot hold one rotating token. Each use kills the other copy. A refresh on Vercel therefore breaks `pnpm sb1 sync` here, and the next local sync breaks Vercel. BankID is the only way back.
+**Every file that holds transactions sits under `data/`.** This includes the whole build output at `data/dist` and the deploy staging directory. The gitignore already refuses `data`, so no build output can land on a tracked path. Keep `build.outDir` inside `data`. Moving it out puts every transaction one `git add` away from GitHub.
 
-Point 4 is not a problem of effort. Do not try to solve it with a token in an environment variable. **The bank calls happen on this machine. The deployment may ask for a refresh. It may never perform one.**
+**The hosted site calls SpareBank 1, and `/api/refresh` works there.** Four things must hold for that. The last one needed a decision rather than code:
+
+1. The refresh token lives in Key Vault, not in the macOS keychain. `src/net/token.ts` holds both, and `KEY_VAULT_NAME` chooses.
+2. `syncAll` writes `data/raw/` and reads the mtime of each file to decide what is settled. `/home` is persistent and its mtimes are stable, so `settled()` works. Never move the data root off `/home`.
+3. `rules/accounts.json` names the accounts to sync. `pnpm deploy` uploads the rules to `/home/data/rules` on every run.
+4. **The SB1 refresh token rotates on every exchange.** A second client in the developer portal gives the site its own chain. That is the whole answer, and there is no other one. Never point two processes at one client.
+
+**`WEBSITE_RUN_FROM_PACKAGE` stays off.** It makes `wwwroot` read-only. The sync writes, so the data root sits under `/home/data` instead, beside the code rather than inside it.
 
 **Money logic leaves a test behind.** Add one `node --test` case in `test/` for any code that signs, sums, excludes or categorises. Use no frameworks. Do not build fixtures from real transactions. The React components are deliberately simple to keep this possible. Put logic that needs a test in `src/core/`.
 
