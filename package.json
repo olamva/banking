@@ -8,7 +8,9 @@
     "test": "node --test 'test/**/*.test.ts'",
     "worktree:link": "main=$(dirname \"$(git rev-parse --git-common-dir)\") && ln -sfn \"$main/.env.local\" \"$main/data\" \"$main/rules\" .",
     "typecheck": "tsc --noEmit",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "build": "vite build",
+    "start": "node src/web/server.ts"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",

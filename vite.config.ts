@@ -1,40 +1,8 @@
-import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, loadEnv, type Plugin } from "vite";
-import { openDb, queryRange } from "./src/core/db.ts";
-import { RULES_DIR } from "./src/core/paths.ts";
-import { DB_FILE } from "./src/core/pipeline.ts";
-
-const CATEGORY_NAMES = `${RULES_DIR}/categories.json`;
-
-function payload(): string {
-  const db = openDb(DB_FILE);
-  try {
-    return JSON.stringify({
-      txns: queryRange(db, "0000-00", "9999-99"),
-      names: existsSync(CATEGORY_NAMES)
-        ? JSON.parse(readFileSync(CATEGORY_NAMES, "utf8"))
-        : {},
-    });
-  } finally {
-    db.close();
-  }
-}
-
-type Refreshed = { rows: number; fetched: number; stopped: string | null };
-
-async function refresh(): Promise<Refreshed> {
-  const { syncAll } = await import("./src/net/sync.ts");
-  const { rebuildAll } = await import("./src/core/pipeline.ts");
-  const { fetched, stopped } = await syncAll();
-  return { rows: await rebuildAll(), fetched, stopped };
-}
-
-// One refresh at a time. A second press joins the first rather than starting a
-// second full-history sync against the same quota.
-let running: Promise<Refreshed> | null = null;
+import { payload, refresh } from "./src/web/api.ts";
 
 const api = (): Plugin => ({
   name: "banking-api",
@@ -67,10 +35,7 @@ const api = (): Plugin => ({
       if (req.method !== "POST" || req.headers["x-banking-refresh"] !== "1")
         return json(405, { error: "POST with X-Banking-Refresh: 1" });
 
-      running ??= refresh().finally(() => {
-        running = null;
-      });
-      running.then(
+      refresh().then(
         (r) => json(200, r),
         (e: unknown) =>
           json(500, { error: e instanceof Error ? e.message : String(e) }),

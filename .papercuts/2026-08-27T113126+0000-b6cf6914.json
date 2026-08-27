@@ -1,0 +1,13 @@
+{
+  "id": "b6cf6914",
+  "ts": "2026-08-27T11:31:26+00:00",
+  "text": "Orphaned vite servers from other worktrees hold 127.0.0.1:40xx. A new node server still binds [::]:same-port and reports success, so curl silently answers from the squatter and the test result is a lie.",
+  "tags": [
+    "testing",
+    "worktrees"
+  ],
+  "who": "agent",
+  "model": "opus-5",
+  "session": "b9516509",
+  "where": "pnpm dev"
+}
