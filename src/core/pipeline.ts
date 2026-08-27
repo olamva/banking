@@ -13,11 +13,12 @@ import {
 import { openDb, rebuild as rebuildDb } from "./db.ts";
 import { exclude, type Accounts } from "./exclude.ts";
 import { narrowings } from "./narrowings.ts";
+import { DATA_DIR, RULES_DIR } from "./paths.ts";
 import { normalizeMonth } from "./normalize.ts";
 import type { Categorized } from "./types.ts";
 
-export const DB_FILE = "data/banking.db";
-export const RAW = "data/raw";
+export const DB_FILE = `${DATA_DIR}/banking.db`;
+export const RAW = `${DATA_DIR}/raw`;
 
 export function monthsOnDisk(): string[] {
   return readdirSync(RAW, { withFileTypes: true })
@@ -31,7 +32,7 @@ export async function pipeline(
   { rename = true } = {},
 ): Promise<Categorized[]> {
   const accounts: Accounts = JSON.parse(
-    await readFile("rules/accounts.json", "utf8"),
+    await readFile(`${RULES_DIR}/accounts.json`, "utf8"),
   );
   const names = Object.fromEntries(
     Object.entries(accounts).flatMap(([key, a]) =>
@@ -70,7 +71,7 @@ export function netByReason(rows: Categorized[]): Map<string, number> {
 
 export async function rebuildAll(): Promise<number> {
   rmSync(DB_FILE, { force: true });
-  await mkdir("data", { recursive: true });
+  await mkdir(DATA_DIR, { recursive: true });
   const db = openDb(DB_FILE);
   try {
     const months = monthsOnDisk();

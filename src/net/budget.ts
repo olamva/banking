@@ -5,8 +5,9 @@
 // endpoint other than `/transactions` becomes busy.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
+import { DATA_DIR } from "../core/paths.ts";
 
-const LEDGER = "data/api-budget.json";
+const LEDGER = `${DATA_DIR}/api-budget.json`;
 
 const CAP = 60;
 

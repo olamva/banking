@@ -1,4 +1,5 @@
 import { DatabaseSync } from "node:sqlite";
+import { DATA_DIR } from "./paths.ts";
 import type { Categorized } from "./types.ts";
 
 const SCHEMA = `
@@ -35,7 +36,7 @@ function monthOf(date: string): string {
   return date.slice(0, 7);
 }
 
-export function openDb(path = "data/banking.db"): DatabaseSync {
+export function openDb(path = `${DATA_DIR}/banking.db`): DatabaseSync {
   const db = new DatabaseSync(path);
   db.exec(SCHEMA);
   return db;

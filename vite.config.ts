@@ -4,9 +4,10 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, loadEnv, type Plugin } from "vite";
 import { openDb, queryRange } from "./src/core/db.ts";
+import { RULES_DIR } from "./src/core/paths.ts";
 import { DB_FILE } from "./src/core/pipeline.ts";
 
-const CATEGORY_NAMES = "rules/categories.json";
+const CATEGORY_NAMES = `${RULES_DIR}/categories.json`;
 
 function payload(): string {
   const db = openDb(DB_FILE);
