@@ -141,8 +141,10 @@ resource "azurerm_container_app" "bank" {
 
   ingress {
     external_enabled = true
-    target_port      = 8080
-    transport        = "auto"
+    # The placeholder image that the first apply runs serves port 80. A revision
+    # that listens nowhere never becomes healthy, so both use the same port.
+    target_port = 80
+    transport   = "auto"
 
     traffic_weight {
       latest_revision = true
