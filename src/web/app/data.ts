@@ -61,6 +61,10 @@ export const useRefresh = (onDone: () => void): Refresh => {
       headers: { "X-Banking-Refresh": "1" },
     })
       .then(async (r) => {
+        // Check the status first. A gateway answers with an empty body, and
+        // `json()` on that reports a parse error rather than the status.
+        if (!r.ok)
+          throw new Error(`${r.status} ${(await r.text()) || "(no body)"}`);
         const body = (await r.json()) as {
           rows?: number;
           fetched?: number;
