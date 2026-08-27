@@ -25,7 +25,13 @@ after(() => {
 });
 
 test("no principal is no page, whatever the path", async () => {
-  for (const path of ["/", "/api/txns", "/api/refresh"])
+  for (const path of [
+    "/",
+    "/api/txns",
+    "/api/refresh",
+    "/api/rules",
+    "/api/rules/save?file=overrides&key=x&value=y",
+  ])
     assert.equal((await fetch(`${base}${path}`)).status, 403);
 });
 
@@ -60,6 +66,42 @@ test("the refresh endpoint answers a GET that carries the header", async () => {
   });
   assert.notEqual(res.status, 405);
   assert.notEqual(res.status, 403);
+});
+
+// Reading a rule needs no custom header, exactly as reading the rows does not.
+// Writing one does, and the write is a GET, so the header is the whole guard
+// against a page on another site spending this one.
+test("the rules read back behind the gate", async () => {
+  const res = await fetch(`${base}/api/rules`, {
+    headers: { "x-ms-client-principal": header("ola@example.com") },
+  });
+  assert.equal(res.status, 200);
+  const body = (await res.json()) as { files: Record<string, unknown> };
+  assert.ok("overrides" in body.files);
+});
+
+test("a rule write without the custom header is refused", async () => {
+  const res = await fetch(
+    `${base}/api/rules/save?file=overrides&key=x&value=mat/kantine`,
+    { headers: { "x-ms-client-principal": header("ola@example.com") } },
+  );
+  assert.equal(res.status, 405);
+});
+
+// The file name is the one value in the query string that could name a path.
+test("a rule write may not name a file outside the rules", async () => {
+  for (const file of ["accounts", "../../.env.local", ""]) {
+    const res = await fetch(
+      `${base}/api/rules/save?file=${encodeURIComponent(file)}&key=x&value=y`,
+      {
+        headers: {
+          "x-ms-client-principal": header("ola@example.com"),
+          "x-banking-rules": "1",
+        },
+      },
+    );
+    assert.equal(res.status, 400);
+  }
 });
 
 test("an allowed address gets past the gate", async () => {

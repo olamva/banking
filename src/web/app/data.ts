@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { buildLabels, type Labels, type Names } from "../../core/labels.ts";
+import type { RuleFile, Rules } from "../../core/ruleFiles.ts";
 import type { Categorized } from "../../core/types.ts";
 
 type Payload = { txns: Categorized[]; names: Names };
@@ -87,6 +88,100 @@ export const useRefresh = (onDone: () => void): Refresh => {
   };
 
   return { busy, note, bad, run };
+};
+
+export type RulesData = {
+  files: Record<RuleFile, Rules>;
+  versions: Record<RuleFile, number[]>;
+};
+
+export type RulesApi = {
+  data: RulesData | null;
+  busy: boolean;
+  note: string | null;
+  bad: boolean;
+  save: (file: RuleFile, key: string, value?: string, was?: string) => void;
+  remove: (file: RuleFile, key: string) => void;
+  undo: (file: RuleFile) => void;
+  restore: (file: RuleFile, at: number) => void;
+};
+
+const rulesUrl = (
+  route: string,
+  params: Record<string, string | undefined>,
+): string => {
+  const q = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) if (v !== undefined) q.set(k, v);
+  return `/api/rules/${route}?${q.toString()}`;
+};
+
+// The same shape as the refresh, and for the same reason: Easy Auth answers a
+// session cookie on GET alone, so the custom header carries the whole guard.
+const ask = async (url: string): Promise<Record<string, unknown>> => {
+  const r = await fetch(url, { headers: { "X-Banking-Rules": "1" } });
+  const body = (await r.text()) || "(no body)";
+  let parsed: Record<string, unknown> = {};
+  try {
+    parsed = JSON.parse(body) as Record<string, unknown>;
+  } catch {
+    throw new Error(`${r.status} ${body}`);
+  }
+  if (!r.ok || parsed["error"])
+    throw new Error(String(parsed["error"] ?? `${r.status} ${body}`));
+  return parsed;
+};
+
+export const useRules = (onRebuilt: () => void): RulesApi => {
+  const [data, setData] = useState<RulesData | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const [bad, setBad] = useState(false);
+
+  const read = () =>
+    fetch("/api/rules")
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
+        return (await r.json()) as RulesData;
+      })
+      .then(setData);
+
+  useEffect(() => {
+    read().catch((e: unknown) => {
+      setBad(true);
+      setNote(e instanceof Error ? e.message : String(e));
+    });
+  }, []);
+
+  const run = (url: string, said: string) => {
+    setBusy(true);
+    setNote(null);
+    setBad(false);
+    ask(url)
+      .then(async (body) => {
+        await read();
+        setNote(`${said} ${String(body["rows"])} rows rebuilt.`);
+        onRebuilt();
+      })
+      .catch((e: unknown) => {
+        setBad(true);
+        setNote(e instanceof Error ? e.message : String(e));
+      })
+      .finally(() => setBusy(false));
+  };
+
+  return {
+    data,
+    busy,
+    note,
+    bad,
+    save: (file, key, value, was) =>
+      run(rulesUrl("save", { file, key, value, was }), "Saved."),
+    remove: (file, key) =>
+      run(rulesUrl("save", { file, key, remove: "1" }), "Removed."),
+    undo: (file) => run(rulesUrl("undo", { file }), "Undone."),
+    restore: (file, at) =>
+      run(rulesUrl("restore", { file, at: String(at) }), "Restored."),
+  };
 };
 
 export const THEMES = ["system", "light", "dark"] as const;

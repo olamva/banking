@@ -10,7 +10,9 @@ import {
   SearchIcon,
 } from "./icons.ts";
 
-export type View = "dashboard" | "transactions";
+export type View = "dashboard" | "transactions" | "rules";
+
+const VIEWS: View[] = ["dashboard", "transactions", "rules"];
 
 interface FilterBarProps {
   view: View;
@@ -36,6 +38,9 @@ interface FilterBarProps {
 
 const CONTROL =
   "rounded-md border border-line bg-page px-2 py-1.5 text-[13px] text-ink";
+
+const BAR =
+  "mb-5 flex flex-wrap items-center gap-2 rounded-[10px] border border-line bg-surface px-3 py-2.5";
 
 const MONTH_NAMES = [
   "January",
@@ -699,21 +704,29 @@ export const FilterBar = ({
     picked + (filters.search !== "" && view !== "transactions" ? 1 : 0);
   const dirty = picked > 0 || filters.search !== "" || filters.showExcluded;
 
+  const views = (
+    <div className="inline-flex overflow-hidden rounded-md border border-line">
+      {VIEWS.map((v) => (
+        <button
+          key={v}
+          type="button"
+          aria-pressed={view === v}
+          onClick={() => onView(v)}
+          className={`px-3 py-1.5 text-[13px] capitalize ${view === v ? "bg-series-1 text-white" : "bg-page text-ink-soft"}`}
+        >
+          {v}
+        </button>
+      ))}
+    </div>
+  );
+
+  // The rules are not a period and they take no filter. Show the switch alone,
+  // rather than a row of controls that change nothing on the page below.
+  if (view === "rules") return <div className={BAR}>{views}</div>;
+
   return (
-    <div className="mb-5 flex flex-wrap items-center gap-2 rounded-[10px] border border-line bg-surface px-3 py-2.5">
-      <div className="inline-flex overflow-hidden rounded-md border border-line">
-        {(["dashboard", "transactions"] as const).map((v) => (
-          <button
-            key={v}
-            type="button"
-            aria-pressed={view === v}
-            onClick={() => onView(v)}
-            className={`px-3 py-1.5 text-[13px] capitalize ${view === v ? "bg-series-1 text-white" : "bg-page text-ink-soft"}`}
-          >
-            {v}
-          </button>
-        ))}
-      </div>
+    <div className={BAR}>
+      {views}
 
       {/* One menu: the years, and the months of whichever one is pointed at. */}
       <PeriodMenu

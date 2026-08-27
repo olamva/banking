@@ -25,6 +25,7 @@ import {
   txnFields,
 } from "./format.ts";
 import {
+  CategoryIcon,
   CloseIcon,
   DownIcon,
   FlatIcon,
@@ -532,6 +533,7 @@ export const SubscriptionsCard = ({
 interface TxnDialogProps {
   txn: Categorized;
   onClose: () => void;
+  onFile?: () => void;
 }
 
 const Chip = ({ children }: { children: ReactNode }) => (
@@ -561,7 +563,7 @@ const SHOWN_ABOVE = [
 const ROW =
   "flex items-baseline justify-between gap-4 border-b border-line py-1.5 last:border-0";
 
-const TxnDialog = ({ txn, onClose }: TxnDialogProps) => {
+const TxnDialog = ({ txn, onClose, onFile }: TxnDialogProps) => {
   const bank = bankLabel(txn);
 
   return (
@@ -614,6 +616,18 @@ const TxnDialog = ({ txn, onClose }: TxnDialogProps) => {
         </button>
       </div>
       <div className="px-5 py-4">
+        {/* The one control here that changes the data rather than reading it.
+            Above the fields, because a dialog this long scrolls. */}
+        {onFile && (
+          <button
+            type="button"
+            onClick={onFile}
+            className="mb-3 flex items-center gap-1.5 rounded-md border border-line bg-page px-2.5 py-1.5 text-xs text-ink-soft"
+          >
+            <Icon aria-hidden icon={CategoryIcon} size={14} />
+            File this merchant…
+          </button>
+        )}
         {(txn.excluded ||
           txn.isSubscription ||
           txn.isRecurring ||
@@ -670,6 +684,7 @@ interface TransactionsCardProps {
   onMerchant: (merchant: string, meta: boolean) => void;
   onCategory: (category: string, meta: boolean) => void;
   onAccount: (account: string, meta: boolean) => void;
+  onFile?: (txn: Categorized) => void;
 }
 
 export const TransactionsCard = ({
@@ -679,6 +694,7 @@ export const TransactionsCard = ({
   onMerchant,
   onCategory,
   onAccount,
+  onFile,
 }: TransactionsCardProps) => {
   const { sorted, head } = useTxnSort(txns);
   const [open, setOpen] = useState<Categorized | null>(null);
@@ -737,7 +753,19 @@ export const TransactionsCard = ({
           ])}
         />
       )}
-      {open && <TxnDialog txn={open} onClose={() => setOpen(null)} />}
+      {open && (
+        <TxnDialog
+          txn={open}
+          onClose={() => setOpen(null)}
+          {...(onFile && {
+            onFile: () => {
+              const t = open;
+              setOpen(null);
+              onFile(t);
+            },
+          })}
+        />
+      )}
     </Card>
   );
 };

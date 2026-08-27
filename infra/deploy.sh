@@ -7,6 +7,8 @@ here="$(cd "$(dirname "$0")" && pwd)"
 repo="$(dirname "$here")"
 stage="$repo/data/deploy"
 
+. "$here/rules-lib.sh"
+
 app="$(terraform -chdir="$here" output -raw app)"
 group="$(terraform -chdir="$here" output -raw resource_group)"
 registry="$(terraform -chdir="$here" output -raw registry)"
@@ -56,12 +58,33 @@ az containerapp update --resource-group "$group" --name "$app" \
 # The rules never enter git. They reach Azure only here, and every deploy
 # re-sends them, so an edit on the Mac cannot drift out of step.
 echo "==> upload the rules"
-key="$(az storage account keys list --account-name "$storage" --query '[0].value' -o tsv)"
+key="$(storage_key "$storage")"
+
+# The site can edit its own rules now, so this upload is no longer a one-way
+# copy of a file only this machine writes. Stop rather than overwrite an edit
+# made on the phone.
+ahead="$(behind_files "$(remote_history "$storage" "$key")" "$(local_history "$repo/rules")")"
+if [ -n "$ahead" ]; then
+  echo "the site holds rule edits that this machine does not:" >&2
+  echo "$ahead" >&2
+  echo "run \`pnpm rules:pull\` first" >&2
+  exit 1
+fi
+
 az storage directory create --account-name "$storage" --account-key "$key" \
   --share-name data --name rules --only-show-errors >/dev/null
 az storage file upload-batch --account-name "$storage" --account-key "$key" \
   --destination "data/rules" --source "$repo/rules" --pattern "*.json" \
   --only-show-errors >/dev/null
+# The versions go with them, or the site keeps a history that its own live file
+# left behind, and undo there restores the state before this deploy.
+# ponytail: every version, every deploy. Upload only what the share lacks when
+# the history grows past a few hundred files.
+if [ -d "$repo/rules/.history" ]; then
+  az storage file upload-batch --account-name "$storage" --account-key "$key" \
+    --destination "data/rules/.history" --source "$repo/rules/.history" \
+    --pattern "*.json" --only-show-errors >/dev/null
+fi
 
 rm -rf "$stage"
 echo "==> done: $(terraform -chdir="$here" output -raw url)"

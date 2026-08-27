@@ -52,12 +52,14 @@ import {
   type Bucket,
 } from "./Charts.tsx";
 import { FilterBar, type View } from "./FilterBar.tsx";
+import { FileDialog, RulesView } from "./Rules.tsx";
 import { ShortcutsDialog, useShortcuts, type Shortcut } from "./Shortcuts.tsx";
 import {
   THEMES,
   readTheme,
   setTheme,
   useRefresh,
+  useRules,
   useTransactions,
   type Load,
   type Refresh,
@@ -471,12 +473,14 @@ interface TransactionsViewProps {
   rows: Categorized[];
   filters: Filters;
   onFilters: SetFilters;
+  onFile: (txn: Categorized) => void;
 }
 
 const TransactionsView = ({
   rows,
   filters,
   onFilters,
+  onFile,
 }: TransactionsViewProps) => {
   const search = useDeferredValue(filters.search);
   const shown = rows.filter((t) => matchesFilters(t, { ...filters, search }));
@@ -501,6 +505,7 @@ const TransactionsView = ({
           onMerchant={pick(onFilters, "merchants")}
           onCategory={pick(onFilters, "categories")}
           onAccount={pick(onFilters, "accounts")}
+          onFile={onFile}
         />
       </div>
 
@@ -643,6 +648,9 @@ const LoadNote = ({
 export const App = () => {
   const [load, reload] = useTransactions();
   const refresh = useRefresh(reload);
+  // A rule edit rebuilds the database, so the page must read the rows again.
+  const rules = useRules(reload);
+  const [filing, setFiling] = useState<Categorized | null>(null);
   const [initial] = useState(readUrl);
   const [view, setView] = useState<View>(initial.view);
   const [chosen, setChosen] = useState<string | null>(initial.period);
@@ -662,6 +670,19 @@ export const App = () => {
   const years = useMemo(() => distinctYears(txns), [txns]);
 
   const record = useMemo(() => axisBounds(txns, period("all")), [txns]);
+
+  // Over the record, not over the period. A rule claims every row it matches,
+  // whichever month is on screen.
+  const pairs = useMemo(
+    () =>
+      [
+        ...new Set([
+          ...distinctCategories(txns),
+          ...distinctSubcategories(txns),
+        ]),
+      ].sort(),
+    [txns],
+  );
 
   const offered = [...months, ...years, "all"];
   const active =
@@ -707,6 +728,12 @@ export const App = () => {
       cap: "T",
       what: "Transactions",
       run: () => changeView("transactions"),
+    },
+    {
+      keys: ["l"],
+      cap: "L",
+      what: "Rules",
+      run: () => changeView("rules"),
     },
     {
       keys: ["ArrowLeft"],
@@ -880,25 +907,44 @@ export const App = () => {
         onFilters={setFilters}
       />
 
-      <LoadNote load={load} count={txns.length} refresh={refresh} />
-      {ready &&
-        (view === "dashboard" ? (
-          <Dashboard
-            txns={txns}
-            filters={filters}
-            onFilters={setFilters}
-            period={p}
-            grain={grain}
-            offered={grains}
-            onGrain={setChosenGrain}
-          />
-        ) : (
-          <TransactionsView
-            rows={inPeriod}
-            filters={filters}
-            onFilters={setFilters}
-          />
-        ))}
+      {/* The rules stand on their own. They are readable and editable before
+          the first sync, so no load state gates them. */}
+      {view === "rules" ? (
+        <RulesView rules={rules} txns={txns} pairs={pairs} />
+      ) : (
+        <>
+          <LoadNote load={load} count={txns.length} refresh={refresh} />
+          {ready &&
+            (view === "dashboard" ? (
+              <Dashboard
+                txns={txns}
+                filters={filters}
+                onFilters={setFilters}
+                period={p}
+                grain={grain}
+                offered={grains}
+                onGrain={setChosenGrain}
+              />
+            ) : (
+              <TransactionsView
+                rows={inPeriod}
+                filters={filters}
+                onFilters={setFilters}
+                onFile={setFiling}
+              />
+            ))}
+        </>
+      )}
+
+      {filing && (
+        <FileDialog
+          txn={filing}
+          rules={rules}
+          txns={txns}
+          pairs={pairs}
+          onClose={() => setFiling(null)}
+        />
+      )}
     </div>
   );
 };

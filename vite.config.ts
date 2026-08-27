@@ -2,11 +2,30 @@ import { resolve } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, loadEnv, type Plugin } from "vite";
-import { payload, refresh } from "./src/web/api.ts";
+import { payload, refresh, rulesRoute } from "./src/web/api.ts";
 
 const api = (): Plugin => ({
   name: "banking-api",
   configureServer(server) {
+    // Mounted on no prefix, because connect strips a prefix off req.url and
+    // the router needs the whole path.
+    server.middlewares.use((req, res, next) => {
+      const url = new URL(req.url ?? "/", "http://localhost");
+      const answer = rulesRoute(
+        url.pathname,
+        url.searchParams,
+        req.headers["x-banking-rules"] as string | undefined,
+      );
+      if (!answer) return next();
+      answer.then((a) => {
+        res.writeHead(a.status, {
+          "Content-Type": "application/json; charset=utf-8",
+          "Cache-Control": "no-store",
+        });
+        res.end(a.body);
+      });
+    });
+
     server.middlewares.use("/api/txns", (_req, res) => {
       try {
         const body = payload();
