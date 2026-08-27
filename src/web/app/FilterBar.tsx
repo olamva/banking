@@ -195,10 +195,10 @@ const Picker = ({
   const expand = (e: React.KeyboardEvent) => {
     const row = at < 0 ? undefined : rows[at];
     if (!row || row.sub || childrenOf(row.value).length < 2) return false;
-    const open = isOpenAt(at);
+    const openHere = isOpenAt(at);
     const want =
       e.key === " "
-        ? !open
+        ? !openHere
         : e.key === "ArrowRight"
           ? true
           : e.key === "ArrowLeft"
@@ -206,7 +206,7 @@ const Picker = ({
             : null;
     if (want === null) return false;
     e.preventDefault();
-    if (want !== open) toggleOpen(row.value);
+    if (want !== openHere) toggleOpen(row.value);
     return true;
   };
 
