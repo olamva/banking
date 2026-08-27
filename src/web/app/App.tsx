@@ -524,7 +524,7 @@ const RefreshButton = ({ refresh }: { refresh: Refresh }) => (
       size={14}
       className={refresh.busy ? "animate-spin" : undefined}
     />
-    {refresh.busy ? "Refreshing…" : "Refresh"}
+    {refresh.busy ? <span className="glow">Refreshing…</span> : "Refresh"}
   </button>
 );
 
