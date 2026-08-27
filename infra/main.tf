@@ -176,6 +176,11 @@ resource "azurerm_container_app" "bank" {
         name  = "RULES_DIR"
         value = "/data/rules"
       }
+      # Not on the volume. SQLite needs locks that an SMB share does not carry.
+      env {
+        name  = "DB_FILE"
+        value = "/tmp/banking.db"
+      }
       env {
         name  = "AZURE_CLIENT_ID"
         value = azurerm_user_assigned_identity.app.client_id

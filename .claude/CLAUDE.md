@@ -197,10 +197,16 @@ Both Node and the browser import everything under `src/core/`. That code must ha
 
 **The volume is the only durable thing.** The container filesystem disappears on every scale to zero. `DATA_DIR` and `RULES_DIR` both point into the mount. The image carries the code and `data/dist`, and nothing that must survive.
 
-<!-- ponytail: SQLite lives on an SMB share, which is the known weak spot here.
-One replica means one writer, so it holds. If locking ever bites, move the
-database to the container filesystem and rebuild it on cold start: the rebuild
-reads data/raw from the volume and takes about a second. -->
+**The database never sits on the volume.** SQLite needs byte-range locks and an
+SMB share does not carry them. `openDb` runs `CREATE TABLE IF NOT EXISTS` on
+every open, so even a read writes, and on the share that fails with "database is
+locked". `DB_FILE` therefore points at the container disk. The raw files stay on
+the volume, because they are the only part that costs an API call to reproduce.
+
+**A cold start builds the database again.** The container disk is new on every
+scale to zero, so `server.ts` rebuilds from `DATA_DIR/raw` before it serves.
+That takes about a second for the record. `monthsOnDisk` returns nothing when no
+raw directory exists yet, which is a fresh deployment rather than a fault.
 
 **Money logic leaves a test behind.** Add one `node --test` case in `test/` for any code that signs, sums, excludes or categorises. Use no frameworks. Do not build fixtures from real transactions. The React components are deliberately simple to keep this possible. Put logic that needs a test in `src/core/`.
 

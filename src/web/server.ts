@@ -124,5 +124,16 @@ export const server = createServer((req, res) => {
 // A test imports this file. Only a direct run binds the port.
 if (process.argv[1] === import.meta.filename) {
   const port = Number(process.env.PORT ?? 8080);
+  // The database sits on the local disk, so a cold start begins without one.
+  // Build it again from the raw files on the volume before serving a request.
+  const { DB_FILE } = await import("../core/paths.ts");
+  if (!existsSync(DB_FILE)) {
+    const { rebuildAll } = await import("../core/pipeline.ts");
+    await rebuildAll().catch((e: unknown) =>
+      console.error(
+        `rebuild on start failed: ${e instanceof Error ? e.message : e}`,
+      ),
+    );
+  }
   server.listen(port, () => console.error(`listening on ${port}`));
 }

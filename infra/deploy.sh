@@ -42,8 +42,11 @@ pnpm install --dir "$stage" --prod --node-linker=hoisted --ignore-scripts
 
 # ACR builds the image itself, so this machine needs no container runtime.
 echo "==> build the image in the registry"
-az acr build --registry "$registry" --image "banking:$tag" --image "banking:latest" \
-  --file Dockerfile "$stage" --only-show-errors >/dev/null
+# --file resolves against the working directory, not the context, so build
+# from inside the context rather than passing a path.
+(cd "$stage" && az acr build --registry "$registry" \
+  --image "banking:$tag" --image "banking:latest" \
+  --file Dockerfile . --only-show-errors >/dev/null)
 
 echo "==> point the app at the new image"
 az containerapp update --resource-group "$group" --name "$app" \
