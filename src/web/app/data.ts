@@ -4,7 +4,7 @@ import type { Categorized } from "../../core/types.ts";
 
 type Payload = { txns: Categorized[]; names: Names };
 
-type Load =
+export type Load =
   | { status: "loading" }
   | { status: "error"; message: string }
   | { status: "ready"; txns: Categorized[]; labels: Labels };
@@ -41,7 +41,7 @@ export const useTransactions = (): [Load, () => void] => {
   return [load, () => setNonce((n) => n + 1)];
 };
 
-type Refresh = {
+export type Refresh = {
   busy: boolean;
   note: string | null;
   bad: boolean;
