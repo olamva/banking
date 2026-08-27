@@ -57,7 +57,7 @@ pnpm deploy                     # build, push the code and the page, upload the 
 
 `terraform -chdir=infra apply` creates the resources. `pnpm deploy` fills them. Run the deploy from the main checkout.
 
-**The state lives in Azure.** `infra/bootstrap.sh` creates the storage account for it and writes `backend.hcl`. That script runs on `az` alone, because the state cannot describe the storage that holds it. **The state records every resource that exists**, so a checkout that owns it orphans the whole deployment when it is deleted, and only the portal can then find those resources.
+**The state lives in Azure.** `infra/backend.tf` names the storage account, and `infra/bootstrap.sh` creates it. That script runs on `az` alone, because the state cannot describe the storage that holds it, and it reads the names out of `backend.tf` so that the two cannot drift. **A backend block takes literals only.** It reads no variable, local or function, so never try to derive those names. **The state records every resource that exists**, so a checkout that owns it orphans the whole deployment when it is deleted, and only the portal can then find those resources.
 
 `infra/terraform.tfvars` holds every secret in the clear. The gitignore refuses `*.tfvars`, and that line is a security control. Never commit one, and never weaken the rule.
 

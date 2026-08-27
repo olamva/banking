@@ -1,9 +1,19 @@
 # The state records every resource that exists, so it lives in Azure and not in
-# a checkout. `infra/bootstrap.sh` creates the account and writes backend.hcl,
-# because the state cannot describe the storage that holds it.
+# a checkout. A checkout that owns the state orphans the whole deployment when
+# somebody deletes it.
 #
-#   infra/bootstrap.sh
-#   terraform -chdir=infra init -backend-config=backend.hcl
+# A backend block takes literals only. It reads no variable, local or function,
+# which is why these names are written out rather than derived. `bootstrap.sh`
+# reads them back out of this file, so the two cannot drift.
+#
+#   infra/bootstrap.sh          once, to create the account below
+#   terraform -chdir=infra init
 terraform {
-  backend "azurerm" {}
+  backend "azurerm" {
+    resource_group_name  = "banking-tfstate"
+    storage_account_name = "bankingtfstateb401e2b8"
+    container_name       = "tfstate"
+    key                  = "banking.tfstate"
+    use_azuread_auth     = true
+  }
 }
