@@ -1,0 +1,13 @@
+{
+  "id": "f0651874",
+  "ts": "2026-08-27T23:15:39+00:00",
+  "text": "Terraform provider schema fails because Azure CLI cannot write its command log inside the sandbox",
+  "tags": [
+    "terraform",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "terraform providers schema -json"
+}

@@ -267,9 +267,19 @@ resource "azapi_resource" "auth" {
   }
 }
 
-# The certificate is free and Azure renews it. It issues only after the CNAME
-# and the asuid TXT record resolve on the public internet, so an apply before
-# the DNS lands fails here.
+resource "azurerm_container_app_custom_domain" "bank" {
+  count = var.custom_domain == "" ? 0 : 1
+
+  name             = var.custom_domain
+  container_app_id = azurerm_container_app.bank.id
+
+  lifecycle {
+    # Azure adds the managed certificate to this binding asynchronously.
+    ignore_changes = [certificate_binding_type, container_app_environment_certificate_id]
+  }
+}
+
+# Azure requires the hostname binding before it creates the certificate.
 resource "azurerm_container_app_environment_managed_certificate" "bank" {
   count = var.custom_domain == "" ? 0 : 1
 
@@ -277,13 +287,6 @@ resource "azurerm_container_app_environment_managed_certificate" "bank" {
   container_app_environment_id = azurerm_container_app_environment.bank.id
   subject_name                 = var.custom_domain
   domain_control_validation    = "CNAME"
-}
 
-resource "azurerm_container_app_custom_domain" "bank" {
-  count = var.custom_domain == "" ? 0 : 1
-
-  name                                     = var.custom_domain
-  container_app_id                         = azurerm_container_app.bank.id
-  container_app_environment_certificate_id = azurerm_container_app_environment_managed_certificate.bank[0].id
-  certificate_binding_type                 = "SniEnabled"
+  depends_on = [azurerm_container_app_custom_domain.bank]
 }
