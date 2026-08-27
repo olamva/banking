@@ -1,0 +1,13 @@
+{
+  "id": "8be2f060",
+  "ts": "2026-08-27T23:41:10+00:00",
+  "text": "pnpm install in a fresh worktree retries every package for over a minute when sandbox DNS blocks registry.npmjs.org",
+  "tags": [
+    "deps",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "pnpm-install"
+}
