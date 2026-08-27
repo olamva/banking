@@ -382,7 +382,7 @@ interface SearchBoxProps {
   hotkey?: boolean;
 }
 
-const SearchBox = ({
+export const SearchBox = ({
   value,
   onChange,
   placeholder,

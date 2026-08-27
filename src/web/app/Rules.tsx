@@ -8,7 +8,7 @@ import {
   type Rules,
 } from "../../core/ruleFiles.ts";
 import type { Categorized } from "../../core/types.ts";
-import { Card } from "./Cards.tsx";
+import { Card, SearchBox } from "./Cards.tsx";
 import type { RulesApi } from "./data.ts";
 import { pairLabel } from "./format.ts";
 import {
@@ -18,7 +18,6 @@ import {
   Icon,
   InfoIcon,
   LoadingIcon,
-  SearchIcon,
 } from "./icons.ts";
 
 export const RULE_LABEL: Record<RuleFile, string> = {
@@ -69,6 +68,9 @@ const entriesOf = (r: Rules): [string, string | null][] =>
 
 const FIELD =
   "min-w-0 rounded-md border border-line bg-page px-2 py-1.5 text-[13px] text-ink";
+
+const CELL =
+  "min-w-0 rounded-md border border-transparent bg-transparent px-2 py-1 text-[13px] text-ink hover:border-line focus:border-line focus:bg-page";
 
 const BUTTON =
   "shrink-0 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-ink-soft disabled:opacity-60";
@@ -137,8 +139,15 @@ interface EntryProps {
   rules: RulesApi;
 }
 
+const rowsFor = (map: boolean): string =>
+  `sm:grid sm:items-center sm:gap-2 ${
+    map ? "sm:grid-cols-[1.4fr_1fr_auto]" : "sm:grid-cols-[1fr_auto]"
+  }`;
+
 const Entry = ({ file, entryKey, value, rules }: EntryProps) => (
-  <li className="flex flex-wrap items-center gap-2 border-b border-line py-1.5 last:border-0">
+  <li
+    className={`flex flex-wrap items-center gap-2 border-b border-line py-1 last:border-0 ${rowsFor(value !== null)}`}
+  >
     {/* `change` fires on blur and on Enter, so a rename is one write and no
         keystroke is. `defaultValue`, because the value that comes back is the
         one this box sent. */}
@@ -152,7 +161,7 @@ const Entry = ({ file, entryKey, value, rules }: EntryProps) => (
         if (next && next !== entryKey)
           rules.save(file, next, value ?? undefined, entryKey);
       }}
-      className={`${FIELD} flex-1 basis-40 font-mono`}
+      className={`${CELL} flex-1 basis-40 font-mono`}
     />
     {value !== null && (
       <input
@@ -165,7 +174,7 @@ const Entry = ({ file, entryKey, value, rules }: EntryProps) => (
           const next = e.target.value.trim();
           if (next && next !== value) rules.save(file, entryKey, next);
         }}
-        className={`${FIELD} flex-1 basis-40`}
+        className={`${CELL} flex-1 basis-40 text-ink-soft`}
       />
     )}
     <button
@@ -194,7 +203,7 @@ const AddForm = ({ file, rules, haystacks }: AddFormProps) => {
 
   return (
     <form
-      className="mb-3 flex flex-col gap-1.5"
+      className="mb-4 flex flex-col gap-2 rounded-md border border-dashed border-line p-3"
       onSubmit={(e) => {
         e.preventDefault();
         if (!ready) return;
@@ -203,6 +212,9 @@ const AddForm = ({ file, rules, haystacks }: AddFormProps) => {
         setValue("");
       }}
     >
+      <span className="text-[11px] font-medium tracking-wide text-ink-soft uppercase">
+        New rule
+      </span>
       <div className="flex flex-wrap items-center gap-2">
         <input
           value={key}
@@ -368,20 +380,11 @@ export const RulesView = ({ rules, txns, pairs }: RulesViewProps) => {
         <>
           <AddForm file={file} rules={rules} haystacks={haystacks} />
 
-          <label className="mb-2 flex items-center gap-2">
-            <Icon
-              aria-hidden
-              icon={SearchIcon}
-              size={14}
-              className="shrink-0 text-ink-muted"
-            />
-            <input
-              value={find}
-              onChange={(e) => setFind(e.target.value)}
-              placeholder="Find a rule…"
-              className={`${FIELD} w-full`}
-            />
-          </label>
+          <SearchBox
+            value={find}
+            onChange={setFind}
+            placeholder="Find a rule…"
+          />
 
           {shown.length === 0 ? (
             <div className="py-8 text-center text-ink-muted">
@@ -390,17 +393,28 @@ export const RulesView = ({ rules, txns, pairs }: RulesViewProps) => {
                 : "No rule matches that."}
             </div>
           ) : (
-            <ul className="max-h-[60vh] overflow-y-auto">
-              {shown.map(([k, v]) => (
-                <Entry
-                  key={k}
-                  file={file}
-                  entryKey={k}
-                  value={v}
-                  rules={rules}
-                />
-              ))}
-            </ul>
+            <>
+              <div
+                className={`mt-3 hidden border-b border-line pb-1 text-[11px] text-ink-muted ${rowsFor(isMapFile(file))}`}
+              >
+                <span className="px-2">{KEY_LABEL[file]}</span>
+                {isMapFile(file) && (
+                  <span className="px-2">{VALUE_LABEL[file]}</span>
+                )}
+                <span className="w-6" />
+              </div>
+              <ul className="max-h-[60vh] overflow-y-auto">
+                {shown.map(([k, v]) => (
+                  <Entry
+                    key={k}
+                    file={file}
+                    entryKey={k}
+                    value={v}
+                    rules={rules}
+                  />
+                ))}
+              </ul>
+            </>
           )}
 
           <History file={file} rules={rules} />
