@@ -4,11 +4,13 @@ import { RULES_DIR } from "../core/paths.ts";
 import { DB_FILE, rebuildAll } from "../core/pipeline.ts";
 import {
   RULE_FILES,
+  current,
+  history,
   isRuleFile,
   loadAll,
+  redo,
   restore,
   save,
-  history,
   saveValues,
   undo,
   type Edit,
@@ -65,6 +67,9 @@ export const rulesPayload = (): string =>
     history: Object.fromEntries(
       RULE_FILES.map((f) => [f, history(f, SHOWN_VERSIONS)]),
     ),
+    // Which version each live file holds. The page marks it, and it is the
+    // point that undo and redo step from.
+    at: Object.fromEntries(RULE_FILES.map((f) => [f, current(f)])),
   });
 
 export type Edited = { rows: number; at: number };
@@ -89,6 +94,9 @@ export const editValues = (
 
 export const undoRule = (file: RuleFile): Promise<Edited> =>
   applied(undo(file));
+
+export const redoRule = (file: RuleFile): Promise<Edited> =>
+  applied(redo(file));
 
 export const restoreRule = (file: RuleFile, at: number): Promise<Edited> =>
   applied(restore(file, at));
@@ -163,6 +171,7 @@ export function rulesRoute(
         params.get("value") ?? "",
       );
     else if (path === "/api/rules/undo") work = undoRule(ruleTarget(params));
+    else if (path === "/api/rules/redo") work = redoRule(ruleTarget(params));
     else if (path === "/api/rules/restore")
       work = restoreRule(ruleTarget(params), ruleVersion(params));
     else return Promise.resolve(bad(404, new Error(`no route ${path}`)));

@@ -1,8 +1,13 @@
 # Which side holds the newer rules. Sourced by deploy.sh and rules-pull.sh.
 #
-# rules/.history holds one file for each version, named <epoch-ms>-<file>.json,
-# and the newest one holds what the live file holds. Comparing the newest stamp
-# on each side therefore says which side is ahead, without reading a rule.
+# rules/.history holds one file for each version, named <epoch-ms>-<file>.json.
+# A new version always takes the time it was written, so the newest stamp only
+# moves forward. Comparing it on each side therefore says which side is ahead,
+# without reading a rule. The live file holds the version at the cursor, which
+# sits below the newest one while a reader steps back through the stack.
+#
+# ponytail: neither side deletes. An edit below the cursor drops the versions
+# above it, and the other side keeps its copies until somebody prunes by hand.
 
 RULE_FILES="overrides giro payees categories family subscriptions not-subscriptions"
 

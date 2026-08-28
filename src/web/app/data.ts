@@ -95,6 +95,7 @@ export type RuleVersion = { at: number; changes: RuleChange[] };
 export type RulesData = {
   files: Record<RuleFile, Rules>;
   history: Record<RuleFile, RuleVersion[]>;
+  at: Record<RuleFile, number | null>;
 };
 
 export type RulesApi = {
@@ -106,6 +107,7 @@ export type RulesApi = {
   saveGroup: (file: RuleFile, keys: string[], value: string) => void;
   remove: (file: RuleFile, key: string) => void;
   undo: (file: RuleFile) => void;
+  redo: (file: RuleFile) => void;
   restore: (file: RuleFile, at: number) => void;
 };
 
@@ -194,8 +196,9 @@ export const useRules = (onRebuilt: () => void): RulesApi => {
     remove: (file, key) =>
       run(rulesUrl("save", { file, key, remove: "1" }), "Removed."),
     undo: (file) => run(rulesUrl("undo", { file }), "Undone."),
+    redo: (file) => run(rulesUrl("redo", { file }), "Redone."),
     restore: (file, at) =>
-      run(rulesUrl("restore", { file, at: String(at) }), "Restored."),
+      run(rulesUrl("restore", { file, at: String(at) }), "Moved."),
   };
 };
 

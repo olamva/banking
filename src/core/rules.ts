@@ -3,7 +3,6 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
-  renameSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -48,8 +47,9 @@ export const loadAll = (): Record<RuleFile, Rules> =>
     Rules
   >;
 
-// The newest first. A version is the whole file as it stood after one edit, so
-// the newest entry holds what the live file holds.
+// The newest first. A version is the whole file as it stood after one edit. The
+// live file holds the version at the cursor, which is the newest one until the
+// reader steps back through the stack.
 // ponytail: no pruning. 20 kB per version of the largest file, so the volume
 // takes years of edits. Prune the oldest when that stops being true.
 export function versions(file: RuleFile): number[] {
@@ -67,6 +67,19 @@ const versionPath = (file: RuleFile, at: number) =>
 
 export const readVersion = (file: RuleFile, at: number): Rules =>
   read(versionPath(file, at)) as Rules;
+
+// The version the live file holds, and the whole cursor. Nothing records it,
+// because the content says it. That keeps the cursor right on both hosts after
+// a deploy, which no extra file in the share would.
+//
+// It reads null when the live file matches no version. A hand edit does that,
+// and the next commit records that state rather than losing it.
+export function current(file: RuleFile): number | null {
+  const now = JSON.stringify(load(file));
+  for (const at of versions(file))
+    if (JSON.stringify(readVersion(file, at)) === now) return at;
+  return null;
+}
 
 export type Version = { at: number; changes: RuleChange[] };
 
@@ -104,12 +117,19 @@ function snapshot(file: RuleFile, value: Rules): number {
   return at;
 }
 
-// The history starts empty for a file that was only ever edited by hand. Record
-// what is there before the first write, or that state has no version to
-// go back to.
+// An edit made below the top of the stack drops every version above it. That is
+// the one place a version is deleted, and it is the same rule an editor uses:
+// stepping back costs nothing until you type.
+//
+// A live file that matches no version is recorded first. That covers the empty
+// history of a file only ever edited by hand, which would otherwise have no
+// state to go back to.
 function commit(file: RuleFile, next: Rules): number {
-  const first = versions(file).length === 0;
-  if (first) snapshot(file, load(file));
+  const cursor = current(file);
+  if (cursor === null) snapshot(file, load(file));
+  else
+    for (const above of versions(file))
+      if (above > cursor) rmSync(versionPath(file, above));
   const at = snapshot(file, next);
   write(live(file), next);
   return at;
@@ -145,12 +165,12 @@ function check({ file, key, value, remove }: Edit): void {
 export function save(edit: Edit): number {
   const { file, key, value, remove, was } = edit;
   check(edit);
-  const current = load(file);
-  if (Array.isArray(current)) {
-    const without = current.filter((k) => k !== key && k !== was);
+  const existing = load(file);
+  if (Array.isArray(existing)) {
+    const without = existing.filter((k) => k !== key && k !== was);
     return commit(file, remove ? without : [...without, key]);
   }
-  const next = { ...current };
+  const next = { ...existing };
   if (was !== undefined) delete next[was];
   if (remove) delete next[key];
   else next[key] = value!;
@@ -163,42 +183,38 @@ export function saveValues(
   value: string,
 ): number {
   if (keys.length === 0) throw new Error(`${file}.json needs a pattern`);
-  const current = load(file);
-  if (Array.isArray(current)) throw new Error(`${file}.json has no values`);
+  const existing = load(file);
+  if (Array.isArray(existing)) throw new Error(`${file}.json has no values`);
   for (const key of keys) check({ file, key, value });
-  const next = { ...current };
+  const next = { ...existing };
   for (const key of keys) if (key in next) next[key] = value;
   return commit(file, next);
 }
 
-// A restore is permanent. Every version above the one it names goes, and the
-// one it names moves to the top, so the history reads forward to the state the
-// file is in. The page asks before it calls this.
-//
-// The stamp moves forward because it must. `infra/rules-lib.sh` compares the
-// newest stamp on each side to say which side is ahead, so a stamp that goes
-// backwards reads as the site holding edits this machine lacks. The deploy then
-// refuses, and the pull it names puts the deleted versions back.
+// Move the cursor to a version. Nothing is deleted, and every version above it
+// stays as the redo side of the stack.
 export function restore(file: RuleFile, at: number): number {
   const value = readVersion(file, at);
   if (value === null) throw new Error(`${file}.json has no version ${at}`);
-  for (const above of versions(file))
-    if (above > at) rmSync(versionPath(file, above));
-  const now = stamp(file);
-  renameSync(versionPath(file, at), versionPath(file, now));
   write(live(file), value);
-  return now;
+  return at;
 }
 
-// Take the version before the newest one, and record it as a new version. The
-// newest holds what the live file holds, so this steps one edit back. A second
-// undo therefore returns to where it started, which is what `git revert` of a
-// revert does too. Restore is the permanent one, and this is not it.
-export function undo(file: RuleFile): number {
-  const previous = versions(file)[1];
-  if (previous === undefined) throw new Error(`${file}.json has no undo left`);
-  return commit(file, readVersion(file, previous));
+// One step down the stack, or one step up it. The list runs newest first, so
+// undo moves along it and redo moves back. A live file at no version steps to
+// the newest, which is the state the app last recorded.
+function step(file: RuleFile, by: number, name: string): number {
+  const list = versions(file);
+  const cursor = current(file);
+  const at = cursor === null ? -1 : list.indexOf(cursor);
+  const next = list[at + by];
+  if (next === undefined) throw new Error(`${file}.json has no ${name} left`);
+  return restore(file, next);
 }
+
+export const undo = (file: RuleFile): number => step(file, 1, "undo");
+
+export const redo = (file: RuleFile): number => step(file, -1, "redo");
 
 export type Latest = Record<string, number>;
 

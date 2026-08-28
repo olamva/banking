@@ -37,37 +37,51 @@ test("the newest version holds what the live file holds", () => {
   assert.deepEqual(rules.readVersion("overrides", newest!), asMap("overrides"));
 });
 
-test("undo steps one edit back, and it keeps every version", () => {
+// Stepping back through the stack costs nothing. It moves the cursor, and it
+// writes no version.
+test("undo steps one edit back, and it adds no version", () => {
   const before = rules.versions("overrides").length;
   rules.undo("overrides");
   assert.deepEqual(asMap("overrides"), {
     rema: "dagligvarer/andre_dagligvarer",
   });
-  assert.equal(rules.versions("overrides").length, before + 1);
+  assert.equal(rules.versions("overrides").length, before);
+  assert.equal(rules.current("overrides"), rules.versions("overrides").at(-1));
 });
 
-test("a second undo returns to where it started", () => {
-  rules.undo("overrides");
+test("redo steps back up the stack", () => {
+  rules.redo("overrides");
   assert.deepEqual(asMap("overrides"), {
     rema: "dagligvarer/andre_dagligvarer",
     kiwi: "dagligvarer/kiwi",
   });
+  assert.equal(rules.current("overrides"), rules.versions("overrides")[0]);
+  assert.throws(() => rules.redo("overrides"), /no redo left/);
 });
 
-// A restore is permanent. The versions above it go, so the reader cannot
-// return to the state they just left.
-test("restore names any version, and it deletes every version above", () => {
-  const oldest = rules.versions("overrides").at(-1)!;
-  assert.ok(rules.versions("overrides").length > 1);
-  rules.restore("overrides", oldest);
+test("restore names any version, however far back, and keeps the stack", () => {
+  const before = rules.versions("overrides");
+  rules.restore("overrides", before.at(-1)!);
   assert.deepEqual(asMap("overrides"), {
     rema: "dagligvarer/andre_dagligvarer",
   });
+  assert.deepEqual(rules.versions("overrides"), before);
+  assert.equal(rules.current("overrides"), before.at(-1));
+});
+
+// The rule of every editor: the redo side dies the moment you type.
+test("an edit below the top of the stack drops every version above it", () => {
+  const cursor = rules.current("overrides")!;
+  assert.ok(rules.versions("overrides").length > 1);
+  rules.save({ file: "overrides", key: "meny", value: "dagligvarer/meny" });
   const left = rules.versions("overrides");
-  assert.equal(left.length, 1);
-  // The restored version moves to the top. A stamp that went backwards would
-  // read as the site being ahead, and the deploy would refuse.
-  assert.ok(left[0]! > oldest);
+  assert.equal(left.length, 2);
+  assert.equal(left.at(-1), cursor);
+  assert.equal(rules.current("overrides"), left[0]);
+  assert.deepEqual(asMap("overrides"), {
+    rema: "dagligvarer/andre_dagligvarer",
+    meny: "dagligvarer/meny",
+  });
 });
 
 test("a remove drops the entry", () => {

@@ -483,29 +483,22 @@ const Change = ({ change: { key, from, to } }: { change: RuleChange }) => {
   );
 };
 
-// A restore deletes every version above the one it names, so it is the one
-// control on this page that loses work. Ask before it runs.
-// ponytail: the native dialog. It is one line and it works on the phone. Style
-// it like FileDialog when it needs a third button.
-const askRestore = (file: RuleFile, at: number, rules: RulesApi): void => {
-  const gone = (rules.data?.history[file] ?? []).filter(
-    (v) => v.at > at,
-  ).length;
-  if (
-    confirm(
-      `Restore ${RULE_LABEL[file]} as it stood on ${fmtStamp(at)}? This drops the ${gone} newer version(s) for good.`,
-    )
-  )
-    rules.restore(file, at);
-};
-
 // A group save or a restore moves many lines at once. Show a handful and count
 // the rest, or one version fills the card.
 const CHANGES_SHOWN = 6;
 
+// The stack, and the cursor in it. Stepping back costs nothing, so nothing here
+// asks before it moves. The next edit is what drops the versions above the
+// cursor, and the note below says so before the reader types.
 const History = ({ file, rules }: { file: RuleFile; rules: RulesApi }) => {
   const versions = rules.data?.history[file] ?? [];
+  const at = rules.data?.at[file] ?? null;
   if (versions.length === 0) return null;
+
+  // A live file that matches no version reads as -1, so undo steps to the
+  // newest version and redo has nowhere to go.
+  const here = versions.findIndex((v) => v.at === at);
+  const ahead = Math.max(here, 0);
 
   return (
     <section className="mt-4 border-t border-line pt-3">
@@ -513,27 +506,48 @@ const History = ({ file, rules }: { file: RuleFile; rules: RulesApi }) => {
         <h3 className="text-[11px] font-medium tracking-wide text-ink-soft uppercase">
           History
         </h3>
-        <button
-          type="button"
-          onClick={() => rules.undo(file)}
-          disabled={rules.busy || versions.length < 2}
-          className={BUTTON}
-        >
-          Undo the last change
-        </button>
+        <div className="flex gap-1.5">
+          <button
+            type="button"
+            onClick={() => rules.undo(file)}
+            disabled={rules.busy || versions[here + 1] === undefined}
+            className={BUTTON}
+          >
+            Undo
+          </button>
+          <button
+            type="button"
+            onClick={() => rules.redo(file)}
+            disabled={rules.busy || ahead === 0}
+            className={BUTTON}
+          >
+            Redo
+          </button>
+        </div>
       </div>
+      {ahead > 0 && (
+        <p className="mb-2 flex items-start gap-1.5 text-[11px] text-ink-muted">
+          <Icon
+            aria-hidden
+            icon={InfoIcon}
+            size={12}
+            className="mt-px shrink-0"
+          />
+          The next edit drops the {ahead} version(s) above this point.
+        </p>
+      )}
       <ol className="max-h-72 overflow-y-auto">
-        {versions.map(({ at, changes }, i) => (
+        {versions.map(({ at: version, changes }, i) => (
           <li
-            key={at}
-            className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 border-b border-line py-1.5 last:border-0"
+            key={version}
+            className={`flex flex-wrap items-start justify-between gap-x-3 gap-y-1 border-b border-line py-1.5 last:border-0 ${i < ahead ? "opacity-50" : ""}`}
           >
             <div className="min-w-0 flex-1 basis-40">
               <p
-                className={`text-[11px] ${i === 0 ? "text-ink" : "text-ink-muted"}`}
+                className={`text-[11px] ${version === at ? "text-ink" : "text-ink-muted"}`}
               >
-                {fmtStamp(at)}
-                {i === 0 && " — now"}
+                {fmtStamp(version)}
+                {version === at && " — now"}
               </p>
               {changes.length === 0 ? (
                 <p className="text-[11px] text-ink-muted">First version.</p>
@@ -550,14 +564,14 @@ const History = ({ file, rules }: { file: RuleFile; rules: RulesApi }) => {
                 </ul>
               )}
             </div>
-            {i > 0 && (
+            {version !== at && (
               <button
                 type="button"
-                onClick={() => askRestore(file, at, rules)}
+                onClick={() => rules.restore(file, version)}
                 disabled={rules.busy}
                 className={BUTTON}
               >
-                Restore
+                Go here
               </button>
             )}
           </li>
