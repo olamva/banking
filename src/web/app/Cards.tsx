@@ -47,7 +47,7 @@ interface CardProps {
 }
 
 export const Card = ({ title, icon, action, children }: CardProps) => (
-  <div className="min-w-0 rounded-[10px] border border-line bg-surface p-4">
+  <section className="min-w-0">
     <h2 className="mb-2.5 flex items-center gap-1.5 text-sm font-semibold">
       {icon && (
         <Icon
@@ -61,7 +61,7 @@ export const Card = ({ title, icon, action, children }: CardProps) => (
       {action && <span className="ml-auto font-normal">{action}</span>}
     </h2>
     {children}
-  </div>
+  </section>
 );
 
 export interface Delta {
@@ -697,13 +697,24 @@ export const TransactionsCard = ({
   );
 
   return (
-    <Card title={`Transactions (${txns.length})`} icon={TransactionsIcon}>
-      <SearchBox
-        hotkey
-        value={search}
-        onChange={onSearch}
-        placeholder="Search merchant or description…"
-      />
+    <section className="min-w-0">
+      <div className="px-3 sm:px-0">
+        <h2 className="mb-2.5 flex items-center gap-1.5 text-sm font-semibold">
+          <Icon
+            aria-hidden
+            icon={TransactionsIcon}
+            size={15}
+            className="shrink-0 text-ink-soft"
+          />
+          Transactions ({txns.length})
+        </h2>
+        <SearchBox
+          hotkey
+          value={search}
+          onChange={onSearch}
+          placeholder="Search merchant or description…"
+        />
+      </div>
       {sorted.length === 0 ? (
         <div className="py-10 text-center text-ink-muted">
           No transactions match the current filters.
@@ -759,6 +770,6 @@ export const TransactionsCard = ({
           })}
         />
       )}
-    </Card>
+    </section>
   );
 };

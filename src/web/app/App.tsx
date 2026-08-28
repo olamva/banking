@@ -500,7 +500,7 @@ const TransactionsView = ({
       {/* All three, always — unlike the dashboards, which hide a tile they have
           no rows for. Here the numbers move on every keystroke, and a tile that
           vanishes at zero takes the rows below it for a ride up the page. */}
-      <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(min(160px,100%),1fr))] gap-3">
+      <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(min(160px,100%),1fr))] gap-3 px-3 sm:px-0">
         <StatTile label="Spent" value={fmtNOK(sums.totalOut)} />
         <StatTile label="Income" value={fmtNOK(sums.totalIn)} />
         <StatTile label="Net" value={fmtNOK(sums.net)} />
@@ -959,26 +959,37 @@ export const App = () => {
         onClose={() => setHelp(false)}
       />
 
-      <div className="mx-auto max-w-295 px-3 py-4 sm:px-6 sm:py-6">
+      <div className="mx-auto max-w-295 py-4 sm:px-6 sm:py-6">
         {/* The rules stand on their own. They are readable and editable before
             the first sync, so no load state gates them. */}
         {view === "rules" ? (
-          <RulesView rules={rules} txns={txns} pairs={pairs} file={ruleFile} />
+          <div className="px-3 sm:px-0">
+            <RulesView
+              rules={rules}
+              txns={txns}
+              pairs={pairs}
+              file={ruleFile}
+            />
+          </div>
         ) : (
           <>
-            <LoadNote load={load} count={txns.length} refresh={refresh} />
+            <div className="px-3 sm:px-0">
+              <LoadNote load={load} count={txns.length} refresh={refresh} />
+            </div>
             {ready &&
               (view === "dashboard" ? (
-                <Dashboard
-                  txns={txns}
-                  all={inPeriod}
-                  filters={filters}
-                  onFilters={setFilters}
-                  period={p}
-                  grain={grain}
-                  offered={grains}
-                  onGrain={setChosenGrain}
-                />
+                <div className="px-3 sm:px-0">
+                  <Dashboard
+                    txns={txns}
+                    all={inPeriod}
+                    filters={filters}
+                    onFilters={setFilters}
+                    period={p}
+                    grain={grain}
+                    offered={grains}
+                    onGrain={setChosenGrain}
+                  />
+                </div>
               ) : (
                 <TransactionsView
                   rows={inPeriod}

@@ -1,0 +1,13 @@
+{
+  "id": "2fd1f727",
+  "ts": "2026-08-28T23:06:54+00:00",
+  "text": "T3 preview reported an automation-capable status, but preview_open said no host was available",
+  "tags": [
+    "browser",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "/private/tmp/banking-less-card-layout"
+}
