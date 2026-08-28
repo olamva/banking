@@ -273,6 +273,8 @@ resource "azurerm_container_app_custom_domain" "bank" {
   name             = var.custom_domain
   container_app_id = azurerm_container_app.bank.id
 
+  certificate_binding_type = "Auto"
+
   lifecycle {
     # Azure adds the managed certificate to this binding asynchronously.
     ignore_changes = [certificate_binding_type, container_app_environment_certificate_id]
