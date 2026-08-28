@@ -89,16 +89,14 @@ export const useRefresh = (onDone: () => void): Refresh => {
   return { busy, note, bad, run };
 };
 
-// A sticky header keeps its place in the flow, so the space it sat in is still
-// on the screen until the page scrolls its own height. Hiding it before that
-// leaves a hole at the top. 8 px ignores the jitter that a tap makes on iOS,
-// and the rubber band at both ends.
+// Keep most of the header space on screen before the header hides.
+// 8 px ignores tap jitter on iOS and the rubber band at both ends.
 export const headerHidden = (
   y: number,
   last: number,
   hidden: boolean,
   height: number,
-): boolean => (Math.abs(y - last) < 8 ? hidden : y > last && y > height);
+): boolean => (Math.abs(y - last) < 8 ? hidden : y > last && y > height - 24);
 
 // Measured, never assumed: the bar grows a line as the filters wrap, and it
 // grows another when a refresh reports.

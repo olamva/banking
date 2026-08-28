@@ -1,0 +1,13 @@
+{
+  "id": "8ee6e020",
+  "ts": "2026-08-28T12:22:41+00:00",
+  "text": "The sandbox blocks ps while a test process hangs without output",
+  "tags": [
+    "sandbox",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "/Users/olavassbotn/Documents/banking"
+}

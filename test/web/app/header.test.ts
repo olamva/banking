@@ -7,14 +7,15 @@ test("the header leaves on a scroll down and returns on a scroll up", () => {
   assert.equal(headerHidden(200, 400, true, 160), false);
 });
 
-test("the header stays while the space it sat in is still on the screen", () => {
-  assert.equal(headerHidden(150, 20, false, 160), false);
-  assert.equal(headerHidden(170, 20, false, 160), true);
+test("the header leaves shortly before its space leaves the screen", () => {
+  assert.equal(headerHidden(130, 20, false, 160), false);
+  assert.equal(headerHidden(140, 20, false, 160), true);
 });
 
 test("a taller bar holds the header down the page for longer", () => {
   assert.equal(headerHidden(200, 20, false, 160), true);
   assert.equal(headerHidden(200, 20, false, 240), false);
+  assert.equal(headerHidden(220, 20, false, 240), true);
 });
 
 test("a move under 8 px changes nothing", () => {
