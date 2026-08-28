@@ -12,6 +12,9 @@ prefix_rule(pattern=["gh", "pr", "list"], decision="allow")
 prefix_rule(pattern=["gh", "pr", "comment"], decision="allow")
 prefix_rule(pattern=["gh", "pr", "merge"], decision="forbidden", justification="Do not merge pull requests from Codex.")
 
+prefix_rule(pattern=["gh", "stack"], decision="allow")
+prefix_rule(pattern=["gh", "stack", "merge"], decision="forbidden", justification="Do not merge a stack of pull requests from Codex.")
+
 prefix_rule(pattern=["git", "worktree"], decision="allow")
 prefix_rule(pattern=["git", "worktree", "remove", "--force"], decision="forbidden", justification="Remove worktrees only without force.")
 prefix_rule(pattern=["git", "worktree", "remove", "-f"], decision="forbidden", justification="Remove worktrees only without force.")
