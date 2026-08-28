@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { buildLabels, type Labels, type Names } from "../../core/labels.ts";
 import type { RuleFile, Rules } from "../../core/ruleFiles.ts";
 import type { Categorized } from "../../core/types.ts";
@@ -136,6 +136,8 @@ export const useRules = (onRebuilt: () => void): RulesApi => {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [bad, setBad] = useState(false);
+  const queue = useRef(Promise.resolve());
+  const pending = useRef(0);
 
   const read = () =>
     fetch("/api/rules")
@@ -153,10 +155,12 @@ export const useRules = (onRebuilt: () => void): RulesApi => {
   }, []);
 
   const run = (url: string, said: string) => {
+    pending.current += 1;
     setBusy(true);
     setNote(null);
     setBad(false);
-    ask(url)
+    queue.current = queue.current
+      .then(() => ask(url))
       .then(async (body) => {
         await read();
         setNote(`${said} ${String(body["rows"])} rows rebuilt.`);
@@ -166,7 +170,10 @@ export const useRules = (onRebuilt: () => void): RulesApi => {
         setBad(true);
         setNote(e instanceof Error ? e.message : String(e));
       })
-      .finally(() => setBusy(false));
+      .finally(() => {
+        pending.current -= 1;
+        setBusy(pending.current > 0);
+      });
   };
 
   return {

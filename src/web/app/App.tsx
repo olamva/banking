@@ -718,20 +718,20 @@ export const App = () => {
 
   const shortcuts: Shortcut[] = [
     {
-      keys: ["d"],
-      cap: "D",
+      keys: ["d", "1"],
+      cap: "D 1",
       what: "Dashboard",
       run: () => changeView("dashboard"),
     },
     {
-      keys: ["t"],
-      cap: "T",
+      keys: ["t", "2"],
+      cap: "T 2",
       what: "Transactions",
       run: () => changeView("transactions"),
     },
     {
-      keys: ["l"],
-      cap: "L",
+      keys: ["l", "3"],
+      cap: "L 3",
       what: "Rules",
       run: () => changeView("rules"),
     },

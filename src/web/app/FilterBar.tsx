@@ -705,13 +705,30 @@ export const FilterBar = ({
   const dirty = picked > 0 || filters.search !== "" || filters.showExcluded;
 
   const views = (
-    <div className="inline-flex overflow-hidden rounded-md border border-line">
-      {VIEWS.map((v) => (
+    <div
+      role="tablist"
+      aria-label="Page"
+      className="inline-flex overflow-hidden rounded-md border border-line"
+    >
+      {VIEWS.map((v, i) => (
         <button
           key={v}
           type="button"
-          aria-pressed={view === v}
+          role="tab"
+          aria-selected={view === v}
+          tabIndex={view === v ? 0 : -1}
           onClick={() => onView(v)}
+          onKeyDown={(e) => {
+            const by =
+              e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+            if (!by) return;
+            e.preventDefault();
+            const next = (i + by + VIEWS.length) % VIEWS.length;
+            onView(VIEWS[next]!);
+            e.currentTarget.parentElement
+              ?.querySelectorAll<HTMLButtonElement>("[role=tab]")
+              [next]?.focus();
+          }}
           className={`px-3 py-1.5 text-[13px] capitalize ${view === v ? "bg-series-1 text-white" : "bg-page text-ink-soft"}`}
         >
           {v}

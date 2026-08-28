@@ -148,19 +148,16 @@ const Entry = ({ file, entryKey, value, rules }: EntryProps) => (
   <li
     className={`flex flex-wrap items-center gap-2 border-b border-line py-1 last:border-0 ${rowsFor(value !== null)}`}
   >
-    {/* `change` fires on blur and on Enter, so a rename is one write and no
-        keystroke is. `defaultValue`, because the value that comes back is the
-        one this box sent. */}
     <input
       key={entryKey}
       defaultValue={entryKey}
       aria-label={KEY_LABEL[file]}
-      disabled={rules.busy}
-      onChange={(e) => {
+      onBlur={(e) => {
         const next = e.target.value.trim();
         if (next && next !== entryKey)
           rules.save(file, next, value ?? undefined, entryKey);
       }}
+      onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
       className={`${CELL} flex-1 basis-40 font-mono`}
     />
     {value !== null && (
@@ -169,11 +166,11 @@ const Entry = ({ file, entryKey, value, rules }: EntryProps) => (
         defaultValue={value}
         aria-label={VALUE_LABEL[file]}
         list={CATEGORY_VALUED.has(file) ? PAIRS_ID : undefined}
-        disabled={rules.busy}
-        onChange={(e) => {
+        onBlur={(e) => {
           const next = e.target.value.trim();
           if (next && next !== value) rules.save(file, entryKey, next);
         }}
+        onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
         className={`${CELL} flex-1 basis-40 text-ink-soft`}
       />
     )}
@@ -335,19 +332,37 @@ export const RulesView = ({ rules, txns, pairs }: RulesViewProps) => {
       )
     : entries;
 
+  const moveTab = (e: React.KeyboardEvent<HTMLButtonElement>, at: number) => {
+    const by = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+    if (!by) return;
+    e.preventDefault();
+    const next = (at + by + RULE_FILES.length) % RULE_FILES.length;
+    setFile(RULE_FILES[next]!);
+    e.currentTarget.parentElement
+      ?.querySelectorAll<HTMLButtonElement>("[role=tab]")
+      [next]?.focus();
+  };
+
   return (
     <Card title="Rules" icon={CategoryIcon}>
       <CategoryList pairs={pairs} />
 
       {/* Wraps rather than scrolls sideways. Seven names do not fit 375px in
           one row, and nothing on this page may push it. */}
-      <div className="mb-3 flex flex-wrap gap-1.5">
-        {RULE_FILES.map((f) => (
+      <div
+        role="tablist"
+        aria-label="Rule files"
+        className="mb-3 flex flex-wrap gap-1.5"
+      >
+        {RULE_FILES.map((f, i) => (
           <button
             key={f}
             type="button"
-            aria-pressed={file === f}
+            role="tab"
+            aria-selected={file === f}
+            tabIndex={file === f ? 0 : -1}
             onClick={() => setFile(f)}
+            onKeyDown={(e) => moveTab(e, i)}
             className={`rounded-md border border-line px-2.5 py-1.5 text-[13px] ${
               file === f ? "bg-series-1 text-white" : "bg-page text-ink-soft"
             }`}
