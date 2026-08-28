@@ -1,0 +1,13 @@
+{
+  "id": "19f31cf1",
+  "ts": "2026-08-27T23:16:33+00:00",
+  "text": "Terraform validate cannot execute installed provider binaries inside the sandbox",
+  "tags": [
+    "terraform",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "terraform validate"
+}
