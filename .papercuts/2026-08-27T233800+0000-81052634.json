@@ -1,0 +1,13 @@
+{
+  "id": "81052634",
+  "ts": "2026-08-27T23:38:00+00:00",
+  "text": "Sandbox blocks ps while tracing which checkout owns a running Vite server",
+  "tags": [
+    "sandbox",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "/Users/olavassbotn/Documents/banking"
+}

@@ -1,0 +1,13 @@
+{
+  "id": "86832301",
+  "ts": "2026-08-27T23:16:59+00:00",
+  "text": "pnpm install in a worktree retries every package after sandbox DNS fails",
+  "tags": [
+    "network",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "/Users/olavassbotn/Documents/banking"
+}

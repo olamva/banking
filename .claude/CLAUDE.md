@@ -78,6 +78,8 @@ Terraform sets all of them. Do not set one by hand, because the next `terraform 
 
 Set the authorised redirect URI of the Google client to the `google_redirect_uri` output. It must match exactly, or Google refuses the sign-in.
 
+**`custom_domain` binds a name of your own, and it needs the DNS first.** Set the variable in `infra/terraform.tfvars`. Run `terraform output custom_domain_dns` to read the `CNAME` and the `asuid` `TXT` record, add both at your DNS provider, and wait for them to resolve. The managed certificate issues only after that, so an earlier apply fails on the certificate. **Container Apps never stops serving the `azurecontainerapps.io` name.** Easy Auth builds its callback from the host of the request, so Google needs `custom_domain_google_redirect_uri` **as well as** `google_redirect_uri`. A custom domain is not a third home for the dashboard. It is the same site, behind the same Easy Auth and the same `allowed()` gate.
+
 Removing an address from `ALLOWED_EMAILS` stops the next request from that person. Easy Auth keeps its own session, so a sign-out needs the `/.auth/logout` route.
 
 ## Layout

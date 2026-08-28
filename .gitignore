@@ -6,6 +6,7 @@
 
 # build / tooling
 node_modules
+.pnpm-store
 .claude/worktrees
 
 # credentials. Nothing in the repo carries key material any more — SB1 signs

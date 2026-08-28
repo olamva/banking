@@ -7,8 +7,15 @@ subscription_id = "00000000-0000-0000-0000-000000000000"
 # An empty list denies everybody.
 allowed_emails = ["you@example.com"]
 
+# A host name of your own that serves the dashboard. Leave it empty to use the
+# azurecontainerapps.io name alone. `terraform output custom_domain_dns` prints
+# the CNAME and the TXT record to add first. The certificate issues only after
+# both resolve, so an apply before that fails.
+custom_domain = ""
+
 # Google Cloud console, OAuth client, type "Web application". Add the redirect
-# that `terraform output google_redirect_uri` prints.
+# that `terraform output google_redirect_uri` prints. Add
+# `custom_domain_google_redirect_uri` as well when a custom domain is set.
 google_client_id     = "....apps.googleusercontent.com"
 google_client_secret = ""
 

@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { after, before, test } from "node:test";
 import { server } from "../../src/web/server.ts";
 
@@ -12,16 +15,27 @@ const header = (email: string): string =>
   ).toString("base64");
 
 let base = "";
+let cwd = "";
+let dir = "";
 
 before(async () => {
+  cwd = process.cwd();
+  dir = mkdtempSync(join(tmpdir(), "server-"));
+  process.chdir(dir);
+  mkdirSync("rules");
+  writeFileSync("rules/accounts.json", "{}");
   process.env.ALLOWED_EMAILS = "ola@example.com";
   await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 });
 
-after(() => {
+after(async () => {
   delete process.env.ALLOWED_EMAILS;
-  server.close();
+  server.closeAllConnections();
+  if (server.listening)
+    await new Promise<void>((done) => server.close(() => done()));
+  process.chdir(cwd);
+  rmSync(dir, { recursive: true });
 });
 
 test("no principal is no page, whatever the path", async () => {

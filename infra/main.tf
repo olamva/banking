@@ -266,3 +266,29 @@ resource "azapi_resource" "auth" {
     }
   }
 }
+
+resource "azurerm_container_app_custom_domain" "bank" {
+  count = var.custom_domain == "" ? 0 : 1
+
+  name             = var.custom_domain
+  container_app_id = azurerm_container_app.bank.id
+
+  certificate_binding_type = "Auto"
+
+  lifecycle {
+    # Azure adds the managed certificate to this binding asynchronously.
+    ignore_changes = [certificate_binding_type, container_app_environment_certificate_id]
+  }
+}
+
+# Azure requires the hostname binding before it creates the certificate.
+resource "azurerm_container_app_environment_managed_certificate" "bank" {
+  count = var.custom_domain == "" ? 0 : 1
+
+  name                         = replace(var.custom_domain, ".", "-")
+  container_app_environment_id = azurerm_container_app_environment.bank.id
+  subject_name                 = var.custom_domain
+  domain_control_validation    = "CNAME"
+
+  depends_on = [azurerm_container_app_custom_domain.bank]
+}
