@@ -54,9 +54,9 @@
       color-scheme: dark;
       --color-page: #0d0d0d;
       --color-surface: #1a1a19;
-      --color-ink: #ffffff;
-      --color-ink-soft: #c3c2b7;
-      --color-ink-muted: #898781;
+      --color-ink: #f2f2ef;
+      --color-ink-soft: #d0cfca;
+      --color-ink-muted: #aaa9a4;
       --color-grid: #2c2c2a;
       --color-axis: #383835;
       --color-line: rgb(255 255 255 / 0.1);
@@ -75,9 +75,9 @@
     color-scheme: dark;
     --color-page: #0d0d0d;
     --color-surface: #1a1a19;
-    --color-ink: #ffffff;
-    --color-ink-soft: #c3c2b7;
-    --color-ink-muted: #898781;
+    --color-ink: #f2f2ef;
+    --color-ink-soft: #d0cfca;
+    --color-ink-muted: #aaa9a4;
     --color-grid: #2c2c2a;
     --color-axis: #383835;
     --color-line: rgb(255 255 255 / 0.1);

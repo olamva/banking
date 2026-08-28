@@ -245,10 +245,10 @@ export const DataTable = ({ columns, rows, scroll, onRow }: DataTableProps) => {
           rows then show through that strip. */}
       <table className="w-full border-separate border-spacing-0 text-xs tabular-nums">
         <thead
-          className={scroll ? "sticky top-0 z-10 bg-surface" : ""}
+          className={scroll ? "sticky top-0 z-10 bg-page" : ""}
           style={
             scroll
-              ? { boxShadow: "0 -32px 0 32px var(--color-surface)" }
+              ? { boxShadow: "0 -32px 0 32px var(--color-page)" }
               : undefined
           }
         >
@@ -263,7 +263,7 @@ export const DataTable = ({ columns, rows, scroll, onRow }: DataTableProps) => {
                       : "descending"
                     : undefined
                 }
-                className={`border-b border-grid bg-surface py-1 pr-2 font-semibold ${c.num ? "text-right" : "text-left"} ${c.min ? "w-px whitespace-nowrap" : ""}`}
+                className={`border-b border-grid bg-page py-1 pr-2 font-semibold ${c.num ? "text-right" : "text-left"} ${c.min ? "w-px whitespace-nowrap" : ""}`}
               >
                 {c.sizer && <Sizer of={c.sizer} />}
                 {c.onClick ? (
