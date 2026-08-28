@@ -11,7 +11,7 @@ import {
 import type { Categorized } from "../../core/types.ts";
 import { Card, SearchBox } from "./Cards.tsx";
 import type { RulesApi } from "./data.ts";
-import { pairLabel } from "./format.ts";
+import { fmtDate, fmtNOKExact, pairLabel } from "./format.ts";
 import {
   AddedIcon,
   CategoryIcon,
@@ -100,35 +100,61 @@ const fmtStamp = (at: number): string =>
 
 interface MatchNoteProps {
   pattern: string;
-  haystacks: string[];
+  txns: Categorized[];
 }
 
 // What the pattern claims, before it is saved. A regex that reads as narrow and
 // matches four hundred rows is the failure this exists to catch.
-const MatchNote = ({ pattern, haystacks }: MatchNoteProps) => {
+const MatchNote = ({ pattern, txns }: MatchNoteProps) => {
   const result = useMemo(() => {
     if (!pattern.trim()) return null;
     try {
       const matches = compile(pattern, "pattern");
-      return { count: haystacks.filter(matches).length, error: null };
+      return {
+        matches: txns.filter((txn) => matches(haystackOf(txn))),
+        error: null,
+      };
     } catch (e) {
-      return { count: 0, error: e instanceof Error ? e.message : String(e) };
+      return {
+        matches: [],
+        error: e instanceof Error ? e.message : String(e),
+      };
     }
-  }, [pattern, haystacks]);
+  }, [pattern, txns]);
 
   if (!result) return null;
   return (
-    <p
-      className={`flex items-start gap-1.5 text-[11px] ${result.error ? "text-critical" : "text-ink-muted"}`}
-    >
-      <Icon
-        aria-hidden
-        icon={result.error ? ErrorIcon : InfoIcon}
-        size={12}
-        className="mt-px shrink-0"
-      />
-      {result.error ?? `Matches ${result.count} transaction(s) on record.`}
-    </p>
+    <div className={result.error ? "text-critical" : "text-ink-muted"}>
+      <div className="flex items-start gap-1.5 text-[11px]">
+        <Icon
+          aria-hidden
+          icon={result.error ? ErrorIcon : InfoIcon}
+          size={12}
+          className="mt-px shrink-0"
+        />
+        {result.error ??
+          `Matches ${result.matches.length} transaction(s) on record.`}
+      </div>
+      {!result.error && result.matches.length > 0 && (
+        <details className="mt-1 ml-[18px] text-[11px]">
+          <summary className="cursor-pointer select-none hover:text-ink">
+            Show transactions
+          </summary>
+          <ul className="mt-1 max-h-40 overflow-y-auto rounded-md border border-line bg-page">
+            {result.matches.map((txn) => (
+              <li
+                key={txn.id}
+                className="grid grid-cols-[auto_1fr_auto] gap-2 border-b border-line px-2 py-1 last:border-0"
+              >
+                <span>{fmtDate(txn.date)}</span>
+                <span className="truncate text-ink">{txn.description}</span>
+                <span className="text-ink">{fmtNOKExact(txn.amount)}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </div>
   );
 };
 
@@ -285,11 +311,11 @@ const Entry = ({ file, entryKey, value, rules }: EntryProps) => (
 interface AddFormProps {
   file: RuleFile;
   rules: RulesApi;
-  haystacks: string[];
+  txns: Categorized[];
   pairs: string[];
 }
 
-const AddForm = ({ file, rules, haystacks, pairs }: AddFormProps) => {
+const AddForm = ({ file, rules, txns, pairs }: AddFormProps) => {
   const [key, setKey] = useState("");
   const [value, setValue] = useState("");
   const map = isMapFile(file);
@@ -343,7 +369,7 @@ const AddForm = ({ file, rules, haystacks, pairs }: AddFormProps) => {
           Add
         </button>
       </div>
-      <MatchNote pattern={key} haystacks={haystacks} />
+      <MatchNote pattern={key} txns={txns} />
     </form>
   );
 };
@@ -702,8 +728,6 @@ export const RulesView = ({
   // DataTable when one of these files reaches a few thousand lines.
   const file = useDeferredValue(chosen);
   const [find, setFind] = useState("");
-  const haystacks = useMemo(() => txns.map(haystackOf), [txns]);
-
   const data = rules.data;
   const entries = data ? entriesOf(data.files[file]) : [];
   const needle = find.trim().toLowerCase();
@@ -741,12 +765,7 @@ export const RulesView = ({
         </div>
       ) : (
         <>
-          <AddForm
-            file={file}
-            rules={rules}
-            haystacks={haystacks}
-            pairs={pairs}
-          />
+          <AddForm file={file} rules={rules} txns={txns} pairs={pairs} />
 
           <SearchBox
             value={find}
@@ -836,7 +855,6 @@ export const FileDialog = ({
   const [value, setValue] = useState(
     txn.subcategory ? `${txn.category}/${txn.subcategory}` : txn.category,
   );
-  const haystacks = useMemo(() => txns.map(haystackOf), [txns]);
   const ready = pattern.trim() !== "" && value.trim() !== "";
 
   return (
@@ -868,7 +886,7 @@ export const FileDialog = ({
             className={`${FIELD} font-mono`}
           />
         </label>
-        <MatchNote pattern={pattern} haystacks={haystacks} />
+        <MatchNote pattern={pattern} txns={txns} />
 
         <label className="flex flex-col gap-1 text-xs text-ink-soft">
           Category
