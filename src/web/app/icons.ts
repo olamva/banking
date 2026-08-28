@@ -28,6 +28,13 @@ export { default as RecurringIcon } from "@hugeicons/core-free-icons/RepeatIcon"
 export { default as CounterpartyIcon } from "@hugeicons/core-free-icons/Store01Icon";
 export { default as AccountIcon } from "@hugeicons/core-free-icons/Wallet01Icon";
 
+export { default as UndoIcon } from "@hugeicons/core-free-icons/Undo02Icon";
+export { default as RedoIcon } from "@hugeicons/core-free-icons/Redo02Icon";
+export { default as GoToVersionIcon } from "@hugeicons/core-free-icons/HistoryIcon";
+export { default as AddedIcon } from "@hugeicons/core-free-icons/PlusSignIcon";
+export { default as RemovedIcon } from "@hugeicons/core-free-icons/MinusSignIcon";
+export { default as ChangedIcon } from "@hugeicons/core-free-icons/Exchange01Icon";
+
 export { default as ErrorIcon } from "@hugeicons/core-free-icons/AlertCircleIcon";
 export { default as InfoIcon } from "@hugeicons/core-free-icons/InformationCircleIcon";
 export { default as LoadingIcon } from "@hugeicons/core-free-icons/Loading03Icon";

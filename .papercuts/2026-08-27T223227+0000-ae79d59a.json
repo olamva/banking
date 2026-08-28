@@ -1,0 +1,13 @@
+{
+  "id": "ae79d59a",
+  "ts": "2026-08-27T22:32:27+00:00",
+  "text": "EnterWorktree branched worktree-rules-editor from c280571, the tip of the unmerged worktree-header-sticky branch, not origin/main. Cost a rebase --onto with conflicts in App.tsx, FilterBar.tsx and data.ts mid-task. CLAUDE.md says it branches from origin/main.",
+  "tags": [
+    "git",
+    "worktree"
+  ],
+  "who": "agent",
+  "model": "opus-5",
+  "session": "6f3f11df",
+  "where": "/Users/olavassbotn/Documents/banking/.claude/worktrees/rules-editor"
+}

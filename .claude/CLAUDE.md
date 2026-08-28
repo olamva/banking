@@ -49,7 +49,7 @@ Never commit anything under `rules/` or `data/`. The gitignore keeps them out, a
 
 **`rules/` is versioned in its own git repo, on this machine only.** It has no remote. Never give it one. It is deliberately **not** a submodule, because a gitlink would put `rules` back on a tracked path here.
 
-**An edit under `rules/` is finished only after you commit it there**, in the same turn. The `git status` of this repo stays clean however much of `overrides.json` you rewrite. An uncommitted rules change is therefore invisible to every later session:
+**A rule edit that you make by hand is finished only after you commit it there**, in the same turn. An edit made on the page needs no such commit, because `rules/.history/` versions it. See "Editing the rules on the page". The `git status` of this repo stays clean however much of `overrides.json` you rewrite. An uncommitted rules change is therefore invisible to every later session:
 
 The last paragraph, below the code block, becomes:
 
@@ -122,6 +122,11 @@ src/core/types.ts     Txn / Classified / Categorized. The shared contract
 src/core/normalize.ts data/raw/<month>/*.json -> Txn[]
 src/core/exclude.ts   Txn[] -> Classified[]. Flags transfers and bill payments
 src/core/categorize.ts Classified[] -> Categorized[]. Bank category + overrides
+src/core/match.ts     what a pattern is and what it reads. Pure, so the page
+                      counts the rows a rule claims before the rule is saved
+src/core/ruleFiles.ts the rule file names and shapes. No node: import, because
+                      the page reads it
+src/core/rules.ts     the rule store: load, save, undo, restore. Node only
 src/core/names.ts     the shape that a channel put on a name, taken off again.
                       It knows no payees. payees.json holds those
 src/core/db.ts        node:sqlite store, rebuilt whole
@@ -133,24 +138,27 @@ src/core/pipeline.ts  the offline chain. The CLI and Vite both import it
 
 src/core/paths.ts     DATA_DIR and RULES_DIR. Every other path derives from them
 
-src/web/app/          the React app: App, FilterBar, Charts, Cards, icons
+src/web/app/          the React app: App, FilterBar, Charts, Cards, Rules, icons
 src/web/server.ts     the hosted site. node:http, no framework
-src/web/api.ts        payload() and the single-flight refresh. Vite and the
-                      server both import it, so there is one of each
+src/web/api.ts        payload(), the single-flight refresh and rulesRoute().
+                      Vite and the server both import it, so there is one of each
 src/web/principal.ts  X-MS-CLIENT-PRINCIPAL -> the address Easy Auth proved
 src/auth/session.ts   allowed(). Pure, so node --test pins all of it
 src/net/token.ts      the refresh token: keychain here, Key Vault on Azure
 src/cli.ts            command dispatch
 
-vite.config.ts    pnpm dev. The app, /api/txns and /api/refresh
+vite.config.ts    pnpm dev. The app, /api/txns, /api/refresh and /api/rules
 infra/main.tf     the Azure resources: plan, site, Easy Auth, Key Vault
 infra/deploy.sh   build, zip, push the code, upload the rules
+infra/rules-lib.sh   which side holds the newer rules. Sourced by both scripts
+infra/rules-pull.sh  bring the rules the site holds back to this machine
 test/             node --test, mirroring src/
 data/raw/         API responses, verbatim, gitignored
 data/banking.db   derived SQLite store, rebuildable from data/raw, gitignored
 data/dist/        the built page: index.html, one JS bundle, one CSS file
-rules/*.json      hand-edited, gitignored: accounts, overrides, giro, family,
+rules/*.json      the rules, gitignored: accounts, overrides, giro, family,
                   payees, subscriptions, categories
+rules/.history/   one file for each version of a rule file, gitignored
 ```
 
 `data/raw/` is the source of truth. It is the only thing that costs an API call to reproduce. The database is **derived and disposable**.
@@ -164,6 +172,8 @@ Both Node and the browser import everything under `src/core/`. That code must ha
 **No page view costs a request.** `/api/txns` reads only `data/banking.db`. Only `/api/refresh` calls the API, and only a press of the Refresh button reaches it. Both live in `vite.config.ts`. Never make a request on load, on a filter, on a reload or on a timer.
 
 **`/api/refresh` needs the `X-Banking-Refresh: 1` header, and the header is the whole guard.** A custom header forces a preflight, and no preflight is answered, so a page on another site cannot make this machine spend its bank quota. **The method carries none of that.** It is a GET, because Easy Auth authenticates a session cookie on GET alone and answers 403 to every other method before the request reaches the process. Keep the header on any endpoint added beside it.
+
+**Every rule write carries `X-Banking-Rules: 1`, for the same reason.** A write under `/api/rules/` is a GET, because Easy Auth permits no other method. A GET that changes a file is reachable from an `<img>` tag on another site, and the custom header is what stops that. `<img>` sets no header. Reading `/api/rules` needs no header, exactly as reading `/api/txns` does not. **Add the header to any write endpoint that joins these.**
 
 **Refresh sweeps the whole record, then rebuilds.** `syncAll` opens at the earliest `from` in `rules/accounts.json` and runs to this month. One refresh runs at a time, and a second press joins the first. The CLI `sync` command is retired.
 
@@ -185,7 +195,7 @@ Both Node and the browser import everything under `src/core/`. That code must ha
 
 **No personal data enters git.** Do not put account numbers, keys, names, balances or descriptions in source, tests, fixtures, commit messages or documentation. The JSON and CSV output is unredacted.
 
-**One route sends personal data off this machine, and only one.** `pnpm deploy` uploads `data/dist` and `rules/*.json` to the Azure site. Both hold personal data. This is deliberate, and it is the reason the gate exists. No other command may send this data anywhere. Adding a second route needs a decision, not a patch.
+**One route sends personal data off this machine, and only one.** `pnpm deploy` uploads `data/dist`, `rules/*.json` and `rules/.history/` to the Azure site. `pnpm rules:pull` reads the same files back, and it sends nothing. Both hold personal data. This is deliberate, and it is the reason the gate exists. No other command may send this data anywhere. Adding a second route needs a decision, not a patch.
 
 **The dashboard has exactly two homes: 127.0.0.1, and the private Azure site behind Google sign-in.** There is no third one. Do not publish it as a hosted artifact, to a gist, or to any preview or sharing service. It holds every transaction you have. The same rule applies to screenshots.
 
@@ -205,7 +215,7 @@ Both Node and the browser import everything under `src/core/`. That code must ha
 
 **The hosted `/api/txns` reads the database, exactly as `pnpm dev` does.** One long-lived process serves both, so there is one code path and no export step. The payload passed 6.76 MB in August 2026, over 10,525 rows. Container Apps caps no response, so that size is not a problem. A serverless function caps well below it. Never put this endpoint on one, and never go back to a static file.
 
-**The deploy builds here and pushes the result.** `pnpm deploy` runs `vite build`, stages the source, the page and the vault client, and hands that directory to `az acr build`. The registry builds the image, so this machine needs no container runtime. The script then points the app at the new tag and uploads `rules/*.json` to the volume. `data/raw/` and `data/banking.db` stay here, and the site fetches its own copy. Never deploy from git, because git holds neither the rules nor the data.
+**The deploy builds here and pushes the result.** `pnpm deploy` runs `vite build`, stages the source, the page and the vault client, and hands that directory to `az acr build`. The registry builds the image, so this machine needs no container runtime. The script then points the app at the new tag and uploads `rules/*.json` and `rules/.history/` to the volume. `data/raw/` and `data/banking.db` stay here, and the site fetches its own copy. Never deploy from git, because git holds neither the rules nor the data.
 
 **Terraform owns the resource. The deploy owns the image.** `infra/main.tf` creates the app with a placeholder image, because no image exists before the first apply. `ignore_changes` on that field then keeps Terraform from dragging it back. Never move the image into a variable that apply enforces, or every deploy fights the next apply.
 
@@ -294,6 +304,26 @@ Fix a collision in the _pattern_. Do not fix it in the matcher or in the order. 
 `src/core/labels.ts` names the slugs. It uses three sources in this order: `rules/categories.json`, then the `mainI18n` and `subI18n` fields off the rows, then the tidied slug. It looks up mains and subs in **separate maps**. One slug can be both, with a different meaning in each.
 
 A category with exactly one _named_ subcategory reads as that subcategory. A single _unnamed_ child is not a better name, so the category keeps the parent name.
+
+## Editing the rules on the page
+
+The Rules view edits every rule file but `accounts.json`. A row in the transactions table also opens a dialog that writes one `overrides.json` line. `pnpm sb1 accounts` writes `accounts.json`, and it holds account numbers, opening balances and sync floors, so no page control may set it.
+
+**The files are the store. The database is not.** `banking.db` sits on the container disk and a cold start builds it again, so a rule kept only there disappears on the next scale to zero. The volume is the only durable store on Azure, and SQLite cannot run on it. `rules/*.json` therefore stays the one copy that every loader reads, on both hosts.
+
+**`rules/.history/` is the version control, and it is the only one that works on both hosts.** Each version is the whole file, named `<epoch-ms>-<file>.json`. A whole-file snapshot needs no diff format and no replay, and undo is a copy. The directory holds a `.gitignore` of `*`, because `rules/` is a git repo on the Mac and a plain directory on the volume. Versioning the versions helps nobody.
+
+**The newest version holds what the live file holds.** `save` writes the snapshot and the live file together, so the two never disagree. This is what makes `undo` the second-newest version, and it is what lets `infra/rules-lib.sh` say which host is ahead without reading a rule. Keep the two writes together.
+
+**The history is append-only, and undo is a new version.** Nothing removes a version. Undo therefore returns to where it started when you press it two times, exactly as `git revert` of a revert does. The version list with Restore is how you go further back.
+
+**A rename is one commit.** `save` takes `was`, so changing a pattern costs one version and one rebuild. A remove and an add would cost two of each, and would leave a state between them in which the rule claimed nothing.
+
+**A pattern is compiled before it is written.** A regex that does not compile would break every category at the next rebuild, not only its own line. The page also counts the rows a pattern claims before you save it, through `src/core/match.ts`. That module is pure so that the page may hold it.
+
+**A rule edit rebuilds the database, and the page reads the rows again.** The category lives in the database, not in the rule, so nothing changes on the page until the rebuild finishes. That takes about a second over the record.
+
+**`pnpm deploy` refuses to overwrite a newer rule on the site.** The site writes its own `rules/` now, so the upload is no longer a one-way copy of a file that only the Mac writes. The deploy compares the newest version on each side and stops. `pnpm rules:pull` brings the site copy back, commits it to the local `rules/` git repo, and rebuilds. The pull refuses in the other direction for the same reason. **Never make either one overwrite in silence.**
 
 ## The page's two-level categories
 

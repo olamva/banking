@@ -2,7 +2,7 @@ import { createReadStream, existsSync, statSync } from "node:fs";
 import { createServer, type ServerResponse } from "node:http";
 import { extname, join, resolve, sep } from "node:path";
 import { allowed } from "../auth/session.ts";
-import { payload, refresh } from "./api.ts";
+import { payload, refresh, rulesRoute } from "./api.ts";
 import { claimTypes, principalEmail } from "./principal.ts";
 
 const DIST = resolve(import.meta.dirname, "../../data/dist");
@@ -91,7 +91,20 @@ export const server = createServer((req, res) => {
     return;
   }
 
-  const path = new URL(req.url ?? "/", "http://localhost").pathname;
+  const url = new URL(req.url ?? "/", "http://localhost");
+  const path = url.pathname;
+
+  const rules = rulesRoute(
+    path,
+    url.searchParams,
+    req.headers["x-banking-rules"] as string | undefined,
+  );
+  if (rules) {
+    rules.then((a) =>
+      send(res, a.status, "application/json; charset=utf-8", a.body),
+    );
+    return;
+  }
 
   if (path === "/api/txns") {
     try {

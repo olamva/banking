@@ -1,0 +1,13 @@
+{
+  "id": "19ceed26",
+  "ts": "2026-08-28T12:26:07+00:00",
+  "text": "pnpm test hangs when the sandbox blocks its local server without reporting the bind refusal",
+  "tags": [
+    "tests",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "test/web/server.test.ts"
+}

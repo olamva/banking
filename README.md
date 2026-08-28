@@ -62,6 +62,7 @@ pnpm sb1 budget                     # what SB1 last reported as left of its limi
 
 pnpm build                          # vite build -> data/dist. The hosted page only
 pnpm deploy                         # push the code, the page and the rules to Azure
+pnpm rules:pull                     # bring the rules the hosted site holds back here
 
 pnpm dev                            # the dashboard on :4000
 pnpm test                           # node --test, no framework
@@ -72,15 +73,19 @@ A card transaction posts late, and it arrives pending first. A month is therefor
 
 ## The dashboard
 
-`pnpm dev` runs Vite. The app is `src/web/app/`. `/api/txns` and `/api/refresh` are one plugin in `vite.config.ts`. `/api/txns` reads the database again for each request, so a `rebuild` in another terminal appears on reload. The browser computes everything, because the page imports `src/core/stats.ts` directly. The page therefore aggregates with the code that the tests pin. Local work needs no build step.
+`pnpm dev` runs Vite. The app is `src/web/app/`. `/api/txns`, `/api/refresh` and `/api/rules` are one plugin in `vite.config.ts`. `/api/txns` reads the database again for each request, so a `rebuild` in another terminal appears on reload. The browser computes everything, because the page imports `src/core/stats.ts` directly. The page therefore aggregates with the code that the tests pin. Local work needs no build step.
 
-**Two views over one period.** _Dashboard_ shows the tiles and the charts. _Transactions_ shows the rows behind them. One pair of pickers chooses what both views show. A delta compares against **one year back**. Spending has a shape over a year that the month before cannot show. January against December says only that Christmas happened. A period that still runs compares against the same slice one year back. Without that, every delta would read as a collapse that the calendar drew.
+**Three views.** _Dashboard_ shows the tiles and the charts. _Transactions_ shows the rows behind them. One pair of pickers chooses what both of those show. _Rules_ edits the files that decide the categories, and it takes no period and no filter. A delta compares against **one year back**. Spending has a shape over a year that the month before cannot show. January against December says only that Christmas happened. A period that still runs compares against the same slice one year back. Without that, every delta would read as a collapse that the calendar drew.
 
 **The spending chart runs on days.** _Running total_ accumulates from the start of the window. The gap between the two lines is therefore the running surplus. The crossing point is the day the surplus went below zero. _Per day_ and _per month_ plot the raw buckets. Each window offers only the grain that it can carry. The shading is the one thing that the raw daily view drops. The shading reads the vertical gap as a surplus. That is true of a whole window. It is not true of one Tuesday.
 
 **Categories, merchants, accounts and countries each filter as two lists.** A click includes. A meta-click excludes. An exclusion wins. Click any number of them. None means all. A bar, a table cell or a menu entry filters to itself.
 
 **The page lists subscriptions per subscription**, not per charge. Each line shows what it is, what it costs each month, what it has taken across the window, and when it last went out. _Per month_ shows the **last payment**, not the average. An old price inside an average shows what a subscription has cost. The question is what it costs now.
+
+**Rules are edited on the page, and every edit is a version.** The _Rules_ view lists each rule file and its entries. Add, edit, rename or remove one. Open a transaction and press _File this merchant_ to write one override from that row, and read how many rows the pattern claims before you save it. Every save writes a snapshot to `rules/.history/`. _Undo the last change_ steps back one edit, and the version list restores any older state. Nothing is ever removed from the history.
+
+The site edits its own copy of the rules. `pnpm deploy` therefore stops when the site holds an edit that this machine does not, and it names `pnpm rules:pull`. That command downloads the site copy, commits it to the local `rules/` git repo and rebuilds. It refuses in the other direction for the same reason.
 
 **Refresh pulls what can still change, and rebuilds.** It is a button in the header. It then rebuilds `data/banking.db` and reloads the page. It reports what it fetched, or why it stopped. One refresh runs at a time. It works under `pnpm dev`, and it works on the hosted page.
 
@@ -102,7 +107,7 @@ The same page runs on Azure Container Apps, behind Google sign-in, so that a pho
 
 **Easy Auth proves who somebody is. It does not restrict to one person.** `src/web/principal.ts` decodes that header. `allowed()` in `src/auth/session.ts` tests the address against `ALLOWED_EMAILS`. An empty list denies everybody. `test/web/` pins every refusal.
 
-**One Node process serves the whole site.** `src/web/server.ts` serves `data/dist`, `/api/txns` and `/api/refresh`. It uses `node:http` and no framework. `/api/txns` reads `data/banking.db` for each request, exactly as `pnpm dev` does. Container Apps caps no response, so the payload needs no file.
+**One Node process serves the whole site.** `src/web/server.ts` serves `data/dist`, `/api/txns`, `/api/refresh` and `/api/rules`. It uses `node:http` and no framework. `/api/txns` reads `data/banking.db` for each request, exactly as `pnpm dev` does. Container Apps caps no response, so the payload needs no file.
 
 **Terraform owns the resources. The deploy script owns their contents.**
 
@@ -209,13 +214,14 @@ A person-to-person Vipps payment needs **no rule**. The code cannot match a bare
 src/net/       may make requests
 src/core/      may not. Both Node and the browser import it
 src/web/app/   the React app
-src/web/server.ts  the hosted site: the page, /api/txns and /api/refresh
+src/web/server.ts  the hosted site: the page, /api/txns, /api/refresh, /api/rules
 src/auth/      allowed(), the whole access rule. Pure and tested
 src/cli.ts     command dispatch
-vite.config.ts pnpm dev: the app plus /api/txns
-infra/         terraform for Azure, and the deploy script
+vite.config.ts pnpm dev: the app plus the same three endpoints
+infra/         terraform for Azure, the deploy script and the rules pull
 test/          node --test, mirroring src/
-rules/         hand-edited JSON, gitignored
+rules/         the rules as JSON, gitignored
+rules/.history/  one file for each version of a rule file. Undo reads it
 ```
 
 The dashboard uses React, Vite and Tailwind. The Azure SDK reads the refresh token out of Key Vault, and it loads only where a vault is named. Everything else uses the Node standard library, including SQLite, HTTP and TypeScript execution. The sign-in is Container Apps configuration, and it uses no auth library. There is no ORM, no chart library, no component library and no state manager. The charts are hand-written SVG. `data/raw/` is the source of truth, and the code never rewrites it in place. The database is derived, and you may delete it at any time. Analysis never calls the API. Any code that sums money leaves a test behind.

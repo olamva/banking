@@ -1,0 +1,13 @@
+{
+  "id": "566a1b15",
+  "ts": "2026-08-28T12:47:57+00:00",
+  "text": "The workspace sandbox permits source writes but blocks git branch refs",
+  "tags": [
+    "git",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "/Users/olavassbotn/Documents/banking"
+}

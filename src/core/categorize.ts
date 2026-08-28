@@ -1,10 +1,19 @@
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
+import {
+  compile,
+  haystackOf,
+  splitCategory,
+  type Matcher,
+  type Overrides,
+  type Pair,
+} from "./match.ts";
 import { makeCleaner } from "./names.ts";
 import { RULES_DIR } from "./paths.ts";
 import type { Categorized, Classified } from "./types.ts";
 
-export type Overrides = Record<string, string>;
+export { compile, haystackOf, splitCategory } from "./match.ts";
+export type { Matcher, Overrides, Pair } from "./match.ts";
 
 const UNCATEGORIZED = "ukategorisert";
 const TRAVEL = "reise";
@@ -79,41 +88,7 @@ export function renamePayees<
   });
 }
 
-type Matcher = (haystack: string) => boolean;
-type Rule = { matches: Matcher; category: string };
-
-export type Pair = { category: string; subcategory: string | null };
-
-export function splitCategory(value: string): Pair {
-  const cut = value.indexOf("/");
-  return cut === -1
-    ? { category: value, subcategory: null }
-    : { category: value.slice(0, cut), subcategory: value.slice(cut + 1) };
-}
-
-export const haystackOf = (t: {
-  description: string;
-  counterparty: string | null;
-  remoteAccountNumber: string | null;
-}): string =>
-  `${t.description} ${t.counterparty ?? ""} ${t.remoteAccountNumber ?? ""}`.toLowerCase();
-
-export function compile(pattern: string, source: string): Matcher {
-  const asRegex = /^\/(.+)\/([a-z]*)$/.exec(pattern);
-  if (!asRegex) {
-    const needle = pattern.toLowerCase();
-    return (h) => h.includes(needle);
-  }
-  try {
-    // Match without case. The code makes the haystack lowercase first.
-    const re = new RegExp(asRegex[1]!, asRegex[2]!.replace("i", "") + "i");
-    return (h) => re.test(h);
-  } catch (e) {
-    throw new Error(
-      `${source}: ${pattern} is not a valid regex — ${e instanceof Error ? e.message : e}`,
-    );
-  }
-}
+type Rule = { matches: (haystack: string) => boolean; category: string };
 
 export function categorize(
   txns: Classified[],

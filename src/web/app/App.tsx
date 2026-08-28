@@ -26,6 +26,7 @@ import {
   type Filters,
   type Period,
 } from "../../core/select.ts";
+import { RULE_FILES, type RuleFile } from "../../core/ruleFiles.ts";
 import type { ExcludedSummary } from "../../core/stats.ts";
 import {
   byMonth,
@@ -55,6 +56,7 @@ import {
   type Bucket,
 } from "./Charts.tsx";
 import { FilterBar, type View } from "./FilterBar.tsx";
+import { FileDialog, RuleTabs, RulesView } from "./Rules.tsx";
 import { ShortcutsDialog, useShortcuts, type Shortcut } from "./Shortcuts.tsx";
 import {
   THEMES,
@@ -62,6 +64,7 @@ import {
   setTheme,
   useHideOnScroll,
   useRefresh,
+  useRules,
   useTransactions,
   type Load,
   type Refresh,
@@ -478,12 +481,14 @@ interface TransactionsViewProps {
   rows: Categorized[];
   filters: Filters;
   onFilters: SetFilters;
+  onFile: (txn: Categorized) => void;
 }
 
 const TransactionsView = ({
   rows,
   filters,
   onFilters,
+  onFile,
 }: TransactionsViewProps) => {
   const search = useDeferredValue(filters.search);
   const shown = rows.filter((t) => matchesFilters(t, { ...filters, search }));
@@ -508,6 +513,7 @@ const TransactionsView = ({
           onMerchant={pick(onFilters, "merchants")}
           onCategory={pick(onFilters, "categories")}
           onAccount={pick(onFilters, "accounts")}
+          onFile={onFile}
         />
       </div>
 
@@ -650,8 +656,12 @@ const LoadNote = ({
 export const App = () => {
   const [load, reload] = useTransactions();
   const refresh = useRefresh(reload);
+  // A rule edit rebuilds the database, so the page must read the rows again.
+  const rules = useRules(reload);
+  const [filing, setFiling] = useState<Categorized | null>(null);
   const [initial] = useState(readUrl);
   const [view, setView] = useState<View>(initial.view);
+  const [ruleFile, setRuleFile] = useState<RuleFile>("overrides");
   const [chosen, setChosen] = useState<string | null>(initial.period);
   const [filters, setFilters] = useState<Filters>(initial.filters);
   const [chosenGrain, setChosenGrain] = useState<Grain>(initial.grain);
@@ -671,6 +681,19 @@ export const App = () => {
   const years = useMemo(() => distinctYears(txns), [txns]);
 
   const record = useMemo(() => axisBounds(txns, period("all")), [txns]);
+
+  // Over the record, not over the period. A rule claims every row it matches,
+  // whichever month is on screen.
+  const pairs = useMemo(
+    () =>
+      [
+        ...new Set([
+          ...distinctCategories(txns),
+          ...distinctSubcategories(txns),
+        ]),
+      ].sort(),
+    [txns],
+  );
 
   const offered = [...months, ...years, "all"];
   const active =
@@ -699,6 +722,18 @@ export const App = () => {
     if (next) setChosen(next);
   };
 
+  // The arrows move what the reader can see. The rules page carries no period,
+  // so there they step the rule file instead.
+  const stepBy = (by: number) => {
+    if (view !== "rules") return step(by);
+    setRuleFile(
+      (f) =>
+        RULE_FILES[
+          (RULE_FILES.indexOf(f) + by + RULE_FILES.length) % RULE_FILES.length
+        ]!,
+    );
+  };
+
   const inView = active.slice(0, 4);
   const year = years.includes(inView) ? inView : years[years.length - 1];
   const lastMonthOf = (y: string) =>
@@ -706,28 +741,36 @@ export const App = () => {
 
   const shortcuts: Shortcut[] = [
     {
-      keys: ["d"],
-      cap: "D",
+      keys: ["d", "1"],
+      cap: "D 1",
       what: "Dashboard",
       run: () => changeView("dashboard"),
     },
     {
-      keys: ["t"],
-      cap: "T",
+      keys: ["t", "2"],
+      cap: "T 2",
       what: "Transactions",
       run: () => changeView("transactions"),
     },
     {
+      keys: ["l", "3"],
+      cap: "L 3",
+      what: "Rules",
+      run: () => changeView("rules"),
+    },
+    {
       keys: ["ArrowLeft"],
       cap: "←",
-      what: "The month or year before",
-      run: () => step(-1),
+      what:
+        view === "rules" ? "The rule file before" : "The month or year before",
+      run: () => stepBy(-1),
     },
     {
       keys: ["ArrowRight"],
       cap: "→",
-      what: "The month or year after",
-      run: () => step(1),
+      what:
+        view === "rules" ? "The rule file after" : "The month or year after",
+      run: () => stepBy(1),
     },
     { keys: ["a"], cap: "A", what: "All time", run: () => setChosen("all") },
     {
@@ -874,6 +917,9 @@ export const App = () => {
           <FilterBar
             view={view}
             onView={changeView}
+            tabs={
+              <RuleTabs rules={rules} file={ruleFile} onFile={setRuleFile} />
+            }
             months={months}
             years={years}
             period={active}
@@ -902,27 +948,46 @@ export const App = () => {
       />
 
       <div className="mx-auto max-w-295 px-3 py-4 sm:px-6 sm:py-6">
-        <LoadNote load={load} count={txns.length} refresh={refresh} />
-        {ready &&
-          (view === "dashboard" ? (
-            <Dashboard
-              txns={txns}
-              all={inPeriod}
-              filters={filters}
-              onFilters={setFilters}
-              period={p}
-              grain={grain}
-              offered={grains}
-              onGrain={setChosenGrain}
-            />
-          ) : (
-            <TransactionsView
-              rows={inPeriod}
-              filters={filters}
-              onFilters={setFilters}
-            />
-          ))}
+        {/* The rules stand on their own. They are readable and editable before
+            the first sync, so no load state gates them. */}
+        {view === "rules" ? (
+          <RulesView rules={rules} txns={txns} pairs={pairs} file={ruleFile} />
+        ) : (
+          <>
+            <LoadNote load={load} count={txns.length} refresh={refresh} />
+            {ready &&
+              (view === "dashboard" ? (
+                <Dashboard
+                  txns={txns}
+                  all={inPeriod}
+                  filters={filters}
+                  onFilters={setFilters}
+                  period={p}
+                  grain={grain}
+                  offered={grains}
+                  onGrain={setChosenGrain}
+                />
+              ) : (
+                <TransactionsView
+                  rows={inPeriod}
+                  filters={filters}
+                  onFilters={setFilters}
+                  onFile={setFiling}
+                />
+              ))}
+          </>
+        )}
       </div>
+
+      {filing && (
+        <FileDialog
+          txn={filing}
+          rules={rules}
+          txns={txns}
+          pairs={pairs}
+          onClose={() => setFiling(null)}
+        />
+      )}
     </>
   );
 };

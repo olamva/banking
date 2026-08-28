@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Axis, Filters, PeriodKind } from "../../core/select.ts";
 import { AXES, NO_COUNTRY, NO_FILTERS } from "../../core/select.ts";
 import { pairLabel, treeLabel } from "./format.ts";
@@ -10,11 +10,16 @@ import {
   SearchIcon,
 } from "./icons.ts";
 
-export type View = "dashboard" | "transactions";
+export type View = "dashboard" | "transactions" | "rules";
+
+const VIEWS: View[] = ["dashboard", "transactions", "rules"];
 
 interface FilterBarProps {
   view: View;
   onView: (view: View) => void;
+  // What the rules page puts where the filters go. This bar knows no rule, so
+  // App composes it and hands it over whole.
+  tabs: ReactNode;
   months: string[];
   years: string[];
   period: string;
@@ -664,6 +669,7 @@ const PeriodMenu = ({
 export const FilterBar = ({
   view,
   onView,
+  tabs,
   months,
   years,
   period,
@@ -725,21 +731,53 @@ export const FilterBar = ({
     picked + (filters.search !== "" && view !== "transactions" ? 1 : 0);
   const dirty = picked > 0 || filters.search !== "" || filters.showExcluded;
 
+  const views = (
+    <div
+      role="tablist"
+      aria-label="Page"
+      className="inline-flex overflow-hidden rounded-md border border-line"
+    >
+      {VIEWS.map((v, i) => (
+        <button
+          key={v}
+          type="button"
+          role="tab"
+          aria-selected={view === v}
+          tabIndex={view === v ? 0 : -1}
+          onClick={() => onView(v)}
+          onKeyDown={(e) => {
+            const by =
+              e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+            if (!by) return;
+            e.preventDefault();
+            const next = (i + by + VIEWS.length) % VIEWS.length;
+            onView(VIEWS[next]!);
+            e.currentTarget.parentElement
+              ?.querySelectorAll<HTMLButtonElement>("[role=tab]")
+              [next]?.focus({ preventScroll: true });
+          }}
+          className={`px-3 py-1.5 text-[13px] capitalize ${view === v ? "bg-series-1 text-white" : "bg-page text-ink-soft"}`}
+        >
+          {v}
+        </button>
+      ))}
+    </div>
+  );
+
+  // The rules are not a period and they take no filter. The rule files take
+  // the row instead, rather than a line of controls that change nothing on the
+  // page below.
+  if (view === "rules")
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        {views}
+        {tabs}
+      </div>
+    );
+
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="inline-flex overflow-hidden rounded-md border border-line">
-        {(["dashboard", "transactions"] as const).map((v) => (
-          <button
-            key={v}
-            type="button"
-            aria-pressed={view === v}
-            onClick={() => onView(v)}
-            className={`px-3 py-1.5 text-[13px] capitalize ${view === v ? "bg-series-1 text-white" : "bg-page text-ink-soft"}`}
-          >
-            {v}
-          </button>
-        ))}
-      </div>
+      {views}
 
       {/* One menu: the years, and the months of whichever one is pointed at. */}
       <PeriodMenu

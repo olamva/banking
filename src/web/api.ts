@@ -1,7 +1,21 @@
 import { existsSync, readFileSync } from "node:fs";
 import { openDb, queryRange } from "../core/db.ts";
 import { RULES_DIR } from "../core/paths.ts";
-import { DB_FILE } from "../core/pipeline.ts";
+import { DB_FILE, rebuildAll } from "../core/pipeline.ts";
+import {
+  RULE_FILES,
+  current,
+  history,
+  isRuleFile,
+  loadAll,
+  redo,
+  restore,
+  save,
+  saveValues,
+  undo,
+  type Edit,
+  type RuleFile,
+} from "../core/rules.ts";
 
 const CATEGORY_NAMES = `${RULES_DIR}/categories.json`;
 
@@ -41,4 +55,129 @@ export function refresh(): Promise<Refreshed> {
     running = null;
   });
   return running;
+}
+
+// The newest versions only. The whole record is on disk, and a page of two
+// hundred stamps helps nobody.
+const SHOWN_VERSIONS = 30;
+
+export const rulesPayload = (): string =>
+  JSON.stringify({
+    files: loadAll(),
+    history: Object.fromEntries(
+      RULE_FILES.map((f) => [f, history(f, SHOWN_VERSIONS)]),
+    ),
+    // Which version each live file holds. The page marks it, and it is the
+    // point that undo and redo step from.
+    at: Object.fromEntries(RULE_FILES.map((f) => [f, current(f)])),
+  });
+
+export type Edited = { rows: number; at: number };
+
+// A rule change moves rows between categories, and the database holds the
+// result rather than the rule. Rebuild before the answer, or the page reloads
+// the categories it already had.
+// ponytail: no queue. One replica, one reader, and a rebuild is about a
+// second. Serialise this with the refresh when two writers become real.
+const applied = async (at: number): Promise<Edited> => ({
+  rows: await rebuildAll(),
+  at,
+});
+
+export const editRule = (edit: Edit): Promise<Edited> => applied(save(edit));
+
+export const editValues = (
+  file: RuleFile,
+  keys: string[],
+  value: string,
+): Promise<Edited> => applied(saveValues(file, keys, value));
+
+export const undoRule = (file: RuleFile): Promise<Edited> =>
+  applied(undo(file));
+
+export const redoRule = (file: RuleFile): Promise<Edited> =>
+  applied(redo(file));
+
+export const restoreRule = (file: RuleFile, at: number): Promise<Edited> =>
+  applied(restore(file, at));
+
+// Every value below arrives in a query string. The file name is the one that
+// could name a path, and `isRuleFile` is the whole guard on it.
+export function ruleEdit(params: URLSearchParams): Edit {
+  const file = params.get("file");
+  if (!isRuleFile(file)) throw new Error(`no such rule file: ${file}`);
+  const was = params.get("was");
+  return {
+    file,
+    key: params.get("key") ?? "",
+    value: params.get("value") ?? "",
+    remove: params.get("remove") === "1",
+    ...(was === null ? {} : { was }),
+  };
+}
+
+export function ruleTarget(params: URLSearchParams): RuleFile {
+  const file = params.get("file");
+  if (!isRuleFile(file)) throw new Error(`no such rule file: ${file}`);
+  return file;
+}
+
+export function ruleVersion(params: URLSearchParams): number {
+  const at = Number(params.get("at"));
+  if (!Number.isInteger(at) || at <= 0) throw new Error("no such version");
+  return at;
+}
+
+export type Answer = { status: number; body: string };
+
+const ok = (value: unknown): Answer => ({
+  status: 200,
+  body: JSON.stringify(value),
+});
+
+const bad = (status: number, e: unknown): Answer => ({
+  status,
+  body: JSON.stringify({ error: e instanceof Error ? e.message : String(e) }),
+});
+
+// One router for both hosts. `pnpm dev` and the hosted server each own their
+// transport, and neither owns a copy of these rules.
+export function rulesRoute(
+  path: string,
+  params: URLSearchParams,
+  header: string | undefined,
+): Promise<Answer> | null {
+  if (path === "/api/rules") {
+    try {
+      return Promise.resolve({ status: 200, body: rulesPayload() });
+    } catch (e) {
+      return Promise.resolve(bad(500, e));
+    }
+  }
+  if (!path.startsWith("/api/rules/")) return null;
+
+  // The same guard the refresh carries, and for the same reason. A custom
+  // header cannot cross an origin without a preflight, and none is answered.
+  if (header !== "1")
+    return Promise.resolve(bad(405, new Error("needs X-Banking-Rules: 1")));
+
+  let work: Promise<Edited>;
+  try {
+    if (path === "/api/rules/save") work = editRule(ruleEdit(params));
+    else if (path === "/api/rules/group")
+      work = editValues(
+        ruleTarget(params),
+        params.getAll("key"),
+        params.get("value") ?? "",
+      );
+    else if (path === "/api/rules/undo") work = undoRule(ruleTarget(params));
+    else if (path === "/api/rules/redo") work = redoRule(ruleTarget(params));
+    else if (path === "/api/rules/restore")
+      work = restoreRule(ruleTarget(params), ruleVersion(params));
+    else return Promise.resolve(bad(404, new Error(`no route ${path}`)));
+  } catch (e) {
+    // A rejected pattern or an unknown file. The caller sent it, so say so.
+    return Promise.resolve(bad(400, e));
+  }
+  return work.then(ok, (e: unknown) => bad(500, e));
 }
