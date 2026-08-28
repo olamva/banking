@@ -6,7 +6,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { compile, splitCategory } from "./categorize.ts";
+import { compile, splitCategory } from "./match.ts";
 import { RULES_DIR } from "./paths.ts";
 import {
   CATEGORY_VALUED,
@@ -17,9 +17,6 @@ import {
   type RuleFile,
   type Rules,
 } from "./ruleFiles.ts";
-
-export { RULE_FILES, isRuleFile } from "./ruleFiles.ts";
-export type { RuleFile, RuleMap, Rules } from "./ruleFiles.ts";
 
 const live = (file: RuleFile) => `${RULES_DIR}/${file}.json`;
 

@@ -2,11 +2,10 @@ import { existsSync, readFileSync } from "node:fs";
 import { openDb, queryRange } from "../core/db.ts";
 import { RULES_DIR } from "../core/paths.ts";
 import { DB_FILE, rebuildAll } from "../core/pipeline.ts";
+import { RULE_FILES, isRuleFile, type RuleFile } from "../core/ruleFiles.ts";
 import {
-  RULE_FILES,
   current,
   history,
-  isRuleFile,
   loadAll,
   redo,
   restore,
@@ -14,7 +13,6 @@ import {
   saveValues,
   undo,
   type Edit,
-  type RuleFile,
 } from "../core/rules.ts";
 
 const CATEGORY_NAMES = `${RULES_DIR}/categories.json`;
@@ -84,23 +82,6 @@ const applied = async (at: number): Promise<Edited> => ({
   at,
 });
 
-export const editRule = (edit: Edit): Promise<Edited> => applied(save(edit));
-
-export const editValues = (
-  file: RuleFile,
-  keys: string[],
-  value: string,
-): Promise<Edited> => applied(saveValues(file, keys, value));
-
-export const undoRule = (file: RuleFile): Promise<Edited> =>
-  applied(undo(file));
-
-export const redoRule = (file: RuleFile): Promise<Edited> =>
-  applied(redo(file));
-
-export const restoreRule = (file: RuleFile, at: number): Promise<Edited> =>
-  applied(restore(file, at));
-
 // Every value below arrives in a query string. The file name is the one that
 // could name a path, and `isRuleFile` is the whole guard on it.
 export function ruleEdit(params: URLSearchParams): Edit {
@@ -163,17 +144,21 @@ export function rulesRoute(
 
   let work: Promise<Edited>;
   try {
-    if (path === "/api/rules/save") work = editRule(ruleEdit(params));
+    if (path === "/api/rules/save") work = applied(save(ruleEdit(params)));
     else if (path === "/api/rules/group")
-      work = editValues(
-        ruleTarget(params),
-        params.getAll("key"),
-        params.get("value") ?? "",
+      work = applied(
+        saveValues(
+          ruleTarget(params),
+          params.getAll("key"),
+          params.get("value") ?? "",
+        ),
       );
-    else if (path === "/api/rules/undo") work = undoRule(ruleTarget(params));
-    else if (path === "/api/rules/redo") work = redoRule(ruleTarget(params));
+    else if (path === "/api/rules/undo")
+      work = applied(undo(ruleTarget(params)));
+    else if (path === "/api/rules/redo")
+      work = applied(redo(ruleTarget(params)));
     else if (path === "/api/rules/restore")
-      work = restoreRule(ruleTarget(params), ruleVersion(params));
+      work = applied(restore(ruleTarget(params), ruleVersion(params)));
     else return Promise.resolve(bad(404, new Error(`no route ${path}`)));
   } catch (e) {
     // A rejected pattern or an unknown file. The caller sent it, so say so.
