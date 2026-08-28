@@ -37,6 +37,11 @@ interface FilterBarProps {
 const CONTROL =
   "rounded-md border border-line bg-page px-2 py-1.5 text-[13px] text-ink";
 
+// A phone gives each control of a group an equal share of one line, because
+// none of them needs the whole width. Above `sm` the group is only the gap
+// between its members, so the bar reads as one row of controls.
+const GROUP = "flex flex-wrap items-center gap-2 max-sm:w-full max-sm:*:flex-1";
+
 const MONTH_NAMES = [
   "January",
   "February",
@@ -86,6 +91,7 @@ interface PickerProps {
   subs?: (option: string) => string[];
   subLabel?: (value: string) => string;
   people?: ReadonlySet<string>;
+  right?: boolean;
 }
 
 type Kind = "all" | "people" | "business";
@@ -108,6 +114,7 @@ const Picker = ({
   subs,
   subLabel = (v) => v,
   people,
+  right = false,
 }: PickerProps) => {
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState<Kind>("all");
@@ -240,12 +247,12 @@ const Picker = ({
   return (
     <details
       ref={menu}
-      className="group relative max-sm:w-full select-none"
+      className="group relative select-none"
       onToggle={toggled}
     >
       {/* The caret is the only thing saying this opens rather than toggles. */}
       <summary
-        className={`${CONTROL} flex list-none items-center gap-1.5 marker:content-none`}
+        className={`${CONTROL} flex list-none items-center gap-1.5 whitespace-nowrap marker:content-none`}
       >
         {title}
         {/* Both lists in one count: two ticks is two filters, whichever way
@@ -262,11 +269,11 @@ const Picker = ({
       {open && (
         <div
           onKeyDown={navigate}
-          /* Do not add `max-w-full`. The containing block is the `details`. Above `sm`
-             the `details` is only as wide as its summary, so `max-w-full` would clamp a
-             256px panel to a 130px button. Below `sm` the `details` already fills the
-             width. */
-          className="absolute left-0 z-20 mt-1 flex max-h-72 w-64 flex-col rounded-md border border-line bg-surface p-1.5 shadow-lg"
+          /* Do not add `max-w-full`. The containing block is the `details`, which is
+             only as wide as its summary, so `max-w-full` would clamp a 256px panel to
+             a 130px button. The right-hand picker of a pair hangs from its right edge
+             instead, because 256px from its left edge is past the screen. */
+          className={`absolute ${right ? "right-0" : "left-0"} z-20 mt-1 flex max-h-72 w-64 flex-col rounded-md border border-line bg-surface p-1.5 shadow-lg`}
         >
           {/* Only where the caller says the list splits, which is merchants
               alone. Three plain buttons rather than a select: the whole control
@@ -719,7 +726,7 @@ export const FilterBar = ({
   const dirty = picked > 0 || filters.search !== "" || filters.showExcluded;
 
   return (
-    <div className="mb-5 flex flex-wrap items-center gap-2 rounded-[10px] border border-line bg-surface px-3 py-2.5">
+    <div className="flex flex-wrap items-center gap-2">
       <div className="inline-flex overflow-hidden rounded-md border border-line">
         {(["dashboard", "transactions"] as const).map((v) => (
           <button
@@ -774,60 +781,66 @@ export const FilterBar = ({
 
       {/* A tree: each category opens into the subcategories the bank names under
           it, and both levels go into one list — see `Filters.categories`. */}
-      <Picker
-        title="Categories"
-        options={categories}
-        picked={filters.categories}
-        excluded={filters.categoriesOut}
-        onToggle={toggleCategory}
-        label={(c) => treeLabel(c, subsOf(c))}
-        subs={subsOf}
-        subLabel={pairLabel}
-      />
+      <div className={GROUP}>
+        <Picker
+          title="Categories"
+          options={categories}
+          picked={filters.categories}
+          excluded={filters.categoriesOut}
+          onToggle={toggleCategory}
+          label={(c) => treeLabel(c, subsOf(c))}
+          subs={subsOf}
+          subLabel={pairLabel}
+        />
 
-      <Picker
-        title="Merchants"
-        options={merchants}
-        picked={filters.merchants}
-        excluded={filters.merchantsOut}
-        onToggle={toggleMerchant}
-        people={people}
-      />
+        <Picker
+          title="Merchants"
+          options={merchants}
+          picked={filters.merchants}
+          excluded={filters.merchantsOut}
+          onToggle={toggleMerchant}
+          people={people}
+          right
+        />
+      </div>
 
-      {/* A handful of accounts, so it needs no search box either. */}
-      <Picker
-        title="Accounts"
-        options={accounts}
-        picked={filters.accounts}
-        excluded={filters.accountsOut}
-        onToggle={toggleAccount}
-      />
+      <div className={GROUP}>
+        {/* A handful of accounts, so it needs no search box either. */}
+        <Picker
+          title="Accounts"
+          options={accounts}
+          picked={filters.accounts}
+          excluded={filters.accountsOut}
+          onToggle={toggleAccount}
+        />
 
-      {/* Only card rows carry a country, so the list is short and the dash at
-          the end of it is every other row — see `NO_COUNTRY`. */}
-      <Picker
-        title="Countries"
-        options={countries}
-        picked={filters.countries}
-        excluded={filters.countriesOut}
-        onToggle={toggleCountry}
-        label={(c) => (c === NO_COUNTRY ? "No country" : c)}
-      />
+        {/* Only card rows carry a country, so the list is short and the dash at
+            the end of it is every other row — see `NO_COUNTRY`. */}
+        <Picker
+          title="Countries"
+          options={countries}
+          picked={filters.countries}
+          excluded={filters.countriesOut}
+          onToggle={toggleCountry}
+          label={(c) => (c === NO_COUNTRY ? "No country" : c)}
+          right
+        />
 
-      {/* Not a Picker: there is nothing to pick, only whether the flagged rows
-          are listed at all. No number moves either way — `stats.ts` has already
-          left them out of every sum — so this shows the audit trail, and never
-          re-counts a transfer as spending. */}
-      <button
-        type="button"
-        aria-pressed={filters.showExcluded}
-        onClick={() =>
-          onFilters({ ...filters, showExcluded: !filters.showExcluded })
-        }
-        className={`${CONTROL} ${filters.showExcluded ? "bg-series-1 text-white" : "text-ink-soft"}`}
-      >
-        Excluded rows
-      </button>
+        {/* Not a Picker: there is nothing to pick, only whether the flagged rows
+            are listed at all. No number moves either way — `stats.ts` has already
+            left them out of every sum — so this shows the audit trail, and never
+            re-counts a transfer as spending. */}
+        <button
+          type="button"
+          aria-pressed={filters.showExcluded}
+          onClick={() =>
+            onFilters({ ...filters, showExcluded: !filters.showExcluded })
+          }
+          className={`${CONTROL} whitespace-nowrap ${filters.showExcluded ? "bg-series-1 text-white" : "text-ink-soft"}`}
+        >
+          Excluded rows
+        </button>
+      </div>
 
       {/* What is on, opened into which — and the only Reset there is. `ml-auto`
           keeps it where the Reset button used to sit, at the end of the bar. */}
