@@ -34,6 +34,7 @@ import {
   RemovedIcon,
   UndoIcon,
 } from "./icons.ts";
+import { Modal } from "./Modal.tsx";
 
 export const RULE_LABEL: Record<RuleFile, string> = {
   overrides: "Overrides",
@@ -117,11 +118,7 @@ interface MatchDialogProps {
 }
 
 const MatchDialog = ({ txns, onClose }: MatchDialogProps) => (
-  <dialog
-    ref={(el) => el?.showModal()}
-    onClose={onClose}
-    className="m-auto w-[min(900px,94vw)] rounded-xl border border-line bg-surface p-5 text-ink shadow-2xl backdrop:bg-black/50"
-  >
+  <Modal onClose={onClose} className="w-[min(900px,94vw)] p-5">
     <div className="mb-3 flex items-center justify-between gap-3">
       <h2 className="text-base font-semibold">
         Matching transactions ({txns.length})
@@ -159,7 +156,7 @@ const MatchDialog = ({ txns, onClose }: MatchDialogProps) => (
         fmtNOKExact(txn.amount),
       ])}
     />
-  </dialog>
+  </Modal>
 );
 
 // What the pattern claims, before it is saved. A regex that reads as narrow and
@@ -921,13 +918,7 @@ export const FileDialog = ({
   const ready = pattern.trim() !== "" && value.trim() !== "";
 
   return (
-    <dialog
-      ref={(el) => {
-        el?.showModal();
-      }}
-      onClose={onClose}
-      className="m-auto w-[min(480px,92vw)] rounded-xl border border-line bg-surface p-0 text-ink shadow-2xl backdrop:bg-black/50"
-    >
+    <Modal onClose={onClose} className="w-[min(480px,92vw)]">
       <form
         method="dialog"
         className="flex flex-col gap-3 p-5"
@@ -975,6 +966,6 @@ export const FileDialog = ({
           </button>
         </div>
       </form>
-    </dialog>
+    </Modal>
   );
 };
