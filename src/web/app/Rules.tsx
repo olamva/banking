@@ -10,7 +10,13 @@ import {
 } from "../../core/ruleFiles.ts";
 import { merchantOf } from "../../core/select.ts";
 import type { Categorized } from "../../core/types.ts";
-import { AMOUNT_SIZE_EXACT, Card, DataTable, SearchBox } from "./Cards.tsx";
+import {
+  AMOUNT_SIZE_EXACT,
+  Card,
+  DataTable,
+  SearchBox,
+  TxnDialog,
+} from "./Cards.tsx";
 import type { RulesApi } from "./data.ts";
 import {
   categoryColor,
@@ -117,36 +123,44 @@ interface MatchTableProps {
   loading: boolean;
 }
 
-const MatchTable = ({ txns, loading }: MatchTableProps) => (
-  <div
-    className={`mt-2 rounded-md border border-line bg-surface p-2 transition-opacity ${loading ? "pointer-events-none opacity-40" : ""}`}
-  >
-    <DataTable
-      scroll
-      columns={[
-        { label: "Date", min: true },
-        { label: "Merchant / description" },
-        { label: "Category", min: true },
-        { label: "Account", min: true },
-        {
-          label: "Amount",
-          num: true,
-          min: true,
-          sizer: AMOUNT_SIZE_EXACT,
-        },
-      ]}
-      rows={txns.map((txn) => [
-        fmtDate(txn.date),
-        merchantOf(txn),
-        <span style={{ color: categoryColor(txn.category) }}>
-          {rowLabel(txn.category, txn.subcategory)}
-        </span>,
-        txn.account,
-        fmtNOKExact(txn.amount),
-      ])}
-    />
-  </div>
-);
+const MatchTable = ({ txns, loading }: MatchTableProps) => {
+  const [selected, setSelected] = useState<Categorized | null>(null);
+
+  return (
+    <div
+      className={`mt-2 rounded-md border border-line bg-surface p-2 text-ink transition-opacity ${loading ? "pointer-events-none opacity-70" : ""}`}
+    >
+      <DataTable
+        scroll
+        onRow={(i) => setSelected(txns[i] ?? null)}
+        columns={[
+          { label: "Date", min: true },
+          { label: "Merchant / description" },
+          { label: "Category", min: true },
+          { label: "Account", min: true },
+          {
+            label: "Amount",
+            num: true,
+            min: true,
+            sizer: AMOUNT_SIZE_EXACT,
+          },
+        ]}
+        rows={txns.map((txn) => [
+          fmtDate(txn.date),
+          merchantOf(txn),
+          <span style={{ color: categoryColor(txn.category) }}>
+            {rowLabel(txn.category, txn.subcategory)}
+          </span>,
+          txn.account,
+          fmtNOKExact(txn.amount),
+        ])}
+      />
+      {selected && (
+        <TxnDialog txn={selected} onClose={() => setSelected(null)} />
+      )}
+    </div>
+  );
+};
 
 // What the pattern claims, before it is saved. A regex that reads as narrow and
 // matches four hundred rows is the failure this exists to catch.

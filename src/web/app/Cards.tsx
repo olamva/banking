@@ -562,7 +562,7 @@ const SHOWN_ABOVE = [
 const ROW =
   "flex items-baseline justify-between gap-4 border-b border-line py-1.5 last:border-0";
 
-const TxnDialog = ({ txn, onClose, onFile }: TxnDialogProps) => {
+export const TxnDialog = ({ txn, onClose, onFile }: TxnDialogProps) => {
   const bank = bankLabel(txn);
 
   return (
