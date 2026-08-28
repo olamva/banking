@@ -34,13 +34,16 @@ pnpm dev --port 4001                # the main checkout uses 4000
 Install the application CLI one time. Run it from any directory on this computer.
 
 ```bash
-pnpm link --global
+ln -s "$PWD/src/bank.ts" ~/.local/bin/banking
 
 banking balances
 banking transactions --from 2026-08-01 --to 2026-08-31
 banking transaction <id>
 banking totals --from 2026-01-01 --to 2026-08-31
 ```
+
+The link stays correct, because it points at the file. A later `git pull` needs no
+second install. Use `pnpm bank <command>` in this checkout to skip the link.
 
 The CLI writes JSON. It reads this checkout, even when another directory is current.
 It never calls SB1 or Azure.

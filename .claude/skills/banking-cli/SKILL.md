@@ -13,7 +13,7 @@ fetch new transactions, or run `pnpm sb1 rebuild` after a rules edit.
 
 ```bash
 pnpm bank <command>      # in this checkout
-banking <command>        # after `pnpm link --global`, from any directory
+banking <command>        # after the README link, from any directory
 ```
 
 The global command reads this checkout, whatever directory is current.

@@ -1,5 +1,10 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, symlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import { parseOptions } from "../src/bank.ts";
 
 test("the application CLI parses period and transaction filters", () => {
@@ -36,4 +41,12 @@ test("the application CLI rejects an invalid period", () => {
     () => parseOptions(["--from", "2026-09-01", "--to", "2026-08-01"]),
     /must not follow/,
   );
+});
+
+test("the application CLI runs through a symlink on the PATH", () => {
+  const link = join(mkdtempSync(join(tmpdir(), "bank-")), "banking");
+  symlinkSync(fileURLToPath(new URL("../src/bank.ts", import.meta.url)), link);
+  const run = spawnSync(process.execPath, [link], { encoding: "utf8" });
+  assert.equal(run.status, 1);
+  assert.match(run.stderr, /^usage: banking/);
 });

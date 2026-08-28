@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { openDb, queryRange } from "./core/db.ts";
 import {
@@ -170,7 +170,9 @@ export function execute(argv: string[]): unknown {
   fail(usage);
 }
 
-if (process.argv[1] === import.meta.filename) {
+// argv[1] is the symlink a PATH entry uses. import.meta.filename is the real
+// file. Compare the resolved paths, or the command exits 0 and prints nothing.
+if (process.argv[1] && realpathSync(process.argv[1]) === import.meta.filename) {
   try {
     console.log(JSON.stringify(execute(process.argv.slice(2)), null, 2));
   } catch (error) {
