@@ -172,28 +172,6 @@
   }
 
   /*
-   * The header returns from above the top of the window. It leaves by
-   * scrolling, like any other content, so only the return needs an animation.
-   * The class is on the element only while it sticks, so the browser plays this
-   * once for each return.
-   */
-  .slide-down {
-    animation: slide-down 0.2s ease-out;
-  }
-
-  @keyframes slide-down {
-    from {
-      transform: translateY(-100%);
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .slide-down {
-      animation: none;
-    }
-  }
-
-  /*
    * 100% to -100% is a shift of one whole tile, and the gradient ends on the
    * same colour it starts on. The loop therefore has no seam. Half a tile ends
    * with the band on the far side of the word and restarts it on the near

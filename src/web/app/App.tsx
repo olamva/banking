@@ -2,6 +2,7 @@ import {
   useDeferredValue,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type Dispatch,
   type SetStateAction,
@@ -57,8 +58,8 @@ import {
   THEMES,
   readTheme,
   setTheme,
+  useHideOnScroll,
   useRefresh,
-  useStickyOnScrollUp,
   useTransactions,
   type Load,
   type Refresh,
@@ -651,7 +652,8 @@ export const App = () => {
   const [chosenGrain, setChosenGrain] = useState<Grain>(initial.grain);
   const [theme, onTheme] = useState<Theme>(readTheme);
   const [help, setHelp] = useState(false);
-  const shown = useStickyOnScrollUp();
+  const header = useRef<HTMLElement>(null);
+  const hidden = useHideOnScroll(header);
 
   if (load.status === "ready") {
     setLabels(load.labels);
@@ -848,11 +850,13 @@ export const App = () => {
   return (
     <>
       {/* One bar holds the title, the three controls and every filter. It
-          scrolls away like any other content, and it returns on a scroll up, so
-          a phone reads the page at full height and reaches the filters without
-          a scroll to the top. */}
+          leaves on a scroll down and returns on a scroll up, so a phone reads
+          the page at full height and reaches the filters without a scroll to
+          the top. An open picker holds it, because a long list scrolls the page
+          on at its end, and that would take the list off the screen. */}
       <header
-        className={`z-30 border-b border-line bg-page ${shown ? "sticky top-0 slide-down" : "relative"}`}
+        ref={header}
+        className={`sticky top-0 z-30 border-b border-line bg-page transition-transform duration-200 has-[details[open]]:translate-y-0 motion-reduce:transition-none ${hidden ? "-translate-y-full" : ""}`}
       >
         <div className="mx-auto max-w-295 space-y-2.5 px-3 py-2.5 sm:px-6 sm:py-3">
           <Toolbar

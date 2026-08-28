@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type RefObject } from "react";
 import { buildLabels, type Labels, type Names } from "../../core/labels.ts";
 import type { Categorized } from "../../core/types.ts";
 
@@ -89,32 +89,37 @@ export const useRefresh = (onDone: () => void): Refresh => {
   return { busy, note, bad, run };
 };
 
-// The bar sticks only while the reader goes up. Going down it keeps its place
-// in the flow, so it leaves at the speed of the scroll, from the first pixel,
-// and it can never show the hole where it sat. A sticky bar that hides by any
-// other means shows that hole until the page scrolls its whole height.
-// 8 px ignores the jitter that a tap makes on iOS, and the rubber band.
-export const headerShown = (
+// A sticky header keeps its place in the flow, so the space it sat in is still
+// on the screen until the page scrolls its own height. Hiding it before that
+// leaves a hole at the top. 8 px ignores the jitter that a tap makes on iOS,
+// and the rubber band at both ends.
+export const headerHidden = (
   y: number,
   last: number,
-  shown: boolean,
-): boolean => (Math.abs(y - last) < 8 ? shown : y < last);
+  hidden: boolean,
+  height: number,
+): boolean => (Math.abs(y - last) < 8 ? hidden : y > last && y > height);
 
-export const useStickyOnScrollUp = (): boolean => {
-  const [shown, setShown] = useState(false);
+// Measured, never assumed: the bar grows a line as the filters wrap, and it
+// grows another when a refresh reports.
+export const useHideOnScroll = (
+  header: RefObject<HTMLElement | null>,
+): boolean => {
+  const [hidden, setHidden] = useState(false);
 
   useEffect(() => {
     let last = window.scrollY;
     const onScroll = () => {
       const y = window.scrollY;
-      setShown((was) => headerShown(y, last, was));
+      const height = header.current?.offsetHeight ?? 0;
+      setHidden((was) => headerHidden(y, last, was, height));
       if (Math.abs(y - last) >= 8) last = y;
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+  }, [header]);
 
-  return shown;
+  return hidden;
 };
 
 export const THEMES = ["system", "light", "dark"] as const;
