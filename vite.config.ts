@@ -1,3 +1,4 @@
+import { existsSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
@@ -63,7 +64,20 @@ const api = (): Plugin => ({
   },
 });
 
-export default defineConfig(({ mode }) => {
+// A worktree links `data` to the main checkout, so a build there empties and
+// replaces the page that the main checkout deploys. `.git` is a file in a
+// worktree and a directory in the main checkout.
+const isWorktree = (): boolean => {
+  const dotGit = resolve(import.meta.dirname, ".git");
+  return existsSync(dotGit) && statSync(dotGit).isFile();
+};
+
+export default defineConfig(({ command, mode }) => {
+  if (command === "build" && isWorktree())
+    throw new Error(
+      "build from the main checkout: `data` is a link to it, and this build " +
+        "would replace the page that it deploys.",
+    );
   // The dashboard is offline, but the refresh endpoint is not. `pnpm dev` runs
   // vite, not `node --env-file`, so load .env.local here.
   Object.assign(process.env, loadEnv(mode, import.meta.dirname, ""));
@@ -77,6 +91,9 @@ export default defineConfig(({ mode }) => {
     server: {
       host: "127.0.0.1",
       port: 4000,
+      // Refuse a port that another server holds. Vite moves to the next port
+      // without it, and a request to 4000 then answers from the squatter.
+      strictPort: true,
       fs: { allow: [import.meta.dirname] },
     },
   };

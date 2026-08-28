@@ -58,6 +58,7 @@ pnpm sb1 accounts                   # writes data/raw/accounts.json and rules/ac
 # offline
 pnpm sb1 rebuild                    # rebuild data/banking.db from data/raw/, after a rules edit
 pnpm sb1 reconcile                  # does the history explain the balances?
+pnpm sb1 match "<pattern>"          # which rows does a rule pattern claim?
 pnpm sb1 budget                     # what SB1 last reported as left of its limit
 
 pnpm build                          # vite build -> data/dist. The hosted page only
@@ -192,6 +193,8 @@ A pattern inside slashes is a **regex**. Use one to match a word as a word. `"/\
   "/^(?!.*(?:sit kafe|sit storkiosk))(?=.*\\bsit\\b)/": "faste_utgifter/boligutgifter"
 }
 ```
+
+`pnpm sb1 match "<pattern>"` counts the rows that a pattern claims, before you write it into a file. It reads the name that `categorize` reads, which is the name **before** any rename in `rules/payees.json`. The database holds the name after the rename, so a pattern tested against the database can pass and then claim nothing.
 
 `pnpm sb1 rebuild` warns about every line that still depends on its position. It also prints the narrowed form for you to paste. The order means nothing, so the file is grouped by the category that it assigns. You may sort it again freely.
 
