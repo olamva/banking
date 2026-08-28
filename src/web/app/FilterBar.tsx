@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Axis, Filters, PeriodKind } from "../../core/select.ts";
 import { AXES, NO_COUNTRY, NO_FILTERS } from "../../core/select.ts";
 import { pairLabel, treeLabel } from "./format.ts";
@@ -17,6 +17,9 @@ const VIEWS: View[] = ["dashboard", "transactions", "rules"];
 interface FilterBarProps {
   view: View;
   onView: (view: View) => void;
+  // What the rules page puts where the filters go. This bar knows no rule, so
+  // App composes it and hands it over whole.
+  tabs: ReactNode;
   months: string[];
   years: string[];
   period: string;
@@ -666,6 +669,7 @@ const PeriodMenu = ({
 export const FilterBar = ({
   view,
   onView,
+  tabs,
   months,
   years,
   period,
@@ -760,10 +764,16 @@ export const FilterBar = ({
     </div>
   );
 
-  // The rules are not a period and they take no filter. Show the switch alone,
-  // rather than a row of controls that change nothing on the page below.
+  // The rules are not a period and they take no filter. The rule files take
+  // the row instead, rather than a line of controls that change nothing on the
+  // page below.
   if (view === "rules")
-    return <div className="flex flex-wrap items-center gap-2">{views}</div>;
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        {views}
+        {tabs}
+      </div>
+    );
 
   return (
     <div className="flex flex-wrap items-center gap-2">

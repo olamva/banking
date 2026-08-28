@@ -917,6 +917,9 @@ export const App = () => {
           <FilterBar
             view={view}
             onView={changeView}
+            tabs={
+              <RuleTabs rules={rules} file={ruleFile} onFile={setRuleFile} />
+            }
             months={months}
             years={years}
             period={active}
@@ -935,12 +938,6 @@ export const App = () => {
             filters={filters}
             onFilters={setFilters}
           />
-
-          {/* Below the page switch, because it names a part of this page. It
-              stays on the screen while the rules scroll. */}
-          {view === "rules" && (
-            <RuleTabs rules={rules} file={ruleFile} onFile={setRuleFile} />
-          )}
         </div>
       </header>
 
