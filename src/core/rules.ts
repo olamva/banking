@@ -137,6 +137,20 @@ export function save(edit: Edit): number {
   return commit(file, next);
 }
 
+export function saveValues(
+  file: RuleFile,
+  keys: string[],
+  value: string,
+): number {
+  if (keys.length === 0) throw new Error(`${file}.json needs a pattern`);
+  const current = load(file);
+  if (Array.isArray(current)) throw new Error(`${file}.json has no values`);
+  for (const key of keys) check({ file, key, value });
+  const next = { ...current };
+  for (const key of keys) if (key in next) next[key] = value;
+  return commit(file, next);
+}
+
 export function restore(file: RuleFile, at: number): number {
   const value = readVersion(file, at);
   if (value === null) throw new Error(`${file}.json has no version ${at}`);

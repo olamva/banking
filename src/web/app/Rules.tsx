@@ -14,6 +14,7 @@ import { pairLabel } from "./format.ts";
 import {
   CategoryIcon,
   CloseIcon,
+  DropdownIcon,
   ErrorIcon,
   Icon,
   InfoIcon,
@@ -118,19 +119,102 @@ const MatchNote = ({ pattern, haystacks }: MatchNoteProps) => {
   );
 };
 
-const PAIRS_ID = "known-category-pairs";
+interface CategoryInputProps {
+  value: string;
+  pairs: string[];
+  label: string;
+  className: string;
+  onChange: (value: string) => void;
+  onCommit?: (value: string) => void;
+}
 
-const CategoryList = ({ pairs }: { pairs: string[] }) => (
-  // A native datalist, so a phone gets the same completion the desktop gets and
-  // a free value is still allowed.
-  <datalist id={PAIRS_ID}>
-    {pairs.map((p) => (
-      <option key={p} value={p}>
-        {pairLabel(p)}
-      </option>
-    ))}
-  </datalist>
-);
+const CategoryInput = ({
+  value,
+  pairs,
+  label,
+  className,
+  onChange,
+  onCommit,
+}: CategoryInputProps) => {
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const q = value.trim().toLowerCase();
+  const shown = pairs
+    .filter(
+      (p) =>
+        !q ||
+        p.toLowerCase().includes(q) ||
+        pairLabel(p).toLowerCase().includes(q),
+    )
+    .slice(0, 50);
+  const choose = (next: string) => {
+    onChange(next);
+    onCommit?.(next);
+    setOpen(false);
+  };
+
+  return (
+    <div className="relative min-w-0 flex-1 basis-40">
+      <input
+        value={value}
+        aria-label={label}
+        placeholder={label}
+        onFocus={() => setOpen(true)}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setActive(0);
+          setOpen(true);
+        }}
+        onBlur={(e) => {
+          setOpen(false);
+          onCommit?.(e.target.value.trim());
+        }}
+        onKeyDown={(e) => {
+          if (
+            shown.length > 0 &&
+            (e.key === "ArrowDown" || e.key === "ArrowUp")
+          ) {
+            e.preventDefault();
+            const by = e.key === "ArrowDown" ? 1 : -1;
+            setActive((active + by + shown.length) % shown.length);
+          } else if (e.key === "Enter") {
+            e.preventDefault();
+            const selected = shown[active];
+            if (selected) choose(selected);
+            else e.currentTarget.blur();
+          } else if (e.key === "Escape") {
+            setOpen(false);
+          }
+        }}
+        className={`${className} w-full pr-7`}
+      />
+      <Icon
+        aria-hidden
+        icon={DropdownIcon}
+        size={14}
+        className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 text-ink-muted"
+      />
+      {open && shown.length > 0 && (
+        <div className="absolute left-0 z-20 mt-1 max-h-72 w-64 max-w-full overflow-y-auto rounded-md border border-line bg-surface p-1.5 shadow-lg">
+          {shown.map((pair, i) => (
+            <button
+              key={pair}
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => choose(pair)}
+              className={`block w-full rounded px-2 py-1.5 text-left text-xs ${i === active ? "bg-hover" : "hover:bg-hover"}`}
+            >
+              <span className="block truncate font-mono text-ink">{pair}</span>
+              <span className="block truncate text-ink-muted">
+                {pairLabel(pair)}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 interface EntryProps {
   file: RuleFile;
@@ -165,7 +249,6 @@ const Entry = ({ file, entryKey, value, rules }: EntryProps) => (
         key={`${entryKey}=${value}`}
         defaultValue={value}
         aria-label={VALUE_LABEL[file]}
-        list={CATEGORY_VALUED.has(file) ? PAIRS_ID : undefined}
         onBlur={(e) => {
           const next = e.target.value.trim();
           if (next && next !== value) rules.save(file, entryKey, next);
@@ -190,9 +273,10 @@ interface AddFormProps {
   file: RuleFile;
   rules: RulesApi;
   haystacks: string[];
+  pairs: string[];
 }
 
-const AddForm = ({ file, rules, haystacks }: AddFormProps) => {
+const AddForm = ({ file, rules, haystacks, pairs }: AddFormProps) => {
   const [key, setKey] = useState("");
   const [value, setValue] = useState("");
   const map = isMapFile(file);
@@ -220,16 +304,24 @@ const AddForm = ({ file, rules, haystacks }: AddFormProps) => {
           aria-label={KEY_LABEL[file]}
           className={`${FIELD} flex-1 basis-40 font-mono`}
         />
-        {map && (
-          <input
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            placeholder={VALUE_LABEL[file]}
-            aria-label={VALUE_LABEL[file]}
-            list={CATEGORY_VALUED.has(file) ? PAIRS_ID : undefined}
-            className={`${FIELD} flex-1 basis-40`}
-          />
-        )}
+        {map &&
+          (CATEGORY_VALUED.has(file) ? (
+            <CategoryInput
+              value={value}
+              pairs={pairs}
+              label={VALUE_LABEL[file]}
+              onChange={setValue}
+              className={FIELD}
+            />
+          ) : (
+            <input
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              placeholder={VALUE_LABEL[file]}
+              aria-label={VALUE_LABEL[file]}
+              className={`${FIELD} flex-1 basis-40`}
+            />
+          ))}
         <button
           type="submit"
           disabled={!ready || rules.busy}
@@ -240,6 +332,87 @@ const AddForm = ({ file, rules, haystacks }: AddFormProps) => {
       </div>
       <MatchNote pattern={key} haystacks={haystacks} />
     </form>
+  );
+};
+
+const GROUPED = new Set<RuleFile>(["overrides", "giro", "payees"]);
+
+const groupsOf = (entries: [string, string | null][]) => {
+  const groups = new Map<string, string[]>();
+  for (const [key, value] of entries) {
+    if (value === null) continue;
+    const keys = groups.get(value) ?? [];
+    keys.push(key);
+    groups.set(value, keys);
+  }
+  return [...groups];
+};
+
+interface GroupEntryProps {
+  file: RuleFile;
+  value: string;
+  keys: string[];
+  pairs: string[];
+  rules: RulesApi;
+}
+
+const GroupEntry = ({ file, value, keys, pairs, rules }: GroupEntryProps) => {
+  const [next, setNext] = useState(value);
+  const commit = (changed: string) => {
+    if (changed && changed !== value) rules.saveGroup(file, keys, changed);
+  };
+
+  return (
+    <li className="grid gap-2 border-b border-line py-2 last:border-0 sm:grid-cols-[1fr_1.4fr] sm:items-start">
+      {CATEGORY_VALUED.has(file) ? (
+        <CategoryInput
+          value={next}
+          pairs={pairs}
+          label={VALUE_LABEL[file]}
+          onChange={setNext}
+          onCommit={commit}
+          className={CELL}
+        />
+      ) : (
+        <input
+          value={next}
+          aria-label={VALUE_LABEL[file]}
+          onChange={(e) => setNext(e.target.value)}
+          onBlur={(e) => commit(e.target.value.trim())}
+          onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+          className={`${CELL} w-full text-ink-soft`}
+        />
+      )}
+      <div className="flex min-w-0 flex-wrap gap-1.5">
+        {keys.map((key) => (
+          <span
+            key={key}
+            className="flex min-w-0 max-w-full items-center rounded-md border border-line bg-page"
+          >
+            <input
+              defaultValue={key}
+              aria-label={KEY_LABEL[file]}
+              onBlur={(e) => {
+                const changed = e.target.value.trim();
+                if (changed && changed !== key)
+                  rules.save(file, changed, value, key);
+              }}
+              onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+              className="min-w-20 max-w-full flex-1 bg-transparent px-2 py-1 font-mono text-xs text-ink outline-none"
+            />
+            <button
+              type="button"
+              onClick={() => rules.remove(file, key)}
+              disabled={rules.busy}
+              aria-label={`Remove ${key}`}
+              className="relative shrink-0 rounded p-1 text-ink-muted before:absolute before:-inset-2 hover:text-ink disabled:opacity-60"
+            >
+              <Icon aria-hidden icon={CloseIcon} size={12} />
+            </button>
+          </span>
+        ))}
+      </div>
+    </li>
   );
 };
 
@@ -331,6 +504,14 @@ export const RulesView = ({ rules, txns, pairs }: RulesViewProps) => {
           (v ?? "").toLowerCase().includes(needle),
       )
     : entries;
+  const grouped = GROUPED.has(file);
+  const shownGroups = groupsOf(entries).filter(
+    ([value, keys]) =>
+      !needle ||
+      value.toLowerCase().includes(needle) ||
+      keys.some((key) => key.toLowerCase().includes(needle)),
+  );
+  const hasMatches = grouped ? shownGroups.length > 0 : shown.length > 0;
 
   const moveTab = (e: React.KeyboardEvent<HTMLButtonElement>, at: number) => {
     const by = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
@@ -345,8 +526,6 @@ export const RulesView = ({ rules, txns, pairs }: RulesViewProps) => {
 
   return (
     <Card title="Rules" icon={CategoryIcon}>
-      <CategoryList pairs={pairs} />
-
       {/* Wraps rather than scrolls sideways. Seven names do not fit 375px in
           one row, and nothing on this page may push it. */}
       <div
@@ -393,7 +572,12 @@ export const RulesView = ({ rules, txns, pairs }: RulesViewProps) => {
         </div>
       ) : (
         <>
-          <AddForm file={file} rules={rules} haystacks={haystacks} />
+          <AddForm
+            file={file}
+            rules={rules}
+            haystacks={haystacks}
+            pairs={pairs}
+          />
 
           <SearchBox
             value={find}
@@ -401,7 +585,7 @@ export const RulesView = ({ rules, txns, pairs }: RulesViewProps) => {
             placeholder="Find a rule…"
           />
 
-          {shown.length === 0 ? (
+          {!hasMatches ? (
             <div className="py-8 text-center text-ink-muted">
               {entries.length === 0
                 ? "No rules in this file yet."
@@ -410,24 +594,44 @@ export const RulesView = ({ rules, txns, pairs }: RulesViewProps) => {
           ) : (
             <>
               <div
-                className={`mt-3 hidden border-b border-line pb-1 text-[11px] text-ink-muted ${rowsFor(isMapFile(file))}`}
+                className={`mt-3 hidden border-b border-line pb-1 text-[11px] text-ink-muted ${grouped ? "sm:grid sm:grid-cols-[1fr_1.4fr] sm:gap-2" : rowsFor(isMapFile(file))}`}
               >
-                <span className="px-2">{KEY_LABEL[file]}</span>
-                {isMapFile(file) && (
-                  <span className="px-2">{VALUE_LABEL[file]}</span>
+                {grouped ? (
+                  <>
+                    <span className="px-2">{VALUE_LABEL[file]}</span>
+                    <span className="px-2">{KEY_LABEL[file]}s</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="px-2">{KEY_LABEL[file]}</span>
+                    {isMapFile(file) && (
+                      <span className="px-2">{VALUE_LABEL[file]}</span>
+                    )}
+                    <span className="w-6" />
+                  </>
                 )}
-                <span className="w-6" />
               </div>
               <ul className="max-h-[60vh] overflow-y-auto">
-                {shown.map(([k, v]) => (
-                  <Entry
-                    key={k}
-                    file={file}
-                    entryKey={k}
-                    value={v}
-                    rules={rules}
-                  />
-                ))}
+                {grouped
+                  ? shownGroups.map(([value, keys]) => (
+                      <GroupEntry
+                        key={value}
+                        file={file}
+                        value={value}
+                        keys={keys}
+                        pairs={pairs}
+                        rules={rules}
+                      />
+                    ))
+                  : shown.map(([k, v]) => (
+                      <Entry
+                        key={k}
+                        file={file}
+                        entryKey={k}
+                        value={v}
+                        rules={rules}
+                      />
+                    ))}
               </ul>
             </>
           )}
@@ -487,8 +691,6 @@ export const FileDialog = ({
           pattern matches, not this row alone.
         </p>
 
-        <CategoryList pairs={pairs} />
-
         <label className="flex flex-col gap-1 text-xs text-ink-soft">
           Pattern
           <input
@@ -501,10 +703,11 @@ export const FileDialog = ({
 
         <label className="flex flex-col gap-1 text-xs text-ink-soft">
           Category
-          <input
+          <CategoryInput
             value={value}
-            onChange={(e) => setValue(e.target.value)}
-            list={PAIRS_ID}
+            pairs={pairs}
+            label="Category"
+            onChange={setValue}
             className={FIELD}
           />
         </label>

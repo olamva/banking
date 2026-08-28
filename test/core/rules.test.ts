@@ -67,6 +67,16 @@ test("a remove drops the entry", () => {
   assert.deepEqual(asMap("payees"), { tekna: "Tekna" });
 });
 
+test("one value edit updates every pattern in its group", () => {
+  put("payees", { old: "Shop", older: "Shop", other: "Other" });
+  rules.saveValues("payees", ["old", "older"], "New shop");
+  assert.deepEqual(asMap("payees"), {
+    old: "New shop",
+    older: "New shop",
+    other: "Other",
+  });
+});
+
 test("an edit keeps the order of every other line", () => {
   put("giro", { a: "faste_utgifter/boligutgifter", b: "reise/annen_reise" });
   rules.save({ file: "giro", key: "a", value: "reise/annen_reise" });

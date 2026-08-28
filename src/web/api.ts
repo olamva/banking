@@ -8,6 +8,7 @@ import {
   loadAll,
   restore,
   save,
+  saveValues,
   undo,
   versions,
   type Edit,
@@ -73,6 +74,12 @@ const applied = async (at: number): Promise<Edited> => ({
 });
 
 export const editRule = (edit: Edit): Promise<Edited> => applied(save(edit));
+
+export const editValues = (
+  file: RuleFile,
+  keys: string[],
+  value: string,
+): Promise<Edited> => applied(saveValues(file, keys, value));
 
 export const undoRule = (file: RuleFile): Promise<Edited> =>
   applied(undo(file));
@@ -143,6 +150,12 @@ export function rulesRoute(
   let work: Promise<Edited>;
   try {
     if (path === "/api/rules/save") work = editRule(ruleEdit(params));
+    else if (path === "/api/rules/group")
+      work = editValues(
+        ruleTarget(params),
+        params.getAll("key"),
+        params.get("value") ?? "",
+      );
     else if (path === "/api/rules/undo") work = undoRule(ruleTarget(params));
     else if (path === "/api/rules/restore")
       work = restoreRule(ruleTarget(params), ruleVersion(params));

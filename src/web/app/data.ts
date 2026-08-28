@@ -101,6 +101,7 @@ export type RulesApi = {
   note: string | null;
   bad: boolean;
   save: (file: RuleFile, key: string, value?: string, was?: string) => void;
+  saveGroup: (file: RuleFile, keys: string[], value: string) => void;
   remove: (file: RuleFile, key: string) => void;
   undo: (file: RuleFile) => void;
   restore: (file: RuleFile, at: number) => void;
@@ -183,6 +184,11 @@ export const useRules = (onRebuilt: () => void): RulesApi => {
     bad,
     save: (file, key, value, was) =>
       run(rulesUrl("save", { file, key, value, was }), "Saved."),
+    saveGroup: (file, keys, value) => {
+      const q = new URLSearchParams({ file, value });
+      for (const key of keys) q.append("key", key);
+      run(`/api/rules/group?${q}`, "Saved.");
+    },
     remove: (file, key) =>
       run(rulesUrl("save", { file, key, remove: "1" }), "Removed."),
     undo: (file) => run(rulesUrl("undo", { file }), "Undone."),
