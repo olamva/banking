@@ -6,12 +6,14 @@ const NOK = new Intl.NumberFormat("nb-NO");
 
 export const fmtNOK = (n: number): string => `${NOK.format(Math.round(n))} kr`;
 
-const NOK_EXACT = new Intl.NumberFormat("nb-NO", {
+const NOK_ORE = new Intl.NumberFormat("nb-NO", {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
 
-export const fmtNOKExact = (n: number): string => `${NOK_EXACT.format(n)} kr`;
+// A whole krone drops the ",00". Half a krone keeps two digits, never one.
+export const fmtNOKExact = (n: number): string =>
+  Math.round(n * 100) % 100 === 0 ? fmtNOK(n) : `${NOK_ORE.format(n)} kr`;
 
 export const fmtPct = (share: number): string =>
   `${Math.round(share * 1000) / 10}%`;

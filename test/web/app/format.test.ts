@@ -146,3 +146,10 @@ test("a row with no subcategory reads as its category, never as Annet", () => {
     "a named sub is still the sub's own name",
   );
 });
+
+test("an exact amount keeps the øre only when it is not zero", () => {
+  assert.equal(fmtNOKExact(-140), "\u2212140 kr");
+  assert.equal(fmtNOKExact(-139.5), "\u2212139,50 kr");
+  assert.equal(fmtNOKExact(139.05), "139,05 kr");
+  assert.equal(fmtNOKExact(0), "0 kr");
+});
