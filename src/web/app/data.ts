@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { buildLabels, type Labels, type Names } from "../../core/labels.ts";
-import type { RuleFile, Rules } from "../../core/ruleFiles.ts";
+import type { RuleChange, RuleFile, Rules } from "../../core/ruleFiles.ts";
 import type { Categorized } from "../../core/types.ts";
 
 type Payload = { txns: Categorized[]; names: Names };
@@ -90,9 +90,11 @@ export const useRefresh = (onDone: () => void): Refresh => {
   return { busy, note, bad, run };
 };
 
+export type RuleVersion = { at: number; changes: RuleChange[] };
+
 export type RulesData = {
   files: Record<RuleFile, Rules>;
-  versions: Record<RuleFile, number[]>;
+  history: Record<RuleFile, RuleVersion[]>;
 };
 
 export type RulesApi = {

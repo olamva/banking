@@ -3,6 +3,7 @@ import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
+import { diffRules } from "../../src/core/ruleFiles.ts";
 
 // RULES_DIR is read when the module loads, so point it at a scratch directory
 // before the import. The real rules are never touched by this file.
@@ -173,4 +174,27 @@ test("versions stay distinct across a burst of edits", () => {
   );
   assert.equal(new Set(names).size, names.length);
   assert.equal(rules.versions("categories").length, 21);
+});
+
+test("a diff names the value on both sides of a change", () => {
+  assert.deepEqual(
+    diffRules({ a: "one", gone: "two" }, { a: "three", added: "four" }),
+    [
+      { key: "a", from: "one", to: "three" },
+      { key: "added", to: "four" },
+      { key: "gone", from: "two" },
+    ],
+  );
+});
+
+test("the history says what each version changed", () => {
+  put("not-subscriptions", ["spotify"]);
+  rules.save({ file: "not-subscriptions", key: "netflix" });
+  rules.save({ file: "not-subscriptions", key: "spotify", remove: true });
+  const [newest, added, first] = rules.history("not-subscriptions", 5);
+  assert.deepEqual(newest!.changes, [{ key: "spotify", from: "" }]);
+  assert.deepEqual(added!.changes, [{ key: "netflix", to: "" }]);
+  // The first version holds the state before the first edit, so it changed
+  // nothing.
+  assert.deepEqual(first!.changes, []);
 });

@@ -27,3 +27,24 @@ export const isMapFile = (file: RuleFile): boolean =>
 // before this returns true.
 export const isRuleFile = (v: unknown): v is RuleFile =>
   RULE_FILES.includes(v as RuleFile);
+
+// What one edit did to a file. A list file carries "" as the value, so an add
+// and a remove still read apart: `to` is present on an add, absent on a remove.
+export type RuleChange = { key: string; from?: string; to?: string };
+
+const asMap = (r: Rules): RuleMap =>
+  Array.isArray(r) ? Object.fromEntries(r.map((k) => [k, ""])) : r;
+
+export function diffRules(before: Rules, after: Rules): RuleChange[] {
+  const a = asMap(before);
+  const b = asMap(after);
+  const out: RuleChange[] = [];
+  for (const [key, to] of Object.entries(b)) {
+    const from = a[key];
+    if (from === undefined) out.push({ key, to });
+    else if (from !== to) out.push({ key, from, to });
+  }
+  for (const [key, from] of Object.entries(a))
+    if (!(key in b)) out.push({ key, from });
+  return out;
+}

@@ -10,7 +10,9 @@ import { RULES_DIR } from "./paths.ts";
 import {
   CATEGORY_VALUED,
   RULE_FILES,
+  diffRules,
   isMapFile as isMap,
+  type RuleChange,
   type RuleFile,
   type Rules,
 } from "./ruleFiles.ts";
@@ -63,6 +65,22 @@ const versionPath = (file: RuleFile, at: number) =>
 
 export const readVersion = (file: RuleFile, at: number): Rules =>
   read(versionPath(file, at)) as Rules;
+
+export type Version = { at: number; changes: RuleChange[] };
+
+// Every version, newest first, with the lines that version changed. Read one
+// file past the limit, because the oldest version shown needs the one below it
+// to say what it did. The first version of all changed nothing, so it reports
+// no line.
+export function history(file: RuleFile, limit: number): Version[] {
+  const shots = versions(file)
+    .slice(0, limit + 1)
+    .map((at) => ({ at, value: readVersion(file, at) }));
+  return shots.slice(0, limit).map(({ at, value }, i) => {
+    const before = shots[i + 1]?.value;
+    return { at, changes: before ? diffRules(before, value) : [] };
+  });
+}
 
 // Two writes in one millisecond would share a name, and the loser would
 // disappear. Step forward until the name is free.

@@ -4,6 +4,7 @@ import {
   CATEGORY_VALUED,
   RULE_FILES,
   isMapFile,
+  type RuleChange,
   type RuleFile,
   type Rules,
 } from "../../core/ruleFiles.ts";
@@ -429,6 +430,7 @@ const GroupEntry = ({ file, value, keys, pairs, rules }: GroupEntryProps) => {
               autoFocus
               value={pattern}
               onChange={(e) => setPattern(e.target.value)}
+              onBlur={() => setAdding(false)}
               onKeyDown={(e) => {
                 if (e.key === "Escape") setAdding(false);
               }}
@@ -438,6 +440,9 @@ const GroupEntry = ({ file, value, keys, pairs, rules }: GroupEntryProps) => {
             />
             <button
               type="submit"
+              // Keep the focus in the field, or the blur above collapses the
+              // form before the click lands.
+              onMouseDown={(e) => e.preventDefault()}
               disabled={!pattern.trim() || rules.busy}
               className="shrink-0 rounded px-2 text-xs text-ink-soft disabled:opacity-40"
             >
@@ -460,36 +465,75 @@ const GroupEntry = ({ file, value, keys, pairs, rules }: GroupEntryProps) => {
   );
 };
 
-// Newest first, and the newest holds what the live file holds. Cap the list:
-// the whole record is on disk, and a page of two hundred stamps helps nobody.
-const SHOWN_VERSIONS = 30;
+// What one version did to the file. A stamp alone says when somebody edited a
+// rule. It never says which rule, which is the whole question.
+const Change = ({ change: { key, from, to } }: { change: RuleChange }) => {
+  const gone = to === undefined;
+  const value = gone ? from : from === undefined ? to : `${from} → ${to}`;
+  return (
+    <li className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-[11px]">
+      <span className={gone ? "text-critical" : "text-series-1"}>
+        {gone ? "−" : from === undefined ? "+" : "±"}
+      </span>
+      <span className="min-w-0 truncate font-mono text-ink">{key}</span>
+      {value && (
+        <span className="min-w-0 truncate text-ink-muted">{value}</span>
+      )}
+    </li>
+  );
+};
+
+// A group save or a restore moves many lines at once. Show a handful and count
+// the rest, or one version fills the card.
+const CHANGES_SHOWN = 6;
 
 const History = ({ file, rules }: { file: RuleFile; rules: RulesApi }) => {
-  const versions = rules.data?.versions[file] ?? [];
+  const versions = rules.data?.history[file] ?? [];
+  if (versions.length === 0) return null;
+
   return (
-    <details className="mt-3 border-t border-line pt-3">
-      <summary className="cursor-pointer text-xs text-ink-soft">
-        History ({versions.length} version
-        {versions.length === 1 ? "" : "s"})
-      </summary>
-      <button
-        type="button"
-        onClick={() => rules.undo(file)}
-        disabled={rules.busy || versions.length < 2}
-        className={`${BUTTON} my-2`}
-      >
-        Undo the last change
-      </button>
-      <ol className="text-xs">
-        {versions.slice(0, SHOWN_VERSIONS).map((at, i) => (
+    <section className="mt-4 border-t border-line pt-3">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-[11px] font-medium tracking-wide text-ink-soft uppercase">
+          History
+        </h3>
+        <button
+          type="button"
+          onClick={() => rules.undo(file)}
+          disabled={rules.busy || versions.length < 2}
+          className={BUTTON}
+        >
+          Undo the last change
+        </button>
+      </div>
+      <ol className="max-h-72 overflow-y-auto">
+        {versions.map(({ at, changes }, i) => (
           <li
             key={at}
-            className="flex items-center justify-between gap-3 border-b border-line py-1.5 last:border-0"
+            className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 border-b border-line py-1.5 last:border-0"
           >
-            <span className={i === 0 ? "text-ink" : "text-ink-soft"}>
-              {fmtStamp(at)}
-              {i === 0 && " — now"}
-            </span>
+            <div className="min-w-0 flex-1 basis-40">
+              <p
+                className={`text-[11px] ${i === 0 ? "text-ink" : "text-ink-muted"}`}
+              >
+                {fmtStamp(at)}
+                {i === 0 && " — now"}
+              </p>
+              {changes.length === 0 ? (
+                <p className="text-[11px] text-ink-muted">First version.</p>
+              ) : (
+                <ul className="mt-0.5">
+                  {changes.slice(0, CHANGES_SHOWN).map((change) => (
+                    <Change key={change.key} change={change} />
+                  ))}
+                  {changes.length > CHANGES_SHOWN && (
+                    <li className="text-[11px] text-ink-muted">
+                      and {changes.length - CHANGES_SHOWN} more line(s).
+                    </li>
+                  )}
+                </ul>
+              )}
+            </div>
             {i > 0 && (
               <button
                 type="button"
@@ -503,12 +547,7 @@ const History = ({ file, rules }: { file: RuleFile; rules: RulesApi }) => {
           </li>
         ))}
       </ol>
-      {versions.length > SHOWN_VERSIONS && (
-        <p className="pt-2 text-[11px] text-ink-muted">
-          {versions.length - SHOWN_VERSIONS} older version(s) not listed.
-        </p>
-      )}
-    </details>
+    </section>
   );
 };
 

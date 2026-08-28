@@ -8,9 +8,9 @@ import {
   loadAll,
   restore,
   save,
+  history,
   saveValues,
   undo,
-  versions,
   type Edit,
   type RuleFile,
 } from "../core/rules.ts";
@@ -55,10 +55,16 @@ export function refresh(): Promise<Refreshed> {
   return running;
 }
 
+// The newest versions only. The whole record is on disk, and a page of two
+// hundred stamps helps nobody.
+const SHOWN_VERSIONS = 30;
+
 export const rulesPayload = (): string =>
   JSON.stringify({
     files: loadAll(),
-    versions: Object.fromEntries(RULE_FILES.map((f) => [f, versions(f)])),
+    history: Object.fromEntries(
+      RULE_FILES.map((f) => [f, history(f, SHOWN_VERSIONS)]),
+    ),
   });
 
 export type Edited = { rows: number; at: number };
