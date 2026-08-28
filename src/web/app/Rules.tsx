@@ -622,10 +622,19 @@ export interface RulesViewProps {
   rules: RulesApi;
   txns: Categorized[];
   pairs: string[];
+  // App owns this, because the page-wide arrows step it. The tablist below
+  // still moves the focus with them.
+  file: RuleFile;
+  onFile: (file: RuleFile) => void;
 }
 
-export const RulesView = ({ rules, txns, pairs }: RulesViewProps) => {
-  const [file, setFile] = useState<RuleFile>("overrides");
+export const RulesView = ({
+  rules,
+  txns,
+  pairs,
+  file,
+  onFile,
+}: RulesViewProps) => {
   const [find, setFind] = useState("");
   const haystacks = useMemo(() => txns.map(haystackOf), [txns]);
 
@@ -653,7 +662,7 @@ export const RulesView = ({ rules, txns, pairs }: RulesViewProps) => {
     if (!by) return;
     e.preventDefault();
     const next = (at + by + RULE_FILES.length) % RULE_FILES.length;
-    setFile(RULE_FILES[next]!);
+    onFile(RULE_FILES[next]!);
     e.currentTarget.parentElement
       ?.querySelectorAll<HTMLButtonElement>("[role=tab]")
       [next]?.focus();
@@ -675,7 +684,7 @@ export const RulesView = ({ rules, txns, pairs }: RulesViewProps) => {
             role="tab"
             aria-selected={file === f}
             tabIndex={file === f ? 0 : -1}
-            onClick={() => setFile(f)}
+            onClick={() => onFile(f)}
             onKeyDown={(e) => moveTab(e, i)}
             className={`rounded-md border border-line px-2.5 py-1.5 text-[13px] ${
               file === f ? "bg-series-1 text-white" : "bg-page text-ink-soft"

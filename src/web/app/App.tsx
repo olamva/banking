@@ -25,6 +25,7 @@ import {
   type Filters,
   type Period,
 } from "../../core/select.ts";
+import { RULE_FILES, type RuleFile } from "../../core/ruleFiles.ts";
 import type { ExcludedSummary } from "../../core/stats.ts";
 import {
   byMonth,
@@ -653,6 +654,7 @@ export const App = () => {
   const [filing, setFiling] = useState<Categorized | null>(null);
   const [initial] = useState(readUrl);
   const [view, setView] = useState<View>(initial.view);
+  const [ruleFile, setRuleFile] = useState<RuleFile>("overrides");
   const [chosen, setChosen] = useState<string | null>(initial.period);
   const [filters, setFilters] = useState<Filters>(initial.filters);
   const [chosenGrain, setChosenGrain] = useState<Grain>(initial.grain);
@@ -711,6 +713,18 @@ export const App = () => {
     if (next) setChosen(next);
   };
 
+  // The arrows move what the reader can see. The rules page carries no period,
+  // so there they step the rule file instead.
+  const stepBy = (by: number) => {
+    if (view !== "rules") return step(by);
+    setRuleFile(
+      (f) =>
+        RULE_FILES[
+          (RULE_FILES.indexOf(f) + by + RULE_FILES.length) % RULE_FILES.length
+        ]!,
+    );
+  };
+
   const inView = active.slice(0, 4);
   const year = years.includes(inView) ? inView : years[years.length - 1];
   const lastMonthOf = (y: string) =>
@@ -738,14 +752,16 @@ export const App = () => {
     {
       keys: ["ArrowLeft"],
       cap: "←",
-      what: "The month or year before",
-      run: () => step(-1),
+      what:
+        view === "rules" ? "The rule file before" : "The month or year before",
+      run: () => stepBy(-1),
     },
     {
       keys: ["ArrowRight"],
       cap: "→",
-      what: "The month or year after",
-      run: () => step(1),
+      what:
+        view === "rules" ? "The rule file after" : "The month or year after",
+      run: () => stepBy(1),
     },
     { keys: ["a"], cap: "A", what: "All time", run: () => setChosen("all") },
     {
@@ -910,7 +926,13 @@ export const App = () => {
       {/* The rules stand on their own. They are readable and editable before
           the first sync, so no load state gates them. */}
       {view === "rules" ? (
-        <RulesView rules={rules} txns={txns} pairs={pairs} />
+        <RulesView
+          rules={rules}
+          txns={txns}
+          pairs={pairs}
+          file={ruleFile}
+          onFile={setRuleFile}
+        />
       ) : (
         <>
           <LoadNote load={load} count={txns.length} refresh={refresh} />

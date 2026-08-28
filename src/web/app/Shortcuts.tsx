@@ -19,8 +19,16 @@ const typing = (t: EventTarget | null) =>
   t instanceof HTMLElement &&
   (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName));
 
+// A tablist owns its arrows: the focused tab moves the selection and the focus
+// together. A page shortcut on the same key would run beside it, so the two
+// would both fire on one press. Only the arrows are held back, because a tab
+// consumes nothing else.
+const inTablist = (e: KeyboardEvent) =>
+  e.key.startsWith("Arrow") &&
+  document.activeElement?.closest("[role=tablist]") != null;
+
 export const isPageKey = (e: KeyboardEvent) =>
-  !typing(e.target) && !document.querySelector("dialog[open]");
+  !typing(e.target) && !inTablist(e) && !document.querySelector("dialog[open]");
 
 export const useShortcuts = (shortcuts: Shortcut[]) => {
   const latest = useRef(shortcuts);
