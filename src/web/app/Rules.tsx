@@ -618,23 +618,70 @@ const Note = ({ rules }: { rules: RulesApi }) =>
     </p>
   );
 
-export interface RulesViewProps {
+export interface RuleTabsProps {
   rules: RulesApi;
-  txns: Categorized[];
-  pairs: string[];
-  // App owns this, because the page-wide arrows step it. The tablist below
-  // still moves the focus with them.
   file: RuleFile;
   onFile: (file: RuleFile) => void;
 }
 
-export const RulesView = ({
-  rules,
-  txns,
-  pairs,
-  file,
-  onFile,
-}: RulesViewProps) => {
+// The tabs sit in the header, so they stay on the screen while the rules
+// scroll. Wraps rather than scrolls sideways. Seven names do not fit 375px in
+// one row, and nothing on this page may push it.
+export const RuleTabs = ({ rules, file, onFile }: RuleTabsProps) => {
+  const data = rules.data;
+
+  const moveTab = (e: React.KeyboardEvent<HTMLButtonElement>, at: number) => {
+    const by = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+    if (!by) return;
+    e.preventDefault();
+    const next = (at + by + RULE_FILES.length) % RULE_FILES.length;
+    onFile(RULE_FILES[next]!);
+    e.currentTarget.parentElement
+      ?.querySelectorAll<HTMLButtonElement>("[role=tab]")
+      [next]?.focus();
+  };
+
+  return (
+    <div
+      role="tablist"
+      aria-label="Rule files"
+      className="flex flex-wrap gap-1.5"
+    >
+      {RULE_FILES.map((f, i) => (
+        <button
+          key={f}
+          type="button"
+          role="tab"
+          aria-selected={file === f}
+          tabIndex={file === f ? 0 : -1}
+          onClick={() => onFile(f)}
+          onKeyDown={(e) => moveTab(e, i)}
+          className={`rounded-md border border-line px-2.5 py-1.5 text-[13px] ${
+            file === f ? "bg-series-1 text-white" : "bg-page text-ink-soft"
+          }`}
+        >
+          {RULE_LABEL[f]}
+          {data && (
+            <span className="ml-1.5 text-[11px] opacity-70">
+              {entriesOf(data.files[f]).length}
+            </span>
+          )}
+        </button>
+      ))}
+    </div>
+  );
+};
+
+export interface RulesViewProps {
+  rules: RulesApi;
+  txns: Categorized[];
+  pairs: string[];
+  // App owns this, because the page-wide arrows and the tabs in the header
+  // both step it.
+  file: RuleFile;
+}
+
+export const RulesView = ({ rules, txns, pairs, file }: RulesViewProps) => {
   const [find, setFind] = useState("");
   const haystacks = useMemo(() => txns.map(haystackOf), [txns]);
 
@@ -657,49 +704,8 @@ export const RulesView = ({
   );
   const hasMatches = grouped ? shownGroups.length > 0 : shown.length > 0;
 
-  const moveTab = (e: React.KeyboardEvent<HTMLButtonElement>, at: number) => {
-    const by = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
-    if (!by) return;
-    e.preventDefault();
-    const next = (at + by + RULE_FILES.length) % RULE_FILES.length;
-    onFile(RULE_FILES[next]!);
-    e.currentTarget.parentElement
-      ?.querySelectorAll<HTMLButtonElement>("[role=tab]")
-      [next]?.focus();
-  };
-
   return (
     <Card title="Rules" icon={CategoryIcon}>
-      {/* Wraps rather than scrolls sideways. Seven names do not fit 375px in
-          one row, and nothing on this page may push it. */}
-      <div
-        role="tablist"
-        aria-label="Rule files"
-        className="mb-3 flex flex-wrap gap-1.5"
-      >
-        {RULE_FILES.map((f, i) => (
-          <button
-            key={f}
-            type="button"
-            role="tab"
-            aria-selected={file === f}
-            tabIndex={file === f ? 0 : -1}
-            onClick={() => onFile(f)}
-            onKeyDown={(e) => moveTab(e, i)}
-            className={`rounded-md border border-line px-2.5 py-1.5 text-[13px] ${
-              file === f ? "bg-series-1 text-white" : "bg-page text-ink-soft"
-            }`}
-          >
-            {RULE_LABEL[f]}
-            {data && (
-              <span className="ml-1.5 text-[11px] opacity-70">
-                {entriesOf(data.files[f]).length}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-
       <p className="mb-3 text-[11px] text-ink-muted">{RULE_NOTE[file]}</p>
 
       <Note rules={rules} />

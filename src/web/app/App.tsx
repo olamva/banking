@@ -56,7 +56,7 @@ import {
   type Bucket,
 } from "./Charts.tsx";
 import { FilterBar, type View } from "./FilterBar.tsx";
-import { FileDialog, RulesView } from "./Rules.tsx";
+import { FileDialog, RuleTabs, RulesView } from "./Rules.tsx";
 import { ShortcutsDialog, useShortcuts, type Shortcut } from "./Shortcuts.tsx";
 import {
   THEMES,
@@ -935,6 +935,12 @@ export const App = () => {
             filters={filters}
             onFilters={setFilters}
           />
+
+          {/* Below the page switch, because it names a part of this page. It
+              stays on the screen while the rules scroll. */}
+          {view === "rules" && (
+            <RuleTabs rules={rules} file={ruleFile} onFile={setRuleFile} />
+          )}
         </div>
       </header>
 
@@ -948,13 +954,7 @@ export const App = () => {
         {/* The rules stand on their own. They are readable and editable before
             the first sync, so no load state gates them. */}
         {view === "rules" ? (
-          <RulesView
-            rules={rules}
-            txns={txns}
-            pairs={pairs}
-            file={ruleFile}
-            onFile={setRuleFile}
-          />
+          <RulesView rules={rules} txns={txns} pairs={pairs} file={ruleFile} />
         ) : (
           <>
             <LoadNote load={load} count={txns.length} refresh={refresh} />
