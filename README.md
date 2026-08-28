@@ -31,6 +31,20 @@ pnpm dev --port 4001                # the main checkout uses 4000
 
 ## Commands
 
+Install the application CLI one time. Run it from any directory on this computer.
+
+```bash
+pnpm link --global
+
+banking balances
+banking transactions --from 2026-08-01 --to 2026-08-31
+banking transaction <id>
+banking totals --from 2026-01-01 --to 2026-08-31
+```
+
+The CLI writes JSON. It reads this checkout, even when another directory is current.
+It never calls SB1 or Azure.
+
 **Refresh on the dashboard is how you get new transactions.** It sweeps the whole record, fetches the months that can still change, and rebuilds the database. It is the only control on the page that touches the network. A typical press is one request.
 
 ```bash
