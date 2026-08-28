@@ -1,0 +1,13 @@
+{
+  "id": "8ff0389f",
+  "ts": "2026-08-28T22:20:26+00:00",
+  "text": "macOS has no coreutils 'timeout'; a command wrapped in it dies with 'command not found' and hides the real exit code. Use gtimeout or none.",
+  "tags": [
+    "macos",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "opus-5",
+  "session": "69f26955",
+  "where": "/Users/olavassbotn/Documents/banking/.claude/worktrees/papercut-bind"
+}

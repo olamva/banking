@@ -8,6 +8,7 @@
       "Bash(gh pr view:*)",
       "Bash(gh pr list:*)",
       "Bash(gh pr comment:*)",
+      "Bash(gh stack:*)",
       "Bash(git worktree:*)",
       "Bash(git -C rules add:*)",
       "Bash(git -C rules commit:*)",
@@ -19,7 +20,8 @@
       "Bash(git push --force:*)",
       "Bash(git push --force-with-lease:*)",
       "Bash(git push -f:*)",
-      "Bash(gh pr merge:*)"
+      "Bash(gh pr merge:*)",
+      "Bash(gh stack merge:*)"
     ]
   }
 }

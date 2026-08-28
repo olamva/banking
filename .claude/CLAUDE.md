@@ -73,7 +73,7 @@ Run `pnpm install`, then run `pnpm worktree:link`. These two commands are the wh
 
 `EnterWorktree` branches from `origin/main`. Check the base before you build on it. A branch that appears to stack on work that is not on `main` shows this error.
 
-**Deploy from the main checkout.** The deploy reads `data/banking.db` and `rules/`, and it writes `data/dist`. All of them resolve to the shared path, so a worktree cannot do it.
+**Deploy from the main checkout.** The deploy reads `data/banking.db` and `rules/`, and it writes `data/dist`. All of them resolve to the shared path, so a worktree cannot do it. `vite build` refuses to run in a worktree for that reason, and the deploy builds first, so one guard covers both.
 
 ## Deploying
 

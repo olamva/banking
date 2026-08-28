@@ -3,7 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import type { Accounts } from "./core/exclude.ts";
 import { RULES_DIR } from "./core/paths.ts";
 import { monthsOnDisk, RAW } from "./core/pipeline.ts";
-import type { Txn } from "./core/types.ts";
+import type { Categorized, Txn } from "./core/types.ts";
 
 const args = process.argv.slice(2);
 const cmd = args[0];
@@ -12,6 +12,8 @@ const raise = (msg: string): never => {
 };
 
 const ACCOUNTS_RAW = `${RAW}/accounts.json`;
+
+const SHOWN_HITS = 40;
 
 async function dump(file: string, data: unknown): Promise<void> {
   await mkdir(file.slice(0, file.lastIndexOf("/")), { recursive: true });
@@ -69,6 +71,32 @@ async function accounts(): Promise<void> {
   console.error(`${found.length} account keys.`);
 }
 
+// A rule reads the name before any rename, and the database holds the name
+// after it. A pattern tested against the database therefore lies. This runs the
+// pattern over the rows that `categorize` really sees.
+async function matchCmd(pattern: string): Promise<void> {
+  const { compile, haystackOf } = await import("./core/match.ts");
+  const { pipeline } = await import("./core/pipeline.ts");
+  const claims = compile(pattern, "match");
+
+  const hits: Categorized[] = [];
+  for (const month of monthsOnDisk())
+    hits.push(
+      ...(await pipeline(month, { rename: false })).filter((t) =>
+        claims(haystackOf(t)),
+      ),
+    );
+
+  for (const t of hits.slice(0, SHOWN_HITS))
+    console.log(
+      `${t.date}  ${t.amount.toFixed(2).padStart(11)}  ` +
+        `${t.category}/${t.subcategory ?? "-"}  ${t.description}`,
+    );
+  if (hits.length > SHOWN_HITS)
+    console.log(`... and ${hits.length - SHOWN_HITS} more`);
+  console.error(`\n${hits.length} row(s) claimed by ${pattern}`);
+}
+
 async function reconcileCmd(): Promise<void> {
   const { normalizeMonth } = await import("./core/normalize.ts");
   const { reconcile, unexplained } = await import("./core/reconcile.ts");
@@ -120,6 +148,10 @@ try {
   else if (cmd === "rebuild")
     await (await import("./core/pipeline.ts")).rebuildAll();
   else if (cmd === "reconcile") await reconcileCmd();
+  else if (cmd === "match")
+    await matchCmd(
+      args[1] ?? raise('match wants a pattern: pnpm sb1 match "vy"'),
+    );
   else if (cmd === "budget") {
     const left = (await import("./net/budget.ts")).remaining();
     console.error(
@@ -129,6 +161,9 @@ try {
     );
   } else {
     console.error("usage: pnpm sb1 <login | accounts | rebuild | budget");
+    console.error(
+      "                | match <pattern>  (which rows does a rule claim?)",
+    );
     console.error(
       "                | reconcile  (does the history explain the balances?)>",
     );
