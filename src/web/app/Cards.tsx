@@ -212,13 +212,9 @@ export const DataTable = ({ columns, rows, scroll, onRow }: DataTableProps) => {
   useLayoutEffect(() => {
     const h = probe.current?.getBoundingClientRect().height;
     if (h && Math.abs(h - rowH) > 0.5) setRowH(h);
-
   });
 
-  const top = Math.min(
-    scrollTop,
-    Math.max(0, rows.length * rowH - VIEWPORT),
-  );
+  const top = Math.min(scrollTop, Math.max(0, rows.length * rowH - VIEWPORT));
   const first = windowed ? Math.max(0, Math.floor(top / rowH) - OVERSCAN) : 0;
   const last = windowed
     ? Math.min(rows.length, Math.ceil((top + VIEWPORT) / rowH) + OVERSCAN)
@@ -235,9 +231,7 @@ export const DataTable = ({ columns, rows, scroll, onRow }: DataTableProps) => {
     <div
       ref={box}
       onScroll={
-        windowed
-          ? (e) => setScrollTop(e.currentTarget.scrollTop)
-          : undefined
+        windowed ? (e) => setScrollTop(e.currentTarget.scrollTop) : undefined
       }
       className={`mt-2 overflow-x-auto ${scroll ? "max-h-115 overflow-y-auto" : ""}`}
     >

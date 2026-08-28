@@ -63,12 +63,31 @@ key="$(storage_key "$storage")"
 # The site can edit its own rules now, so this upload is no longer a one-way
 # copy of a file only this machine writes. Stop rather than overwrite an edit
 # made on the phone.
-ahead="$(behind_files "$(remote_history "$storage" "$key")" "$(local_history "$repo/rules")")"
+remote="$(remote_history "$storage" "$key")"
+mine="$(local_history "$repo/rules")"
+
+ahead="$(behind_files "$remote" "$mine")"
 if [ -n "$ahead" ]; then
   echo "the site holds rule edits that this machine does not:" >&2
   echo "$ahead" >&2
   echo "run \`pnpm rules:pull\` first" >&2
   exit 1
+fi
+
+# The stamps say who holds newer versions. They say nothing about where each
+# side stands in its own history, because a step through the stack rewrites the
+# live file and writes no version. Ask the content when neither side is ahead,
+# and only then: an ordinary edit here makes the files differ as well.
+if [ -z "$(behind_files "$mine" "$remote")" ] && [ "${1:-}" != "--force" ]; then
+  live="$(remote_live "$storage" "$key")"
+  moved="$(live_diff "$live" "$repo/rules")"
+  rm -rf "$live"
+  if [ -n "$moved" ]; then
+    echo "the site stands at another point in the rule history:" >&2
+    echo "$moved" >&2
+    echo "run \`pnpm rules:pull\` to take it, or \`pnpm deploy --force\` to replace it" >&2
+    exit 1
+  fi
 fi
 
 az storage directory create --account-name "$storage" --account-key "$key" \

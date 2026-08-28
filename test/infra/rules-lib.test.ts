@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { test } from "node:test";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { after, test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const lib = fileURLToPath(new URL("../../infra/rules-lib.sh", import.meta.url));
@@ -82,4 +85,52 @@ test("every rule file is compared, and no other name is", () => {
   );
   for (const f of all) assert.match(out, new RegExp(`${f}\\.json`));
   assert.doesNotMatch(out, /accounts\.json/);
+});
+
+// The other half of the guard. A step through the history rewrites the live
+// file and writes no version, so the stamps stay level and only the content
+// says that the two sides stand apart.
+const dirs: string[] = [];
+after(() => dirs.forEach((d) => rmSync(d, { recursive: true, force: true })));
+
+const side = (files: Record<string, string>): string => {
+  const dir = mkdtempSync(join(tmpdir(), "rules-live-"));
+  dirs.push(dir);
+  for (const [name, body] of Object.entries(files))
+    writeFileSync(join(dir, `${name}.json`), body);
+  return dir;
+};
+
+const differs = (a: string, b: string): string =>
+  execFileSync("bash", ["-c", `. "$0"; live_diff "$1" "$2"`, lib, a, b], {
+    encoding: "utf8",
+  });
+
+test("no line where both sides hold the same live file", () => {
+  const body = '{"rema":"dagligvarer/andre_dagligvarer"}';
+  assert.equal(
+    differs(side({ overrides: body }), side({ overrides: body })),
+    "",
+  );
+});
+
+test("a live file that differs is named", () => {
+  const out = differs(
+    side({ overrides: '{"rema":"dagligvarer/andre_dagligvarer"}' }),
+    side({ overrides: "{}" }),
+  );
+  assert.match(out, /overrides\.json/);
+});
+
+// A first deploy, and a file that only one side has ever written. Nothing to
+// compare is not a difference.
+test("a file that one side lacks is not named", () => {
+  assert.equal(differs(side({ giro: "{}" }), side({})), "");
+});
+
+test("a name that is not a rule file is not compared", () => {
+  assert.equal(
+    differs(side({ accounts: "[1]" }), side({ accounts: "[2]" })),
+    "",
+  );
 });
