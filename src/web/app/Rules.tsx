@@ -358,6 +358,8 @@ interface GroupEntryProps {
 
 const GroupEntry = ({ file, value, keys, pairs, rules }: GroupEntryProps) => {
   const [next, setNext] = useState(value);
+  const [adding, setAdding] = useState(false);
+  const [pattern, setPattern] = useState("");
   const commit = (changed: string) => {
     if (changed && changed !== value) rules.saveGroup(file, keys, changed);
   };
@@ -411,6 +413,48 @@ const GroupEntry = ({ file, value, keys, pairs, rules }: GroupEntryProps) => {
             </button>
           </span>
         ))}
+        {adding ? (
+          <form
+            className="flex min-w-0 max-w-full rounded-md border border-series-1 bg-page"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const key = pattern.trim();
+              if (!key) return;
+              rules.save(file, key, value);
+              setPattern("");
+              setAdding(false);
+            }}
+          >
+            <input
+              autoFocus
+              value={pattern}
+              onChange={(e) => setPattern(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setAdding(false);
+              }}
+              placeholder={KEY_LABEL[file]}
+              aria-label={`New ${KEY_LABEL[file]}`}
+              className="min-w-20 max-w-full flex-1 bg-transparent px-2 py-1 font-mono text-xs text-ink outline-none"
+            />
+            <button
+              type="submit"
+              disabled={!pattern.trim() || rules.busy}
+              className="shrink-0 rounded px-2 text-xs text-ink-soft disabled:opacity-40"
+            >
+              Add
+            </button>
+          </form>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setAdding(true)}
+            disabled={rules.busy}
+            aria-label={`Add ${KEY_LABEL[file]}`}
+            className="rounded-md border border-dashed border-line px-2 py-1 text-xs text-ink-muted hover:border-series-1 hover:text-ink"
+          >
+            +
+          </button>
+        )}
       </div>
     </li>
   );
