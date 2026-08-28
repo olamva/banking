@@ -18,6 +18,29 @@ Write almost no comments. Keep a comment only when it names a trap that the code
 
 Delete file-header essays. Delete a comment block on a type, a constant or a function when it only repeats the name. Delete design rationale and history. This file holds the invariants. Keep every `ponytail:` marker.
 
+## Skills and commands are shared with Codex
+
+**Two agents read this repo, and every skill must reach both.** Claude Code reads `.claude/`. Codex reads `AGENTS.md` and `.agents/`. `AGENTS.md` is a symlink to this file, so the instructions stay single-sourced. Mirror a new skill or command in the same turn that you add it. A skill that only one agent can see is unfinished work.
+
+**A skill mirrors as a symlink.** Write the skill one time in `.claude/skills/<name>/SKILL.md`. Then link it:
+
+```bash
+ln -s ../../.claude/skills/<name> .agents/skills/<name>
+```
+
+**A slash command mirrors as a shim, because Codex runs no slash command.** Write the command in `.claude/commands/<name>.md`. Then add `.agents/skills/<name>/SKILL.md`, which names the command file and tells the agent to apply it in full. Add `.agents/skills/<name>/agents/openai.yaml` beside it:
+
+```yaml
+policy:
+  allow_implicit_invocation: false
+```
+
+That policy stops Codex from starting the command on its own. A command is explicit, so keep the flag false. A plain skill takes no policy file.
+
+**Copy a permission as well as a skill.** `.claude/settings.json` holds the permissions of Claude Code. `.codex/rules/claude-parity.rules` holds the same decisions for Codex. Change both together, and keep every refusal a refusal on both sides.
+
+This section covers the skills of the repo. A personal skill under `~/.claude/skills/` needs its own mirror in the home directory, and no file here controls that.
+
 ## Committing
 
 Commit, push and PRs are authorised in this repo. Commit when the work reaches a state worth keeping. Push your own branch. Open the PR against `main` when the work is done. `.claude/settings.json` holds the matching permissions, so none of these actions prompts.
