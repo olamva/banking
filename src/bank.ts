@@ -43,7 +43,8 @@ options:
   --category MAIN[/SUB]        Repeat to include more categories
   --search TEXT
   --include-excluded
-  --limit N                    Transactions only`;
+  --limit N                    Transactions only
+  -h, --help                   Print this text`;
 
 const fail = (message: string): never => {
   throw new Error(message);
@@ -173,10 +174,13 @@ export function execute(argv: string[]): unknown {
 // argv[1] is the symlink a PATH entry uses. import.meta.filename is the real
 // file. Compare the resolved paths, or the command exits 0 and prints nothing.
 if (process.argv[1] && realpathSync(process.argv[1]) === import.meta.filename) {
-  try {
-    console.log(JSON.stringify(execute(process.argv.slice(2)), null, 2));
-  } catch (error) {
-    console.error(error instanceof Error ? error.message : error);
-    process.exitCode = 1;
-  }
+  const argv = process.argv.slice(2);
+  if (argv.some((arg) => arg === "-h" || arg === "--help")) console.log(usage);
+  else
+    try {
+      console.log(JSON.stringify(execute(argv), null, 2));
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : error);
+      process.exitCode = 1;
+    }
 }

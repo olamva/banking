@@ -7,6 +7,8 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { parseOptions } from "../src/bank.ts";
 
+const CLI = fileURLToPath(new URL("../src/bank.ts", import.meta.url));
+
 test("the application CLI parses period and transaction filters", () => {
   assert.deepEqual(
     parseOptions([
@@ -45,8 +47,31 @@ test("the application CLI rejects an invalid period", () => {
 
 test("the application CLI runs through a symlink on the PATH", () => {
   const link = join(mkdtempSync(join(tmpdir(), "bank-")), "banking");
-  symlinkSync(fileURLToPath(new URL("../src/bank.ts", import.meta.url)), link);
+  symlinkSync(CLI, link);
   const run = spawnSync(process.execPath, [link], { encoding: "utf8" });
+  assert.equal(run.status, 1);
+  assert.match(run.stderr, /^usage: banking/);
+});
+
+test("the application CLI prints the usage to stdout and succeeds", () => {
+  for (const flag of ["--help", "-h"]) {
+    const run = spawnSync(process.execPath, [CLI, flag], { encoding: "utf8" });
+    assert.equal(run.status, 0, flag);
+    assert.match(run.stdout, /^usage: banking/);
+    assert.equal(run.stderr, "");
+  }
+});
+
+test("the application CLI answers help after a command", () => {
+  const run = spawnSync(process.execPath, [CLI, "transactions", "--help"], {
+    encoding: "utf8",
+  });
+  assert.equal(run.status, 0);
+  assert.match(run.stdout, /^usage: banking/);
+});
+
+test("the application CLI still fails when it gets no command", () => {
+  const run = spawnSync(process.execPath, [CLI], { encoding: "utf8" });
   assert.equal(run.status, 1);
   assert.match(run.stderr, /^usage: banking/);
 });
