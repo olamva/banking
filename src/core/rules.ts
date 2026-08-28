@@ -3,6 +3,8 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  renameSync,
+  rmSync,
   writeFileSync,
 } from "node:fs";
 import { compile, splitCategory } from "./categorize.ts";
@@ -169,19 +171,33 @@ export function saveValues(
   return commit(file, next);
 }
 
+// A restore is permanent. Every version above the one it names goes, and the
+// one it names moves to the top, so the history reads forward to the state the
+// file is in. The page asks before it calls this.
+//
+// The stamp moves forward because it must. `infra/rules-lib.sh` compares the
+// newest stamp on each side to say which side is ahead, so a stamp that goes
+// backwards reads as the site holding edits this machine lacks. The deploy then
+// refuses, and the pull it names puts the deleted versions back.
 export function restore(file: RuleFile, at: number): number {
   const value = readVersion(file, at);
   if (value === null) throw new Error(`${file}.json has no version ${at}`);
-  return commit(file, value);
+  for (const above of versions(file))
+    if (above > at) rmSync(versionPath(file, above));
+  const now = stamp(file);
+  renameSync(versionPath(file, at), versionPath(file, now));
+  write(live(file), value);
+  return now;
 }
 
-// Restore the version before the newest one. The newest holds what the live
-// file holds, so this steps one edit back. A second undo therefore returns to
-// where it started, which is what `git revert` of a revert does too.
+// Take the version before the newest one, and record it as a new version. The
+// newest holds what the live file holds, so this steps one edit back. A second
+// undo therefore returns to where it started, which is what `git revert` of a
+// revert does too. Restore is the permanent one, and this is not it.
 export function undo(file: RuleFile): number {
   const previous = versions(file)[1];
   if (previous === undefined) throw new Error(`${file}.json has no undo left`);
-  return restore(file, previous);
+  return commit(file, readVersion(file, previous));
 }
 
 export type Latest = Record<string, number>;

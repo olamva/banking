@@ -54,12 +54,20 @@ test("a second undo returns to where it started", () => {
   });
 });
 
-test("restore names any version, however far back", () => {
+// A restore is permanent. The versions above it go, so the reader cannot
+// return to the state they just left.
+test("restore names any version, and it deletes every version above", () => {
   const oldest = rules.versions("overrides").at(-1)!;
+  assert.ok(rules.versions("overrides").length > 1);
   rules.restore("overrides", oldest);
   assert.deepEqual(asMap("overrides"), {
     rema: "dagligvarer/andre_dagligvarer",
   });
+  const left = rules.versions("overrides");
+  assert.equal(left.length, 1);
+  // The restored version moves to the top. A stamp that went backwards would
+  // read as the site being ahead, and the deploy would refuse.
+  assert.ok(left[0]! > oldest);
 });
 
 test("a remove drops the entry", () => {

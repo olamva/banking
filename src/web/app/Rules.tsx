@@ -483,6 +483,22 @@ const Change = ({ change: { key, from, to } }: { change: RuleChange }) => {
   );
 };
 
+// A restore deletes every version above the one it names, so it is the one
+// control on this page that loses work. Ask before it runs.
+// ponytail: the native dialog. It is one line and it works on the phone. Style
+// it like FileDialog when it needs a third button.
+const askRestore = (file: RuleFile, at: number, rules: RulesApi): void => {
+  const gone = (rules.data?.history[file] ?? []).filter(
+    (v) => v.at > at,
+  ).length;
+  if (
+    confirm(
+      `Restore ${RULE_LABEL[file]} as it stood on ${fmtStamp(at)}? This drops the ${gone} newer version(s) for good.`,
+    )
+  )
+    rules.restore(file, at);
+};
+
 // A group save or a restore moves many lines at once. Show a handful and count
 // the rest, or one version fills the card.
 const CHANGES_SHOWN = 6;
@@ -537,7 +553,7 @@ const History = ({ file, rules }: { file: RuleFile; rules: RulesApi }) => {
             {i > 0 && (
               <button
                 type="button"
-                onClick={() => rules.restore(file, at)}
+                onClick={() => askRestore(file, at, rules)}
                 disabled={rules.busy}
                 className={BUTTON}
               >
