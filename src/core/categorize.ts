@@ -12,9 +12,6 @@ import { makeCleaner } from "./names.ts";
 import { RULES_DIR } from "./paths.ts";
 import type { Categorized, Classified } from "./types.ts";
 
-export { compile, haystackOf, splitCategory } from "./match.ts";
-export type { Matcher, Overrides, Pair } from "./match.ts";
-
 const UNCATEGORIZED = "ukategorisert";
 const TRAVEL = "reise";
 

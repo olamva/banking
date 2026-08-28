@@ -12,8 +12,8 @@ import {
   loadPayees,
   loadSubscriptions,
   renamePayees,
-  splitCategory,
 } from "../../src/core/categorize.ts";
+import { splitCategory } from "../../src/core/match.ts";
 import type { Classified } from "../../src/core/types.ts";
 
 const CARDS = new Set(["card"]);
