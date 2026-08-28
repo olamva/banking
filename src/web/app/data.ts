@@ -111,6 +111,68 @@ export type RulesApi = {
   restore: (file: RuleFile, at: number) => void;
 };
 
+export const changeRules = (
+  rules: Rules,
+  key: string,
+  value?: string,
+  was?: string,
+  remove = false,
+): Rules => {
+  if (Array.isArray(rules)) {
+    const next = rules.filter((item) => item !== key && item !== was);
+    return remove ? next : [...next, key];
+  }
+  const next = { ...rules };
+  if (was !== undefined) delete next[was];
+  if (remove) delete next[key];
+  else next[key] = value!;
+  return next;
+};
+
+const changedFile = (
+  data: RulesData,
+  file: RuleFile,
+  change: (rules: Rules) => Rules,
+): RulesData => ({
+  ...data,
+  files: { ...data.files, [file]: change(data.files[file]) },
+});
+
+const applyChanges = (
+  rules: Rules,
+  changes: RuleChange[],
+  forward: boolean,
+): Rules => {
+  let next = rules;
+  for (const { key, from, to } of changes) {
+    const value = forward ? to : from;
+    next = changeRules(next, key, value, undefined, value === undefined);
+  }
+  return next;
+};
+
+export const moveRules = (
+  data: RulesData,
+  file: RuleFile,
+  target: number,
+): RulesData => {
+  const versions = data.history[file];
+  const from = versions.findIndex(({ at }) => at === data.at[file]);
+  const to = versions.findIndex(({ at }) => at === target);
+  if (from < 0 || to < 0) return data;
+  let rules = data.files[file];
+  if (to > from)
+    for (let i = from; i < to; i++)
+      rules = applyChanges(rules, versions[i]!.changes, false);
+  else
+    for (let i = from - 1; i >= to; i--)
+      rules = applyChanges(rules, versions[i]!.changes, true);
+  return {
+    ...changedFile(data, file, () => rules),
+    at: { ...data.at, [file]: target },
+  };
+};
+
 const rulesUrl = (
   route: string,
   params: Record<string, string | undefined>,
@@ -159,15 +221,19 @@ export const useRules = (onRebuilt: () => void): RulesApi => {
     });
   }, []);
 
-  const run = (url: string, said: string) => {
+  const run = (
+    url: string,
+    said: string,
+    optimistic: (data: RulesData) => RulesData,
+  ) => {
     pending.current += 1;
     setBusy(true);
     setNote(null);
     setBad(false);
+    setData((current) => (current ? optimistic(current) : current));
     queue.current = queue.current
       .then(() => ask(url))
-      .then(async (body) => {
-        await read();
+      .then((body) => {
         setNote(`${said} ${String(body["rows"])} rows rebuilt.`);
         onRebuilt();
       })
@@ -178,6 +244,11 @@ export const useRules = (onRebuilt: () => void): RulesApi => {
       .finally(() => {
         pending.current -= 1;
         setBusy(pending.current > 0);
+        if (pending.current === 0)
+          read().catch((e: unknown) => {
+            setBad(true);
+            setNote(e instanceof Error ? e.message : String(e));
+          });
       });
   };
 
@@ -187,18 +258,48 @@ export const useRules = (onRebuilt: () => void): RulesApi => {
     note,
     bad,
     save: (file, key, value, was) =>
-      run(rulesUrl("save", { file, key, value, was }), "Saved."),
+      run(rulesUrl("save", { file, key, value, was }), "Saved.", (data) =>
+        changedFile(data, file, (rules) => changeRules(rules, key, value, was)),
+      ),
     saveGroup: (file, keys, value) => {
       const q = new URLSearchParams({ file, value });
       for (const key of keys) q.append("key", key);
-      run(`/api/rules/group?${q}`, "Saved.");
+      run(`/api/rules/group?${q}`, "Saved.", (data) =>
+        changedFile(data, file, (rules) => {
+          if (Array.isArray(rules)) return rules;
+          return Object.fromEntries(
+            Object.entries(rules).map(([key, old]) => [
+              key,
+              keys.includes(key) ? value : old,
+            ]),
+          );
+        }),
+      );
     },
     remove: (file, key) =>
-      run(rulesUrl("save", { file, key, remove: "1" }), "Removed."),
-    undo: (file) => run(rulesUrl("undo", { file }), "Undone."),
-    redo: (file) => run(rulesUrl("redo", { file }), "Redone."),
+      run(rulesUrl("save", { file, key, remove: "1" }), "Removed.", (data) =>
+        changedFile(data, file, (rules) =>
+          changeRules(rules, key, undefined, undefined, true),
+        ),
+      ),
+    undo: (file) =>
+      run(rulesUrl("undo", { file }), "Undone.", (data) => {
+        const versions = data.history[file];
+        const here = versions.findIndex(({ at }) => at === data.at[file]);
+        const target = versions[here + 1]?.at;
+        return target === undefined ? data : moveRules(data, file, target);
+      }),
+    redo: (file) =>
+      run(rulesUrl("redo", { file }), "Redone.", (data) => {
+        const versions = data.history[file];
+        const here = versions.findIndex(({ at }) => at === data.at[file]);
+        const target = versions[here - 1]?.at;
+        return target === undefined ? data : moveRules(data, file, target);
+      }),
     restore: (file, at) =>
-      run(rulesUrl("restore", { file, at: String(at) }), "Moved."),
+      run(rulesUrl("restore", { file, at: String(at) }), "Moved.", (data) =>
+        moveRules(data, file, at),
+      ),
   };
 };
 

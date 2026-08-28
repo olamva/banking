@@ -57,7 +57,7 @@ import {
   type Bucket,
 } from "./Charts.tsx";
 import { FilterBar, type View } from "./FilterBar.tsx";
-import { FileDialog, RuleTabs, RulesView } from "./Rules.tsx";
+import { FileDialog, RuleNotification, RuleTabs, RulesView } from "./Rules.tsx";
 import { ShortcutsDialog, useShortcuts, type Shortcut } from "./Shortcuts.tsx";
 import {
   THEMES,
@@ -1000,6 +1000,7 @@ export const App = () => {
           onClose={() => setFiling(null)}
         />
       )}
+      <RuleNotification rules={rules} />
     </>
   );
 };

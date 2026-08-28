@@ -1,4 +1,4 @@
-import { useDeferredValue, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { compile, haystackOf } from "../../core/match.ts";
 import {
   CATEGORY_VALUED,
@@ -603,20 +603,37 @@ const History = ({ file, rules }: { file: RuleFile; rules: RulesApi }) => {
   );
 };
 
-const Note = ({ rules }: { rules: RulesApi }) =>
-  rules.note === null ? null : (
-    <p
-      className={`mb-3 flex items-start gap-1.5 text-[11px] ${rules.bad ? "text-critical" : "text-ink-muted"}`}
+interface RuleNotificationProps {
+  rules: RulesApi;
+}
+
+export const RuleNotification = ({ rules }: RuleNotificationProps) => {
+  const [hidden, setHidden] = useState(false);
+
+  useEffect(() => {
+    setHidden(false);
+    if (rules.note === null || rules.bad) return;
+    const timer = window.setTimeout(() => setHidden(true), 4000);
+    return () => window.clearTimeout(timer);
+  }, [rules.note, rules.bad]);
+
+  if (rules.note === null || hidden) return null;
+  return (
+    <div
+      role={rules.bad ? "alert" : "status"}
+      aria-live={rules.bad ? "assertive" : "polite"}
+      className={`fixed right-3 bottom-3 z-50 flex max-w-[calc(100vw-1.5rem)] items-start gap-2 rounded-lg border bg-surface px-3 py-2.5 text-sm shadow-lg sm:right-6 sm:bottom-6 ${rules.bad ? "border-critical text-critical" : "border-good text-ink"}`}
     >
       <Icon
         aria-hidden
         icon={rules.bad ? ErrorIcon : InfoIcon}
-        size={13}
-        className="mt-px shrink-0"
+        size={16}
+        className={`mt-0.5 shrink-0 ${rules.bad ? "text-critical" : "text-good"}`}
       />
       {rules.note}
-    </p>
+    </div>
   );
+};
 
 export interface RuleTabsProps {
   rules: RulesApi;
@@ -726,8 +743,6 @@ export const RulesView = ({
   return (
     <Card title="Rules" icon={CategoryIcon}>
       <p className="mb-3 text-[11px] text-ink-muted">{RULE_NOTE[file]}</p>
-
-      <Note rules={rules} />
 
       {data === null ? (
         <div className="flex items-center justify-center gap-2 py-10 text-ink-muted">
