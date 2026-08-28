@@ -159,5 +159,10 @@ if (process.argv[1] === import.meta.filename) {
       ),
     );
   }
-  server.listen(port, () => console.error(`listening on ${port}`));
+  // A wildcard bind does not collide with a server that already holds
+  // 127.0.0.1, so a local run reports success while curl answers from the
+  // squatter. The image sets PORT. A local run does not.
+  server.listen(port, process.env.PORT ? undefined : "127.0.0.1", () =>
+    console.error(`listening on ${port}`),
+  );
 }
