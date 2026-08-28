@@ -8,10 +8,17 @@ import {
   type RuleFile,
   type Rules,
 } from "../../core/ruleFiles.ts";
+import { merchantOf } from "../../core/select.ts";
 import type { Categorized } from "../../core/types.ts";
-import { Card, SearchBox } from "./Cards.tsx";
+import { AMOUNT_SIZE_EXACT, Card, DataTable, SearchBox } from "./Cards.tsx";
 import type { RulesApi } from "./data.ts";
-import { fmtDate, fmtNOKExact, pairLabel } from "./format.ts";
+import {
+  categoryColor,
+  fmtDate,
+  fmtNOKExact,
+  pairLabel,
+  rowLabel,
+} from "./format.ts";
 import {
   AddedIcon,
   CategoryIcon,
@@ -101,17 +108,71 @@ const fmtStamp = (at: number): string =>
 interface MatchNoteProps {
   pattern: string;
   txns: Categorized[];
+  haystacks: string[];
 }
+
+interface MatchDialogProps {
+  txns: Categorized[];
+  onClose: () => void;
+}
+
+const MatchDialog = ({ txns, onClose }: MatchDialogProps) => (
+  <dialog
+    ref={(el) => el?.showModal()}
+    onClose={onClose}
+    className="m-auto w-[min(900px,94vw)] rounded-xl border border-line bg-surface p-5 text-ink shadow-2xl backdrop:bg-black/50"
+  >
+    <div className="mb-3 flex items-center justify-between gap-3">
+      <h2 className="text-base font-semibold">
+        Matching transactions ({txns.length})
+      </h2>
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close matching transactions"
+        className={ICON_BUTTON}
+      >
+        <Icon aria-hidden icon={CloseIcon} size={14} />
+      </button>
+    </div>
+    <DataTable
+      scroll
+      columns={[
+        { label: "Date", min: true },
+        { label: "Merchant / description" },
+        { label: "Category", min: true },
+        { label: "Account", min: true },
+        {
+          label: "Amount",
+          num: true,
+          min: true,
+          sizer: AMOUNT_SIZE_EXACT,
+        },
+      ]}
+      rows={txns.map((txn) => [
+        fmtDate(txn.date),
+        merchantOf(txn),
+        <span style={{ color: categoryColor(txn.category) }}>
+          {rowLabel(txn.category, txn.subcategory)}
+        </span>,
+        txn.account,
+        fmtNOKExact(txn.amount),
+      ])}
+    />
+  </dialog>
+);
 
 // What the pattern claims, before it is saved. A regex that reads as narrow and
 // matches four hundred rows is the failure this exists to catch.
-const MatchNote = ({ pattern, txns }: MatchNoteProps) => {
+const MatchNote = ({ pattern, txns, haystacks }: MatchNoteProps) => {
+  const deferredPattern = useDeferredValue(pattern);
+  const [open, setOpen] = useState(false);
   const result = useMemo(() => {
-    if (!pattern.trim()) return null;
+    if (!deferredPattern.trim()) return null;
     try {
-      const matches = compile(pattern, "pattern");
+      const matches = compile(deferredPattern, "pattern");
       return {
-        matches: txns.filter((txn) => matches(haystackOf(txn))),
+        matches: txns.filter((_, i) => matches(haystacks[i] ?? "")),
         error: null,
       };
     } catch (e) {
@@ -120,7 +181,7 @@ const MatchNote = ({ pattern, txns }: MatchNoteProps) => {
         error: e instanceof Error ? e.message : String(e),
       };
     }
-  }, [pattern, txns]);
+  }, [deferredPattern, haystacks, txns]);
 
   if (!result) return null;
   return (
@@ -136,23 +197,16 @@ const MatchNote = ({ pattern, txns }: MatchNoteProps) => {
           `Matches ${result.matches.length} transaction(s) on record.`}
       </div>
       {!result.error && result.matches.length > 0 && (
-        <details className="mt-1 ml-[18px] text-[11px]">
-          <summary className="cursor-pointer select-none hover:text-ink">
-            Show transactions
-          </summary>
-          <ul className="mt-1 max-h-40 overflow-y-auto rounded-md border border-line bg-page">
-            {result.matches.map((txn) => (
-              <li
-                key={txn.id}
-                className="grid grid-cols-[auto_1fr_auto] gap-2 border-b border-line px-2 py-1 last:border-0"
-              >
-                <span>{fmtDate(txn.date)}</span>
-                <span className="truncate text-ink">{txn.description}</span>
-                <span className="text-ink">{fmtNOKExact(txn.amount)}</span>
-              </li>
-            ))}
-          </ul>
-        </details>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="mt-1 ml-[18px] text-[11px] text-series-1 hover:underline"
+        >
+          View matching transactions
+        </button>
+      )}
+      {open && (
+        <MatchDialog txns={result.matches} onClose={() => setOpen(false)} />
       )}
     </div>
   );
@@ -312,10 +366,11 @@ interface AddFormProps {
   file: RuleFile;
   rules: RulesApi;
   txns: Categorized[];
+  haystacks: string[];
   pairs: string[];
 }
 
-const AddForm = ({ file, rules, txns, pairs }: AddFormProps) => {
+const AddForm = ({ file, rules, txns, haystacks, pairs }: AddFormProps) => {
   const [key, setKey] = useState("");
   const [value, setValue] = useState("");
   const map = isMapFile(file);
@@ -369,7 +424,7 @@ const AddForm = ({ file, rules, txns, pairs }: AddFormProps) => {
           Add
         </button>
       </div>
-      <MatchNote pattern={key} txns={txns} />
+      <MatchNote pattern={key} txns={txns} haystacks={haystacks} />
     </form>
   );
 };
@@ -728,6 +783,7 @@ export const RulesView = ({
   // DataTable when one of these files reaches a few thousand lines.
   const file = useDeferredValue(chosen);
   const [find, setFind] = useState("");
+  const haystacks = useMemo(() => txns.map(haystackOf), [txns]);
   const data = rules.data;
   const entries = data ? entriesOf(data.files[file]) : [];
   const needle = find.trim().toLowerCase();
@@ -765,7 +821,13 @@ export const RulesView = ({
         </div>
       ) : (
         <>
-          <AddForm file={file} rules={rules} txns={txns} pairs={pairs} />
+          <AddForm
+            file={file}
+            rules={rules}
+            txns={txns}
+            haystacks={haystacks}
+            pairs={pairs}
+          />
 
           <SearchBox
             value={find}
@@ -855,6 +917,7 @@ export const FileDialog = ({
   const [value, setValue] = useState(
     txn.subcategory ? `${txn.category}/${txn.subcategory}` : txn.category,
   );
+  const haystacks = useMemo(() => txns.map(haystackOf), [txns]);
   const ready = pattern.trim() !== "" && value.trim() !== "";
 
   return (
@@ -886,7 +949,7 @@ export const FileDialog = ({
             className={`${FIELD} font-mono`}
           />
         </label>
-        <MatchNote pattern={pattern} txns={txns} />
+        <MatchNote pattern={pattern} txns={txns} haystacks={haystacks} />
 
         <label className="flex flex-col gap-1 text-xs text-ink-soft">
           Category
