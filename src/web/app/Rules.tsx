@@ -13,13 +13,19 @@ import { Card, SearchBox } from "./Cards.tsx";
 import type { RulesApi } from "./data.ts";
 import { pairLabel } from "./format.ts";
 import {
+  AddedIcon,
   CategoryIcon,
+  ChangedIcon,
   CloseIcon,
   DropdownIcon,
   ErrorIcon,
+  GoToVersionIcon,
   Icon,
   InfoIcon,
   LoadingIcon,
+  RedoIcon,
+  RemovedIcon,
+  UndoIcon,
 } from "./icons.ts";
 
 export const RULE_LABEL: Record<RuleFile, string> = {
@@ -76,6 +82,12 @@ const CELL =
 
 const BUTTON =
   "shrink-0 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-ink-soft disabled:opacity-60";
+
+// The same button with an icon in place of the word. The name is on aria-label
+// and on title, and the pseudo-element widens the tap area without moving the
+// column beside it.
+const ICON_BUTTON =
+  "relative shrink-0 rounded-md border border-line bg-surface p-2 text-ink-soft before:absolute before:-inset-1 disabled:opacity-60";
 
 // Oslo-local, like every other date on the page. UTC would move an evening
 // edit into the day before.
@@ -455,9 +467,10 @@ const GroupEntry = ({ file, value, keys, pairs, rules }: GroupEntryProps) => {
             onClick={() => setAdding(true)}
             disabled={rules.busy}
             aria-label={`Add ${KEY_LABEL[file]}`}
-            className="rounded-md border border-dashed border-line px-2 py-1 text-xs text-ink-muted hover:border-series-1 hover:text-ink"
+            title={`Add ${KEY_LABEL[file]}`}
+            className="relative rounded-md border border-dashed border-line px-2 py-1.5 text-ink-muted before:absolute before:-inset-1 hover:border-series-1 hover:text-ink"
           >
-            +
+            <Icon aria-hidden icon={AddedIcon} size={12} />
           </button>
         )}
       </div>
@@ -472,9 +485,12 @@ const Change = ({ change: { key, from, to } }: { change: RuleChange }) => {
   const value = gone ? from : from === undefined ? to : `${from} → ${to}`;
   return (
     <li className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-[11px]">
-      <span className={gone ? "text-critical" : "text-series-1"}>
-        {gone ? "−" : from === undefined ? "+" : "±"}
-      </span>
+      <Icon
+        aria-hidden
+        icon={gone ? RemovedIcon : from === undefined ? AddedIcon : ChangedIcon}
+        size={11}
+        className={`shrink-0 self-center ${gone ? "text-critical" : "text-series-1"}`}
+      />
       <span className="min-w-0 truncate font-mono text-ink">{key}</span>
       {value && (
         <span className="min-w-0 truncate text-ink-muted">{value}</span>
@@ -506,22 +522,26 @@ const History = ({ file, rules }: { file: RuleFile; rules: RulesApi }) => {
         <h3 className="text-[11px] font-medium tracking-wide text-ink-soft uppercase">
           History
         </h3>
-        <div className="flex gap-1.5">
+        <div className="flex gap-2">
           <button
             type="button"
             onClick={() => rules.undo(file)}
             disabled={rules.busy || versions[here + 1] === undefined}
-            className={BUTTON}
+            aria-label="Undo"
+            title="Undo"
+            className={ICON_BUTTON}
           >
-            Undo
+            <Icon aria-hidden icon={UndoIcon} size={14} />
           </button>
           <button
             type="button"
             onClick={() => rules.redo(file)}
             disabled={rules.busy || ahead === 0}
-            className={BUTTON}
+            aria-label="Redo"
+            title="Redo"
+            className={ICON_BUTTON}
           >
-            Redo
+            <Icon aria-hidden icon={RedoIcon} size={14} />
           </button>
         </div>
       </div>
@@ -569,9 +589,11 @@ const History = ({ file, rules }: { file: RuleFile; rules: RulesApi }) => {
                 type="button"
                 onClick={() => rules.restore(file, version)}
                 disabled={rules.busy}
-                className={BUTTON}
+                aria-label={`Go to the version from ${fmtStamp(version)}`}
+                title="Go to this version"
+                className={ICON_BUTTON}
               >
-                Go here
+                <Icon aria-hidden icon={GoToVersionIcon} size={14} />
               </button>
             )}
           </li>
