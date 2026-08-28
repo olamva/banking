@@ -22,6 +22,7 @@ import {
   matchesFilters,
   period,
   personMerchants,
+  todayOslo,
   type Axis,
   type Filters,
   type Period,
@@ -741,20 +742,20 @@ export const App = () => {
 
   const shortcuts: Shortcut[] = [
     {
-      keys: ["d", "1"],
-      cap: "D 1",
+      keys: ["1"],
+      cap: "1",
       what: "Dashboard",
       run: () => changeView("dashboard"),
     },
     {
-      keys: ["t", "2"],
-      cap: "T 2",
+      keys: ["2"],
+      cap: "2",
       what: "Transactions",
       run: () => changeView("transactions"),
     },
     {
-      keys: ["l", "3"],
-      cap: "L 3",
+      keys: ["3"],
+      cap: "3",
       what: "Rules",
       run: () => changeView("rules"),
     },
@@ -771,6 +772,17 @@ export const App = () => {
       what:
         view === "rules" ? "The rule file after" : "The month or year after",
       run: () => stepBy(1),
+    },
+    {
+      keys: ["t"],
+      cap: "T",
+      what: "Today — this month, or this year in a year view",
+      run: () => {
+        if (view === "rules") return;
+        const now = todayOslo();
+        const it = p.kind === "year" ? now.slice(0, 4) : now.slice(0, 7);
+        if (offered.includes(it)) setChosen(it);
+      },
     },
     { keys: ["a"], cap: "A", what: "All time", run: () => setChosen("all") },
     {
