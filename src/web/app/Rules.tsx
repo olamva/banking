@@ -1,4 +1,4 @@
-import { useDeferredValue, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { compile, haystackOf } from "../../core/match.ts";
 import {
   CATEGORY_VALUED,
@@ -112,26 +112,15 @@ interface MatchNoteProps {
   haystacks: string[];
 }
 
-interface MatchDialogProps {
+interface MatchTableProps {
   txns: Categorized[];
-  onClose: () => void;
+  loading: boolean;
 }
 
-const MatchDialog = ({ txns, onClose }: MatchDialogProps) => (
-  <Modal onClose={onClose} className="w-[min(900px,94vw)] p-5">
-    <div className="mb-3 flex items-center justify-between gap-3">
-      <h2 className="text-base font-semibold">
-        Matching transactions ({txns.length})
-      </h2>
-      <button
-        type="button"
-        onClick={onClose}
-        aria-label="Close matching transactions"
-        className={ICON_BUTTON}
-      >
-        <Icon aria-hidden icon={CloseIcon} size={14} />
-      </button>
-    </div>
+const MatchTable = ({ txns, loading }: MatchTableProps) => (
+  <div
+    className={`mt-2 rounded-md border border-line bg-surface p-2 transition-opacity ${loading ? "pointer-events-none opacity-40" : ""}`}
+  >
     <DataTable
       scroll
       columns={[
@@ -156,18 +145,24 @@ const MatchDialog = ({ txns, onClose }: MatchDialogProps) => (
         fmtNOKExact(txn.amount),
       ])}
     />
-  </Modal>
+  </div>
 );
 
 // What the pattern claims, before it is saved. A regex that reads as narrow and
 // matches four hundred rows is the failure this exists to catch.
 const MatchNote = ({ pattern, txns, haystacks }: MatchNoteProps) => {
-  const deferredPattern = useDeferredValue(pattern);
+  const [checkedPattern, setCheckedPattern] = useState(pattern);
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setCheckedPattern(pattern), 300);
+    return () => window.clearTimeout(timer);
+  }, [pattern]);
+
   const result = useMemo(() => {
-    if (!deferredPattern.trim()) return null;
+    if (!checkedPattern.trim()) return null;
     try {
-      const matches = compile(deferredPattern, "pattern");
+      const matches = compile(checkedPattern, "pattern");
       return {
         matches: txns.filter((_, i) => matches(haystacks[i] ?? "")),
         error: null,
@@ -178,33 +173,39 @@ const MatchNote = ({ pattern, txns, haystacks }: MatchNoteProps) => {
         error: e instanceof Error ? e.message : String(e),
       };
     }
-  }, [deferredPattern, haystacks, txns]);
+  }, [checkedPattern, haystacks, txns]);
 
-  if (!result) return null;
+  if (!pattern.trim()) return null;
+  const loading = pattern !== checkedPattern || !result;
+  const matches = result?.matches ?? [];
   return (
-    <div className={result.error ? "text-critical" : "text-ink-muted"}>
+    <div
+      aria-busy={loading}
+      className={result?.error ? "text-critical" : "text-ink-muted"}
+    >
       <div className="flex items-start gap-1.5 text-[11px]">
         <Icon
           aria-hidden
-          icon={result.error ? ErrorIcon : InfoIcon}
+          icon={loading ? LoadingIcon : result?.error ? ErrorIcon : InfoIcon}
           size={12}
-          className="mt-px shrink-0"
+          className={`mt-px shrink-0 ${loading ? "animate-spin" : ""}`}
         />
-        {result.error ??
-          `Matches ${result.matches.length} transaction(s) on record.`}
+        {loading
+          ? "Checking matches…"
+          : (result?.error ??
+            `Matches ${matches.length} transaction(s) on record.`)}
       </div>
-      {!result.error && result.matches.length > 0 && (
+      {!loading && !result?.error && matches.length > 0 && (
         <button
           type="button"
-          onClick={() => setOpen(true)}
+          onClick={() => setOpen(!open)}
+          aria-expanded={open}
           className="mt-1 ml-[18px] text-[11px] text-series-1 hover:underline"
         >
-          View matching transactions
+          {open ? "Hide" : "Show"} matching transactions
         </button>
       )}
-      {open && (
-        <MatchDialog txns={result.matches} onClose={() => setOpen(false)} />
-      )}
+      {open && <MatchTable txns={matches} loading={loading} />}
     </div>
   );
 };
