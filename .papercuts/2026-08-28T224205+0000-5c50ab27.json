@@ -1,0 +1,13 @@
+{
+  "id": "5c50ab27",
+  "ts": "2026-08-28T22:42:05+00:00",
+  "text": "pnpm test hangs in test/web/server.test.ts because Node runs the test file as process.argv[1], which starts the server before its before hook",
+  "tags": [
+    "node",
+    "tests"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "test/web/server.test.ts"
+}

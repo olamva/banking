@@ -1,0 +1,13 @@
+{
+  "id": "fa480d6d",
+  "ts": "2026-08-28T22:37:21+00:00",
+  "text": "pnpm install in a new worktree retried registry requests after sandbox DNS failed",
+  "tags": [
+    "setup",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "/Users/olavassbotn/Documents/banking/.claude/worktrees/rule-match-preview"
+}

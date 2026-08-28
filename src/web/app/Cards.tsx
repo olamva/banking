@@ -36,6 +36,7 @@ import {
   UpIcon,
   type IconSvgElement,
 } from "./icons.ts";
+import { Modal } from "./Modal.tsx";
 import { isPageKey } from "./Shortcuts.tsx";
 
 interface CardProps {
@@ -561,19 +562,13 @@ const SHOWN_ABOVE = [
 const ROW =
   "flex items-baseline justify-between gap-4 border-b border-line py-1.5 last:border-0";
 
-const TxnDialog = ({ txn, onClose, onFile }: TxnDialogProps) => {
+export const TxnDialog = ({ txn, onClose, onFile }: TxnDialogProps) => {
   const bank = bankLabel(txn);
 
   return (
-    <dialog
-      ref={(el) => {
-        el?.showModal();
-      }}
+    <Modal
       onClose={onClose}
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !highlighting(e)) onClose();
-      }}
-      className="m-auto max-h-[80vh] w-[min(560px,92vw)] overflow-y-auto rounded-xl border border-line bg-surface p-0 text-ink shadow-2xl backdrop:bg-black/50"
+      className="max-h-[80vh] w-[min(560px,92vw)] overflow-y-auto"
     >
       <div className="sticky top-0 z-10 flex items-start gap-3 border-b border-line bg-surface px-5 py-4">
         <div className="min-w-0 flex-1">
@@ -671,7 +666,7 @@ const TxnDialog = ({ txn, onClose, onFile }: TxnDialogProps) => {
           ))}
         </dl>
       </div>
-    </dialog>
+    </Modal>
   );
 };
 

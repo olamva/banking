@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { Modal } from "./Modal.tsx";
 
 export interface Shortcut {
   keys?: string[];
@@ -78,22 +79,10 @@ export const ShortcutsDialog = ({
   open,
   onClose,
 }: ShortcutsDialogProps) => {
-  const box = useRef<HTMLDialogElement>(null);
-
-  useEffect(() => {
-    const el = box.current;
-    if (!el) return;
-    if (open && !el.open) el.showModal();
-    if (!open && el.open) el.close();
-  }, [open]);
+  if (!open) return null;
 
   return (
-    <dialog
-      ref={box}
-      onClose={onClose}
-      onClick={(e) => e.target === box.current && onClose()}
-      className="m-auto w-[min(90vw,28rem)] rounded-[10px] border border-line bg-surface p-5 text-ink shadow-lg backdrop:bg-black/40"
-    >
+    <Modal onClose={onClose} className="w-[min(90vw,28rem)] p-5">
       <h2 className="mb-3 text-sm font-semibold">Keyboard shortcuts</h2>
       <div className="divide-y divide-line">
         {shortcuts.map((s) => (
@@ -113,6 +102,6 @@ export const ShortcutsDialog = ({
       >
         Close
       </button>
-    </dialog>
+    </Modal>
   );
 };
