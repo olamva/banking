@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
 import { compile, haystackOf } from "../../core/match.ts";
 import {
   CATEGORY_VALUED,
@@ -629,6 +629,15 @@ export interface RuleTabsProps {
 // one row, and nothing on this page may push it.
 export const RuleTabs = ({ rules, file, onFile }: RuleTabsProps) => {
   const data = rules.data;
+  const counts = useMemo(
+    (): Record<string, number> =>
+      data
+        ? Object.fromEntries(
+            RULE_FILES.map((f) => [f, entriesOf(data.files[f]).length]),
+          )
+        : {},
+    [data],
+  );
 
   const moveTab = (e: React.KeyboardEvent<HTMLButtonElement>, at: number) => {
     const by = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
@@ -638,7 +647,7 @@ export const RuleTabs = ({ rules, file, onFile }: RuleTabsProps) => {
     onFile(RULE_FILES[next]!);
     e.currentTarget.parentElement
       ?.querySelectorAll<HTMLButtonElement>("[role=tab]")
-      [next]?.focus();
+      [next]?.focus({ preventScroll: true });
   };
 
   return (
@@ -661,10 +670,8 @@ export const RuleTabs = ({ rules, file, onFile }: RuleTabsProps) => {
           }`}
         >
           {RULE_LABEL[f]}
-          {data && (
-            <span className="ml-1.5 text-[11px] opacity-70">
-              {entriesOf(data.files[f]).length}
-            </span>
+          {counts[f] !== undefined && (
+            <span className="ml-1.5 text-[11px] opacity-70">{counts[f]}</span>
           )}
         </button>
       ))}
@@ -681,7 +688,19 @@ export interface RulesViewProps {
   file: RuleFile;
 }
 
-export const RulesView = ({ rules, txns, pairs, file }: RulesViewProps) => {
+export const RulesView = ({
+  rules,
+  txns,
+  pairs,
+  file: chosen,
+}: RulesViewProps) => {
+  // payees.json holds 580 lines, and each one draws two fields. A held arrow
+  // steps through seven files faster than that draws, so the body follows one
+  // step behind and React drops the states it cannot reach in time. The tabs
+  // above answer at once, because they are not this list.
+  // ponytail: no windowing. One file still draws whole. Window the list like
+  // DataTable when one of these files reaches a few thousand lines.
+  const file = useDeferredValue(chosen);
   const [find, setFind] = useState("");
   const haystacks = useMemo(() => txns.map(haystackOf), [txns]);
 

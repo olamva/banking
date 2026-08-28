@@ -754,7 +754,7 @@ export const FilterBar = ({
             onView(VIEWS[next]!);
             e.currentTarget.parentElement
               ?.querySelectorAll<HTMLButtonElement>("[role=tab]")
-              [next]?.focus();
+              [next]?.focus({ preventScroll: true });
           }}
           className={`px-3 py-1.5 text-[13px] capitalize ${view === v ? "bg-series-1 text-white" : "bg-page text-ink-soft"}`}
         >
