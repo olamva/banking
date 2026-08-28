@@ -7,10 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { merchantOf, subcategoryOf } from "../../core/select.ts";
-import {
-  subscriptionGroups,
-  type SubscriptionGroup,
-} from "../../core/stats.ts";
+import { type SubscriptionGroup } from "../../core/stats.ts";
 import type { Categorized } from "../../core/types.ts";
 import {
   ID_FIELD,
@@ -151,6 +148,7 @@ const Sizer = ({ of }: { of: string[] }) => (
 );
 
 export const AMOUNT_SIZE = [fmtNOK(-100000)];
+export const AMOUNT_SIZE_EXACT = [fmtNOKExact(-100000.5)];
 
 export interface Column {
   label: string;
@@ -204,7 +202,7 @@ const OVERSCAN = 12;
 const VIEWPORT = 460;
 
 export const DataTable = ({ columns, rows, scroll, onRow }: DataTableProps) => {
-  const [win, setWin] = useState({ top: 0, height: VIEWPORT });
+  const [scrollTop, setScrollTop] = useState(0);
   const [rowH, setRowH] = useState(24);
   const probe = useRef<HTMLTableRowElement>(null);
   const box = useRef<HTMLDivElement>(null);
@@ -215,15 +213,15 @@ export const DataTable = ({ columns, rows, scroll, onRow }: DataTableProps) => {
     const h = probe.current?.getBoundingClientRect().height;
     if (h && Math.abs(h - rowH) > 0.5) setRowH(h);
 
-    const el = box.current;
-    if (el && (el.scrollTop !== win.top || el.clientHeight !== win.height))
-      setWin({ top: el.scrollTop, height: el.clientHeight });
   });
 
-  const top = Math.min(win.top, Math.max(0, rows.length * rowH - win.height));
+  const top = Math.min(
+    scrollTop,
+    Math.max(0, rows.length * rowH - VIEWPORT),
+  );
   const first = windowed ? Math.max(0, Math.floor(top / rowH) - OVERSCAN) : 0;
   const last = windowed
-    ? Math.min(rows.length, Math.ceil((top + win.height) / rowH) + OVERSCAN)
+    ? Math.min(rows.length, Math.ceil((top + VIEWPORT) / rowH) + OVERSCAN)
     : rows.length;
 
   const spacer = (h: number) =>
@@ -238,20 +236,27 @@ export const DataTable = ({ columns, rows, scroll, onRow }: DataTableProps) => {
       ref={box}
       onScroll={
         windowed
-          ? (e) =>
-              setWin({
-                top: e.currentTarget.scrollTop,
-                height: e.currentTarget.clientHeight,
-              })
+          ? (e) => setScrollTop(e.currentTarget.scrollTop)
           : undefined
       }
       className={`mt-2 overflow-x-auto ${scroll ? "max-h-115 overflow-y-auto" : ""}`}
     >
       {/* Tabular figures for the whole table, not just the money column: it is
           what makes every date exactly as wide as every other one, so the date
-          column has a width the rows cannot argue with. */}
-      <table className="w-full border-collapse text-xs tabular-nums">
-        <thead>
+          column has a width the rows cannot argue with.
+
+          The borders stay separate. A collapsed border belongs to the table,
+          so a sticky header cell paints no bottom edge of its own, and the
+          rows then show through that strip. */}
+      <table className="w-full border-separate border-spacing-0 text-xs tabular-nums">
+        <thead
+          className={scroll ? "sticky top-0 z-10 bg-surface" : ""}
+          style={
+            scroll
+              ? { boxShadow: "0 -32px 0 32px var(--color-surface)" }
+              : undefined
+          }
+        >
           <tr>
             {columns.map((c) => (
               <th
@@ -263,7 +268,7 @@ export const DataTable = ({ columns, rows, scroll, onRow }: DataTableProps) => {
                       : "descending"
                     : undefined
                 }
-                className={`border-b border-grid bg-surface py-1 pr-2 font-semibold ${c.num ? "text-right" : "text-left"} ${c.min ? "w-px whitespace-nowrap" : ""} ${scroll ? "sticky top-0" : ""}`}
+                className={`border-b border-grid bg-surface py-1 pr-2 font-semibold ${c.num ? "text-right" : "text-left"} ${c.min ? "w-px whitespace-nowrap" : ""}`}
               >
                 {c.sizer && <Sizer of={c.sizer} />}
                 {c.onClick ? (
@@ -446,18 +451,17 @@ const GROUP_SORTS = {
 };
 
 interface SubscriptionsCardProps {
-  txns: Categorized[];
+  groups: SubscriptionGroup[];
   onMerchant: (merchant: string, meta: boolean) => void;
   onCategory: (category: string, meta: boolean) => void;
 }
 
 export const SubscriptionsCard = ({
-  txns,
+  groups,
   onMerchant,
   onCategory,
 }: SubscriptionsCardProps) => {
   const [search, setSearch] = useState("");
-  const groups = useMemo(() => subscriptionGroups(txns), [txns]);
   const shown = useMemo(() => {
     const q = search.toLowerCase();
     return q
@@ -730,7 +734,7 @@ export const TransactionsCard = ({
             head("Amount", "amount", {
               num: true,
               min: true,
-              sizer: AMOUNT_SIZE,
+              sizer: AMOUNT_SIZE_EXACT,
             }),
           ]}
           rows={sorted.map((t) => [
@@ -749,7 +753,7 @@ export const TransactionsCard = ({
               onPick={onCategory}
             />,
             <PickCell label={t.account} onPick={onAccount} />,
-            fmtNOK(t.amount),
+            fmtNOKExact(t.amount),
           ])}
         />
       )}

@@ -18,6 +18,29 @@ Write almost no comments. Keep a comment only when it names a trap that the code
 
 Delete file-header essays. Delete a comment block on a type, a constant or a function when it only repeats the name. Delete design rationale and history. This file holds the invariants. Keep every `ponytail:` marker.
 
+## Skills and commands are shared with Codex
+
+**Two agents read this repo, and every skill must reach both.** Claude Code reads `.claude/`. Codex reads `AGENTS.md` and `.agents/`. `AGENTS.md` is a symlink to this file, so the instructions stay single-sourced. Mirror a new skill or command in the same turn that you add it. A skill that only one agent can see is unfinished work.
+
+**A skill mirrors as a symlink.** Write the skill one time in `.claude/skills/<name>/SKILL.md`. Then link it:
+
+```bash
+ln -s ../../.claude/skills/<name> .agents/skills/<name>
+```
+
+**A slash command mirrors as a shim, because Codex runs no slash command.** Write the command in `.claude/commands/<name>.md`. Then add `.agents/skills/<name>/SKILL.md`, which names the command file and tells the agent to apply it in full. Add `.agents/skills/<name>/agents/openai.yaml` beside it:
+
+```yaml
+policy:
+  allow_implicit_invocation: false
+```
+
+That policy stops Codex from starting the command on its own. A command is explicit, so keep the flag false. A plain skill takes no policy file.
+
+**Copy a permission as well as a skill.** `.claude/settings.json` holds the permissions of Claude Code. `.codex/rules/claude-parity.rules` holds the same decisions for Codex. Change both together, and keep every refusal a refusal on both sides.
+
+This section covers the skills of the repo. A personal skill under `~/.claude/skills/` needs its own mirror in the home directory, and no file here controls that.
+
 ## Committing
 
 Commit, push and PRs are authorised in this repo. Commit when the work reaches a state worth keeping. Push your own branch. Open the PR against `main` when the work is done. `.claude/settings.json` holds the matching permissions, so none of these actions prompts.
@@ -37,6 +60,10 @@ git -C rules add -A && git -C rules commit -m "chore: ..."
 This commit is required, not only permitted. It is the one commit that the global never-commit rule does not cover. It publishes nothing.
 
 ## Working in a worktree
+
+**Use an isolated worktree for every tracked code change.** Stop before editing when you are in the main checkout. Create the worktree from the user's current branch. Never run `git switch` in the main checkout. Never leave agent changes there.
+
+The rules-only exception below does not permit other changes in the main checkout.
 
 Run `pnpm install`, then run `pnpm worktree:link`. These two commands are the whole provisioning step. The second command makes symlinks to `.env.local`, `data` and `rules` in the main checkout.
 
@@ -77,6 +104,8 @@ pnpm deploy                     # build, push the code and the page, upload the 
 Terraform sets all of them. Do not set one by hand, because the next `terraform apply` puts it back.
 
 Set the authorised redirect URI of the Google client to the `google_redirect_uri` output. It must match exactly, or Google refuses the sign-in.
+
+**`custom_domain` binds a name of your own, and it needs the DNS first.** Set the variable in `infra/terraform.tfvars`. Run `terraform output custom_domain_dns` to read the `CNAME` and the `asuid` `TXT` record, add both at your DNS provider, and wait for them to resolve. The managed certificate issues only after that, so an earlier apply fails on the certificate. **Container Apps never stops serving the `azurecontainerapps.io` name.** Easy Auth builds its callback from the host of the request, so Google needs `custom_domain_google_redirect_uri` **as well as** `google_redirect_uri`. A custom domain is not a third home for the dashboard. It is the same site, behind the same Easy Auth and the same `allowed()` gate.
 
 Removing an address from `ALLOWED_EMAILS` stops the next request from that person. Easy Auth keeps its own session, so a sign-out needs the `/.auth/logout` route.
 
@@ -343,7 +372,7 @@ There is no separate mobile page, and there must not be one. Use one layout that
 **Nothing may make the page scroll sideways.** That is the single test that the rest of this section serves. Two things caused it here. Both are the same error: _a width that someone wrote down instead of measuring._
 
 - **A minimum on a grid track is a floor. A floor wider than the phone is the bug.** Always write `minmax(min(460px, 100%), 1fr)`. `test/web/app/layout.test.ts` refuses the bare form anywhere in `src/web/app/`.
-- **An absolutely-positioned panel anchors where its trigger wrapped to.** Add `max-sm:w-full` to the `details`. Do not make the panel narrower. A narrower panel only moves the width at which it breaks.
+- **An absolutely-positioned panel anchors where its trigger wrapped to.** Give the trigger the whole width with `max-sm:w-full`, or hang the panel from the edge that holds it on the screen. A trigger that shares a line takes the second route, so the right-hand one anchors `right-0`. Do not make the panel narrower. A narrower panel only moves the width at which it breaks.
 
 **Charts measure. They never assume.** `useWidth` is a `ResizeObserver`. Every chart reads its box through it, draws into a `viewBox`, and computes its label stride against `clusterW`. A hardcoded chart width repeats the rule above. A label gutter in fixed pixels is the same error.
 

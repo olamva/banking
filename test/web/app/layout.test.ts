@@ -35,11 +35,14 @@ test("every grid track floors at the viewport, not at a fixed width", () => {
 
 test("every floating panel says which edge it hangs from", () => {
   const anchored = /\b(left|right|inset-x)-/;
+  // Both spellings. A panel that picks its edge needs a template literal, and
+  // that is the one most able to get the edge wrong.
+  const panel = /className=(?:"|\{`)absolute/;
   const offending = tsx.flatMap((file) =>
     source(file)
       .split("\n")
       .flatMap((line, i) =>
-        /className="absolute/.test(line) && !anchored.test(line)
+        panel.test(line) && !anchored.test(line)
           ? [`${file}:${i + 1}: ${line.trim()}`]
           : [],
       ),

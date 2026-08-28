@@ -2,7 +2,11 @@
   "name": "banking",
   "private": true,
   "type": "module",
+  "bin": {
+    "banking": "src/bank.ts"
+  },
   "scripts": {
+    "bank": "node src/bank.ts",
     "sb1": "node --env-file=.env.local src/cli.ts",
     "dev": "vite",
     "test": "node --test 'test/**/*.test.ts'",

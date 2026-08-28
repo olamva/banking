@@ -44,6 +44,19 @@ variable "allowed_emails" {
   }
 }
 
+# The name is an address, so it stays out of git with the rest of tfvars.
+variable "custom_domain" {
+  type        = string
+  sensitive   = true
+  default     = ""
+  description = "The host name that serves the dashboard, such as a subdomain of your own domain. An empty value binds no domain. Container Apps keeps the azurecontainerapps.io name either way."
+
+  validation {
+    condition     = var.custom_domain == "" || can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$", var.custom_domain))
+    error_message = "Use a bare host name in lower case. Write no scheme, no port and no trailing dot."
+  }
+}
+
 variable "google_client_id" {
   type    = string
   default = ""

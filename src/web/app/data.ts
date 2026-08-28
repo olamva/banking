@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { buildLabels, type Labels, type Names } from "../../core/labels.ts";
 import type { RuleChange, RuleFile, Rules } from "../../core/ruleFiles.ts";
 import type { Categorized } from "../../core/types.ts";
@@ -200,6 +200,37 @@ export const useRules = (onRebuilt: () => void): RulesApi => {
     restore: (file, at) =>
       run(rulesUrl("restore", { file, at: String(at) }), "Moved."),
   };
+};
+
+// Keep most of the header space on screen before the header hides.
+// 8 px ignores tap jitter on iOS and the rubber band at both ends.
+export const headerHidden = (
+  y: number,
+  last: number,
+  hidden: boolean,
+  height: number,
+): boolean => (Math.abs(y - last) < 8 ? hidden : y > last && y > height - 24);
+
+// Measured, never assumed: the bar grows a line as the filters wrap, and it
+// grows another when a refresh reports.
+export const useHideOnScroll = (
+  header: RefObject<HTMLElement | null>,
+): boolean => {
+  const [hidden, setHidden] = useState(false);
+
+  useEffect(() => {
+    let last = window.scrollY;
+    const onScroll = () => {
+      const y = window.scrollY;
+      const height = header.current?.offsetHeight ?? 0;
+      setHidden((was) => headerHidden(y, last, was, height));
+      if (Math.abs(y - last) >= 8) last = y;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [header]);
+
+  return hidden;
 };
 
 export const THEMES = ["system", "light", "dark"] as const;

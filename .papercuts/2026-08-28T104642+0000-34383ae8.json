@@ -1,0 +1,13 @@
+{
+  "id": "34383ae8",
+  "ts": "2026-08-28T10:46:42+00:00",
+  "text": "auto-mode classifier blocks 'gh stack merge' and even piped 'gh stack --help | tail', while 'gh stack submit/init/unstack' pass",
+  "tags": [
+    "permissions",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "opus-5",
+  "session": "caa45adb",
+  "where": "gh stack"
+}

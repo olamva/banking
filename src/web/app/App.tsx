@@ -2,6 +2,7 @@ import {
   useDeferredValue,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type Dispatch,
   type SetStateAction,
@@ -33,8 +34,10 @@ import {
   dailySeries,
   monthStats,
   monthlySeries,
+  subscriptionGroups,
   totals,
   yearStats,
+  type SubscriptionGroup,
 } from "../../core/stats.ts";
 import type { Categorized } from "../../core/types.ts";
 import {
@@ -59,6 +62,7 @@ import {
   THEMES,
   readTheme,
   setTheme,
+  useHideOnScroll,
   useRefresh,
   useRules,
   useTransactions,
@@ -223,7 +227,7 @@ const Totals = ({ stats, prev, yearly, vsLabel }: TotalsProps) => (
 
 interface BreakdownsProps {
   stats: Stats;
-  txns: Categorized[];
+  groups: SubscriptionGroup[];
   onFilters: SetFilters;
   single: boolean;
   grid: string;
@@ -232,7 +236,7 @@ interface BreakdownsProps {
 
 const Breakdowns = ({
   stats,
-  txns,
+  groups,
   onFilters,
   single,
   grid,
@@ -350,7 +354,7 @@ const Breakdowns = ({
 
       {/* Hides itself when the period has nothing recurring in it. */}
       <SubscriptionsCard
-        txns={txns}
+        groups={groups}
         onMerchant={onMerchant}
         onCategory={pick(onFilters, "categories")}
       />
@@ -360,6 +364,7 @@ const Breakdowns = ({
 
 interface DashboardProps {
   txns: Categorized[];
+  all: Categorized[];
   filters: Filters;
   onFilters: SetFilters;
   period: Period;
@@ -370,6 +375,7 @@ interface DashboardProps {
 
 const Dashboard = ({
   txns,
+  all,
   filters,
   onFilters,
   period: p,
@@ -377,7 +383,8 @@ const Dashboard = ({
   offered,
   onGrain,
 }: DashboardProps) => {
-  const all = txns.filter((t) => inRange(t, p.from, p.to));
+  // `all` is the period. `txns` is the record, and only the comparison period
+  // needs it, because that period sits outside this one.
   const shown = all.filter((t) => matchesFilters(t, filters));
 
   const vs =
@@ -458,7 +465,7 @@ const Dashboard = ({
 
       <Breakdowns
         stats={stats}
-        txns={shown}
+        groups={subscriptionGroups(shown)}
         onFilters={onFilters}
         single={single}
         grid={p.kind === "all" ? CARD_GRID_3 : CARD_GRID}
@@ -543,8 +550,8 @@ interface ToolbarProps {
 
 const Toolbar = ({ refresh, theme, onTheme, onHelp }: ToolbarProps) => (
   <>
-    <header className="mb-4 flex flex-wrap items-baseline justify-between gap-4">
-      <h1 className="text-xl font-semibold">Spending dashboard</h1>
+    <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
+      <h1 className="text-lg font-semibold sm:text-xl">Spending dashboard</h1>
       {/* Three controls, and 375px is a supported width. Let them wrap
           rather than push the page sideways. */}
       <div className="flex flex-wrap items-center gap-2">
@@ -589,12 +596,12 @@ const Toolbar = ({ refresh, theme, onTheme, onHelp }: ToolbarProps) => (
           </select>
         </div>
       </div>
-    </header>
+    </div>
 
     {/* On the page, not in a tooltip — a phone has no hover. */}
     {refresh.note && (
       <p
-        className={`mb-4 flex items-start gap-1.5 text-[11px] ${refresh.bad ? "text-critical" : "text-ink-muted"}`}
+        className={`flex items-start gap-1.5 text-[11px] ${refresh.bad ? "text-critical" : "text-ink-muted"}`}
       >
         <Icon
           aria-hidden
@@ -660,6 +667,8 @@ export const App = () => {
   const [chosenGrain, setChosenGrain] = useState<Grain>(initial.grain);
   const [theme, onTheme] = useState<Theme>(readTheme);
   const [help, setHelp] = useState(false);
+  const header = useRef<HTMLElement>(null);
+  const hidden = useHideOnScroll(header);
 
   if (load.status === "ready") {
     setLabels(load.labels);
@@ -887,13 +896,47 @@ export const App = () => {
   }, [inPeriod, filters.countries]);
 
   return (
-    <div className="mx-auto max-w-295 p-3 sm:p-6">
-      <Toolbar
-        refresh={refresh}
-        theme={theme}
-        onTheme={onTheme}
-        onHelp={() => setHelp(true)}
-      />
+    <>
+      {/* One bar holds the title, the three controls and every filter. It
+          leaves on a scroll down and returns on a scroll up, so a phone reads
+          the page at full height and reaches the filters without a scroll to
+          the top. An open picker holds it, because a long list scrolls the page
+          on at its end, and that would take the list off the screen. */}
+      <header
+        ref={header}
+        className={`sticky top-0 z-30 border-b border-line bg-page transition-transform duration-200 has-[details[open]]:translate-y-0 motion-reduce:transition-none ${hidden ? "-translate-y-full" : ""}`}
+      >
+        <div className="mx-auto max-w-295 space-y-2.5 px-3 py-2.5 sm:px-6 sm:py-3">
+          <Toolbar
+            refresh={refresh}
+            theme={theme}
+            onTheme={onTheme}
+            onHelp={() => setHelp(true)}
+          />
+
+          <FilterBar
+            view={view}
+            onView={changeView}
+            months={months}
+            years={years}
+            period={active}
+            kind={p.kind}
+            from={p.from}
+            to={p.to}
+            earliest={record.from}
+            latest={record.to}
+            onPeriod={setChosen}
+            categories={categories}
+            subcategories={subcategories}
+            merchants={merchants}
+            people={people}
+            accounts={accounts}
+            countries={countries}
+            filters={filters}
+            onFilters={setFilters}
+          />
+        </div>
+      </header>
 
       <ShortcutsDialog
         shortcuts={shortcuts}
@@ -901,62 +944,43 @@ export const App = () => {
         onClose={() => setHelp(false)}
       />
 
-      <FilterBar
-        view={view}
-        onView={changeView}
-        months={months}
-        years={years}
-        period={active}
-        kind={p.kind}
-        from={p.from}
-        to={p.to}
-        earliest={record.from}
-        latest={record.to}
-        onPeriod={setChosen}
-        categories={categories}
-        subcategories={subcategories}
-        merchants={merchants}
-        people={people}
-        accounts={accounts}
-        countries={countries}
-        filters={filters}
-        onFilters={setFilters}
-      />
-
-      {/* The rules stand on their own. They are readable and editable before
-          the first sync, so no load state gates them. */}
-      {view === "rules" ? (
-        <RulesView
-          rules={rules}
-          txns={txns}
-          pairs={pairs}
-          file={ruleFile}
-          onFile={setRuleFile}
-        />
-      ) : (
-        <>
-          <LoadNote load={load} count={txns.length} refresh={refresh} />
-          {ready &&
-            (view === "dashboard" ? (
-              <Dashboard
-                txns={txns}
-                filters={filters}
-                onFilters={setFilters}
-                period={p}
-                grain={grain}
-                offered={grains}
-                onGrain={setChosenGrain}
-              />
-            ) : (
-              <TransactionsView
-                rows={inPeriod}
-                filters={filters}
-                onFilters={setFilters}
-                onFile={setFiling}
-              />
-            ))}
-        </>
-      )}
+      <div className="mx-auto max-w-295 px-3 py-4 sm:px-6 sm:py-6">
+        {/* The rules stand on their own. They are readable and editable before
+            the first sync, so no load state gates them. */}
+        {view === "rules" ? (
+          <RulesView
+            rules={rules}
+            txns={txns}
+            pairs={pairs}
+            file={ruleFile}
+            onFile={setRuleFile}
+          />
+        ) : (
+          <>
+            <LoadNote load={load} count={txns.length} refresh={refresh} />
+            {ready &&
+              (view === "dashboard" ? (
+                <Dashboard
+                  txns={txns}
+                  all={inPeriod}
+                  filters={filters}
+                  onFilters={setFilters}
+                  period={p}
+                  grain={grain}
+                  offered={grains}
+                  onGrain={setChosenGrain}
+                />
+              ) : (
+                <TransactionsView
+                  rows={inPeriod}
+                  filters={filters}
+                  onFilters={setFilters}
+                  onFile={setFiling}
+                />
+              ))}
+          </>
+        )}
+      </div>
 
       {filing && (
         <FileDialog
@@ -967,6 +991,6 @@ export const App = () => {
           onClose={() => setFiling(null)}
         />
       )}
-    </div>
+    </>
   );
 };
