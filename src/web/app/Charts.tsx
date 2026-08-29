@@ -395,7 +395,7 @@ export const SpendLines = ({
   compare = [],
   compareLabel,
 }: SpendLinesProps) => {
-  const [ref, width] = useWidth(500);
+  const [ref, width] = useWidth();
   const { show, hide, node } = useTooltip();
   const [near, setNear] = useState<number | null>(null);
 

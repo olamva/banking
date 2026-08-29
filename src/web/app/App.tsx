@@ -100,7 +100,7 @@ const CARD_GRID =
   "grid grid-cols-[repeat(auto-fit,minmax(min(460px,100%),1fr))] gap-4 [&>*:last-child:nth-child(odd)]:col-span-full";
 
 const CARD_GRID_3 =
-  "grid grid-cols-[repeat(auto-fit,minmax(min(300px,100%),1fr))] gap-4 [&>*:last-child]:col-span-full";
+  "grid grid-cols-[repeat(auto-fit,minmax(min(300px,100%),1fr))] gap-4 [&>*:last-child:nth-child(3n+1)]:col-span-full";
 
 const THEME_ICONS = {
   system: SystemThemeIcon,
@@ -388,6 +388,16 @@ const Dashboard = ({
   // needs it, because that period sits outside this one.
   const shown = all.filter((t) => matchesFilters(t, filters));
 
+  if (shown.length === 0)
+    return (
+      <>
+        <div className="py-10 text-center text-ink-muted">
+          No transactions match the current filters.
+        </div>
+        <ExcludedNote excluded={totals(all).excluded} where="in this period" />
+      </>
+    );
+
   const vs =
     p.prev && txns.some((t) => inRange(t, p.prev!.from, p.prev!.to))
       ? p.prev
@@ -538,7 +548,9 @@ const RefreshButton = ({ refresh }: { refresh: Refresh }) => (
       size={14}
       className={refresh.busy ? "animate-spin" : undefined}
     />
-    {refresh.busy ? <span className="glow">Refreshing…</span> : "Refresh"}
+    <span className={refresh.busy ? "glow max-sm:hidden" : "max-sm:hidden"}>
+      {refresh.busy ? "Refreshing…" : "Refresh"}
+    </span>
   </button>
 );
 
@@ -551,10 +563,9 @@ interface ToolbarProps {
 
 const Toolbar = ({ refresh, theme, onTheme, onHelp }: ToolbarProps) => (
   <>
-    <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
-      <h1 className="text-lg font-semibold sm:text-xl">Spending dashboard</h1>
-      {/* Three controls, and 375px is a supported width. Let them wrap
-          rather than push the page sideways. */}
+    <div className="flex flex-wrap items-baseline justify-between gap-x-1 gap-y-2 sm:gap-x-4">
+      <h1 className="text-base font-semibold sm:text-xl">Spending dashboard</h1>
+      {/* Keep the controls on the title line at phone widths. */}
       <div className="flex flex-wrap items-center gap-2">
         {/* The one control on this page that costs a bank request. It syncs
             the whole record with --force, then rebuilds the database. */}
@@ -566,7 +577,7 @@ const Toolbar = ({ refresh, theme, onTheme, onHelp }: ToolbarProps) => (
           className="flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-ink-soft"
         >
           <Icon aria-hidden icon={KeyboardIcon} size={14} />
-          Shortcuts
+          <span className="max-sm:hidden">Shortcuts</span>
         </button>
         {/* Three named options rather than a cycling button: a toggle whose next
           state you cannot see is a toggle you press twice. The icon names the
@@ -669,7 +680,7 @@ export const App = () => {
   const [theme, onTheme] = useState<Theme>(readTheme);
   const [help, setHelp] = useState(false);
   const header = useRef<HTMLElement>(null);
-  const hidden = useHideOnScroll(header);
+  const hidden = useHideOnScroll(header, filters);
 
   if (load.status === "ready") {
     setLabels(load.labels);
