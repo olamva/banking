@@ -696,38 +696,6 @@ const History = ({ file, rules }: { file: RuleFile; rules: RulesApi }) => {
   );
 };
 
-interface RuleNotificationProps {
-  rules: RulesApi;
-}
-
-export const RuleNotification = ({ rules }: RuleNotificationProps) => {
-  const [hidden, setHidden] = useState(false);
-
-  useEffect(() => {
-    setHidden(false);
-    if (rules.note === null || rules.bad) return;
-    const timer = window.setTimeout(() => setHidden(true), 4000);
-    return () => window.clearTimeout(timer);
-  }, [rules.note, rules.bad]);
-
-  if (rules.note === null || hidden) return null;
-  return (
-    <div
-      role={rules.bad ? "alert" : "status"}
-      aria-live={rules.bad ? "assertive" : "polite"}
-      className={`fixed right-3 bottom-3 z-50 flex max-w-[calc(100vw-1.5rem)] items-start gap-2 rounded-lg border bg-surface px-3 py-2.5 text-sm shadow-lg sm:right-6 sm:bottom-6 ${rules.bad ? "border-critical text-critical" : "border-good text-ink"}`}
-    >
-      <Icon
-        aria-hidden
-        icon={rules.bad ? ErrorIcon : InfoIcon}
-        size={16}
-        className={`mt-0.5 shrink-0 ${rules.bad ? "text-critical" : "text-good"}`}
-      />
-      {rules.note}
-    </div>
-  );
-};
-
 export interface RuleTabsProps {
   rules: RulesApi;
   file: RuleFile;
