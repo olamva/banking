@@ -61,9 +61,13 @@ This commit is required, not only permitted. It is the one commit that the globa
 
 ## Working in a worktree
 
-**Use an isolated worktree for every tracked code change.** Stop before editing when you are in the main checkout. Create the worktree from the user's current branch. Never run `git switch` in the main checkout. Never leave agent changes there.
+**Use an isolated worktree for every tracked code change on `main`.** Stop before editing when the main checkout sits on `main`. Create the worktree from the user's current branch. Never run `git switch` in the main checkout. Never leave agent changes on `main`.
 
-The rules-only exception below does not permit other changes in the main checkout.
+**A main checkout on another branch is a branch to work on.** Edit it in place. The user opened that branch, so a worktree isolates nothing there.
+
+The rules-only exception below does not permit other changes on `main`.
+
+**`.claude/hooks/worktree-guard.sh` enforces this, because the prose alone did not.** It runs before `Edit`, `Write` and `Bash`. It refuses a write to a tracked path, and it refuses a command that rewrites a file in place. It refuses nothing in a worktree, nothing on another branch, and nothing on a gitignored path. `test/hooks/worktreeGuard.test.ts` pins every one of those answers. Codex reads the same rule as prose through `AGENTS.md`, because no hook of ours runs there.
 
 Run `pnpm install`, then run `pnpm worktree:link`. These two commands are the whole provisioning step. The second command makes symlinks to `.env.local`, `data` and `rules` in the main checkout.
 
