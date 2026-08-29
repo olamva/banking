@@ -571,7 +571,7 @@ const Toolbar = ({ refresh, theme, onTheme, onHelp }: ToolbarProps) => (
         {/* Three named options rather than a cycling button: a toggle whose next
           state you cannot see is a toggle you press twice. The icon names the
           option picked — "system" is the machine, not the way it resolved. */}
-        <div className="relative">
+        <div className="relative w-22">
           <Icon
             aria-hidden
             icon={THEME_ICONS[theme]}
