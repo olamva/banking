@@ -845,7 +845,7 @@ export const FilterBar = ({
         />
       </div>
 
-      <div className={`${GROUP} sm:ml-auto`}>
+      <div className={GROUP}>
         {/* A handful of accounts, so it needs no search box either. */}
         <Picker
           title="Accounts"

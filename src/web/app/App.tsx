@@ -297,69 +297,78 @@ const Breakdowns = ({
   const onAccount = pick(onFilters, "accounts");
 
   return (
-    <div className={grid}>
-      {/* Three breakdowns per direction, named the same way on both sides:
-          "<direction> by <axis>". The income half hides itself period by
-          period, on exactly the same emptiness rules as the spending half. */}
-      {!single && cats.length > 0 && (
-        <Card title="Spending by category" icon={CategoryIcon}>
-          <HorizontalBars
-            items={cats}
-            onPick={onCategory}
-            onPickSub={onSubcategory}
-            tone="spend"
+    <>
+      <div className={grid}>
+        {/* Three breakdowns per direction, named the same way on both sides:
+            "<direction> by <axis>". The income half hides itself period by
+            period, on exactly the same emptiness rules as the spending half. */}
+        {!single && cats.length > 0 && (
+          <Card title="Spending by category" icon={CategoryIcon}>
+            <HorizontalBars
+              items={cats}
+              onPick={onCategory}
+              onPickSub={onSubcategory}
+              tone="spend"
+            />
+          </Card>
+        )}
+
+        {!single && deltas.length > 0 && (
+          <Card title={`Biggest changes vs ${vsLabel}`} icon={ChangesIcon}>
+            <DivergingBars deltas={deltas} onPick={onCategory} />
+          </Card>
+        )}
+
+        {cps.length > 0 && (
+          <Card title="Spending by merchant" icon={CounterpartyIcon}>
+            <HorizontalBars items={cps} onPick={onMerchant} tone="spend" />
+          </Card>
+        )}
+
+        {accounts.length > 1 && (
+          <Card title="Spending by account" icon={AccountIcon}>
+            <HorizontalBars items={accounts} onPick={onAccount} tone="spend" />
+          </Card>
+        )}
+
+        {!single && inCats.length > 0 && (
+          <Card title="Income by category" icon={CategoryIcon}>
+            <HorizontalBars
+              items={inCats}
+              onPick={onCategory}
+              onPickSub={onSubcategory}
+              tone="income"
+            />
+          </Card>
+        )}
+
+        {inCps.length > 0 && (
+          <Card title="Income by merchant" icon={CounterpartyIcon}>
+            <HorizontalBars items={inCps} onPick={onMerchant} tone="income" />
+          </Card>
+        )}
+
+        {inAccounts.length > 1 && (
+          <Card title="Income by account" icon={AccountIcon}>
+            <HorizontalBars
+              items={inAccounts}
+              onPick={onAccount}
+              tone="income"
+            />
+          </Card>
+        )}
+      </div>
+
+      {groups.length > 0 && (
+        <div className="mt-4">
+          <SubscriptionsCard
+            groups={groups}
+            onMerchant={onMerchant}
+            onCategory={pick(onFilters, "categories")}
           />
-        </Card>
+        </div>
       )}
-
-      {!single && deltas.length > 0 && (
-        <Card title={`Biggest changes vs ${vsLabel}`} icon={ChangesIcon}>
-          <DivergingBars deltas={deltas} onPick={onCategory} />
-        </Card>
-      )}
-
-      {cps.length > 0 && (
-        <Card title="Spending by merchant" icon={CounterpartyIcon}>
-          <HorizontalBars items={cps} onPick={onMerchant} tone="spend" />
-        </Card>
-      )}
-
-      {accounts.length > 1 && (
-        <Card title="Spending by account" icon={AccountIcon}>
-          <HorizontalBars items={accounts} onPick={onAccount} tone="spend" />
-        </Card>
-      )}
-
-      {!single && inCats.length > 0 && (
-        <Card title="Income by category" icon={CategoryIcon}>
-          <HorizontalBars
-            items={inCats}
-            onPick={onCategory}
-            onPickSub={onSubcategory}
-            tone="income"
-          />
-        </Card>
-      )}
-
-      {inCps.length > 0 && (
-        <Card title="Income by merchant" icon={CounterpartyIcon}>
-          <HorizontalBars items={inCps} onPick={onMerchant} tone="income" />
-        </Card>
-      )}
-
-      {inAccounts.length > 1 && (
-        <Card title="Income by account" icon={AccountIcon}>
-          <HorizontalBars items={inAccounts} onPick={onAccount} tone="income" />
-        </Card>
-      )}
-
-      {/* Hides itself when the period has nothing recurring in it. */}
-      <SubscriptionsCard
-        groups={groups}
-        onMerchant={onMerchant}
-        onCategory={pick(onFilters, "categories")}
-      />
-    </div>
+    </>
   );
 };
 
