@@ -214,7 +214,7 @@ const MatchNote = ({ pattern, txns, haystacks }: MatchNoteProps) => {
           type="button"
           onClick={() => setOpen(!open)}
           aria-expanded={open}
-          className="mt-1 ml-[18px] text-[11px] text-series-1 hover:underline"
+          className="mt-1 ml-4.5 text-[11px] text-series-1 hover:underline"
         >
           {open ? "Hide" : "Show"} matching transactions
         </button>
