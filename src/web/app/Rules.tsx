@@ -610,10 +610,13 @@ const History = ({ file, rules }: { file: RuleFile; rules: RulesApi }) => {
   const ahead = Math.max(here, 0);
 
   return (
-    <section className="mt-4 border-t border-line pt-3">
+    <section className="mt-4 border-t border-line pt-3 lg:mt-0 lg:border-t-0 lg:pt-0">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-[11px] font-medium tracking-wide text-ink-soft uppercase">
           History
+          <span className="ml-1.5 text-ink-muted normal-case">
+            {versions.length}
+          </span>
         </h3>
         <div className="flex gap-2">
           <button
@@ -649,7 +652,7 @@ const History = ({ file, rules }: { file: RuleFile; rules: RulesApi }) => {
           The next edit drops the {ahead} version(s) above this point.
         </p>
       )}
-      <ol className="max-h-72 overflow-y-auto">
+      <ol className="max-h-72 overflow-y-auto lg:max-h-[60vh]">
         {versions.map(({ at: version, changes }, i) => (
           <li
             key={version}
@@ -847,74 +850,78 @@ export const RulesView = ({
           Loading…
         </div>
       ) : (
-        <>
-          <AddForm
-            file={file}
-            rules={rules}
-            txns={txns}
-            haystacks={haystacks}
-            pairs={pairs}
-          />
+        // The history sits beside the rules on a wide screen. Below the list it
+        // sat under a 60vh scroller, so nobody reached it.
+        <div className="lg:grid lg:grid-cols-[minmax(min(460px,100%),1fr)_20rem] lg:items-start lg:gap-6">
+          <div className="min-w-0">
+            <AddForm
+              file={file}
+              rules={rules}
+              txns={txns}
+              haystacks={haystacks}
+              pairs={pairs}
+            />
 
-          <SearchBox
-            value={find}
-            onChange={setFind}
-            placeholder="Find a rule…"
-          />
+            <SearchBox
+              value={find}
+              onChange={setFind}
+              placeholder="Find a rule…"
+            />
 
-          {!hasMatches ? (
-            <div className="py-8 text-center text-ink-muted">
-              {entries.length === 0
-                ? "No rules in this file yet."
-                : "No rule matches that."}
-            </div>
-          ) : (
-            <>
-              <div
-                className={`mt-3 hidden border-b border-line pb-1 text-[11px] text-ink-muted ${grouped ? "sm:grid sm:grid-cols-[1fr_1.4fr] sm:gap-2" : rowsFor(isMapFile(file))}`}
-              >
-                {grouped ? (
-                  <>
-                    <span className="px-2">{VALUE_LABEL[file]}</span>
-                    <span className="px-2">{KEY_LABEL[file]}s</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="px-2">{KEY_LABEL[file]}</span>
-                    {isMapFile(file) && (
-                      <span className="px-2">{VALUE_LABEL[file]}</span>
-                    )}
-                    <span className="w-6" />
-                  </>
-                )}
+            {!hasMatches ? (
+              <div className="py-8 text-center text-ink-muted">
+                {entries.length === 0
+                  ? "No rules in this file yet."
+                  : "No rule matches that."}
               </div>
-              <ul className="max-h-[60vh] overflow-y-auto">
-                {grouped
-                  ? shownGroups.map(([value, keys]) => (
-                      <GroupEntry
-                        key={value}
-                        file={file}
-                        value={value}
-                        keys={keys}
-                        pairs={pairs}
-                        rules={rules}
-                      />
-                    ))
-                  : shown.map(([k, v]) => (
-                      <Entry
-                        key={k}
-                        file={file}
-                        entryKey={k}
-                        value={v}
-                        rules={rules}
-                      />
-                    ))}
-              </ul>
-            </>
-          )}
+            ) : (
+              <>
+                <div
+                  className={`mt-3 hidden border-b border-line pb-1 text-[11px] text-ink-muted ${grouped ? "sm:grid sm:grid-cols-[1fr_1.4fr] sm:gap-2" : rowsFor(isMapFile(file))}`}
+                >
+                  {grouped ? (
+                    <>
+                      <span className="px-2">{VALUE_LABEL[file]}</span>
+                      <span className="px-2">{KEY_LABEL[file]}s</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="px-2">{KEY_LABEL[file]}</span>
+                      {isMapFile(file) && (
+                        <span className="px-2">{VALUE_LABEL[file]}</span>
+                      )}
+                      <span className="w-6" />
+                    </>
+                  )}
+                </div>
+                <ul className="max-h-[60vh] overflow-y-auto">
+                  {grouped
+                    ? shownGroups.map(([value, keys]) => (
+                        <GroupEntry
+                          key={value}
+                          file={file}
+                          value={value}
+                          keys={keys}
+                          pairs={pairs}
+                          rules={rules}
+                        />
+                      ))
+                    : shown.map(([k, v]) => (
+                        <Entry
+                          key={k}
+                          file={file}
+                          entryKey={k}
+                          value={v}
+                          rules={rules}
+                        />
+                      ))}
+                </ul>
+              </>
+            )}
+          </div>
 
           <History file={file} rules={rules} />
-        </>
+        </div>
       )}
     </Card>
   );
