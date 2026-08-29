@@ -58,9 +58,10 @@ function normalizeSb1(file: Sb1File, names: Record<string, string>): Txn[] {
         description: t.description ?? t.typeText ?? "",
         counterparty:
           named(t.cleanedDescription) ?? t.remoteAccountName ?? null,
-        // Read the country before any rename. A renamed payee loses the tail that
-        // holds the country.
-        country: countryOf(named(t.cleanedDescription) ?? ""),
+        // Read the country off the raw description. SB1 strips the terminal
+        // number out of cleanedDescription, and the first comma goes with it.
+        // "SHOP 808, Oslo, NORWAY" arrives there as "SHOP Oslo, NORWAY".
+        country: countryOf(t.description ?? ""),
         bankCategory: categories[0]?.main ?? null,
         bankSub: categories[0]?.sub ?? null,
         bankCategoryName: categories[0]?.mainI18n ?? null,
