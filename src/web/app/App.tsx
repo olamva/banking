@@ -579,7 +579,8 @@ const Toolbar = ({ refresh, theme, onTheme, onHelp }: ToolbarProps) => (
             className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-ink-soft"
           />
           <select
-            className="h-[30px] min-w-24 appearance-none rounded-md border border-line bg-surface pr-3 pl-8 text-xs text-ink-soft"
+            className="h-[30px] min-w-24 appearance-none rounded-md border border-line bg-surface pr-3 pl-8 text-ink-soft"
+            style={{ fontSize: 12 }}
             value={theme}
             onChange={(e) => {
               const next = e.target.value as Theme;
