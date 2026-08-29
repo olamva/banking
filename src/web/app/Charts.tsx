@@ -161,7 +161,7 @@ export const HorizontalBars = ({
 
   return (
     <>
-      <div className="flex flex-col">
+      <div className="flex flex-1 flex-col justify-evenly">
         {visible.map((item) => {
           const id = item.key ?? item.label;
           const subs = item.subs && item.subs.length > 1 ? item.subs : [];

@@ -47,7 +47,7 @@ interface CardProps {
 }
 
 export const Card = ({ title, icon, action, children }: CardProps) => (
-  <section className="min-w-0">
+  <section className="flex min-w-0 flex-col">
     <h2 className="mb-2.5 flex items-center gap-1.5 text-sm font-semibold">
       {icon && (
         <Icon
