@@ -7,13 +7,14 @@ import {
   type Dispatch,
   type SetStateAction,
 } from "react";
+import { RULE_FILES, type RuleFile } from "../../core/ruleFiles.ts";
 import {
   AXES,
   NO_FILTERS,
   axisBounds,
   distinctAccounts,
-  distinctCountries,
   distinctCategories,
+  distinctCountries,
   distinctMerchants,
   distinctMonths,
   distinctSubcategories,
@@ -27,7 +28,6 @@ import {
   type Filters,
   type Period,
 } from "../../core/select.ts";
-import { RULE_FILES, type RuleFile } from "../../core/ruleFiles.ts";
 import type { ExcludedSummary } from "../../core/stats.ts";
 import {
   byMonth,
@@ -579,8 +579,7 @@ const Toolbar = ({ refresh, theme, onTheme, onHelp }: ToolbarProps) => (
             className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-ink-soft"
           />
           <select
-            className="h-[30px] min-w-24 appearance-none rounded-md border border-line bg-surface pr-3 pl-8 text-ink-soft"
-            style={{ fontSize: 12 }}
+            className="h-7.5 appearance-none rounded-md border border-line bg-surface pr-3 pl-8 text-ink-soft text-xs"
             value={theme}
             onChange={(e) => {
               const next = e.target.value as Theme;
