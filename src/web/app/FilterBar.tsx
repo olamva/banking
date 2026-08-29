@@ -9,6 +9,7 @@ import {
   ResetFiltersIcon,
   SearchIcon,
 } from "./icons.ts";
+import { keyboardFocused } from "./Shortcuts.tsx";
 
 export type View = "dashboard" | "transactions" | "rules";
 
@@ -748,7 +749,7 @@ export const FilterBar = ({
           onKeyDown={(e) => {
             const by =
               e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
-            if (!by) return;
+            if (!by || !keyboardFocused(e.currentTarget)) return;
             e.preventDefault();
             const next = (i + by + VIEWS.length) % VIEWS.length;
             onView(VIEWS[next]!);

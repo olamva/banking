@@ -41,6 +41,7 @@ import {
   UndoIcon,
 } from "./icons.ts";
 import { Modal } from "./Modal.tsx";
+import { keyboardFocused } from "./Shortcuts.tsx";
 
 export const RULE_LABEL: Record<RuleFile, string> = {
   overrides: "Overrides",
@@ -751,7 +752,7 @@ export const RuleTabs = ({ rules, file, onFile }: RuleTabsProps) => {
 
   const moveTab = (e: React.KeyboardEvent<HTMLButtonElement>, at: number) => {
     const by = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
-    if (!by) return;
+    if (!by || !keyboardFocused(e.currentTarget)) return;
     e.preventDefault();
     const next = (at + by + RULE_FILES.length) % RULE_FILES.length;
     onFile(RULE_FILES[next]!);
