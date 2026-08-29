@@ -571,7 +571,7 @@ const Toolbar = ({ refresh, theme, onTheme, onHelp }: ToolbarProps) => (
         {/* Three named options rather than a cycling button: a toggle whose next
           state you cannot see is a toggle you press twice. The icon names the
           option picked — "system" is the machine, not the way it resolved. */}
-        <div className="relative w-22">
+        <div className="relative w-24">
           <Icon
             aria-hidden
             icon={THEME_ICONS[theme]}
@@ -579,7 +579,7 @@ const Toolbar = ({ refresh, theme, onTheme, onHelp }: ToolbarProps) => (
             className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-ink-soft"
           />
           <select
-            className="w-full appearance-none rounded-md border border-line bg-surface py-1.5 pr-3 pl-8 text-xs text-ink-soft"
+            className="h-[30px] w-full appearance-none rounded-md border border-line bg-surface pr-3 pl-8 text-xs text-ink-soft"
             value={theme}
             onChange={(e) => {
               const next = e.target.value as Theme;
