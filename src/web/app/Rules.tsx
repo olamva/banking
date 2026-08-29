@@ -652,7 +652,7 @@ const History = ({ file, rules }: { file: RuleFile; rules: RulesApi }) => {
           The next edit drops the {ahead} version(s) above this point.
         </p>
       )}
-      <ol className="max-h-72 overflow-x-hidden overflow-y-auto lg:max-h-[60vh]">
+      <ol>
         {versions.map(({ at: version, changes }, i) => (
           <li
             key={version}
@@ -894,7 +894,7 @@ export const RulesView = ({
                     </>
                   )}
                 </div>
-                <ul className="max-h-[60vh] overflow-x-hidden overflow-y-auto">
+                <ul>
                   {grouped
                     ? shownGroups.map(([value, keys]) => (
                         <GroupEntry
