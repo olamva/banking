@@ -6,7 +6,7 @@ export function countryOf(name: string): string | null {
     .at(-1)!
     .replace(/\s*\(.*\)\s*$/, "")
     .trim();
-  if (/^(?:oslo|trondheim)$/i.test(tail)) return "Norway";
+  if (/(?:^|\s)(?:oslo|trondheim)$/i.test(tail)) return "Norway";
   if (parts.length < COUNTRY_SEGMENTS) return null;
   // A tail with a digit or a slash is a terminal reference. It is not a place.
   if (!/^[\p{L} ]{3,}$/u.test(tail)) return null;

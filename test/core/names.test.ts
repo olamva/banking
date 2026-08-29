@@ -5,8 +5,8 @@ import { countryOf, makeCleaner } from "../../src/core/names.ts";
 test("the country comes off the card's own tail, and only there", () => {
   assert.equal(countryOf("YOSHINOYA, TOKYO, JAPAN"), "Japan");
   assert.equal(countryOf("Nordisk Film Kino, +, NORWAY"), "Norway");
-  assert.equal(countryOf("KAFFEBAR, OSLO"), "Norway");
-  assert.equal(countryOf("RESTAURANT, Trondheim"), "Norway");
+  assert.equal(countryOf("CAFE CENTRAL OSLO"), "Norway");
+  assert.equal(countryOf("SHOP SOME STREET TRONDHEIM"), "Norway");
   assert.equal(
     countryOf("stichd sportmerchandis, 's-Hertogenbo, NETHERLANDS"),
     "Netherlands",
