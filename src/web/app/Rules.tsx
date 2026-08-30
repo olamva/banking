@@ -611,7 +611,7 @@ const History = ({ file, rules }: { file: RuleFile; rules: RulesApi }) => {
   const ahead = Math.max(here, 0);
 
   return (
-    <section className="mt-4 border-t border-line pt-3 lg:sticky lg:top-[var(--header-bottom)] lg:mt-0 lg:border-t-0 lg:pt-0">
+    <section className="mt-4 border-t border-line pt-3 lg:sticky lg:top-(--header-bottom) lg:mt-0 lg:border-t-0 lg:pt-0">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-[11px] font-medium tracking-wide text-ink-soft uppercase">
           History
@@ -922,7 +922,7 @@ export const FileDialog = ({
   const ready = pattern.trim() !== "" && value.trim() !== "";
 
   return (
-    <Modal onClose={onClose} className="w-[min(480px,92vw)]">
+    <Modal onClose={onClose} className="w-[min(960px,92vw)]">
       <form
         method="dialog"
         className="flex flex-col gap-3 p-5"
