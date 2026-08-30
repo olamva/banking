@@ -20,13 +20,19 @@ const typing = (t: EventTarget | null) =>
   t instanceof HTMLElement &&
   (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName));
 
+// A click leaves focus on the control, and the browser does not call that
+// focus visible. Only keyboard focus takes a page key away.
+export const keyboardFocused = (el: Element | null | undefined) =>
+  el?.matches(":focus-visible") ?? false;
+
 // A tablist owns its arrows: the focused tab moves the selection and the focus
 // together. A page shortcut on the same key would run beside it, so the two
 // would both fire on one press. Only the arrows are held back, because a tab
 // consumes nothing else.
 const inTablist = (e: KeyboardEvent) =>
   e.key.startsWith("Arrow") &&
-  document.activeElement?.closest("[role=tablist]") != null;
+  document.activeElement?.closest("[role=tablist]") != null &&
+  keyboardFocused(document.activeElement);
 
 export const isPageKey = (e: KeyboardEvent) =>
   !typing(e.target) && !inTablist(e) && !document.querySelector("dialog[open]");

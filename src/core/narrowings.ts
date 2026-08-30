@@ -1,4 +1,4 @@
-import { compile, haystackOf, type Overrides } from "./categorize.ts";
+import { compile, haystackOf, type Overrides } from "./match.ts";
 import type { Categorized } from "./types.ts";
 
 const EXAMPLES = 3;

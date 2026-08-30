@@ -142,7 +142,7 @@ export const HorizontalBars = ({
       </>,
     );
     const shared =
-      "flex h-[26px] min-w-0 flex-1 items-center gap-2 rounded-md text-[11px]";
+      "flex h-6.5 min-w-0 flex-1 items-center gap-2 rounded-md text-[11px]";
     return pick ? (
       <button
         type="button"

@@ -3,7 +3,7 @@ import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
-import { diffRules } from "../../src/core/ruleFiles.ts";
+import { diffRules, isRuleFile } from "../../src/core/ruleFiles.ts";
 
 // RULES_DIR is read when the module loads, so point it at a scratch directory
 // before the import. The real rules are never touched by this file.
@@ -156,10 +156,10 @@ test("a category value must name a subcategory or none at all", () => {
 // The file name arrives in a query string, so it is the one value that could
 // name a path.
 test("only the named rule files are rule files", () => {
-  assert.equal(rules.isRuleFile("overrides"), true);
-  assert.equal(rules.isRuleFile("accounts"), false);
-  assert.equal(rules.isRuleFile("../../.env.local"), false);
-  assert.equal(rules.isRuleFile(null), false);
+  assert.equal(isRuleFile("overrides"), true);
+  assert.equal(isRuleFile("accounts"), false);
+  assert.equal(isRuleFile("../../.env.local"), false);
+  assert.equal(isRuleFile(null), false);
 });
 
 test("a file of the wrong shape is a fault, not an empty rule", () => {

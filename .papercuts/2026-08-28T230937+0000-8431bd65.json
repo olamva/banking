@@ -1,0 +1,13 @@
+{
+  "id": "8431bd65",
+  "ts": "2026-08-28T23:09:37+00:00",
+  "text": "pnpm install retries every package after sandbox DNS failure",
+  "tags": [
+    "network",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "/private/tmp/banking-remove-small-facades"
+}
