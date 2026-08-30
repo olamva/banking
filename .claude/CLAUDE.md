@@ -265,7 +265,16 @@ There is one source: `data/raw/<month>/<accountKey>.json`. This includes the cre
 
 `Txn.account` is **the name of the account**, from `rules/accounts.json`. `stats.ts` runs in the browser, where no rules file is available to look up a name. A key is also a local secret, so it must never appear as a label on the page.
 
-`Txn.country` is **the country of the terminal, where the row carries one**. The card sends `NAME, CITY, COUNTRY`. Three comma segments are the whole parse and the whole guard. Read the country off `cleanedDescription` in `normalize`, **before any rename**. The country is a chip and a filter axis. It is never a money field. The travel guess in `categorize` reads the tail of the name, and it does not use this field.
+`Txn.country` is **the country that the money moved in**. The country is a chip and a filter axis. It is never a money field. The travel guess in `categorize` reads the tail of the name, and it does not use this field.
+
+`countryOf` reads two fields, in this order:
+
+1. **The name.** The card sends `NAME, CITY, COUNTRY`. Three comma segments are the whole parse and the whole guard. Read the country off `description` in `normalize`, **before any rename**. SB1 strips the terminal number out of `cleanedDescription`, and the first comma goes with it.
+2. **`currencyCode`, as the default.** The bank books a purchase in the currency of the terminal, so a `NOK` booking that names no country is domestic. This is the only reason `Norway` is a default. Never default on the name alone, and never default a booking in another currency.
+
+**The name wins over the currency.** A foreign terminal can charge in NOK, and about 26 rows on record do. Those rows name their country, so the parse takes it. Reverse the order, and every one of them reads as Norway.
+
+**A row with no country left is a foreign booking that names no place.** `GOTTEBITEN MORA` in SEK is one. The currency proves the row is not domestic, and nothing in it says which country it is. Leave the field null. Do not map a currency to a country, because the euro serves twenty of them.
 
 `normalize` **drops every row with `bookingStatus: PENDING`**, on every account. SB1 gives a reservation a new id when it books, and its amount can still change. A kept reservation makes one purchase into two rows.
 
@@ -339,7 +348,7 @@ A pair is always `category/sub`. It is never a bare sub. `dagligvarer` is a sub 
 
 **The modifier decides which list a tick joins.** A plain tick includes. A ⌘/ctrl-click excludes. This is the same gesture that the charts and the table use. Both lists tick the same checkboxes, and an excluded option is red. **Unticking always clears.** A ticked box is a filter that is on. The code still reads the old `_mode=exclude` spelling out of a URL, and it moves that value to the `_not` side.
 
-**The country axis needs no fourth kind of control.** Most rows have no country, so an empty list cannot mean "everywhere". `NO_COUNTRY` is a real value in the list. Without it, "only the domestic rows" would mean "only the card rows".
+**The country axis needs no fourth kind of control.** `NO_COUNTRY` is a real value in the list, and it means a foreign booking that names no place. An empty list therefore cannot mean "everywhere". Without the value, those rows would drop out of every reading of the axis.
 
 **`diverse` is the largest main of the bank, and the code keeps it**, with all its subcategories. It reads as a catch-all, and it is not one at the pair level. Its pairs are `vennebetaling`, `overforing`, `renter_og_gebyrer`, `minibank` and `skatt`. `BANK_CATCH_ALL` holds `ukategorisert` alone. `OURS` renames exactly one main, `faste_boutgifter`, because that main is not only housing.
 

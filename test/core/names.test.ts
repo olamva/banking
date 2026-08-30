@@ -5,8 +5,6 @@ import { countryOf, makeCleaner } from "../../src/core/names.ts";
 test("the country comes off the card's own tail, and only there", () => {
   assert.equal(countryOf("YOSHINOYA, TOKYO, JAPAN"), "Japan");
   assert.equal(countryOf("Nordisk Film Kino, +, NORWAY"), "Norway");
-  assert.equal(countryOf("CAFE CENTRAL OSLO"), "Norway");
-  assert.equal(countryOf("SHOP SOME STREET TRONDHEIM"), "Norway");
   assert.equal(countryOf("DOMENE AS, Oslo, NOR"), "Norway");
   assert.equal(
     countryOf("stichd sportmerchandis, 's-Hertogenbo, NETHERLANDS"),
@@ -23,6 +21,21 @@ test("the country comes off the card's own tail, and only there", () => {
   assert.equal(countryOf("REMA VOLDA INDUSTRIGATA VOLDA"), null);
   assert.equal(countryOf(""), null);
   assert.equal(countryOf("SOMETHING, ELSE, JP.HOTELS.COM"), null);
+});
+
+test("a NOK booking with no country in the name is Norway", () => {
+  assert.equal(countryOf("REMA VOLDA INDUSTRIGATA VOLDA", "NOK"), "Norway");
+  assert.equal(countryOf("CRV*Weekday Trondheim NOR", "NOK"), "Norway");
+  assert.equal(countryOf("SOMETHING, ELSE, JP.HOTELS.COM", "NOK"), "Norway");
+  assert.equal(countryOf("", "NOK"), "Norway");
+});
+
+test("the currency never overrides a country that the name carries", () => {
+  // A foreign terminal can charge in NOK. The name is the better evidence.
+  assert.equal(countryOf("PUB, DUBLIN, IRELAND", "NOK"), "Ireland");
+  // The bank booked this abroad, and the name is too short to say where.
+  assert.equal(countryOf("LISEBERG AB", "SEK"), null);
+  assert.equal(countryOf("EPC*FORTNITE", "EUR"), null);
 });
 
 test("the card's city and country come off the name", () => {
