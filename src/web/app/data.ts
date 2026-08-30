@@ -323,6 +323,23 @@ export const useHideOnScroll = (
   useEffect(() => setHidden(false), [reset]);
 
   useEffect(() => {
+    const element = header.current;
+    if (!element) return;
+    const measure = () =>
+      document.documentElement.style.setProperty(
+        "--header-bottom",
+        `${element.offsetHeight + 16}px`,
+      );
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    measure();
+    return () => {
+      observer.disconnect();
+      document.documentElement.style.removeProperty("--header-bottom");
+    };
+  }, [header]);
+
+  useEffect(() => {
     let last = window.scrollY;
     const onScroll = () => {
       const y = window.scrollY;

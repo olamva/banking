@@ -1,0 +1,13 @@
+{
+  "id": "458bdeb4",
+  "ts": "2026-08-29T09:11:36+00:00",
+  "text": "mcp__t3-code__preview_snapshot returns 'Preview snapshot failed.' on every call against a local vite dev server; preview_open works",
+  "tags": [
+    "preview",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "opus-5",
+  "session": "cccabc93",
+  "where": "mcp__t3-code__preview_snapshot"
+}
