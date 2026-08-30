@@ -1,0 +1,14 @@
+{
+  "id": "0f63649f",
+  "ts": "2026-08-30T18:25:34+00:00",
+  "text": "zsh globs an unquoted --include=*.ts before grep sees it, so 'grep -r --include=*.ts pat .' dies with 'no matches found'; quote it as --include='*.ts'",
+  "tags": [
+    "shell",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "opus-5",
+  "session": "d3fdfd12",
+  "where": "/Users/olavassbotn/Documents/banking",
+  "branch": "main"
+}
