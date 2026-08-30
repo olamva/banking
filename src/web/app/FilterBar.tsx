@@ -912,18 +912,18 @@ export const FilterBar = ({
           <span className="sm:hidden">Excluded</span>
           <span className="max-sm:hidden">Excluded rows</span>
         </button>
-
-        {dirty && (
-          <div className="max-sm:flex-none">
-            <FilterSummary
-              filters={filters}
-              onFilters={onFilters}
-              labelOf={labelOf}
-              active={active}
-            />
-          </div>
-        )}
       </div>
+
+      {dirty && (
+        <div className="ml-auto max-sm:flex-none">
+          <FilterSummary
+            filters={filters}
+            onFilters={onFilters}
+            labelOf={labelOf}
+            active={active}
+          />
+        </div>
+      )}
     </div>
   );
 };
