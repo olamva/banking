@@ -25,22 +25,11 @@ cp -R "$repo/src" "$stage/src"
 cp -R "$repo/data/dist" "$stage/data/dist"
 cp "$here/Dockerfile" "$stage/Dockerfile"
 
-# Vite bundles React and the icons into data/dist, so the process needs neither.
-# Only the vault client survives into the image.
-node -e '
-const fs = require("node:fs");
-const pkg = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
-const keep = ["@azure/identity", "@azure/keyvault-secrets"];
-fs.writeFileSync(process.argv[2], JSON.stringify({
-  name: "banking",
-  private: true,
-  type: "module",
-  dependencies: Object.fromEntries(keep.map((k) => [k, pkg.dependencies[k]])),
-}, null, 2));
-' "$repo/package.json" "$stage/package.json"
+cp "$repo/package.json" "$stage/package.json"
+cp "$repo/pnpm-lock.yaml" "$stage/pnpm-lock.yaml"
 
 echo "==> install the runtime dependencies"
-pnpm install --dir "$stage" --prod --node-linker=hoisted --ignore-scripts
+pnpm install --dir "$stage" --prod --node-linker=hoisted --frozen-lockfile --ignore-scripts
 
 # ACR builds the image itself, so this machine needs no container runtime.
 echo "==> build the image in the registry"

@@ -86,8 +86,8 @@ resource "azurerm_key_vault" "bank" {
   location                   = azurerm_resource_group.bank.location
   tenant_id                  = data.azurerm_client_config.current.tenant_id
   sku_name                   = "standard"
-  purge_protection_enabled   = false
-  soft_delete_retention_days = 7
+  purge_protection_enabled   = true
+  soft_delete_retention_days = 90
   rbac_authorization_enabled = true
 }
 

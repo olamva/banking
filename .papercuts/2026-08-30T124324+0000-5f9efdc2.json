@@ -1,0 +1,13 @@
+{
+  "id": "5f9efdc2",
+  "ts": "2026-08-30T12:43:24+00:00",
+  "text": "Sandbox DNS blocks pnpm registry downloads and Terraform remote state access",
+  "tags": [
+    "network",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-luna",
+  "session": "",
+  "where": "/Users/olavassbotn/Documents/banking"
+}
