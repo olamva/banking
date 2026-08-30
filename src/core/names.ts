@@ -2,11 +2,12 @@ const COUNTRY_SEGMENTS = 3;
 
 export function countryOf(name: string): string | null {
   const parts = name.split(",");
-  if (parts.length < COUNTRY_SEGMENTS) return null;
   const tail = parts
     .at(-1)!
     .replace(/\s*\(.*\)\s*$/, "")
     .trim();
+  if (/(?:^|\s)(?:oslo|trondheim)$/i.test(tail)) return "Norway";
+  if (parts.length < COUNTRY_SEGMENTS) return null;
   // A tail with a digit or a slash is a terminal reference. It is not a place.
   if (!/^[\p{L} ]{3,}$/u.test(tail)) return null;
   // An online Norwegian merchant sends the ISO-3 code, not the name.

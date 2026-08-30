@@ -371,3 +371,47 @@ test("a category with no sub reads as no sub, rather than crashing the rebuild",
     },
   );
 });
+
+test("the country reads through the terminal number that SB1 strips", () => {
+  withMonthDir(
+    {
+      "card.json": {
+        transactions: [
+          {
+            transaction: {
+              id: "a",
+              accountKey: "card",
+              amount: -120,
+              date: Date.UTC(2026, 6, 14, 22, 0, 0),
+              description: "Espresso House 808, Oslo, NORWAY",
+              cleanedDescription: "Espresso House Oslo, NORWAY",
+              typeText: "Transaksjon",
+            },
+            categories: [],
+            recurring: false,
+            subscription: false,
+          },
+          {
+            transaction: {
+              id: "b",
+              accountKey: "card",
+              amount: -300,
+              date: Date.UTC(2026, 6, 14, 22, 0, 0),
+              description: "Telenor Norge AS, Mobil",
+              cleanedDescription: "Telenor Norge AS, Mobil",
+              typeText: "Avtalegiro",
+            },
+            categories: [],
+            recurring: true,
+            subscription: true,
+          },
+        ],
+      },
+    },
+    (dir) => {
+      const [card, giro] = normalizeMonth(dir);
+      assert.equal(card!.country, "Norway");
+      assert.equal(giro!.country, null);
+    },
+  );
+});
