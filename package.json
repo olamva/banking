@@ -9,7 +9,7 @@
     "bank": "node src/bank.ts",
     "sb1": "node --env-file=.env.local src/cli.ts",
     "dev": "vite",
-    "test": "node --test 'test/**/*.test.ts'",
+    "test": "oxlint && node --test 'test/**/*.test.ts'",
     "worktree:link": "main=$(dirname \"$(git rev-parse --git-common-dir)\") && ln -sfn \"$main/.env.local\" \"$main/data\" \"$main/rules\" .",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",

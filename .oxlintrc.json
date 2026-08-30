@@ -1,6 +1,7 @@
 {
   "rules": {
     "complexity": "error",
-    "max-depth": ["error", { "max": 3 }]
+    "max-depth": ["error", { "max": 3 }],
+    "max-lines": ["error", 500]
   }
 }
