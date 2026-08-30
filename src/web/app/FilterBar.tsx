@@ -454,7 +454,12 @@ const FilterSummary = ({
       <summary
         className={`${CONTROL} flex list-none items-center select-none gap-1.5 marker:content-none`}
       >
-        {active > 0 ? `${active} filter${active === 1 ? "" : "s"}` : "Filters"}
+        <span className="sm:hidden">{active}</span>
+        <span className="max-sm:hidden">
+          {active > 0
+            ? `${active} filter${active === 1 ? "" : "s"}`
+            : "Filters"}
+        </span>
         <Icon
           aria-hidden
           icon={DropdownIcon}
@@ -575,9 +580,7 @@ const PeriodMenu = ({
   return (
     <details
       ref={menu}
-      // The panel is positioned against this element. Below `sm` it must fill the
-      // width of the bar, or it goes past the right edge.
-      className="group relative max-sm:w-full"
+      className="group relative"
       onToggle={(e) => {
         if (!e.currentTarget.open) setLooking(null);
       }}
@@ -593,7 +596,7 @@ const PeriodMenu = ({
           className="shrink-0 text-ink-muted transition-transform group-open:rotate-180"
         />
       </summary>
-      <div className="absolute left-0 z-20 mt-1 w-72 rounded-md border border-line bg-surface p-1.5 shadow-lg max-sm:w-full">
+      <div className="absolute left-0 z-20 mt-1 w-72 rounded-md border border-line bg-surface p-1.5 shadow-lg max-sm:right-0 max-sm:left-auto">
         {/* The two periods that sit inside no year, above the ones that do. */}
         <div className="mb-1.5 flex gap-1 border-b border-line pb-1.5">
           <button
@@ -757,7 +760,7 @@ export const FilterBar = ({
               ?.querySelectorAll<HTMLButtonElement>("[role=tab]")
               [next]?.focus({ preventScroll: true });
           }}
-          className={`px-3 py-1.5 text-[13px] capitalize ${view === v ? "bg-series-1 text-white" : "bg-page text-ink-soft"}`}
+          className={`px-2 py-1.5 text-[13px] capitalize sm:px-3 ${view === v ? "bg-series-1 text-white" : "bg-page text-ink-soft"}`}
         >
           {v}
         </button>
@@ -877,22 +880,21 @@ export const FilterBar = ({
           }
           className={`${CONTROL} whitespace-nowrap ${filters.showExcluded ? "bg-series-1 text-white" : "text-ink-soft"}`}
         >
-          Excluded rows
+          <span className="sm:hidden">Excluded</span>
+          <span className="max-sm:hidden">Excluded rows</span>
         </button>
-      </div>
 
-      {/* What is on, opened into which — and the only Reset there is. `ml-auto`
-          keeps it where the Reset button used to sit, at the end of the bar. */}
-      {dirty && (
-        <div className="ml-auto max-sm:w-full">
-          <FilterSummary
-            filters={filters}
-            onFilters={onFilters}
-            labelOf={labelOf}
-            active={active}
-          />
-        </div>
-      )}
+        {dirty && (
+          <div className="max-sm:flex-none">
+            <FilterSummary
+              filters={filters}
+              onFilters={onFilters}
+              labelOf={labelOf}
+              active={active}
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 };

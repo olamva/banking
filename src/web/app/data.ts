@@ -316,8 +316,11 @@ export const headerHidden = (
 // grows another when a refresh reports.
 export const useHideOnScroll = (
   header: RefObject<HTMLElement | null>,
+  reset: unknown,
 ): boolean => {
   const [hidden, setHidden] = useState(false);
+
+  useEffect(() => setHidden(false), [reset]);
 
   useEffect(() => {
     let last = window.scrollY;
