@@ -1,0 +1,13 @@
+{
+  "id": "ca04846a",
+  "ts": "2026-08-30T14:35:12+00:00",
+  "text": "worktree-guard refuses 'sed -i' on a scratch file under /tmp, outside the repo entirely; guard is path-blind for in-place rewrites",
+  "tags": [
+    "hooks",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "opus-5",
+  "session": "4ddbe64c",
+  "where": ".claude/hooks/worktree-guard.sh"
+}

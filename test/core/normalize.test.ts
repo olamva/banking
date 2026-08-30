@@ -400,18 +400,35 @@ test("the country reads through the terminal number that SB1 strips", () => {
               description: "Telenor Norge AS, Mobil",
               cleanedDescription: "Telenor Norge AS, Mobil",
               typeText: "Avtalegiro",
+              currencyCode: "NOK",
             },
             categories: [],
             recurring: true,
             subscription: true,
           },
+          {
+            transaction: {
+              id: "c",
+              accountKey: "card",
+              amount: -80,
+              date: Date.UTC(2026, 6, 14, 22, 0, 0),
+              description: "GOTTEBITEN MORA",
+              cleanedDescription: "Gottebiten Mora",
+              typeText: "Transaksjon",
+              currencyCode: "SEK",
+            },
+            categories: [],
+            recurring: false,
+            subscription: false,
+          },
         ],
       },
     },
     (dir) => {
-      const [card, giro] = normalizeMonth(dir);
+      const [card, giro, abroad] = normalizeMonth(dir);
       assert.equal(card!.country, "Norway");
-      assert.equal(giro!.country, null);
+      assert.equal(giro!.country, "Norway");
+      assert.equal(abroad!.country, null);
     },
   );
 });

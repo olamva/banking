@@ -1,18 +1,20 @@
 const COUNTRY_SEGMENTS = 3;
+const NORWAY = "Norway";
 
-export function countryOf(name: string): string | null {
+// The bank books a purchase in the currency of the terminal. A NOK booking
+// that names no country is therefore domestic. The name still wins, because a
+// foreign terminal can charge in NOK.
+export function countryOf(name: string, currency = ""): string | null {
   const parts = name.split(",");
   const tail = parts
     .at(-1)!
     .replace(/\s*\(.*\)\s*$/, "")
     .trim();
-  if (/(?:^|\s)(?:oslo|trondheim)$/i.test(tail)) return "Norway";
-  if (parts.length < COUNTRY_SEGMENTS) return null;
   // A tail with a digit or a slash is a terminal reference. It is not a place.
-  if (!/^[\p{L} ]{3,}$/u.test(tail)) return null;
-  // An online Norwegian merchant sends the ISO-3 code, not the name.
-  if (tail.toUpperCase() === "NOR") return "Norway";
-  return titleCase(tail);
+  if (parts.length >= COUNTRY_SEGMENTS && /^[\p{L} ]{3,}$/u.test(tail))
+    // An online Norwegian merchant sends the ISO-3 code, not the name.
+    return tail.toUpperCase() === "NOR" ? NORWAY : titleCase(tail);
+  return currency === "NOK" ? NORWAY : null;
 }
 
 function titleCase(s: string): string {

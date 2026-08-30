@@ -885,8 +885,8 @@ export const FilterBar = ({
           onToggle={toggleAccount}
         />
 
-        {/* Only card rows carry a country, so the list is short and the dash at
-            the end of it is every other row — see `NO_COUNTRY`. */}
+        {/* The dash at the end of the list is a foreign booking that names no
+            place, not a row without data — see `NO_COUNTRY`. */}
         <Picker
           title="Countries"
           options={countries}

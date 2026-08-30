@@ -17,6 +17,7 @@ type Sb1File = {
       remoteAccountNumber?: string;
       typeText?: string;
       bookingStatus?: string;
+      currencyCode?: string;
     };
     categories: Array<{
       main: string;
@@ -61,7 +62,7 @@ function normalizeSb1(file: Sb1File, names: Record<string, string>): Txn[] {
         // Read the country off the raw description. SB1 strips the terminal
         // number out of cleanedDescription, and the first comma goes with it.
         // "SHOP 808, Oslo, NORWAY" arrives there as "SHOP Oslo, NORWAY".
-        country: countryOf(t.description ?? ""),
+        country: countryOf(t.description ?? "", t.currencyCode),
         bankCategory: categories[0]?.main ?? null,
         bankSub: categories[0]?.sub ?? null,
         bankCategoryName: categories[0]?.mainI18n ?? null,
