@@ -213,6 +213,10 @@ export const DataTable = ({ columns, rows, scroll, onRow }: DataTableProps) => {
   useLayoutEffect(() => {
     const h = probe.current?.getBoundingClientRect().height;
     if (h && Math.abs(h - rowH) > 0.5) setRowH(h);
+    // The box owns the scroll position, not this state. A filter that changes
+    // the row count moves the box without a scroll event, so read it back.
+    const t = box.current?.scrollTop ?? 0;
+    if (t !== scrollTop) setScrollTop(t);
   });
 
   const top = Math.min(scrollTop, Math.max(0, rows.length * rowH - VIEWPORT));
