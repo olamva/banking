@@ -945,7 +945,7 @@ export const FileDialog = ({
         </label>
         <MatchNote pattern={pattern} txns={txns} haystacks={haystacks} />
 
-        <label className="flex flex-col gap-1 text-xs text-ink-soft [&>div]:basis-auto">
+        <div className="flex flex-col gap-1 text-xs text-ink-soft [&>div]:basis-auto">
           Category
           <CategoryInput
             value={value}
@@ -954,7 +954,7 @@ export const FileDialog = ({
             onChange={setValue}
             className={FIELD}
           />
-        </label>
+        </div>
 
         <div className="flex justify-end gap-2">
           <button type="button" onClick={onClose} className={BUTTON}>
