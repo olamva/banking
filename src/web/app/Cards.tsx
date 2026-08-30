@@ -622,7 +622,7 @@ export const TxnDialog = ({ txn, onClose, onFile }: TxnDialogProps) => {
             className="mb-3 flex items-center gap-1.5 rounded-md border border-line bg-page px-2.5 py-1.5 text-xs text-ink-soft"
           >
             <Icon aria-hidden icon={CategoryIcon} size={14} />
-            File this merchant…
+            Recategorize…
           </button>
         )}
         {(txn.excluded ||

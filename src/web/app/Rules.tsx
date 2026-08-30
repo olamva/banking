@@ -640,7 +640,7 @@ const History = ({ file, rules }: { file: RuleFile; rules: RulesApi }) => {
   const ahead = Math.max(here, 0);
 
   return (
-    <section className="mt-4 border-t border-line pt-3 lg:sticky lg:top-[var(--header-bottom)] lg:mt-0 lg:border-t-0 lg:pt-0">
+    <section className="mt-4 border-t border-line pt-3 lg:sticky lg:top-(--header-bottom) lg:mt-0 lg:border-t-0 lg:pt-0">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-[11px] font-medium tracking-wide text-ink-soft uppercase">
           History
@@ -951,7 +951,7 @@ export const FileDialog = ({
   const ready = pattern.trim() !== "" && value.trim() !== "";
 
   return (
-    <Modal onClose={onClose} className="w-[min(480px,92vw)]">
+    <Modal onClose={onClose} className="w-[min(960px,92vw)]">
       <form
         method="dialog"
         className="flex flex-col gap-3 p-5"
@@ -959,10 +959,9 @@ export const FileDialog = ({
           if (ready) rules.save("overrides", pattern.trim(), value.trim());
         }}
       >
-        <h2 className="text-base font-semibold">File this merchant</h2>
+        <h2 className="text-base font-semibold">Recategorize</h2>
         <p className="text-[11px] text-ink-muted">
-          This writes one line in overrides.json. It claims every row the
-          pattern matches, not this row alone.
+          This adds a category override for every row that matches the pattern.
         </p>
 
         <label className="flex flex-col gap-1 text-xs text-ink-soft">
@@ -975,7 +974,7 @@ export const FileDialog = ({
         </label>
         <MatchNote pattern={pattern} txns={txns} haystacks={haystacks} />
 
-        <label className="flex flex-col gap-1 text-xs text-ink-soft">
+        <div className="flex flex-col gap-1 text-xs text-ink-soft [&>div]:basis-auto">
           Category
           <CategoryInput
             value={value}
@@ -984,7 +983,7 @@ export const FileDialog = ({
             onChange={setValue}
             className={FIELD}
           />
-        </label>
+        </div>
 
         <div className="flex justify-end gap-2">
           <button type="button" onClick={onClose} className={BUTTON}>
