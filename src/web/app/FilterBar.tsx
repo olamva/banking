@@ -431,6 +431,33 @@ const SummaryRow = ({ label, values }: { label: string; values: string[] }) =>
     </div>
   );
 
+const Section = ({
+  title,
+  onClear,
+  children,
+}: {
+  title: string;
+  onClear: () => void;
+  children: ReactNode;
+}) => (
+  <div>
+    <div className="flex items-baseline gap-2">
+      <span className="min-w-0 flex-1 truncate text-[11px] tracking-wide text-ink-muted uppercase">
+        {title}
+      </span>
+      <button
+        type="button"
+        onClick={onClear}
+        aria-label={`Clear ${title.toLowerCase()}`}
+        className="relative shrink-0 text-[11px] text-ink-muted before:absolute before:-inset-2 before:content-[''] hover:text-ink"
+      >
+        Clear
+      </button>
+    </div>
+    {children}
+  </div>
+);
+
 const FilterSummary = ({
   filters,
   onFilters,
@@ -443,6 +470,7 @@ const FilterSummary = ({
   const axes = (Object.entries(AXES) as [Axis, (typeof AXES)[Axis]][])
     .map(([key, outKey]) => ({
       key,
+      outKey,
       title: key[0]!.toUpperCase() + key.slice(1),
       on: filters[key],
       out: filters[outKey],
@@ -480,11 +508,12 @@ const FilterSummary = ({
           wherever its trigger is, so the trigger's position decides the anchor. */}
       <div className="absolute right-0 z-20 mt-1 flex max-h-72 w-64 flex-col rounded-md border border-line bg-surface p-1.5 shadow-lg">
         <div className="min-h-0 space-y-2 overflow-y-auto px-0.5 py-0.5">
-          {axes.map(({ key, title, on, out }) => (
-            <div key={key}>
-              <div className="text-[11px] tracking-wide text-ink-muted uppercase">
-                {title}
-              </div>
+          {axes.map(({ key, outKey, title, on, out }) => (
+            <Section
+              key={key}
+              title={title}
+              onClear={() => onFilters({ ...filters, [key]: [], [outKey]: [] })}
+            >
               <SummaryRow
                 label="Only"
                 values={on.map((v) => labelOf(key, v))}
@@ -493,25 +522,25 @@ const FilterSummary = ({
                 label="Except"
                 values={out.map((v) => labelOf(key, v))}
               />
-            </div>
+            </Section>
           ))}
           {/* Listed even where the box is on screen: this is the list of what
               Reset is about to clear, not a second copy of the control. */}
           {filters.search !== "" && (
-            <div>
-              <div className="text-[11px] tracking-wide text-ink-muted uppercase">
-                Search
-              </div>
+            <Section
+              title="Search"
+              onClear={() => onFilters({ ...filters, search: "" })}
+            >
               <SummaryRow label="Text" values={[filters.search]} />
-            </div>
+            </Section>
           )}
           {filters.showExcluded && (
-            <div>
-              <div className="text-[11px] tracking-wide text-ink-muted uppercase">
-                Excluded rows
-              </div>
+            <Section
+              title="Excluded rows"
+              onClear={() => onFilters({ ...filters, showExcluded: false })}
+            >
               <SummaryRow label="Shown" values={["transfers, card bills"]} />
-            </div>
+            </Section>
           )}
         </div>
         <button
