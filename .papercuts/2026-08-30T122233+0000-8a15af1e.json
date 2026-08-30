@@ -1,0 +1,13 @@
+{
+  "id": "8a15af1e",
+  "ts": "2026-08-30T12:22:33+00:00",
+  "text": "Azure CLI read-only query failed inside the sandbox because login.microsoftonline.com DNS was unavailable",
+  "tags": [
+    "network",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "az"
+}
