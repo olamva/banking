@@ -1,0 +1,13 @@
+{
+  "id": "c2057722",
+  "ts": "2026-08-29T09:16:32+00:00",
+  "text": "pnpm test hangs in test/web/server.test.ts while the refresh test waits for real linked data",
+  "tags": [
+    "tests",
+    "worktree"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "/private/tmp/banking-canonical-tailwind"
+}

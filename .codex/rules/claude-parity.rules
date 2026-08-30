@@ -24,3 +24,10 @@ prefix_rule(pattern=["git", "-C", "rules", "commit"], decision="allow")
 prefix_rule(pattern=["git", "-C", "rules", "status"], decision="allow")
 prefix_rule(pattern=["git", "-C", "rules", "diff"], decision="allow")
 prefix_rule(pattern=["git", "-C", "rules", "log"], decision="allow")
+
+# The worktree guard has no twin here, and that is deliberate.
+# .claude/hooks/worktree-guard.sh refuses a tracked write in the main checkout
+# while it sits on main. The decision reads the working directory and the
+# branch, and a prefix_rule reads neither. A rule broad enough to express it
+# would also forbid the same command in a worktree, where it is correct.
+# AGENTS.md carries the rule as prose instead. Read "Working in a worktree".

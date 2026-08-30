@@ -9,6 +9,8 @@ export function countryOf(name: string): string | null {
     .trim();
   // A tail with a digit or a slash is a terminal reference. It is not a place.
   if (!/^[\p{L} ]{3,}$/u.test(tail)) return null;
+  // An online Norwegian merchant sends the ISO-3 code, not the name.
+  if (tail.toUpperCase() === "NOR") return "Norway";
   return titleCase(tail);
 }
 
