@@ -98,6 +98,37 @@ const CELL =
 const BUTTON =
   "shrink-0 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-ink-soft disabled:opacity-60";
 
+// A pattern is longer than its box, and an input hides the rest of it behind a
+// sideways scroll. A textarea wraps, and `field-sizing: content` gives it the
+// height that the wrapped text needs. Enter keeps the meaning it has on an
+// input: it submits the form, or it commits the field through the blur.
+const PatternField = ({
+  className = "",
+  onChange,
+  onKeyDown,
+  ...props
+}: React.ComponentProps<"textarea">) => (
+  <textarea
+    rows={1}
+    spellCheck={false}
+    onChange={(e) => {
+      // A pasted line break reaches a textarea. An input drops it, and a rule
+      // holds one line.
+      e.currentTarget.value = e.currentTarget.value.replace(/[\r\n]+/g, " ");
+      onChange?.(e);
+    }}
+    onKeyDown={(e) => {
+      if (e.key !== "Enter") return onKeyDown?.(e);
+      e.preventDefault();
+      const form = e.currentTarget.form;
+      if (form) form.requestSubmit();
+      else e.currentTarget.blur();
+    }}
+    className={`field-sizing-content resize-none wrap-anywhere ${className}`}
+    {...props}
+  />
+);
+
 // The same button with an icon in place of the word. The name is on aria-label
 // and on title, and the pseudo-element widens the tap area without moving the
 // column beside it.
@@ -338,7 +369,7 @@ const Entry = ({ file, entryKey, value, rules }: EntryProps) => (
   <li
     className={`flex flex-wrap items-center gap-2 border-b border-line py-1 last:border-0 ${rowsFor(value !== null)}`}
   >
-    <input
+    <PatternField
       key={entryKey}
       defaultValue={entryKey}
       aria-label={KEY_LABEL[file]}
@@ -347,7 +378,6 @@ const Entry = ({ file, entryKey, value, rules }: EntryProps) => (
         if (next && next !== entryKey)
           rules.save(file, next, value ?? undefined, entryKey);
       }}
-      onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
       className={`${CELL} flex-1 basis-40 font-mono`}
     />
     {value !== null && (
@@ -404,7 +434,7 @@ const AddForm = ({ file, rules, txns, haystacks, pairs }: AddFormProps) => {
         New rule
       </span>
       <div className="flex flex-wrap items-center gap-2">
-        <input
+        <PatternField
           value={key}
           onChange={(e) => setKey(e.target.value)}
           placeholder={KEY_LABEL[file]}
@@ -498,7 +528,7 @@ const GroupEntry = ({ file, value, keys, pairs, rules }: GroupEntryProps) => {
             key={key}
             className="flex min-w-0 max-w-full items-center rounded-md border border-line bg-page"
           >
-            <input
+            <PatternField
               defaultValue={key}
               aria-label={KEY_LABEL[file]}
               onBlur={(e) => {
@@ -506,7 +536,6 @@ const GroupEntry = ({ file, value, keys, pairs, rules }: GroupEntryProps) => {
                 if (changed && changed !== key)
                   rules.save(file, changed, value, key);
               }}
-              onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
               className="min-w-20 max-w-full flex-1 bg-transparent px-2 py-1 font-mono text-xs text-ink outline-none"
             />
             <button
@@ -532,7 +561,7 @@ const GroupEntry = ({ file, value, keys, pairs, rules }: GroupEntryProps) => {
               setAdding(false);
             }}
           >
-            <input
+            <PatternField
               autoFocus
               value={pattern}
               onChange={(e) => setPattern(e.target.value)}
@@ -938,7 +967,7 @@ export const FileDialog = ({
 
         <label className="flex flex-col gap-1 text-xs text-ink-soft">
           Pattern
-          <input
+          <PatternField
             value={pattern}
             onChange={(e) => setPattern(e.target.value)}
             className={`${FIELD} font-mono`}
