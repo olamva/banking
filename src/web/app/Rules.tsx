@@ -930,13 +930,12 @@ export const FileDialog = ({
           if (ready) rules.save("overrides", pattern.trim(), value.trim());
         }}
       >
-        <h2 className="text-base font-semibold">File this merchant</h2>
+        <h2 className="text-base font-semibold">Recategorize</h2>
         <p className="text-[11px] text-ink-muted">
-          This writes one line in overrides.json. It claims every row the
-          pattern matches, not this row alone.
+          This adds a category override for every row that matches the pattern.
         </p>
 
-        <label className="flex flex-col gap-1 text-xs text-ink-soft">
+        <label className="flex flex-col gap-1 text-xs text-ink-soft [&>div]:basis-auto">
           Pattern
           <input
             value={pattern}
