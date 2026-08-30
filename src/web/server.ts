@@ -23,6 +23,8 @@ const SECURITY = {
   "X-Frame-Options": "DENY",
   "X-Content-Type-Options": "nosniff",
   "Referrer-Policy": "no-referrer",
+    "Content-Security-Policy":
+    "default-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
 };
 
 const send = (
@@ -75,18 +77,13 @@ function file(res: ServerResponse, path: string): void {
 
 export const server = createServer((req, res) => {
   const principal = req.headers["x-ms-client-principal"] as string | undefined;
-  const email = principalEmail(
-    principal,
-    req.headers["x-ms-client-principal-name"] as string | undefined,
-  );
+  const email = principalEmail(principal);
   if (!email || !allowed(email, process.env.ALLOWED_EMAILS)) {
-    // The types alone, never a value. A refusal that says nothing is a refusal
-    // nobody can debug.
-    console.error(
-      `refused: principal header ${principal ? "present" : "absent"}, ` +
-        `address ${email ? "found" : "not found"}, ` +
-        `claims [${claimTypes(principal).join(", ")}]`,
-    );
+    if (process.env.DEBUG === "1")
+      console.error(
+        `refused: principal ${principal ? "present" : "absent"}, ` +
+          `claims [${claimTypes(principal).join(", ")}]`,
+      );
     send(res, 403, "text/plain; charset=utf-8", "Not your dashboard.\n");
     return;
   }

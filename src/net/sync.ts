@@ -7,10 +7,14 @@ import { monthsOnDisk, RAW } from "../core/pipeline.ts";
 import { BudgetExhausted, remaining } from "./budget.ts";
 import { get, monthRange, RateLimited } from "./sb1.ts";
 
-async function dump(file: string, data: unknown): Promise<void> {
+const debug = (...args: unknown[]): void => {
+  if (process.env.DEBUG === "1") console.error(...args);
+};
+
+async function dump(file: string, month: string, data: unknown): Promise<void> {
   await mkdir(file.slice(0, file.lastIndexOf("/")), { recursive: true });
   await writeFile(file, JSON.stringify(data, null, 2));
-  console.error(`wrote ${file}`);
+  debug(`wrote ${month} (1 file)`);
 }
 
 export async function accountKeys(month?: string): Promise<string[]> {
@@ -130,7 +134,7 @@ export async function syncSpan(
 ): Promise<number> {
   const plan = await spanPlan(months);
   if (!plan.size) {
-    console.error(`skip ${months[0]}..${months.at(-1)} — nothing owed`);
+    debug(`skip ${months[0]}..${months.at(-1)} — nothing owed`);
     return 0;
   }
 
@@ -154,14 +158,14 @@ export async function syncSpan(
         `it is probably truncated. Sync a narrower span rather than writing this to data/raw.`,
     );
   if (res.errors?.length)
-    console.error(`warning: the bank reported ${res.errors.length} error(s)`);
+    debug(`warning: the bank reported ${res.errors.length} error(s)`);
 
   const byFile = splitSpan(rows);
 
   let fetched = 0;
   for (const [key, wanted] of plan) {
     for (const month of wanted) {
-      await dump(fileFor(month, key), {
+      await dump(fileFor(month, key), month, {
         transactions: byFile.get(`${month}/${key}`) ?? [],
         errors: res.errors ?? [],
       });
@@ -175,10 +179,7 @@ export async function syncSpan(
     const [month, account] = key.split("/");
     if (!months.includes(month)) continue;
     if (settled(fileFor(month, account), month)) continue;
-    console.error(
-      `warning: ${byFile.get(key)!.length} row(s) came back for ${key}, which was not requested — ` +
-        `check the account's "from" in rules/accounts.json.`,
-    );
+    debug(`warning: ${byFile.get(key)!.length} row(s) came back for ${month}`);
   }
   return fetched;
 }
@@ -192,14 +193,14 @@ export async function syncRange(from: string, to: string): Promise<SyncResult> {
   );
   const cost = costs.reduce((a, b) => a + b, 0);
   const left = remaining();
-  console.error(
+  debug(
     `${months.length} months, ${months[0]} to ${months.at(-1)}: ` +
       `${cost} request${cost === 1 ? "" : "s"}, ${files} files`,
   );
   // `null` means the bank has not reported recently. It does not mean zero left.
   // The first response supplies a new figure.
   if (left !== null && cost > left) {
-    console.error(
+    debug(
       `SB1 last reported only ${left} left — expect to stop after ${left} of ` +
         `them, then re-run to carry on.`,
     );
@@ -215,11 +216,11 @@ export async function syncRange(from: string, to: string): Promise<SyncResult> {
       const stopped =
         `${e.message} Stopped at ${part[0]}..${part.at(-1)}, ` +
         `${fetched} files fetched. Refresh again to carry on.`;
-      console.error(`\n${stopped}`);
+      debug(`\n${stopped}`);
       return { fetched, stopped };
     }
   }
-  console.error(`\n${fetched} files fetched across ${months.length} months.`);
+  debug(`\n${fetched} files fetched across ${months.length} months.`);
   return { fetched, stopped: null };
 }
 

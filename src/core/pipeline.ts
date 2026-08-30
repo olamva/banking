@@ -18,6 +18,10 @@ import { DATA_DIR, DB_FILE, RULES_DIR } from "./paths.ts";
 import { normalizeMonth } from "./normalize.ts";
 import type { Categorized } from "./types.ts";
 
+const debug = (...args: unknown[]): void => {
+  if (process.env.DEBUG === "1") console.error(...args);
+};
+
 export { DB_FILE };
 export const RAW = `${DATA_DIR}/raw`;
 
@@ -90,7 +94,7 @@ export async function rebuildAll(): Promise<number> {
     }
     const loose = narrowings(rows, await loadOverrides());
     for (const l of loose) {
-      console.error(
+      debug(
         `\nwarning: ${JSON.stringify(l.pattern)} only works where it sits, losing rows to ` +
           l.beaten.map((b) => JSON.stringify(b.pattern)).join(", ") +
           (l.suggest
@@ -100,15 +104,15 @@ export async function rebuildAll(): Promise<number> {
     }
     // A reason that does not net to zero has one excluded leg and one counted leg.
     // This removes real money from both totals.
-    for (const [reason, net] of netByReason(rows)) {
+    for (const [, net] of netByReason(rows)) {
       if (Math.abs(net) < 0.005) continue;
-      console.error(
-        `\nwarning: excluded reason "${reason}" nets to ${net.toFixed(2)}, not zero.` +
+      debug(
+        `\nwarning: excluded reason nets to a non-zero value.` +
           `\nOne leg of a pair is being excluded while the other is counted.`,
       );
     }
     rebuildDb(db, renamePayees(rows, await loadPayees()));
-    console.error(
+    debug(
       `rebuilt ${DB_FILE} from ${months.length} months, ${rows.length} rows`,
     );
     return rows.length;

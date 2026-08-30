@@ -22,6 +22,8 @@ const api = (): Plugin => ({
         res.writeHead(a.status, {
           "Content-Type": "application/json; charset=utf-8",
           "Cache-Control": "no-store",
+          "Content-Security-Policy":
+            "default-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
         });
         res.end(a.body);
       });
@@ -33,10 +35,16 @@ const api = (): Plugin => ({
         res.writeHead(200, {
           "Content-Type": "application/json; charset=utf-8",
           "Cache-Control": "no-store",
+          "Content-Security-Policy":
+            "default-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
         });
         res.end(body);
       } catch (e) {
-        res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
+        res.writeHead(500, {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Content-Security-Policy":
+            "default-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+        });
         res.end(`${e instanceof Error ? e.message : e}\n`);
       }
     });
@@ -46,6 +54,8 @@ const api = (): Plugin => ({
         res.writeHead(status, {
           "Content-Type": "application/json; charset=utf-8",
           "Cache-Control": "no-store",
+          "Content-Security-Policy":
+            "default-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
         });
         res.end(JSON.stringify(body));
       };
