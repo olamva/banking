@@ -47,7 +47,7 @@ interface CardProps {
 }
 
 export const Card = ({ title, icon, action, children }: CardProps) => (
-  <section className="min-w-0">
+  <section className="flex min-w-0 flex-col">
     <h2 className="mb-2.5 flex items-center gap-1.5 text-sm font-semibold">
       {icon && (
         <Icon
@@ -89,7 +89,7 @@ interface StatTileProps {
 }
 
 export const StatTile = ({ label, value, delta, vs, sub }: StatTileProps) => (
-  <div className="rounded-[10px] border border-line bg-surface px-4 py-3.5">
+  <div className="rounded-[10px] border border-line px-4 py-3.5">
     <div className="text-xs text-ink-soft">{label}</div>
     {/* Smaller on a phone, where two tiles share a 375px row: `123 456 kr` at
         26px is wider than the 128px a tile has left inside its own padding, and
@@ -123,7 +123,7 @@ interface MeterTileProps {
 }
 
 export const MeterTile = ({ label, share, note }: MeterTileProps) => (
-  <div className="rounded-[10px] border border-line bg-surface px-4 py-3.5">
+  <div className="rounded-[10px] border border-line px-4 py-3.5">
     <div className="text-xs text-ink-soft">{label}</div>
     <div className="mt-1 text-[22px] font-semibold sm:text-[26px]">
       {fmtPct(share)}

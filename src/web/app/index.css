@@ -21,8 +21,8 @@
   --color-line: rgb(11 11 11 / 0.1);
   --color-series-1: #2a78d6;
   --color-series-1-track: #cde2fb;
-  --color-critical-strong: #e34948;
-  --color-good-strong: #1a8f3c;
+  --color-critical-strong: #ec5a58;
+  --color-good-strong: #22a34a;
   --color-hover: #f0efec;
   --color-good: #3f8f4a;
   --color-critical: #b4534f;
@@ -192,27 +192,5 @@
       color: var(--color-ink-soft);
       animation: none;
     }
-  }
-}
-
-/**
- * iOS Safari zooms the whole page in when you focus a field whose text is under
- * 16px, and does not zoom back out — so typing in the transactions search left
- * the dashboard permanently magnified and scrolling sideways. 16px is the whole
- * fix; the boxes read at 12-14px everywhere with room for it.
- *
- * Unlayered on purpose. Tailwind's `text-sm` is a utility, and a rule inside
- * `@layer base` loses to any utility however specific it is — unlayered CSS
- * outranks every layer, which is the only thing that beats the class on the
- * element. Keep it outside the layer if it ever moves.
- *
- * Not `maximum-scale=1` on the viewport tag, which fixes the same thing by
- * taking pinch-zoom away from everyone.
- */
-@media (max-width: 40rem) {
-  input:not([type="checkbox"]):not([type="radio"]),
-  select,
-  textarea {
-    font-size: 16px;
   }
 }

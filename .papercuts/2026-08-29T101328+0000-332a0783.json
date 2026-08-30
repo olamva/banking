@@ -1,0 +1,13 @@
+{
+  "id": "332a0783",
+  "ts": "2026-08-29T10:13:28+00:00",
+  "text": "pnpm install in a fresh worktree cannot resolve registry.npmjs.org in the default sandbox",
+  "tags": [
+    "network",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "/Users/olavassbotn/Documents/banking"
+}

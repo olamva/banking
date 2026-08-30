@@ -7,13 +7,14 @@ import {
   type Dispatch,
   type SetStateAction,
 } from "react";
+import { RULE_FILES, type RuleFile } from "../../core/ruleFiles.ts";
 import {
   AXES,
   NO_FILTERS,
   axisBounds,
   distinctAccounts,
-  distinctCountries,
   distinctCategories,
+  distinctCountries,
   distinctMerchants,
   distinctMonths,
   distinctSubcategories,
@@ -27,7 +28,6 @@ import {
   type Filters,
   type Period,
 } from "../../core/select.ts";
-import { RULE_FILES, type RuleFile } from "../../core/ruleFiles.ts";
 import type { ExcludedSummary } from "../../core/stats.ts";
 import {
   byMonth,
@@ -57,7 +57,8 @@ import {
   type Bucket,
 } from "./Charts.tsx";
 import { FilterBar, type View } from "./FilterBar.tsx";
-import { FileDialog, RuleNotification, RuleTabs, RulesView } from "./Rules.tsx";
+import { Notification, Notifications } from "./Modal.tsx";
+import { FileDialog, RuleTabs, RulesView } from "./Rules.tsx";
 import { ShortcutsDialog, useShortcuts, type Shortcut } from "./Shortcuts.tsx";
 import {
   THEMES,
@@ -100,7 +101,7 @@ const CARD_GRID =
   "grid grid-cols-[repeat(auto-fit,minmax(min(460px,100%),1fr))] gap-4 [&>*:last-child:nth-child(odd)]:col-span-full";
 
 const CARD_GRID_3 =
-  "grid grid-cols-[repeat(auto-fit,minmax(min(300px,100%),1fr))] gap-4 [&>*:last-child]:col-span-full";
+  "grid grid-cols-[repeat(auto-fit,minmax(min(300px,100%),1fr))] gap-4 [&>*:last-child:nth-child(3n+1)]:col-span-full";
 
 const THEME_ICONS = {
   system: SystemThemeIcon,
@@ -297,69 +298,78 @@ const Breakdowns = ({
   const onAccount = pick(onFilters, "accounts");
 
   return (
-    <div className={grid}>
-      {/* Three breakdowns per direction, named the same way on both sides:
-          "<direction> by <axis>". The income half hides itself period by
-          period, on exactly the same emptiness rules as the spending half. */}
-      {!single && cats.length > 0 && (
-        <Card title="Spending by category" icon={CategoryIcon}>
-          <HorizontalBars
-            items={cats}
-            onPick={onCategory}
-            onPickSub={onSubcategory}
-            tone="spend"
+    <>
+      <div className={grid}>
+        {/* Three breakdowns per direction, named the same way on both sides:
+            "<direction> by <axis>". The income half hides itself period by
+            period, on exactly the same emptiness rules as the spending half. */}
+        {!single && cats.length > 0 && (
+          <Card title="Spending by category" icon={CategoryIcon}>
+            <HorizontalBars
+              items={cats}
+              onPick={onCategory}
+              onPickSub={onSubcategory}
+              tone="spend"
+            />
+          </Card>
+        )}
+
+        {!single && deltas.length > 0 && (
+          <Card title={`Biggest changes vs ${vsLabel}`} icon={ChangesIcon}>
+            <DivergingBars deltas={deltas} onPick={onCategory} />
+          </Card>
+        )}
+
+        {cps.length > 0 && (
+          <Card title="Spending by merchant" icon={CounterpartyIcon}>
+            <HorizontalBars items={cps} onPick={onMerchant} tone="spend" />
+          </Card>
+        )}
+
+        {accounts.length > 1 && (
+          <Card title="Spending by account" icon={AccountIcon}>
+            <HorizontalBars items={accounts} onPick={onAccount} tone="spend" />
+          </Card>
+        )}
+
+        {!single && inCats.length > 0 && (
+          <Card title="Income by category" icon={CategoryIcon}>
+            <HorizontalBars
+              items={inCats}
+              onPick={onCategory}
+              onPickSub={onSubcategory}
+              tone="income"
+            />
+          </Card>
+        )}
+
+        {inCps.length > 0 && (
+          <Card title="Income by merchant" icon={CounterpartyIcon}>
+            <HorizontalBars items={inCps} onPick={onMerchant} tone="income" />
+          </Card>
+        )}
+
+        {inAccounts.length > 1 && (
+          <Card title="Income by account" icon={AccountIcon}>
+            <HorizontalBars
+              items={inAccounts}
+              onPick={onAccount}
+              tone="income"
+            />
+          </Card>
+        )}
+      </div>
+
+      {groups.length > 0 && (
+        <div className="mt-4">
+          <SubscriptionsCard
+            groups={groups}
+            onMerchant={onMerchant}
+            onCategory={pick(onFilters, "categories")}
           />
-        </Card>
+        </div>
       )}
-
-      {!single && deltas.length > 0 && (
-        <Card title={`Biggest changes vs ${vsLabel}`} icon={ChangesIcon}>
-          <DivergingBars deltas={deltas} onPick={onCategory} />
-        </Card>
-      )}
-
-      {cps.length > 0 && (
-        <Card title="Spending by merchant" icon={CounterpartyIcon}>
-          <HorizontalBars items={cps} onPick={onMerchant} tone="spend" />
-        </Card>
-      )}
-
-      {accounts.length > 1 && (
-        <Card title="Spending by account" icon={AccountIcon}>
-          <HorizontalBars items={accounts} onPick={onAccount} tone="spend" />
-        </Card>
-      )}
-
-      {!single && inCats.length > 0 && (
-        <Card title="Income by category" icon={CategoryIcon}>
-          <HorizontalBars
-            items={inCats}
-            onPick={onCategory}
-            onPickSub={onSubcategory}
-            tone="income"
-          />
-        </Card>
-      )}
-
-      {inCps.length > 0 && (
-        <Card title="Income by merchant" icon={CounterpartyIcon}>
-          <HorizontalBars items={inCps} onPick={onMerchant} tone="income" />
-        </Card>
-      )}
-
-      {inAccounts.length > 1 && (
-        <Card title="Income by account" icon={AccountIcon}>
-          <HorizontalBars items={inAccounts} onPick={onAccount} tone="income" />
-        </Card>
-      )}
-
-      {/* Hides itself when the period has nothing recurring in it. */}
-      <SubscriptionsCard
-        groups={groups}
-        onMerchant={onMerchant}
-        onCategory={pick(onFilters, "categories")}
-      />
-    </div>
+    </>
   );
 };
 
@@ -387,6 +397,16 @@ const Dashboard = ({
   // `all` is the period. `txns` is the record, and only the comparison period
   // needs it, because that period sits outside this one.
   const shown = all.filter((t) => matchesFilters(t, filters));
+
+  if (shown.length === 0)
+    return (
+      <>
+        <div className="py-10 text-center text-ink-muted">
+          No transactions match the current filters.
+        </div>
+        <ExcludedNote excluded={totals(all).excluded} where="in this period" />
+      </>
+    );
 
   const vs =
     p.prev && txns.some((t) => inRange(t, p.prev!.from, p.prev!.to))
@@ -538,7 +558,9 @@ const RefreshButton = ({ refresh }: { refresh: Refresh }) => (
       size={14}
       className={refresh.busy ? "animate-spin" : undefined}
     />
-    {refresh.busy ? <span className="glow">Refreshing…</span> : "Refresh"}
+    <span className={refresh.busy ? "glow max-sm:hidden" : "max-sm:hidden"}>
+      {refresh.busy ? "Refreshing…" : "Refresh"}
+    </span>
   </button>
 );
 
@@ -550,70 +572,52 @@ interface ToolbarProps {
 }
 
 const Toolbar = ({ refresh, theme, onTheme, onHelp }: ToolbarProps) => (
-  <>
-    <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
-      <h1 className="text-lg font-semibold sm:text-xl">Spending dashboard</h1>
-      {/* Three controls, and 375px is a supported width. Let them wrap
-          rather than push the page sideways. */}
-      <div className="flex flex-wrap items-center gap-2">
-        {/* The one control on this page that costs a bank request. It syncs
-            the whole record with --force, then rebuilds the database. */}
-        <RefreshButton refresh={refresh} />
-        <button
-          type="button"
-          onClick={onHelp}
-          aria-label="Keyboard shortcuts"
-          className="flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-ink-soft"
-        >
-          <Icon aria-hidden icon={KeyboardIcon} size={14} />
-          Shortcuts
-        </button>
-        {/* Three named options rather than a cycling button: a toggle whose next
+  <div className="flex flex-wrap items-baseline justify-between gap-x-1 gap-y-2 sm:gap-x-4">
+    <h1 className="text-base font-semibold sm:text-xl">Spending dashboard</h1>
+    {/* Keep the controls on the title line at phone widths. */}
+    <div className="flex flex-wrap items-center gap-2">
+      {/* The one control on this page that costs a bank request. It syncs
+          the whole record with --force, then rebuilds the database. */}
+      <RefreshButton refresh={refresh} />
+      <button
+        type="button"
+        onClick={onHelp}
+        aria-label="Keyboard shortcuts"
+        className="flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-ink-soft"
+      >
+        <Icon aria-hidden icon={KeyboardIcon} size={14} />
+        <span className="max-sm:hidden">Shortcuts</span>
+      </button>
+      {/* Three named options rather than a cycling button: a toggle whose next
           state you cannot see is a toggle you press twice. The icon names the
           option picked — "system" is the machine, not the way it resolved. */}
-        <div className="relative">
-          <Icon
-            aria-hidden
-            icon={THEME_ICONS[theme]}
-            size={14}
-            className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-ink-soft"
-          />
-          <select
-            className="w-full appearance-none rounded-md border border-line bg-surface py-1.5 pr-3 pl-8 text-xs text-ink-soft"
-            value={theme}
-            onChange={(e) => {
-              const next = e.target.value as Theme;
-              onTheme(next);
-              setTheme(next);
-            }}
-            aria-label="Theme"
-          >
-            {/* Capitalised here, not in CSS — a native select menu ignores text-transform. */}
-            {THEMES.map((t) => (
-              <option key={t} value={t}>
-                {t[0]!.toUpperCase() + t.slice(1)}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-    </div>
-
-    {/* On the page, not in a tooltip — a phone has no hover. */}
-    {refresh.note && (
-      <p
-        className={`flex items-start gap-1.5 text-[11px] ${refresh.bad ? "text-critical" : "text-ink-muted"}`}
-      >
+      <div className="relative">
         <Icon
           aria-hidden
-          icon={refresh.bad ? ErrorIcon : InfoIcon}
-          size={13}
-          className="mt-px shrink-0"
+          icon={THEME_ICONS[theme]}
+          size={14}
+          className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-ink-soft"
         />
-        {refresh.note}
-      </p>
-    )}
-  </>
+        <select
+          className="h-7.5 appearance-none rounded-md border border-line bg-surface pr-3 pl-8 text-xs text-ink-soft"
+          value={theme}
+          onChange={(e) => {
+            const next = e.target.value as Theme;
+            onTheme(next);
+            setTheme(next);
+          }}
+          aria-label="Theme"
+        >
+          {/* Capitalised here, not in CSS — a native select menu ignores text-transform. */}
+          {THEMES.map((t) => (
+            <option key={t} value={t}>
+              {t[0]!.toUpperCase() + t.slice(1)}
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
+  </div>
 );
 
 const LoadNote = ({
@@ -669,7 +673,7 @@ export const App = () => {
   const [theme, onTheme] = useState<Theme>(readTheme);
   const [help, setHelp] = useState(false);
   const header = useRef<HTMLElement>(null);
-  const hidden = useHideOnScroll(header);
+  const hidden = useHideOnScroll(header, filters);
 
   if (load.status === "ready") {
     setLabels(load.labels);
@@ -1011,7 +1015,10 @@ export const App = () => {
           onClose={() => setFiling(null)}
         />
       )}
-      <RuleNotification rules={rules} />
+      <Notifications>
+        <Notification note={refresh.note} bad={refresh.bad} />
+        <Notification note={rules.note} bad={rules.bad} />
+      </Notifications>
     </>
   );
 };
