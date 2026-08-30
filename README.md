@@ -23,7 +23,7 @@ pnpm dev                            # http://localhost:4000
 
 ```bash
 pnpm worktree:link                  # symlink .env.local, data and rules back
-pnpm dev --port 4001                # the main checkout uses 4000
+pnpm dev                            # its own port in 4010-4089, and its own database
 ```
 
 ## Commands

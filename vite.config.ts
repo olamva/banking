@@ -1,13 +1,25 @@
-import { existsSync, statSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import {
+  constants,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  statSync,
+} from "node:fs";
 import { resolve } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, loadEnv, type Plugin } from "vite";
-import { payload, refresh, rulesRoute } from "./src/web/api.ts";
 
 const api = (): Plugin => ({
   name: "banking-api",
-  configureServer(server) {
+  // `api.ts` loads here rather than at the top of the file. `paths.ts` reads
+  // DB_FILE from the environment once, when it first loads, and isolate() sets
+  // that variable while this config is still being built. A static import binds
+  // the shared database before the worktree can redirect it. `api.ts` and
+  // `server.ts` defer their own imports for the same reason.
+  async configureServer(server) {
+    const { payload, refresh, rulesRoute } = await import("./src/web/api.ts");
     // Mounted on no prefix, because connect strips a prefix off req.url and
     // the router needs the whole path.
     server.middlewares.use((req, res, next) => {
@@ -82,6 +94,37 @@ const isWorktree = (): boolean => {
   return existsSync(dotGit) && statSync(dotGit).isFile();
 };
 
+// Give a worktree its own port and its own database, and return the port.
+//
+// Two worktrees otherwise collide twice. `strictPort` means the second
+// `pnpm dev` refuses to start at all, so no agent can look at its own work
+// while another server runs. And `data` is a link to the main checkout, so a
+// rebuild in a worktree replaces the database the main checkout is serving.
+//
+// The port comes from the branch name, so one branch always answers on one
+// port and a link stays good across restarts. 4010-4089 sits clear of 4000.
+const isolate = (): number => {
+  const branch = execFileSync("git", ["branch", "--show-current"], {
+    cwd: import.meta.dirname,
+    encoding: "utf8",
+  }).trim();
+  let hash = 0;
+  for (const ch of branch) hash = (hash * 31 + ch.charCodeAt(0)) % 80;
+
+  const dir = resolve(import.meta.dirname, "data.local");
+  const db = resolve(dir, "banking.db");
+  const shared = resolve(import.meta.dirname, "data/banking.db");
+  mkdirSync(dir, { recursive: true });
+  // COPYFILE_FICLONE clones on APFS, so this is instant and costs no disk until
+  // one of the two copies changes. A missing shared file is not an error: the
+  // worktree starts empty and a rebuild fills it.
+  if (!existsSync(db) && existsSync(shared))
+    copyFileSync(shared, db, constants.COPYFILE_FICLONE);
+  process.env.DB_FILE = db;
+
+  return 4010 + hash;
+};
+
 export default defineConfig(({ command, mode }) => {
   if (command === "build" && isWorktree())
     throw new Error(
@@ -91,6 +134,9 @@ export default defineConfig(({ command, mode }) => {
   // The dashboard is offline, but the refresh endpoint is not. `pnpm dev` runs
   // vite, not `node --env-file`, so load .env.local here.
   Object.assign(process.env, loadEnv(mode, import.meta.dirname, ""));
+  // Before the return: this sets DB_FILE, and the api plugin reads it when the
+  // server starts.
+  const port = isWorktree() ? isolate() : 4000;
   return {
     root: "src/web/app",
     build: {
@@ -100,7 +146,7 @@ export default defineConfig(({ command, mode }) => {
     plugins: [react(), tailwindcss(), api()],
     server: {
       host: "127.0.0.1",
-      port: 4000,
+      port,
       // Refuse a port that another server holds. Vite moves to the next port
       // without it, and a request to 4000 then answers from the squatter.
       strictPort: true,

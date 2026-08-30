@@ -19,6 +19,10 @@ node_modules
 # personal data: raw API responses, the derived database, the dashboard
 data
 
+# a worktree's own database, cloned from the main checkout so that a rebuild
+# here cannot replace the one the main checkout serves
+data.local
+
 # hand-edited local rules — they carry account keys, names and descriptions
 rules
 
