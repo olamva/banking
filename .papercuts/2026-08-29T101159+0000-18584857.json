@@ -1,0 +1,13 @@
+{
+  "id": "18584857",
+  "ts": "2026-08-29T10:11:59+00:00",
+  "text": "Git merge in a worktree cannot write worktree refs under the main .git directory in the default sandbox",
+  "tags": [
+    "sandbox",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "/Users/olavassbotn/Documents/banking"
+}
