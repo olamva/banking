@@ -22,8 +22,6 @@ This commit is required, not only permitted.
 
 Run `pnpm install`, then run `pnpm worktree:link`. These two commands are the whole provisioning step. The second command makes symlinks to `.env.local`, `data` and `rules` in the main checkout.
 
-`pnpm dev` in a worktree serves its own port and its own database. The port comes from the branch name and lands in 4010-4089, so two worktrees never collide under `strictPort`. Read the port that Vite prints. Never assume 4000. The database is a clone in `data.local/`, so a refresh or a rule edit here cannot replace the one the main checkout serves. `isolate()` in `vite.config.ts` does both.
-
 `pnpm sb1 rebuild` is not isolated. It writes the shared database through the `data` link. Rebuild through the page, or run the command from the main checkout.
 
 You cannot change `rules/` or `data/` from a worktree. The symlink does not avoid this rule. The isolation guard resolves the link to the shared path and refuses the write. There is also nothing to isolate, because no commit carries those files. Make a rules edit in the main checkout. Do not enter a worktree for a task that only edits rules.
