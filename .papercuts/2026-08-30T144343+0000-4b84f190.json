@@ -1,0 +1,13 @@
+{
+  "id": "4b84f190",
+  "ts": "2026-08-30T14:43:43+00:00",
+  "text": "pnpm install cannot resolve registry.npmjs.org in the sandbox",
+  "tags": [
+    "network",
+    "setup"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-luna",
+  "session": "",
+  "where": "/private/tmp/banking-axis-reset"
+}
