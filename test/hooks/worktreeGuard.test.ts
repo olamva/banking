@@ -66,6 +66,8 @@ test("only main is protected — a checkout on its own branch is a branch to wor
 
 test("an in-place rewriter is refused, and a formatter and a patch with it", () => {
   assert.equal(bash(main, "sed -i '' 24s/a/b/ tracked.ts"), true);
+  assert.equal(bash(main, "sed -i '' 24s/a/b/ /tmp/tracked.ts"), false);
+  assert.equal(bash(main, "sed -i '' 24s/a/b/ tracked.ts /tmp/tracked.ts"), true);
   assert.equal(bash(main, "perl -pi -e s/a/b/ tracked.ts"), true);
   assert.equal(bash(main, "pnpm prettier --write src"), true);
   assert.equal(bash(main, "git apply /tmp/p.diff"), true);

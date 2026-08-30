@@ -1,0 +1,14 @@
+{
+  "id": "b5eb0f35",
+  "ts": "2026-08-30T23:52:39+00:00",
+  "text": "The macOS shell has no timeout command for bounded test runs",
+  "tags": [
+    "shell",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "timeout",
+  "branch": "worktree-dev-isolation"
+}
