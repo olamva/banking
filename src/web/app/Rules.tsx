@@ -935,7 +935,7 @@ export const FileDialog = ({
           This adds a category override for every row that matches the pattern.
         </p>
 
-        <label className="flex flex-col gap-1 text-xs text-ink-soft [&>div]:basis-auto">
+        <label className="flex flex-col gap-1 text-xs text-ink-soft">
           Pattern
           <input
             value={pattern}
@@ -945,7 +945,7 @@ export const FileDialog = ({
         </label>
         <MatchNote pattern={pattern} txns={txns} haystacks={haystacks} />
 
-        <label className="flex flex-col gap-1 text-xs text-ink-soft">
+        <label className="flex flex-col gap-1 text-xs text-ink-soft [&>div]:basis-auto">
           Category
           <CategoryInput
             value={value}
