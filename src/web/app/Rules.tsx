@@ -610,7 +610,7 @@ const History = ({ file, rules }: { file: RuleFile; rules: RulesApi }) => {
   const ahead = Math.max(here, 0);
 
   return (
-    <section className="mt-4 border-t border-line pt-3 lg:sticky lg:top-4 lg:mt-0 lg:border-t-0 lg:pt-0">
+    <section className="mt-4 border-t border-line pt-3 lg:sticky lg:top-[var(--header-bottom)] lg:mt-0 lg:border-t-0 lg:pt-0">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-[11px] font-medium tracking-wide text-ink-soft uppercase">
           History
