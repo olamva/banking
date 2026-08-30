@@ -610,7 +610,7 @@ const History = ({ file, rules }: { file: RuleFile; rules: RulesApi }) => {
   const ahead = Math.max(here, 0);
 
   return (
-    <section className="mt-4 border-t border-line pt-3 lg:mt-0 lg:border-t-0 lg:pt-0">
+    <section className="mt-4 border-t border-line pt-3 lg:sticky lg:top-4 lg:mt-0 lg:border-t-0 lg:pt-0">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-[11px] font-medium tracking-wide text-ink-soft uppercase">
           History
@@ -850,8 +850,6 @@ export const RulesView = ({
           Loading…
         </div>
       ) : (
-        // The history sits beside the rules on a wide screen. Below the list it
-        // sat under a 60vh scroller, so nobody reached it.
         <div className="lg:grid lg:grid-cols-[minmax(min(460px,100%),1fr)_20rem] lg:items-start lg:gap-6">
           <div className="min-w-0">
             <AddForm
