@@ -1,0 +1,14 @@
+{
+  "id": "baaf3d72",
+  "ts": "2026-08-30T18:33:06+00:00",
+  "text": "EnterWorktree fails with 'not in a git repository' when the session launched outside the target repo; had to run 'git worktree add' by hand and drive it with git -C",
+  "tags": [
+    "tools",
+    "worktree"
+  ],
+  "who": "agent",
+  "model": "opus-5",
+  "session": "d3fdfd12",
+  "where": "/Users/olavassbotn/Documents/banking/.claude/worktrees/dev-isolation",
+  "branch": "worktree-dev-isolation"
+}
