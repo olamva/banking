@@ -71,6 +71,10 @@ The rules-only exception below does not permit other changes on `main`.
 
 Run `pnpm install`, then run `pnpm worktree:link`. These two commands are the whole provisioning step. The second command makes symlinks to `.env.local`, `data` and `rules` in the main checkout.
 
+**`pnpm dev` in a worktree serves its own port and its own database.** The port comes from the branch name and lands in 4010-4089, so 4000 stays with the main checkout and two worktrees never collide under `strictPort`. **Read the port Vite prints. Never assume 4000.** The database is a clone in `data.local/`, made on the first `pnpm dev`, so a refresh or a rule edit here cannot replace the one the main checkout serves. Both come from `isolate()` in `vite.config.ts`.
+
+**`pnpm sb1 rebuild` is not isolated. It writes the shared database through the `data` link.** `src/cli.ts` binds `DB_FILE` when it loads, before anything can redirect it. Rebuild through the page instead, or run the command from the main checkout.
+
 **You cannot change `rules/` or `data/` from a worktree.** The symlink does not avoid this rule. The isolation guard resolves the link to the shared path and refuses the write. There is also nothing to isolate, because no commit carries those files. **Make a rules edit in the main checkout.** Do not enter a worktree for a task that only edits rules.
 
 **The Bash guard refuses a compound command inside an isolated session.** This covers heredocs, redirects and `&&` chains. The guard is syntactic. Write the script to `$CLAUDE_JOB_DIR/tmp` and run it in one plain call.
