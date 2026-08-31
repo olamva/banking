@@ -57,6 +57,7 @@ Bash)
 
   # In-place rewriters. A verb that only creates a file is left alone, because
   # blocking mkdir and cp breaks the provisioning that this guard asks for.
+  has "^sed[[:space:]]+-i[[:space:]]+(''|\"\")[[:space:]]+[^[:space:]]+[[:space:]]+(/tmp/|/private/tmp/|/var/folders/)[^[:space:]]+$" && exit 0
   has 'sed[[:space:]]+(-[[:alnum:]]*i|--in-place)' && deny "sed rewrites a file in place, in the main checkout."
   has 'perl[[:space:]]+-[[:alnum:]]*i' && deny "perl rewrites a file in place, in the main checkout."
   has 'awk[[:space:]]+-i[[:space:]]+inplace' && deny "awk rewrites a file in place, in the main checkout."

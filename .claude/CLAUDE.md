@@ -22,6 +22,8 @@ This commit is required, not only permitted.
 
 Run `pnpm install`, then run `pnpm worktree:link`. These two commands are the whole provisioning step. The second command makes symlinks to `.env.local`, `data` and `rules` in the main checkout.
 
+Retry `pnpm install` with network permission when sandbox DNS fails. Do not use `--offline` as a fallback.
+
 `pnpm sb1 rebuild` is not isolated. It writes the shared database through the `data` link. Rebuild through the page, or run the command from the main checkout.
 
 You cannot change `rules/` or `data/` from a worktree. The symlink does not avoid this rule. The isolation guard resolves the link to the shared path and refuses the write. There is also nothing to isolate, because no commit carries those files. Make a rules edit in the main checkout. Do not enter a worktree for a task that only edits rules.
