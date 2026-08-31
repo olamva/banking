@@ -1,0 +1,17 @@
+{
+  "description": "Enforce the worktree rule in AGENTS.md.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|apply_patch|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/worktree-guard.sh\"",
+            "statusMessage": "Checking the checkout"
+          }
+        ]
+      }
+    ]
+  }
+}

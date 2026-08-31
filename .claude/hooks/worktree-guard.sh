@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
-# PreToolUse guard: refuse a tracked change in the main checkout, on main only.
+# PreToolUse guard: refuse a tracked change in the main checkout.
 #
 # .claude/CLAUDE.md says to make every tracked code change in an isolated
-# worktree. Prose alone did not hold, so this is the backstop. A checkout that
-# already sits on a branch of its own is a branch to work on, so the guard
-# leaves it alone.
+# worktree. Prose alone did not hold, so this is the backstop.
 #
 # Reads the hook payload on stdin, prints a deny decision, exits 0 either way:
 # a hook that errors is a hook that blocks nothing.
@@ -25,12 +23,8 @@ git_dir=$(git -C "$cwd" rev-parse --absolute-git-dir 2>/dev/null) || exit 0
 common=$(git -C "$cwd" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || exit 0
 [ "$git_dir" = "$common" ] || exit 0
 
-# Only main is protected. A checkout already on a branch of its own is a branch
-# to work on, and a worktree buys nothing there.
-[ "$(git -C "$cwd" symbolic-ref --short -q HEAD)" = main ] || exit 0
-
 deny() {
-  jq -nc --arg reason "$1 The main checkout sits on main. Call EnterWorktree, then run pnpm install and pnpm worktree:link. Edit rules/ and data/ in the main checkout, and write a scratch file under /tmp." '{
+  jq -nc --arg reason "$1 Call EnterWorktree, then run pnpm install and pnpm worktree:link. Edit rules/ and data/ in the main checkout, and write a scratch file under /tmp." '{
     hookSpecificOutput: {
       hookEventName: "PreToolUse",
       permissionDecision: "deny",
@@ -41,11 +35,22 @@ deny() {
 }
 
 case $tool in
+apply_patch)
+  patch=$(field '.tool_input.command')
+  paths=$(printf '%s\n' "$patch" | sed -nE 's/^\*\*\* (Add|Update|Delete) File: //p')
+  [ -n "$paths" ] || deny "apply_patch has no file list that the guard can check."
+  while IFS= read -r path; do
+    git -C "$cwd" check-ignore -q "$path" 2>/dev/null && continue
+    git -C "$cwd" ls-files --error-unmatch "$path" >/dev/null 2>&1 || continue
+    deny "$path is a tracked path in the main checkout."
+  done <<<"$paths"
+  ;;
 Edit | Write | NotebookEdit | MultiEdit)
   path=$(field '.tool_input.file_path')
   [ -n "$path" ] || exit 0
   # Every path the repo permits here is gitignored: rules/, data/, .env.local.
   git -C "$cwd" check-ignore -q "$path" 2>/dev/null && exit 0
+  git -C "$cwd" ls-files --error-unmatch "$path" >/dev/null 2>&1 || exit 0
   deny "$path is a tracked path in the main checkout."
   ;;
 Bash)

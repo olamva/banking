@@ -41,7 +41,7 @@ const edit = (cwd: string, file_path: string) =>
   ask(cwd, "Edit", { file_path });
 const bash = (cwd: string, command: string) => ask(cwd, "Bash", { command });
 
-test("the guard refuses a tracked path in the main checkout, on main", () => {
+test("the guard refuses a tracked path in the main checkout", () => {
   assert.equal(edit(main, join(main, "tracked.ts")), true);
 });
 
@@ -54,14 +54,24 @@ test("a linked worktree is what the guard asks for, so it refuses nothing there"
   assert.equal(bash(linked, "sed -i '' s/a/b/ tracked.ts"), false);
 });
 
-test("only main is protected — a checkout on its own branch is a branch to work on", () => {
+test("a branch does not make the main checkout isolated", () => {
   git(main, "checkout", "-q", "-b", "feature");
   try {
-    assert.equal(edit(main, join(main, "tracked.ts")), false);
-    assert.equal(bash(main, "sed -i '' s/a/b/ tracked.ts"), false);
+    assert.equal(edit(main, join(main, "tracked.ts")), true);
+    assert.equal(bash(main, "sed -i '' s/a/b/ tracked.ts"), true);
   } finally {
     git(main, "checkout", "-q", "main");
   }
+});
+
+test("Codex apply_patch is refused in the main checkout", () => {
+  const patch = "*** Update File: tracked.ts";
+  assert.equal(ask(main, "apply_patch", { command: patch }), true);
+  assert.equal(ask(linked, "apply_patch", { command: patch }), false);
+  assert.equal(
+    ask(main, "apply_patch", { command: "*** Add File: notes.txt" }),
+    false,
+  );
 });
 
 test("an in-place rewriter is refused, and a formatter and a patch with it", () => {
