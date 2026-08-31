@@ -27,15 +27,9 @@ import {
 } from "../../core/select.ts";
 import { totals } from "../../core/stats.ts";
 import type { Categorized } from "../../core/types.ts";
-import { StatTile } from "./Cards.tsx";
-import { TransactionsCard } from "./Transactions.tsx";
 import { LoadNote, Toolbar } from "./AppToolbar.tsx";
+import { StatTile } from "./Cards.tsx";
 import { Dashboard, ExcludedNote, pick } from "./Dashboard.tsx";
-import { FilterBar, type View } from "./FilterBar.tsx";
-import { Notification, Notifications } from "./Modal.tsx";
-import { FileDialog, RulesView } from "./Rules.tsx";
-import { RULE_TAB_FILES, RuleTabs } from "./RuleTabs.tsx";
-import { ShortcutsDialog, useShortcuts, type Shortcut } from "./Shortcuts.tsx";
 import {
   THEMES,
   readTheme,
@@ -46,12 +40,18 @@ import {
   useTransactions,
   type Theme,
 } from "./data.ts";
+import { FilterBar, type View } from "./FilterBar.tsx";
 import {
   fmtNOK,
   setCategoryHues,
   setLabels,
   subcategoryLabel,
 } from "./format.ts";
+import { Notification, Notifications } from "./Modal.tsx";
+import { FileDialog, RulesView } from "./Rules.tsx";
+import { RULE_TAB_FILES, RuleTabs } from "./RuleTabs.tsx";
+import { ShortcutsDialog, useShortcuts, type Shortcut } from "./Shortcuts.tsx";
+import { TransactionsCard } from "./Transactions.tsx";
 import { GRAINS, readUrl, writeUrl, type Grain } from "./url.ts";
 
 const CARD_GRID =
@@ -229,7 +229,7 @@ export const App = () => {
     },
     {
       keys: ["t"],
-      cap: "T",
+      cap: "t",
       what: "Today — this month, or this year in a year view",
       run: () => {
         if (view === "rules") return;
@@ -238,16 +238,21 @@ export const App = () => {
         if (offered.includes(it)) setChosen(it);
       },
     },
-    { keys: ["a"], cap: "A", what: "All time", run: () => setChosen("all") },
+    {
+      keys: ["a"],
+      cap: "a",
+      what: "All time",
+      run: () => setChosen("all"),
+    },
     {
       keys: ["y"],
-      cap: "Y",
+      cap: "y",
       what: "The whole year — the latest, from all time",
       run: () => year && setChosen(year),
     },
     {
       keys: ["m"],
-      cap: "M",
+      cap: "m",
       what: "The last month of that year",
       run: () => {
         const m = year && lastMonthOf(year);
@@ -256,26 +261,26 @@ export const App = () => {
     },
     {
       keys: ["g"],
-      cap: "G",
+      cap: "g",
       what: "Next grain on the spending chart",
       run: () =>
         setChosenGrain(grains[(grains.indexOf(grain) + 1) % grains.length]!),
     },
     {
       keys: ["e"],
-      cap: "E",
+      cap: "e",
       what: "Show or hide excluded rows",
       run: () => setFilters((f) => ({ ...f, showExcluded: !f.showExcluded })),
     },
     {
       keys: ["r"],
-      cap: "R",
+      cap: "r",
       what: "Reset every filter",
       run: () => setFilters(NO_FILTERS),
     },
     {
       keys: ["c"],
-      cap: "C",
+      cap: "c",
       what: "Next theme",
       run: () => {
         const next = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length]!;
@@ -285,7 +290,7 @@ export const App = () => {
     },
     {
       keys: ["R"],
-      cap: "⇧R",
+      cap: "R",
       what: "Refresh from the bank",
       run: () => {
         if (!refresh.busy) refresh.run();
