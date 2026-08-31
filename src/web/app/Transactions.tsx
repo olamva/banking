@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import type { RuleFile } from "../../core/ruleFiles.ts";
 import { merchantOf, subcategoryOf } from "../../core/select.ts";
 import type { SubscriptionGroup } from "../../core/stats.ts";
 import type { Categorized } from "../../core/types.ts";
-import type { RuleFile } from "../../core/ruleFiles.ts";
 import {
   AMOUNT_SIZE,
   AMOUNT_SIZE_EXACT,
@@ -251,11 +251,24 @@ const TXN_RULE_ACTIONS: [RuleFile, string][] = [
   ["family", "Mark as family…"],
 ];
 
-const Chip = ({ children }: { children: ReactNode }) => (
-  <span className="inline-flex items-center gap-1 rounded-full border border-line px-2 py-0.5 text-[11px] text-ink-soft">
-    {children}
-  </span>
-);
+const Chip = ({
+  children,
+  onClick,
+}: {
+  children: ReactNode;
+  onClick?: () => void;
+}) => {
+  const Element = onClick ? "button" : "span";
+  return (
+    <Element
+      type={onClick ? "button" : undefined}
+      onClick={onClick}
+      className={`inline-flex items-center gap-1 flex-row rounded-full border border-line px-2 py-0.5 text-[11px] text-ink-soft ${onClick ? "hover:bg-hover hover:text-ink" : ""}`}
+    >
+      {children}
+    </Element>
+  );
+};
 
 const SHOWN_ABOVE = [
   "date",
@@ -349,18 +362,9 @@ export const TxnDialog = ({ txn, onClose, onFile }: TxnDialogProps) => {
           txn.country) && (
           <div className="mb-3 flex flex-wrap gap-1.5">
             {txn.country && (
-              <Chip>
+              <Chip onClick={onFile ? () => onFile("countries") : undefined}>
                 {txn.country}
-                {onFile && (
-                  <button
-                    type="button"
-                    onClick={() => onFile("countries")}
-                    aria-label="Edit country"
-                    className="-my-1 -mr-1 rounded p-1 text-ink-muted hover:bg-hover hover:text-ink"
-                  >
-                    <Icon aria-hidden icon={EditIcon} size={11} />
-                  </button>
-                )}
+                {onFile && <Icon aria-hidden icon={EditIcon} size={11} />}
               </Chip>
             )}
             {txn.excluded && <Chip>Excluded</Chip>}
