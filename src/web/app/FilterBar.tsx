@@ -1,6 +1,6 @@
 import { useRef, useState, type ReactNode } from "react";
 import type { Axis, Filters, PeriodKind } from "../../core/select.ts";
-import { AXES, NO_COUNTRY } from "../../core/select.ts";
+import { AXES, cycleFilter, NO_COUNTRY } from "../../core/select.ts";
 import { pairLabel, treeLabel } from "./format.ts";
 import { DropdownIcon, Icon } from "./icons.ts";
 import { keyboardFocused } from "./Shortcuts.tsx";
@@ -227,21 +227,8 @@ export const FilterBar = ({
   filters,
   onFilters,
 }: FilterBarProps) => {
-  const toggle = (key: Axis) => (value: string, exclude: boolean) => {
-    const outKey = AXES[key];
-    const gone = {
-      [key]: filters[key].filter((x) => x !== value),
-      [outKey]: filters[outKey].filter((x) => x !== value),
-    };
-    const target = exclude ? outKey : key;
-    const wasOn =
-      filters[key].includes(value) || filters[outKey].includes(value);
-    onFilters({
-      ...filters,
-      ...gone,
-      ...(wasOn ? {} : { [target]: [...filters[target], value] }),
-    });
-  };
+  const toggle = (key: Axis) => (value: string, exclude: boolean) =>
+    onFilters(cycleFilter(filters, key, value, exclude));
   const toggleCategory = toggle("categories");
 
   const subsOf = (category: string) =>

@@ -111,7 +111,7 @@ export const App = () => {
   const [filing, setFiling] = useState<Categorized | null>(null);
   const [initial] = useState(readUrl);
   const [view, setView] = useState<View>(initial.view);
-  const [ruleFile, setRuleFile] = useState<RuleFile>("overrides");
+  const [ruleFile, setRuleFile] = useState<RuleFile>("categories");
   const [chosen, setChosen] = useState<string | null>(initial.period);
   const [filters, setFilters] = useState<Filters>(initial.filters);
   const [chosenGrain, setChosenGrain] = useState<Grain>(initial.grain);

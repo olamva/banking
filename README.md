@@ -4,7 +4,7 @@ Personal spending analysis over my SpareBank 1 accounts and credit card. The cod
 
 ```
 data/raw/  ──normalize──►  Txn  ──exclude──►  ──categorize──►  SQLite
-                                (transfers)    (overrides)        │
+                                (transfers)   (categories)        │
                                                   pnpm dev ◄──────┘
 ```
 
@@ -65,7 +65,7 @@ pnpm typecheck
 
 Three views. _Dashboard_ shows the tiles and the charts. _Transactions_ shows the rows behind them. One pair of pickers chooses what both show. _Rules_ edits the category files, and it takes no period and no filter. A delta compares against one year back.
 
-Categories, merchants, accounts and countries each filter as two lists. A click includes. A meta-click excludes. An exclusion wins. None means all.
+Categories, merchants, accounts and countries each filter as two lists. In a picker, a click cycles: include, then exclude, then off. A meta-click jumps to exclude. An exclusion wins. None means all.
 
 The page lists subscriptions per subscription, not per charge. _Per month_ shows the last payment, not the average.
 
@@ -115,7 +115,7 @@ A refresh prices the whole sweep first, and the pricing costs nothing. It stops 
 
 The bank labels its own transactions, and it is wrong often enough to matter. The rules live in `rules/`, and none of them are in git.
 
-`rules/overrides.json` maps a case-insensitive substring to a category. The code checks it against the description, the merchant and the account number of the payee.
+`rules/categories.json` maps a case-insensitive substring to a category. The code checks it against the description, the merchant and the account number of the payee.
 
 ```json
 { "Munkegata 34": "faste_utgifter/boligutgifter" }
@@ -144,7 +144,7 @@ The other four files:
 
 A person-to-person Vipps payment needs **no rule**. A bare `Vipps*` marker is not enough, because Vipps bills merchants too. On the card the bank files a peer row as `diverse/overforing`, from `mcc: 4829`. On the deposit accounts Vipps doubles its own marker.
 
-`/overrides` in Claude Code suggests patterns for a merchant with real money behind it that lands in `ukategorisert`. Run `pnpm sb1 rebuild` after you accept a change.
+`/categories` in Claude Code suggests patterns for a merchant with real money behind it that lands in `ukategorisert`. Run `pnpm sb1 rebuild` after you accept a change.
 
 ## Layout
 

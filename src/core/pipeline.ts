@@ -3,11 +3,11 @@ import { mkdir, readFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import {
   categorize,
+  loadCategories,
   loadCountries,
   loadFamily,
   loadGiro,
   loadNotSubscriptions,
-  loadOverrides,
   loadPayees,
   loadSubscriptions,
   renamePayees,
@@ -60,7 +60,7 @@ export async function pipeline(
       ),
       accounts,
     ),
-    await loadOverrides(),
+    await loadCategories(),
     await loadSubscriptions(),
     await loadGiro(),
     cards,
@@ -100,7 +100,7 @@ export async function rebuildAll(): Promise<number> {
         );
       }
     }
-    const loose = narrowings(rows, await loadOverrides());
+    const loose = narrowings(rows, await loadCategories());
     for (const l of loose) {
       debug(
         `\nwarning: ${JSON.stringify(l.pattern)} only works where it sits, losing rows to ` +

@@ -3,6 +3,7 @@ import { test } from "node:test";
 import type { Filters } from "../../src/core/select.ts";
 import {
   AXES,
+  cycleFilter,
   distinctCategories,
   distinctMerchants,
   distinctMonths,
@@ -323,4 +324,28 @@ test("a merchant is a person when any row of theirs is a peer payment", () => {
   assert.ok(people.has("Relative"));
   assert.ok(!people.has("Georgios Giannakis"));
   assert.equal(people.size, 2);
+});
+
+test("a tap cycles a value through only, except and off", () => {
+  const only = cycleFilter(NO_FILTERS, "merchants", "Kiwi");
+  assert.deepEqual(only.merchants, ["Kiwi"]);
+  assert.deepEqual(only.merchantsOut, []);
+
+  const except = cycleFilter(only, "merchants", "Kiwi");
+  assert.deepEqual(except.merchants, []);
+  assert.deepEqual(except.merchantsOut, ["Kiwi"]);
+
+  const off = cycleFilter(except, "merchants", "Kiwi");
+  assert.deepEqual(off.merchants, []);
+  assert.deepEqual(off.merchantsOut, []);
+});
+
+test("a meta-tap goes straight to except, and back off", () => {
+  const except = cycleFilter(NO_FILTERS, "categories", "mat", true);
+  assert.deepEqual(except.categories, []);
+  assert.deepEqual(except.categoriesOut, ["mat"]);
+  assert.deepEqual(
+    cycleFilter(except, "categories", "mat", true).categoriesOut,
+    [],
+  );
 });

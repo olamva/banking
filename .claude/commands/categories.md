@@ -1,21 +1,21 @@
 ---
-description: Review merchants against rules/overrides.json and suggest changes, only if needed
+description: Review merchants against rules/categories.json and suggest changes, only if needed
 allowed-tools: Bash(sqlite3:*), Read, Edit
 ---
 
-Review how spending is categorised and suggest improvements to `rules/overrides.json`
+Review how spending is categorised and suggest improvements to `rules/categories.json`
 — **only where there is a real problem**. "No changes needed" is a valid and
 common answer; say it in one line and stop.
 
 ## Data
 
-Current overrides:
+Current categories:
 
-@rules/overrides.json
+@rules/categories.json
 
 Relatives, whose rows read as `innskudd/familie` incoming and
 `diverse/vennebetaling` outgoing. A new relative belongs in this file, never in
-`rules/overrides.json`:
+`rules/categories.json`:
 
 @rules/family.json
 
@@ -58,4 +58,4 @@ Reuse the category names already in the data — do not invent a new vocabulary.
 
 For each suggestion, one line: the pattern, the category, why, and the kroner
 it moves. Then the exact JSON to add, in the order it should sit in the file.
-Ask before editing `rules/overrides.json`; after an edit, run `pnpm sb1 rebuild`.
+Ask before editing `rules/categories.json`; after an edit, run `pnpm sb1 rebuild`.

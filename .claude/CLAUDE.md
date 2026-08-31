@@ -76,14 +76,14 @@ One route sends personal data off this machine, and only one. `pnpm deploy` uplo
 `categorize` runs its rules in this order. The order is part of the design.
 
 1. excluded -> `overfoering`, above every other rule. `reason` says why a row is out, so the category adds nothing.
-2. `rules/overrides.json` — pattern -> `category/sub`.
+2. `rules/categories.json` — pattern -> `category/sub`.
 3. `rules/giro.json`. This rule applies only when the row is a lump.
 4. `rules/family.json`. It sits below the lump rule, so pocket money keeps the better label. It sits above the Vipps rules, which would call every gift a peer payment.
 5. The two Vipps peer shapes. They sit above the bank's own category. A row that keeps `diverse/overforing` reads a peer payment as a transfer.
 6. The bank's own pair.
 7. The travel guess, on card rows only.
 
-Every line in `rules/overrides.json` works in any position. `categorize` takes the first pattern that matches, so the file _can_ act as a sequence. It must not. Two lines that claim the same row under different categories make the order load-bearing and invisible. You may sort, group or reorder the file freely, and every row must land where it landed before.
+Every line in `rules/categories.json` works in any position. `categorize` takes the first pattern that matches, so the file _can_ act as a sequence. It must not. Two lines that claim the same row under different categories make the order load-bearing and invisible. You may sort, group or reorder the file freely, and every row must land where it landed before.
 
 Fix a collision in the _pattern_. Do not fix it in the matcher or in the order. `rebuild` prints every offending pair and the narrowed form of the loser. One example is `/^(?!.*(?:sit kafe))(?=.*\bsit\b)/`. It holds a refusal lookahead and a requirement lookahead. Neither one consumes any characters. A collision where both lines name the same category is harmless. Leave it alone.
 

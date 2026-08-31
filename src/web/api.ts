@@ -15,16 +15,14 @@ import {
   type Edit,
 } from "../core/rules.ts";
 
-const CATEGORY_NAMES = `${RULES_DIR}/categories.json`;
+const LABELS = `${RULES_DIR}/labels.json`;
 
 export function payload(): string {
   const db = openDb(DB_FILE);
   try {
     return JSON.stringify({
       txns: queryRange(db, "0000-00", "9999-99"),
-      names: existsSync(CATEGORY_NAMES)
-        ? JSON.parse(readFileSync(CATEGORY_NAMES, "utf8"))
-        : {},
+      names: existsSync(LABELS) ? JSON.parse(readFileSync(LABELS, "utf8")) : {},
     });
   } finally {
     db.close();

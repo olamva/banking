@@ -46,8 +46,8 @@ test("a narrowed pattern keeps its own rows and takes none back", () => {
       category: "husleie",
     }),
   ];
-  const overrides = { "sit kafe": "kafe_og_restaurant", sit: "husleie" };
-  const [loose] = narrowings(rows, overrides);
+  const categories = { "sit kafe": "kafe_og_restaurant", sit: "husleie" };
+  const [loose] = narrowings(rows, categories);
   assert.equal(loose!.pattern, "sit");
   assert.equal(loose!.suggest, "/^(?!.*(?:sit kafe))(?=.*sit)/");
 
@@ -63,7 +63,7 @@ test("a narrowed pattern keeps its own rows and takes none back", () => {
     "sit kafe": "kafe_og_restaurant",
     [loose!.suggest]: "husleie",
   };
-  assert.equal(answer(overrides), "kafe_og_restaurant,husleie");
+  assert.equal(answer(categories), "kafe_og_restaurant,husleie");
   assert.equal(answer(narrowed), "kafe_og_restaurant,husleie");
   assert.equal(answer(reversed), "kafe_og_restaurant,husleie");
   assert.equal(

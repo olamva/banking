@@ -5,10 +5,10 @@
 // accounts.json is not here: `pnpm sb1 accounts` writes it, and it holds
 // account numbers, opening balances and sync floors that no page may set.
 export const MAP_FILES = [
-  "overrides",
+  "categories",
   "giro",
   "payees",
-  "categories",
+  "labels",
   "countries",
 ] as const;
 export const LIST_FILES = [
@@ -24,7 +24,7 @@ export type Rules = RuleMap | string[];
 
 // A value in these two names a category. The other two name a payee or a
 // category, which is free text.
-export const CATEGORY_VALUED = new Set<RuleFile>(["overrides", "giro"]);
+export const CATEGORY_VALUED = new Set<RuleFile>(["categories", "giro"]);
 
 export const isMapFile = (file: RuleFile): boolean =>
   (MAP_FILES as readonly string[]).includes(file);
