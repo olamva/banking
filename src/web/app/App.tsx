@@ -115,6 +115,7 @@ export const App = () => {
   } | null>(null);
   const [initial] = useState(readUrl);
   const [view, setView] = useState<View>(initial.view);
+  const shownView = useDeferredValue(view);
   const [ruleFile, setRuleFile] = useState<RuleFile>("categories");
   const [chosen, setChosen] = useState<string | null>(initial.period);
   const [filters, setFilters] = useState<Filters>(initial.filters);
@@ -421,7 +422,7 @@ export const App = () => {
       <div className="mx-auto max-w-295 py-4 sm:px-6 sm:py-6">
         {/* The rules stand on their own. They are readable and editable before
             the first sync, so no load state gates them. */}
-        {view === "rules" ? (
+        {shownView === "rules" ? (
           <div className="px-3 sm:px-0">
             <RulesView
               rules={rules}
@@ -436,7 +437,7 @@ export const App = () => {
               <LoadNote load={load} count={txns.length} refresh={refresh} />
             </div>
             {ready &&
-              (view === "dashboard" ? (
+              (shownView === "dashboard" ? (
                 <div className="px-3 sm:px-0">
                   <Dashboard
                     txns={txns}

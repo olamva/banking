@@ -1,0 +1,14 @@
+{
+  "id": "302b34d1",
+  "ts": "2026-08-31T23:37:35+00:00",
+  "text": "Rules.tsx says payees.json holds 580 lines, but the current rules page reports 605 entries",
+  "tags": [
+    "code",
+    "docs"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "src/web/app/Rules.tsx",
+  "branch": "investigate-page-key-lag"
+}
