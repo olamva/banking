@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import type { RuleFile } from "../../core/ruleFiles.ts";
 import { merchantOf, subcategoryOf } from "../../core/select.ts";
 import type { SubscriptionGroup } from "../../core/stats.ts";
@@ -29,11 +29,10 @@ import {
   EditIcon,
   Icon,
   RecurringIcon,
-  SearchIcon,
   TransactionsIcon,
 } from "./icons.ts";
 import { Modal } from "./Modal.tsx";
-import { isPageKey } from "./Shortcuts.tsx";
+import { SearchBox } from "./SearchBox.tsx";
 
 const useSort = <T, S extends Record<string, (a: T, b: T) => number>>(
   items: T[],
@@ -84,64 +83,6 @@ const TXN_SORTS = {
 
 export const useTxnSort = (txns: Categorized[]) =>
   useSort(txns, TXN_SORTS, "date", ["merchant", "subcategory", "account"]);
-
-interface SearchBoxProps {
-  value: string;
-  onChange: (value: string) => void;
-  placeholder: string;
-  hotkey?: boolean;
-}
-
-export const SearchBox = ({
-  value,
-  onChange,
-  placeholder,
-  hotkey,
-}: SearchBoxProps) => {
-  const box = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (!hotkey) return;
-    const find = (e: KeyboardEvent) => {
-      const modified = e.metaKey || e.ctrlKey;
-      const slash = e.key === "/" && !modified && isPageKey(e);
-      if (!slash && !(e.key === "f" && modified)) return;
-      if (e.altKey) return;
-      e.preventDefault();
-      box.current?.select();
-    };
-    document.addEventListener("keydown", find);
-    return () => document.removeEventListener("keydown", find);
-  }, [hotkey]);
-
-  return (
-    <div className="relative">
-      <Icon
-        aria-hidden
-        icon={SearchIcon}
-        size={17}
-        className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-muted"
-      />
-      <input
-        ref={box}
-        type="search"
-        className={`w-full rounded-md border border-line bg-page py-2.5 pl-10 text-sm text-ink ${hotkey ? "pr-14" : "pr-3"}`}
-        placeholder={placeholder}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        aria-label={placeholder}
-      />
-      {/* A shortcut that took over a browser one has to say so somewhere. `/`
-          is in the shortcuts dialog; only the one that overrides the browser
-          needs saying on the box itself. */}
-      {hotkey && (
-        <kbd className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 rounded border border-line px-1.5 py-0.5 text-[11px] text-ink-muted">
-          ⌘F
-        </kbd>
-      )}
-    </div>
-  );
-};
 
 const GROUP_SORTS = {
   name: (a: SubscriptionGroup, b: SubscriptionGroup) =>

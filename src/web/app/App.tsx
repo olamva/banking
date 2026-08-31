@@ -33,7 +33,8 @@ import { LoadNote, Toolbar } from "./AppToolbar.tsx";
 import { Dashboard, ExcludedNote, pick } from "./Dashboard.tsx";
 import { FilterBar, type View } from "./FilterBar.tsx";
 import { Notification, Notifications } from "./Modal.tsx";
-import { FileDialog, RULE_TAB_FILES, RuleTabs, RulesView } from "./Rules.tsx";
+import { FileDialog, RulesView } from "./Rules.tsx";
+import { RULE_TAB_FILES, RuleTabs } from "./RuleTabs.tsx";
 import { ShortcutsDialog, useShortcuts, type Shortcut } from "./Shortcuts.tsx";
 import {
   THEMES,
