@@ -21,6 +21,7 @@ function row(overrides: Partial<Categorized>): Categorized {
     bankConfidence: 100,
     typeText: "VISA Varekjøp",
     remoteAccountNumber: null,
+    isPending: false,
     isRecurring: false,
     isSubscription: false,
     excluded: false,

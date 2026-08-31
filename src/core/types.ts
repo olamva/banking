@@ -16,6 +16,7 @@ export type Txn = {
   bankConfidence: number | null;
   remoteAccountNumber: string | null;
   typeText: string | null;
+  isPending: boolean;
   isRecurring: boolean;
   isSubscription: boolean;
 };

@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS transactions (
   bankConfidence INTEGER,
   typeText TEXT,
   remoteAccountNumber TEXT,
+  isPending INTEGER NOT NULL DEFAULT 0,
   isRecurring INTEGER NOT NULL,
   isSubscription INTEGER NOT NULL,
   excluded INTEGER NOT NULL,
@@ -39,6 +40,13 @@ function monthOf(date: string): string {
 export function openDb(path = DB_FILE): DatabaseSync {
   const db = new DatabaseSync(path);
   db.exec(SCHEMA);
+  const columns = db.prepare("PRAGMA table_info(transactions)").all() as {
+    name: string;
+  }[];
+  if (!columns.some(({ name }) => name === "isPending"))
+    db.exec(
+      "ALTER TABLE transactions ADD COLUMN isPending INTEGER NOT NULL DEFAULT 0",
+    );
   return db;
 }
 
@@ -46,8 +54,8 @@ const UPSERT = `
 INSERT INTO transactions
   (id, accountKey, account, date, month, amount, description, counterparty, country,
    bankCategory, bankSub, bankCategoryName, bankSubName, bankConfidence,
-   typeText, remoteAccountNumber, isRecurring, isSubscription, excluded, reason, category, subcategory)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+   typeText, remoteAccountNumber, isPending, isRecurring, isSubscription, excluded, reason, category, subcategory)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (id) DO UPDATE SET
   accountKey = excluded.accountKey,
   account = excluded.account,
@@ -64,6 +72,7 @@ ON CONFLICT (id) DO UPDATE SET
   bankConfidence = excluded.bankConfidence,
   typeText = excluded.typeText,
   remoteAccountNumber = excluded.remoteAccountNumber,
+  isPending = excluded.isPending,
   isRecurring = excluded.isRecurring,
   isSubscription = excluded.isSubscription,
   excluded = excluded.excluded,
@@ -90,6 +99,7 @@ function bindParams(row: Categorized) {
     row.bankConfidence,
     row.typeText,
     row.remoteAccountNumber,
+    row.isPending ? 1 : 0,
     row.isRecurring ? 1 : 0,
     row.isSubscription ? 1 : 0,
     row.excluded ? 1 : 0,
@@ -127,6 +137,7 @@ type Row = {
   bankConfidence: number | null;
   typeText: string | null;
   remoteAccountNumber: string | null;
+  isPending: number;
   isRecurring: number;
   isSubscription: number;
   excluded: number;
@@ -152,6 +163,7 @@ function toCategorized(row: Row): Categorized {
     bankConfidence: row.bankConfidence,
     typeText: row.typeText,
     remoteAccountNumber: row.remoteAccountNumber,
+    isPending: !!row.isPending,
     isRecurring: !!row.isRecurring,
     isSubscription: !!row.isSubscription,
     excluded: !!row.excluded,

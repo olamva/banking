@@ -17,6 +17,7 @@ type Sb1File = {
       remoteAccountNumber?: string;
       typeText?: string;
       currencyCode?: string;
+      bookingStatus?: string;
     };
     categories: Array<{
       main: string;
@@ -67,6 +68,7 @@ function normalizeSb1(file: Sb1File, names: Record<string, string>): Txn[] {
         t.remoteAccountNumber && t.remoteAccountNumber !== NO_ACCOUNT
           ? t.remoteAccountNumber
           : null,
+      isPending: t.bookingStatus === "PENDING",
       isRecurring: recurring,
       isSubscription: subscription,
     }),

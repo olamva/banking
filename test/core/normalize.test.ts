@@ -205,8 +205,11 @@ test("pending rows are kept", () => {
     },
     (dir) => {
       assert.deepEqual(
-        normalizeMonth(dir).map((t) => t.id),
-        ["booked", "pending"],
+        normalizeMonth(dir).map((t) => [t.id, t.isPending]),
+        [
+          ["booked", false],
+          ["pending", true],
+        ],
       );
     },
   );

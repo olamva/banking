@@ -29,6 +29,7 @@ function classified(overrides: Partial<Classified>): Classified {
     bankConfidence: null,
     typeText: "VISA Varekjøp",
     remoteAccountNumber: null,
+    isPending: false,
     isRecurring: false,
     isSubscription: false,
     excluded: false,

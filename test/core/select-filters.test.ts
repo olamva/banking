@@ -34,6 +34,7 @@ function txn(
     bankConfidence: null,
     typeText: null,
     remoteAccountNumber: null,
+    isPending: false,
     isRecurring: false,
     isSubscription: false,
     excluded: false,
