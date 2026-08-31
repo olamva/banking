@@ -86,12 +86,20 @@ az storage file upload-batch --account-name "$storage" --account-key "$key" \
   --only-show-errors >/dev/null
 # The versions go with them, or the site keeps a history that its own live file
 # left behind, and undo there restores the state before this deploy.
-# ponytail: every version, every deploy. Upload only what the share lacks when
-# the history grows past a few hundred files.
 if [ -d "$repo/rules/.history" ]; then
-  az storage file upload-batch --account-name "$storage" --account-key "$key" \
-    --destination "data/rules/.history" --source "$repo/rules/.history" \
-    --pattern "*.json" --only-show-errors >/dev/null
+  missing="$(missing_history "$mine" "$remote")"
+  if [ -n "$missing" ]; then
+    history_stage="$(mktemp -d)"
+    trap 'rm -rf "$history_stage"' EXIT
+    while IFS= read -r version; do
+      cp "$repo/rules/.history/$version" "$history_stage/$version"
+    done <<< "$missing"
+    az storage file upload-batch --account-name "$storage" --account-key "$key" \
+      --destination "data/rules/.history" --source "$history_stage" \
+      --pattern "*.json" --no-progress --only-show-errors >/dev/null
+    rm -rf "$history_stage"
+    trap - EXIT
+  fi
 fi
 
 rm -rf "$stage"

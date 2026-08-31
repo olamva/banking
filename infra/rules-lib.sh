@@ -31,6 +31,12 @@ local_history() {
   ls "$1/.history" 2>/dev/null || true
 }
 
+missing_history() {
+  comm -23 \
+    <(printf '%s\n' "$1" | sed -n '/^[0-9][0-9]*-.*\.json$/p' | sort -u) \
+    <(printf '%s\n' "$2" | sed -n '/^[0-9][0-9]*-.*\.json$/p' | sort -u)
+}
+
 # The live rule files as the share holds them, in a new temporary directory.
 # The caller removes it. A file the share lacks is skipped, not a fault.
 remote_live() {
