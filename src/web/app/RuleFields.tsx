@@ -205,6 +205,7 @@ interface CategoryInputProps {
   pairs: string[];
   label: string;
   className: string;
+  dropUp?: boolean;
   onChange: (value: string) => void;
   onCommit?: (value: string) => void;
 }
@@ -214,6 +215,7 @@ export const CategoryInput = ({
   pairs,
   label,
   className,
+  dropUp = false,
   onChange,
   onCommit,
 }: CategoryInputProps) => {
@@ -276,7 +278,9 @@ export const CategoryInput = ({
         className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 text-ink-muted"
       />
       {open && shown.length > 0 && (
-        <div className="absolute left-0 z-20 mt-1 max-h-72 w-64 max-w-full overflow-y-auto rounded-md border border-line bg-surface p-1.5 shadow-lg">
+        <div
+          className={`absolute left-0 z-20 max-h-72 w-full overflow-y-auto rounded-md border border-line bg-surface p-1.5 shadow-lg ${dropUp ? "bottom-full mb-1" : "mt-1"}`}
+        >
           {shown.map((pair, i) => (
             <button
               key={pair}
