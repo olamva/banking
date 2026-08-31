@@ -21,6 +21,13 @@ const behind = (ahead: string, other: string): string =>
     { encoding: "utf8" },
   );
 
+const missingHistory = (local: string, remote: string): string =>
+  execFileSync(
+    "bash",
+    ["-c", `. "$0"; missing_history "$1" "$2"`, lib, local, remote],
+    { encoding: "utf8" },
+  );
+
 const at = (stamp: number, file: string) => `${stamp}-${file}.json`;
 
 test("deployment uses the tracked lockfile", () => {
@@ -34,6 +41,19 @@ test("deployment uses the tracked lockfile", () => {
     /pnpm install --dir "\$stage" .*--frozen-lockfile.*--ignore-scripts/,
   );
   assert.doesNotMatch(deploy, /Object\.fromEntries\(keep/);
+});
+
+test("deployment uploads only history versions the share lacks", () => {
+  assert.match(deploy, /missing_history "\$mine" "\$remote"/);
+  assert.doesNotMatch(deploy, /--source "\$repo\/rules\/\.history"/);
+  assert.match(deploy, /--no-progress/);
+});
+
+test("missing history contains only local versions absent from the share", () => {
+  const shared = at(1756300000000, "categories");
+  const localOnly = at(1756400000000, "categories");
+  const local = [shared, localOnly, "notes.txt"].join("\n");
+  assert.equal(missingHistory(local, shared), `${localOnly}\n`);
 });
 
 test("nothing is behind when both sides hold the same versions", () => {

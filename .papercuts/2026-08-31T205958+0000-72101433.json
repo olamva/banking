@@ -1,0 +1,14 @@
+{
+  "id": "72101433",
+  "ts": "2026-08-31T20:59:58+00:00",
+  "text": "pnpm test fails ten HTTP tests in the sandbox because loopback listen returns EPERM",
+  "tags": [
+    "test",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "test/web/server.test.ts",
+  "branch": "codex/rules-sync-speed"
+}
