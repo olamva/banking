@@ -1,0 +1,14 @@
+{
+  "id": "261b500f",
+  "ts": "2026-08-31T01:07:07+00:00",
+  "text": "exec policy blocks the user-requested gh stack merge after Codex repairs the stack",
+  "tags": [
+    "github",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "gh-stack",
+  "branch": "main"
+}
