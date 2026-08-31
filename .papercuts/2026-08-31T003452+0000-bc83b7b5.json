@@ -1,0 +1,14 @@
+{
+  "id": "bc83b7b5",
+  "ts": "2026-08-31T00:34:52+00:00",
+  "text": "preview_resize times out at 15s and 40s on a local vite tab; preview_open and preview_navigate work on the same tab",
+  "tags": [
+    "preview",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "opus-5",
+  "session": "95e2f1a7",
+  "where": "preview_resize",
+  "branch": "worktree-rules-header-trim"
+}

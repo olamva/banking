@@ -1,0 +1,14 @@
+{
+  "id": "a1129374",
+  "ts": "2026-08-31T00:31:29+00:00",
+  "text": "worktree-handback requires unlock when git reports the worktree is not locked",
+  "tags": [
+    "docs",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "worktree-handback",
+  "branch": "main"
+}

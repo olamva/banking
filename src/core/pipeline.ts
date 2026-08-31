@@ -4,12 +4,14 @@ import { dirname } from "node:path";
 import {
   categorize,
   loadCategories,
+  loadCountries,
   loadFamily,
   loadGiro,
   loadNotSubscriptions,
   loadPayees,
   loadSubscriptions,
   renamePayees,
+  setCountries,
 } from "./categorize.ts";
 import { openDb, rebuild as rebuildDb } from "./db.ts";
 import { exclude, type Accounts } from "./exclude.ts";
@@ -51,7 +53,13 @@ export async function pipeline(
       .map(([key]) => key),
   );
   const rows = categorize(
-    exclude(normalizeMonth(`${RAW}/${month}`, names), accounts),
+    exclude(
+      setCountries(
+        normalizeMonth(`${RAW}/${month}`, names),
+        await loadCountries(),
+      ),
+      accounts,
+    ),
     await loadCategories(),
     await loadSubscriptions(),
     await loadGiro(),

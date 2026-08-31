@@ -23,6 +23,7 @@ export const RULE_LABEL: Record<RuleFile, string> = {
   categories: "Categories",
   giro: "Giro",
   payees: "Payee names",
+  countries: "Countries",
   labels: "Category names",
   family: "Family",
   subscriptions: "Subscriptions",
@@ -35,6 +36,8 @@ const RULE_NOTE: Record<RuleFile, string> = {
   giro: "Pattern to category, on a lump only. A giro or a plain Overførsel, never an instant payment.",
   payees:
     "Pattern to the name on the page. A rename can never move money, so this file is safe to edit.",
+  countries:
+    "Pattern to the country on the row. It beats the country the code reads off the card name.",
   labels: "Slug to the name on the page. Write the slug as category/sub.",
   family:
     "A relative, by name or by account number. Money in is from family. Money out is a repayment.",
@@ -60,7 +63,12 @@ import {
   VALUE_LABEL,
   rowsFor,
 } from "./RuleFields.tsx";
-const GROUPED = new Set<RuleFile>(["categories", "giro", "payees"]);
+const GROUPED = new Set<RuleFile>([
+  "categories",
+  "giro",
+  "payees",
+  "countries",
+]);
 
 const groupsOf = (entries: [string, string | null][]) => {
   const groups = new Map<string, string[]>();
@@ -199,7 +207,7 @@ export interface RuleTabsProps {
 }
 
 // The tabs sit in the header, so they stay on the screen while the rules
-// scroll. Wraps rather than scrolls sideways. Seven names do not fit 375px in
+// scroll. Wraps rather than scrolls sideways. Eight names do not fit 375px in
 // one row, and nothing on this page may push it.
 export const RuleTabs = ({ rules, file, onFile }: RuleTabsProps) => {
   const data = rules.data;
@@ -269,7 +277,7 @@ export const RulesView = ({
   file: chosen,
 }: RulesViewProps) => {
   // payees.json holds 580 lines, and each one draws two fields. A held arrow
-  // steps through seven files faster than that draws, so the body follows one
+  // steps through eight files faster than that draws, so the body follows one
   // step behind and React drops the states it cannot reach in time. The tabs
   // above answer at once, because they are not this list.
   // ponytail: no windowing. One file still draws whole. Window the list like

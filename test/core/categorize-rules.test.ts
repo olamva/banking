@@ -7,6 +7,7 @@ import {
   loadNotSubscriptions,
   loadPayees,
   renamePayees,
+  setCountries,
 } from "../../src/core/categorize.ts";
 import { splitCategory } from "../../src/core/match.ts";
 import type { Classified } from "../../src/core/types.ts";
@@ -459,4 +460,16 @@ test("a standing arrangement keeps the name giro.json gave it, family or not", (
 
 test("loadFamily returns [] when the file is absent", async () => {
   assert.deepEqual(await loadFamily("rules/does-not-exist.json"), []);
+});
+
+test("a countries rule beats the country read off the name", () => {
+  const rows = setCountries(
+    [
+      classified({ description: "DOMENE AS, Oslo, NOR", country: "NOR" }),
+      classified({ description: "KAFFEBAR, Oslo, NORWAY", country: "Norway" }),
+    ],
+    { "/,\\s*nor(?:\\s|$)/": "Norway" },
+  );
+  assert.equal(rows[0]!.country, "Norway");
+  assert.equal(rows[1]!.country, "Norway");
 });

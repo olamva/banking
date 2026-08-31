@@ -1,0 +1,14 @@
+{
+  "id": "ec98d36a",
+  "ts": "2026-08-31T00:34:36+00:00",
+  "text": "preview_resize and preview_snapshot both time out against a local vite dev server; no way to check a UI change at 375px",
+  "tags": [
+    "preview",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "opus-5",
+  "session": "c663c906",
+  "where": "/Users/olavassbotn/Documents/banking/.claude/worktrees/mobile-exclude",
+  "branch": "worktree-mobile-exclude"
+}
