@@ -206,7 +206,7 @@ const Chip = ({
     <Element
       type={onClick ? "button" : undefined}
       onClick={onClick}
-      className={`inline-flex items-center gap-1 flex-row rounded-full border border-line px-2 py-0.5 text-[11px] text-ink-soft ${dashed ? "border-dashed" : ""} ${onClick ? "hover:bg-hover hover:text-ink" : ""}`}
+      className={`inline-flex items-center gap-1 flex-row rounded-full border px-2 py-0.5 text-[11px] text-ink-soft ${dashed ? "border-dashed border-ink-muted" : "border-line"} ${onClick ? "hover:bg-hover hover:text-ink" : ""}`}
     >
       {children}
     </Element>
