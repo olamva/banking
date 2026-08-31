@@ -119,9 +119,9 @@ not merged into it:
 ```
 
 `amount` is signed, negative for money out. `id` is opaque and long;
-`nonUniqueId` is not an identifier. A structured merchant exists only on
-`/details`, but `cleanedDescription` is the bank's own cleaned merchant string
-and is what the row is worth reading for.
+`nonUniqueId` is not an identifier. The other party is `cleanedDescription`,
+and `remoteAccountName` when that names nobody. `src/core/normalize.ts` makes
+`counterparty` from the pair. The page calls that field the merchant.
 
 Card rows carry more, not less: `mcc`, `mccGroup`, `currencyAmount` +
 `currencyCode` for the original currency, and a `creditCardIdentifiers` object.
