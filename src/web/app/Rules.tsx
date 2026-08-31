@@ -208,7 +208,7 @@ const RULE_GROUPS: [string, RuleFile[]][] = [
   ],
   ["Display", ["payees", "countries", "labels"]],
 ];
-const GROUPED_RULE_FILES = RULE_GROUPS.flatMap(([, files]) => files);
+export const RULE_TAB_FILES = RULE_GROUPS.flatMap(([, files]) => files);
 
 // The tabs sit in the header, so they stay on the screen while the rules
 // scroll. Wraps rather than scrolls sideways. Eight names do not fit 375px in
@@ -229,9 +229,8 @@ export const RuleTabs = ({ rules, file, onFile }: RuleTabsProps) => {
     const by = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
     if (!by || !keyboardFocused(e.currentTarget)) return;
     e.preventDefault();
-    const next =
-      (at + by + GROUPED_RULE_FILES.length) % GROUPED_RULE_FILES.length;
-    onFile(GROUPED_RULE_FILES[next]!);
+    const next = (at + by + RULE_TAB_FILES.length) % RULE_TAB_FILES.length;
+    onFile(RULE_TAB_FILES[next]!);
     e.currentTarget
       .closest("[role=tablist]")
       ?.querySelectorAll<HTMLButtonElement>("[role=tab]")
@@ -251,7 +250,7 @@ export const RuleTabs = ({ rules, file, onFile }: RuleTabsProps) => {
           </div>
           <div className="flex flex-wrap gap-1.5">
             {files.map((f) => {
-              const i = GROUPED_RULE_FILES.indexOf(f);
+              const i = RULE_TAB_FILES.indexOf(f);
               return (
                 <button
                   key={f}
