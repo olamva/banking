@@ -1,0 +1,14 @@
+{
+  "id": "7cf9bf91",
+  "ts": "2026-08-31T00:46:00+00:00",
+  "text": "Mobile preview suggested a broad Vite bind that security rejects for private banking data",
+  "tags": [
+    "preview",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "pnpm dev --host 0.0.0.0",
+  "branch": "worktree-mobile-exclude"
+}

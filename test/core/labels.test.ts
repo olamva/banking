@@ -44,7 +44,7 @@ test("one slug that is both a main and a sub keeps two different names", () => {
   );
 });
 
-test("rules/categories.json wins over the bank, which is what a rename is for", () => {
+test("rules/labels.json wins over the bank, which is what a rename is for", () => {
   const l = buildLabels([row({})], { dagligvarer: "Mat" });
   assert.equal(l.category("dagligvarer"), "Mat");
 });

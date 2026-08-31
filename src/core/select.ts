@@ -35,6 +35,24 @@ export const NO_FILTERS: Filters = {
   showExcluded: false,
 };
 
+export function cycleFilter(
+  f: Filters,
+  axis: Axis,
+  value: string,
+  exclude = false,
+): Filters {
+  const outKey = AXES[axis];
+  const isIn = f[axis].includes(value);
+  const isOut = f[outKey].includes(value);
+  const target = isOut ? null : exclude || isIn ? outKey : axis;
+  return {
+    ...f,
+    [axis]: f[axis].filter((v) => v !== value),
+    [outKey]: f[outKey].filter((v) => v !== value),
+    ...(target ? { [target]: [...f[target], value] } : {}),
+  };
+}
+
 export const merchantOf = (t: Categorized): string =>
   t.counterparty ?? t.description;
 

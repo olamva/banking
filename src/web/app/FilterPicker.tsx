@@ -39,9 +39,6 @@ interface PickerProps {
 
 type Kind = "all" | "people" | "business";
 
-// A plain tick includes. A meta-tick excludes. A phone cannot create an
-// exclusion. The account holder accepts this. A tap still clears one.
-
 // The panel shows about ten rows. Merchants offers 816, so it renders a page at
 // a time and grows on scroll. Do not raise this to cover the list: the cost is
 // the React element, not the pixel.
@@ -289,6 +286,11 @@ export const Picker = ({
               rows.slice(0, limit).map((row, i) => {
                 const kids = row.sub ? [] : childrenOf(row.value);
                 const openHere = isOpenAt(i);
+                const out = excluded.includes(row.value);
+                const text =
+                  row.sub || row.value.includes("/")
+                    ? subLabel(row.value)
+                    : label(row.value);
                 return (
                   <div
                     key={`${row.sub ? "sub:" : ""}${row.value}`}
@@ -324,24 +326,28 @@ export const Picker = ({
                     >
                       <input
                         type="checkbox"
-                        className={`shrink-0 ${excluded.includes(row.value) ? "accent-critical-strong" : ""}`}
+                        className={`shrink-0 ${out ? "accent-critical-strong" : ""}`}
                         checked={on(row.value)}
                         onChange={() => {}}
                         onClick={(e) =>
                           onToggle(row.value, e.metaKey || e.ctrlKey)
                         }
                         onFocus={() => setActive(i)}
+                        aria-label={out ? `Except ${text}` : undefined}
                       />
-                      <span className="truncate">
-                        {row.sub || row.value.includes("/")
-                          ? subLabel(row.value)
-                          : label(row.value)}
+                      <span
+                        className={`truncate ${out ? "text-critical-strong line-through" : ""}`}
+                      >
+                        {text}
                       </span>
                     </label>
                   </div>
                 );
               })
             )}
+          </div>
+          <div className="mt-1 shrink-0 px-1.5 pt-1 text-[11px] text-ink-muted">
+            Tap again to exclude.
           </div>
         </div>
       )}

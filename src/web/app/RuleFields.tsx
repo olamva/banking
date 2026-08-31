@@ -27,22 +27,22 @@ import {
 import { TxnDialog } from "./Transactions.tsx";
 
 export const KEY_LABEL: Record<RuleFile, string> = {
-  overrides: "Pattern",
+  categories: "Pattern",
   giro: "Pattern",
   payees: "Pattern",
-  categories: "Slug",
   countries: "Pattern",
+  labels: "Slug",
   family: "Name or account number",
   subscriptions: "Pattern",
   "not-subscriptions": "Pattern",
 };
 
 export const VALUE_LABEL: Record<RuleFile, string> = {
-  overrides: "category/sub",
+  categories: "category/sub",
   giro: "category/sub",
   payees: "Name",
-  categories: "Name",
   countries: "Country",
+  labels: "Name",
   family: "",
   subscriptions: "",
   "not-subscriptions": "",

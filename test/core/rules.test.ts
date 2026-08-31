@@ -16,69 +16,69 @@ const rules = await import("../../src/core/rules.ts");
 const put = (file: string, value: unknown) =>
   writeFileSync(`${dir}/${file}.json`, JSON.stringify(value, null, 2));
 
-const asMap = (file: "overrides" | "payees" | "giro" | "categories") =>
+const asMap = (file: "categories" | "payees" | "giro" | "labels") =>
   rules.load(file) as Record<string, string>;
 
 test("a save adds an entry and an empty history gains two versions", () => {
-  put("overrides", { rema: "dagligvarer/andre_dagligvarer" });
-  rules.save({ file: "overrides", key: "kiwi", value: "dagligvarer/kiwi" });
+  put("categories", { rema: "dagligvarer/andre_dagligvarer" });
+  rules.save({ file: "categories", key: "kiwi", value: "dagligvarer/kiwi" });
 
-  assert.deepEqual(asMap("overrides"), {
+  assert.deepEqual(asMap("categories"), {
     rema: "dagligvarer/andre_dagligvarer",
     kiwi: "dagligvarer/kiwi",
   });
   // The state before the first edit, and the state after it. Without the first
   // one, a file edited by hand has nothing to go back to.
-  assert.equal(rules.versions("overrides").length, 2);
+  assert.equal(rules.versions("categories").length, 2);
 });
 
 test("the newest version holds what the live file holds", () => {
-  const [newest] = rules.versions("overrides");
-  assert.deepEqual(rules.readVersion("overrides", newest!), asMap("overrides"));
+  const [newest] = rules.versions("categories");
+  assert.deepEqual(rules.readVersion("categories", newest!), asMap("categories"));
 });
 
 // Stepping back through the stack costs nothing. It moves the cursor, and it
 // writes no version.
 test("undo steps one edit back, and it adds no version", () => {
-  const before = rules.versions("overrides").length;
-  rules.undo("overrides");
-  assert.deepEqual(asMap("overrides"), {
+  const before = rules.versions("categories").length;
+  rules.undo("categories");
+  assert.deepEqual(asMap("categories"), {
     rema: "dagligvarer/andre_dagligvarer",
   });
-  assert.equal(rules.versions("overrides").length, before);
-  assert.equal(rules.current("overrides"), rules.versions("overrides").at(-1));
+  assert.equal(rules.versions("categories").length, before);
+  assert.equal(rules.current("categories"), rules.versions("categories").at(-1));
 });
 
 test("redo steps back up the stack", () => {
-  rules.redo("overrides");
-  assert.deepEqual(asMap("overrides"), {
+  rules.redo("categories");
+  assert.deepEqual(asMap("categories"), {
     rema: "dagligvarer/andre_dagligvarer",
     kiwi: "dagligvarer/kiwi",
   });
-  assert.equal(rules.current("overrides"), rules.versions("overrides")[0]);
-  assert.throws(() => rules.redo("overrides"), /no redo left/);
+  assert.equal(rules.current("categories"), rules.versions("categories")[0]);
+  assert.throws(() => rules.redo("categories"), /no redo left/);
 });
 
 test("restore names any version, however far back, and keeps the stack", () => {
-  const before = rules.versions("overrides");
-  rules.restore("overrides", before.at(-1)!);
-  assert.deepEqual(asMap("overrides"), {
+  const before = rules.versions("categories");
+  rules.restore("categories", before.at(-1)!);
+  assert.deepEqual(asMap("categories"), {
     rema: "dagligvarer/andre_dagligvarer",
   });
-  assert.deepEqual(rules.versions("overrides"), before);
-  assert.equal(rules.current("overrides"), before.at(-1));
+  assert.deepEqual(rules.versions("categories"), before);
+  assert.equal(rules.current("categories"), before.at(-1));
 });
 
 // The rule of every editor: the redo side dies the moment you type.
 test("an edit below the top of the stack drops every version above it", () => {
-  const cursor = rules.current("overrides")!;
-  assert.ok(rules.versions("overrides").length > 1);
-  rules.save({ file: "overrides", key: "meny", value: "dagligvarer/meny" });
-  const left = rules.versions("overrides");
+  const cursor = rules.current("categories")!;
+  assert.ok(rules.versions("categories").length > 1);
+  rules.save({ file: "categories", key: "meny", value: "dagligvarer/meny" });
+  const left = rules.versions("categories");
   assert.equal(left.length, 2);
   assert.equal(left.at(-1), cursor);
-  assert.equal(rules.current("overrides"), left[0]);
-  assert.deepEqual(asMap("overrides"), {
+  assert.equal(rules.current("categories"), left[0]);
+  assert.deepEqual(asMap("categories"), {
     rema: "dagligvarer/andre_dagligvarer",
     meny: "dagligvarer/meny",
   });
@@ -123,21 +123,21 @@ test("a repeated entry does not double on a list", () => {
 // A pattern that does not compile would break every category at the next
 // rebuild, not only its own line.
 test("a broken regex is refused before it reaches the file", () => {
-  put("overrides", { rema: "dagligvarer/andre_dagligvarer" });
+  put("categories", { rema: "dagligvarer/andre_dagligvarer" });
   assert.throws(
-    () => rules.save({ file: "overrides", key: "/(/", value: "mat/kantine" }),
+    () => rules.save({ file: "categories", key: "/(/", value: "mat/kantine" }),
     /not a valid regex/,
   );
-  assert.deepEqual(Object.keys(asMap("overrides")), ["rema"]);
+  assert.deepEqual(Object.keys(asMap("categories")), ["rema"]);
 });
 
 test("an empty pattern and an empty value are both refused", () => {
   assert.throws(
-    () => rules.save({ file: "overrides", key: "  ", value: "mat/kantine" }),
+    () => rules.save({ file: "categories", key: "  ", value: "mat/kantine" }),
     /pattern is empty/,
   );
   assert.throws(
-    () => rules.save({ file: "overrides", key: "kiwi", value: " " }),
+    () => rules.save({ file: "categories", key: "kiwi", value: " " }),
     /needs a value/,
   );
 });
@@ -146,17 +146,17 @@ test("an empty pattern and an empty value are both refused", () => {
 // "Annet" below it.
 test("a category value must name a subcategory or none at all", () => {
   assert.throws(
-    () => rules.save({ file: "overrides", key: "kiwi", value: "dagligvarer/" }),
+    () => rules.save({ file: "categories", key: "kiwi", value: "dagligvarer/" }),
     /category or category\/subcategory/,
   );
-  rules.save({ file: "overrides", key: "kiwi", value: "dagligvarer" });
-  assert.equal(asMap("overrides")["kiwi"], "dagligvarer");
+  rules.save({ file: "categories", key: "kiwi", value: "dagligvarer" });
+  assert.equal(asMap("categories")["kiwi"], "dagligvarer");
 });
 
 // The file name arrives in a query string, so it is the one value that could
 // name a path.
 test("only the named rule files are rule files", () => {
-  assert.equal(isRuleFile("overrides"), true);
+  assert.equal(isRuleFile("categories"), true);
   assert.equal(isRuleFile("accounts"), false);
   assert.equal(isRuleFile("../../.env.local"), false);
   assert.equal(isRuleFile(null), false);
@@ -168,9 +168,9 @@ test("a file of the wrong shape is a fault, not an empty rule", () => {
 });
 
 test("a missing file reads as empty on both shapes", () => {
-  rmSync(`${dir}/categories.json`, { force: true });
+  rmSync(`${dir}/labels.json`, { force: true });
   rmSync(`${dir}/not-subscriptions.json`, { force: true });
-  assert.deepEqual(rules.load("categories"), {});
+  assert.deepEqual(rules.load("labels"), {});
   assert.deepEqual(rules.load("not-subscriptions"), []);
 });
 
@@ -182,20 +182,20 @@ test("undo refuses when the file has no version before this one", () => {
 test("latest reports the newest version of every file, and 0 for none", () => {
   const stamps = rules.latest();
   assert.equal(stamps["not-subscriptions"], 0);
-  assert.equal(stamps["overrides"], rules.versions("overrides")[0]);
+  assert.equal(stamps["categories"], rules.versions("categories")[0]);
 });
 
 // Two writes in one millisecond would otherwise share a file name, and one of
 // them would disappear.
 test("versions stay distinct across a burst of edits", () => {
-  put("categories", {});
+  put("labels", {});
   for (let i = 0; i < 20; i++)
-    rules.save({ file: "categories", key: `slug_${i}`, value: `Name ${i}` });
+    rules.save({ file: "labels", key: `slug_${i}`, value: `Name ${i}` });
   const names = readdirSync(`${dir}/.history`).filter((n) =>
-    n.endsWith("-categories.json"),
+    n.endsWith("-labels.json"),
   );
   assert.equal(new Set(names).size, names.length);
-  assert.equal(rules.versions("categories").length, 21);
+  assert.equal(rules.versions("labels").length, 21);
 });
 
 test("a diff names the value on both sides of a change", () => {
