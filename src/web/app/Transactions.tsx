@@ -195,16 +195,18 @@ const TXN_RULE_ACTIONS: [RuleFile, string][] = [
 const Chip = ({
   children,
   onClick,
+  dashed,
 }: {
   children: ReactNode;
   onClick?: () => void;
+  dashed?: boolean;
 }) => {
   const Element = onClick ? "button" : "span";
   return (
     <Element
       type={onClick ? "button" : undefined}
       onClick={onClick}
-      className={`inline-flex items-center gap-1 flex-row rounded-full border border-line px-2 py-0.5 text-[11px] text-ink-soft ${onClick ? "hover:bg-hover hover:text-ink" : ""}`}
+      className={`inline-flex items-center gap-1 flex-row rounded-full border px-2 py-0.5 text-[11px] text-ink-soft ${dashed ? "border-dashed border-ink-muted" : "border-line"} ${onClick ? "hover:bg-hover hover:text-ink" : ""}`}
     >
       {children}
     </Element>
@@ -222,6 +224,7 @@ const SHOWN_ABOVE = [
   "excluded",
   "isSubscription",
   "isRecurring",
+  "isPending",
   "bankCategory",
   "bankSub",
   "bankCategoryName",
@@ -300,6 +303,7 @@ export const TxnDialog = ({ txn, onClose, onFile }: TxnDialogProps) => {
         {(txn.excluded ||
           txn.isSubscription ||
           txn.isRecurring ||
+          txn.isPending ||
           txn.country) && (
           <div className="mb-3 flex flex-wrap gap-1.5">
             {txn.country && (
@@ -311,6 +315,7 @@ export const TxnDialog = ({ txn, onClose, onFile }: TxnDialogProps) => {
             {txn.excluded && <Chip>Excluded</Chip>}
             {txn.isSubscription && <Chip>Subscription</Chip>}
             {txn.isRecurring && <Chip>Recurring</Chip>}
+            {txn.isPending && <Chip dashed>Pending</Chip>}
           </div>
         )}
         <dl className="text-xs">
