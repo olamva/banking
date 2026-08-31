@@ -89,6 +89,8 @@ Fix a collision in the _pattern_. Do not fix it in the matcher or in the order. 
 
 A name is either known or only shaped. The two never mix. `rules/payees.json` carries knowledge: NSB is Vy, and two spellings are one bookshop. `src/core/names.ts` carries the opposite. It carries the formatting that SB1 puts on every name, which is mechanical. It runs only on names that no rule claimed. Use the name from a rule exactly as written. The cleaner would return `IKEA` as `Ikea`. A rename can never move money. That property makes the file safe to edit.
 
+The country splits the same way. `src/core/names.ts` reads the shape of the card name, and it falls back to the currency. `rules/countries.json` carries the knowledge, and it beats the shape. A country can never move money either.
+
 `rules/family.json` names relatives. The sign decides what the entry means. The sign does not decide whether the entry applies. Money in is `innskudd/familie`. Money out to the same person is a repayment to a relative, so it is `diverse/vennebetaling`. The category enforces this.
 
 ## Editing the rules on the page

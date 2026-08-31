@@ -60,6 +60,29 @@ export const loadNotSubscriptions = (
 export const loadPayees = (path = `${RULES_DIR}/payees.json`) =>
   loadJson<Overrides>(path, {});
 
+export const loadCountries = (path = `${RULES_DIR}/countries.json`) =>
+  loadJson<Overrides>(path, {});
+
+// The rule wins over the country the shape heuristic reads off the card name.
+export function setCountries<
+  T extends {
+    description: string;
+    counterparty: string | null;
+    remoteAccountNumber: string | null;
+    country: string | null;
+  },
+>(txns: T[], countries: Overrides): T[] {
+  const rules = Object.entries(countries).map(([pattern, country]) => ({
+    matches: compile(pattern, "rules/countries.json"),
+    country,
+  }));
+  if (rules.length === 0) return txns;
+  return txns.map((t) => {
+    const hit = rules.find((r) => r.matches(haystackOf(t)));
+    return hit ? { ...t, country: hit.country } : t;
+  });
+}
+
 export function renamePayees<
   T extends {
     description: string;

@@ -1,0 +1,14 @@
+{
+  "id": "52dd4666",
+  "ts": "2026-08-31T00:31:42+00:00",
+  "text": "Isolation guard calls ~/.claude/CLAUDE.md 'a tracked path in the main checkout' and demands EnterWorktree; that file lives outside the banking repo, so the message names the wrong repo",
+  "tags": [
+    "tools",
+    "worktree"
+  ],
+  "who": "agent",
+  "model": "opus-5",
+  "session": "95e2f1a7",
+  "where": "/Users/olavassbotn/.claude/CLAUDE.md",
+  "branch": "main"
+}
