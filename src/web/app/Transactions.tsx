@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
+import type { RuleFile } from "../../core/ruleFiles.ts";
 import { merchantOf, subcategoryOf } from "../../core/select.ts";
 import type { SubscriptionGroup } from "../../core/stats.ts";
 import type { Categorized } from "../../core/types.ts";
@@ -25,13 +26,13 @@ import {
 import {
   CategoryIcon,
   CloseIcon,
+  EditIcon,
   Icon,
   RecurringIcon,
-  SearchIcon,
   TransactionsIcon,
 } from "./icons.ts";
 import { Modal } from "./Modal.tsx";
-import { isPageKey } from "./Shortcuts.tsx";
+import { SearchBox } from "./SearchBox.tsx";
 
 const useSort = <T, S extends Record<string, (a: T, b: T) => number>>(
   items: T[],
@@ -82,64 +83,6 @@ const TXN_SORTS = {
 
 export const useTxnSort = (txns: Categorized[]) =>
   useSort(txns, TXN_SORTS, "date", ["merchant", "subcategory", "account"]);
-
-interface SearchBoxProps {
-  value: string;
-  onChange: (value: string) => void;
-  placeholder: string;
-  hotkey?: boolean;
-}
-
-export const SearchBox = ({
-  value,
-  onChange,
-  placeholder,
-  hotkey,
-}: SearchBoxProps) => {
-  const box = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (!hotkey) return;
-    const find = (e: KeyboardEvent) => {
-      const modified = e.metaKey || e.ctrlKey;
-      const slash = e.key === "/" && !modified && isPageKey(e);
-      if (!slash && !(e.key === "f" && modified)) return;
-      if (e.altKey) return;
-      e.preventDefault();
-      box.current?.select();
-    };
-    document.addEventListener("keydown", find);
-    return () => document.removeEventListener("keydown", find);
-  }, [hotkey]);
-
-  return (
-    <div className="relative">
-      <Icon
-        aria-hidden
-        icon={SearchIcon}
-        size={17}
-        className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-muted"
-      />
-      <input
-        ref={box}
-        type="search"
-        className={`w-full rounded-md border border-line bg-page py-2.5 pl-10 text-sm text-ink ${hotkey ? "pr-14" : "pr-3"}`}
-        placeholder={placeholder}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        aria-label={placeholder}
-      />
-      {/* A shortcut that took over a browser one has to say so somewhere. `/`
-          is in the shortcuts dialog; only the one that overrides the browser
-          needs saying on the box itself. */}
-      {hotkey && (
-        <kbd className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 rounded border border-line px-1.5 py-0.5 text-[11px] text-ink-muted">
-          ⌘F
-        </kbd>
-      )}
-    </div>
-  );
-};
 
 const GROUP_SORTS = {
   name: (a: SubscriptionGroup, b: SubscriptionGroup) =>
@@ -240,14 +183,33 @@ export const SubscriptionsCard = ({
 interface TxnDialogProps {
   txn: Categorized;
   onClose: () => void;
-  onFile?: () => void;
+  onFile?: (file: RuleFile) => void;
 }
 
-const Chip = ({ children }: { children: ReactNode }) => (
-  <span className="rounded-full border border-line px-2 py-0.5 text-[11px] text-ink-soft">
-    {children}
-  </span>
-);
+const TXN_RULE_ACTIONS: [RuleFile, string][] = [
+  ["categories", "Recategorize…"],
+  ["payees", "Rename payee…"],
+  ["family", "Mark as family…"],
+];
+
+const Chip = ({
+  children,
+  onClick,
+}: {
+  children: ReactNode;
+  onClick?: () => void;
+}) => {
+  const Element = onClick ? "button" : "span";
+  return (
+    <Element
+      type={onClick ? "button" : undefined}
+      onClick={onClick}
+      className={`inline-flex items-center gap-1 flex-row rounded-full border border-line px-2 py-0.5 text-[11px] text-ink-soft ${onClick ? "hover:bg-hover hover:text-ink" : ""}`}
+    >
+      {children}
+    </Element>
+  );
+};
 
 const SHOWN_ABOVE = [
   "date",
@@ -300,8 +262,6 @@ export const TxnDialog = ({ txn, onClose, onFile }: TxnDialogProps) => {
             <span>{fmtDate(txn.date)}</span>
           </div>
         </div>
-        {/* Income is the colour, spending is not: everything here is money out,
-          and a page of red says nothing the sign does not. */}
         <div
           className={`text-xl font-semibold tabular-nums whitespace-nowrap ${txn.amount > 0 ? "text-good" : ""}`}
         >
@@ -317,41 +277,48 @@ export const TxnDialog = ({ txn, onClose, onFile }: TxnDialogProps) => {
         </button>
       </div>
       <div className="px-5 py-4">
-        {/* The one control here that changes the data rather than reading it.
-            Above the fields, because a dialog this long scrolls. */}
         {onFile && (
-          <button
-            type="button"
-            onClick={onFile}
-            className="mb-3 flex items-center gap-1.5 rounded-md border border-line bg-page px-2.5 py-1.5 text-xs text-ink-soft"
-          >
-            <Icon aria-hidden icon={CategoryIcon} size={14} />
-            Recategorize…
-          </button>
+          <div className="mb-3 flex flex-wrap gap-1.5">
+            {[
+              ...TXN_RULE_ACTIONS,
+              txn.isSubscription
+                ? (["not-subscriptions", "Not a subscription…"] as const)
+                : (["subscriptions", "Mark as subscription…"] as const),
+            ].map(([file, label]) => (
+              <button
+                key={file}
+                type="button"
+                onClick={() => onFile(file)}
+                className="flex items-center gap-1.5 rounded-md border border-line bg-page px-2.5 py-1.5 text-xs text-ink-soft"
+              >
+                <Icon aria-hidden icon={CategoryIcon} size={14} />
+                {label}
+              </button>
+            ))}
+          </div>
         )}
         {(txn.excluded ||
           txn.isSubscription ||
           txn.isRecurring ||
           txn.country) && (
           <div className="mb-3 flex flex-wrap gap-1.5">
-            {/* First, because it is the one chip that says something about the
-                row rather than about how it is treated. */}
-            {txn.country && <Chip>{txn.country}</Chip>}
+            {txn.country && (
+              <Chip onClick={onFile ? () => onFile("countries") : undefined}>
+                {txn.country}
+                {onFile && <Icon aria-hidden icon={EditIcon} size={11} />}
+              </Chip>
+            )}
             {txn.excluded && <Chip>Excluded</Chip>}
             {txn.isSubscription && <Chip>Subscription</Chip>}
             {txn.isRecurring && <Chip>Recurring</Chip>}
           </div>
         )}
-        {/* A line per field rather than a grid, so each can have a rule under
-            it: nineteen without is one paragraph shaped like a table. */}
         <dl className="text-xs">
           {bank && (
             <div className={ROW}>
               <dt className="shrink-0 text-ink-soft">Bank category</dt>
               <dd className="min-w-0 text-right">
                 <div className="text-sm wrap-break-word">{bank[0]}</div>
-                {/* The slug in the shape a rule is written in, monospaced
-                    because that is what it is. */}
                 <div className="font-mono text-[11px] break-all text-ink-muted">
                   {bank[1]}
                 </div>
@@ -361,9 +328,6 @@ export const TxnDialog = ({ txn, onClose, onFile }: TxnDialogProps) => {
           {txnFields(txn, SHOWN_ABOVE).map(([name, value]) => (
             <div key={name} className={ROW}>
               <dt className="shrink-0 text-ink-soft">{name}</dt>
-              {/* Cut in CSS rather than in the string, so the whole id is
-                  still there to select and copy — `min-w-0` because a flex item
-                  will not shrink below its content without it. */}
               <dd
                 className={`min-w-0 text-right ${name === ID_FIELD ? "truncate" : "wrap-break-word"}`}
                 title={name === ID_FIELD ? value : undefined}
@@ -385,7 +349,7 @@ interface TransactionsCardProps {
   onMerchant: (merchant: string, meta: boolean) => void;
   onCategory: (category: string, meta: boolean) => void;
   onAccount: (account: string, meta: boolean) => void;
-  onFile?: (txn: Categorized) => void;
+  onFile?: (txn: Categorized, file: RuleFile) => void;
 }
 
 export const TransactionsCard = ({
@@ -470,11 +434,7 @@ export const TransactionsCard = ({
           txn={open}
           onClose={() => setOpen(null)}
           {...(onFile && {
-            onFile: () => {
-              const t = open;
-              setOpen(null);
-              onFile(t);
-            },
+            onFile: (file) => onFile(open, file),
           })}
         />
       )}

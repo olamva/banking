@@ -33,7 +33,8 @@ import { LoadNote, Toolbar } from "./AppToolbar.tsx";
 import { Dashboard, ExcludedNote, pick } from "./Dashboard.tsx";
 import { FilterBar, type View } from "./FilterBar.tsx";
 import { Notification, Notifications } from "./Modal.tsx";
-import { FileDialog, RULE_TAB_FILES, RuleTabs, RulesView } from "./Rules.tsx";
+import { FileDialog, RulesView } from "./Rules.tsx";
+import { RULE_TAB_FILES, RuleTabs } from "./RuleTabs.tsx";
 import { ShortcutsDialog, useShortcuts, type Shortcut } from "./Shortcuts.tsx";
 import {
   THEMES,
@@ -61,7 +62,7 @@ interface TransactionsViewProps {
   rows: Categorized[];
   filters: Filters;
   onFilters: SetFilters;
-  onFile: (txn: Categorized) => void;
+  onFile: (txn: Categorized, file: RuleFile) => void;
 }
 
 const TransactionsView = ({
@@ -108,7 +109,10 @@ export const App = () => {
   const refresh = useRefresh(reload);
   // A rule edit rebuilds the database, so the page must read the rows again.
   const rules = useRules(reload);
-  const [filing, setFiling] = useState<Categorized | null>(null);
+  const [filing, setFiling] = useState<{
+    txn: Categorized;
+    file: RuleFile;
+  } | null>(null);
   const [initial] = useState(readUrl);
   const [view, setView] = useState<View>(initial.view);
   const [ruleFile, setRuleFile] = useState<RuleFile>("categories");
@@ -445,7 +449,7 @@ export const App = () => {
                   rows={inPeriod}
                   filters={filters}
                   onFilters={setFilters}
-                  onFile={setFiling}
+                  onFile={(txn, file) => setFiling({ txn, file })}
                 />
               ))}
           </>
@@ -454,7 +458,8 @@ export const App = () => {
 
       {filing && (
         <FileDialog
-          txn={filing}
+          txn={filing.txn}
+          file={filing.file}
           rules={rules}
           txns={txns}
           pairs={pairs}
