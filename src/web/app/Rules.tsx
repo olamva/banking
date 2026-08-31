@@ -396,6 +396,7 @@ export const FileDialog = ({
                 label={VALUE_LABEL[file]}
                 onChange={setValue}
                 className={FIELD}
+                dropUp
               />
             ) : (
               <input

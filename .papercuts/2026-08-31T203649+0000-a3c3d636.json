@@ -1,0 +1,14 @@
+{
+  "id": "a3c3d636",
+  "ts": "2026-08-31T20:36:49+00:00",
+  "text": "git commit in a worktree cannot write the shared worktree index inside the sandbox",
+  "tags": [
+    "git",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "/Users/olavassbotn/Documents/banking",
+  "branch": "main"
+}
