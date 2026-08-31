@@ -24,7 +24,7 @@ git(main, "config", "user.name", "t");
 writeFileSync(join(main, ".gitignore"), "rules\ndata\n");
 writeFileSync(join(main, "tracked.ts"), "");
 mkdirSync(join(main, "rules"));
-writeFileSync(join(main, "rules/overrides.json"), "{}");
+writeFileSync(join(main, "rules/categories.json"), "{}");
 git(main, "add", "-A");
 git(main, "commit", "-qm", "init");
 git(main, "worktree", "add", "-q", "-b", "side", linked);
@@ -46,7 +46,7 @@ test("the guard refuses a tracked path in the main checkout, on main", () => {
 });
 
 test("a gitignored path is the documented exception, so rules and data still open", () => {
-  assert.equal(edit(main, join(main, "rules/overrides.json")), false);
+  assert.equal(edit(main, join(main, "rules/categories.json")), false);
 });
 
 test("a linked worktree is what the guard asks for, so it refuses nothing there", () => {

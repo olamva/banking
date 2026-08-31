@@ -29,7 +29,7 @@ test("deployment uses the tracked lockfile", () => {
 
 test("nothing is behind when both sides hold the same versions", () => {
   const same = [
-    at(1756300000000, "overrides"),
+    at(1756300000000, "categories"),
     at(1756300000000, "payees"),
   ].join("\n");
   assert.equal(behind(same, same), "");
@@ -37,16 +37,16 @@ test("nothing is behind when both sides hold the same versions", () => {
 
 test("an older stamp on the other side is named", () => {
   const out = behind(
-    at(1756400000000, "overrides"),
-    at(1756300000000, "overrides"),
+    at(1756400000000, "categories"),
+    at(1756300000000, "categories"),
   );
-  assert.match(out, /overrides\.json/);
+  assert.match(out, /categories\.json/);
 });
 
 test("a newer stamp on the other side is not named", () => {
   const out = behind(
-    at(1756300000000, "overrides"),
-    at(1756400000000, "overrides"),
+    at(1756300000000, "categories"),
+    at(1756400000000, "categories"),
   );
   assert.equal(out, "");
 });
@@ -74,15 +74,15 @@ test("the newest stamp wins, not the last line", () => {
 });
 
 test("a name that is not a version is ignored", () => {
-  assert.equal(behind([".gitignore", "overrides.json"].join("\n"), ""), "");
+  assert.equal(behind([".gitignore", "categories.json"].join("\n"), ""), "");
 });
 
 test("every rule file is compared, and no other name is", () => {
   const all = [
-    "overrides",
+    "categories",
     "giro",
     "payees",
-    "categories",
+    "labels",
     "family",
     "subscriptions",
     "not-subscriptions",
@@ -117,17 +117,17 @@ const differs = (a: string, b: string): string =>
 test("no line where both sides hold the same live file", () => {
   const body = '{"rema":"dagligvarer/andre_dagligvarer"}';
   assert.equal(
-    differs(side({ overrides: body }), side({ overrides: body })),
+    differs(side({ categories: body }), side({ categories: body })),
     "",
   );
 });
 
 test("a live file that differs is named", () => {
   const out = differs(
-    side({ overrides: '{"rema":"dagligvarer/andre_dagligvarer"}' }),
-    side({ overrides: "{}" }),
+    side({ categories: '{"rema":"dagligvarer/andre_dagligvarer"}' }),
+    side({ categories: "{}" }),
   );
-  assert.match(out, /overrides\.json/);
+  assert.match(out, /categories\.json/);
 });
 
 // A first deploy, and a file that only one side has ever written. Nothing to

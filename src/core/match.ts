@@ -2,8 +2,6 @@
 // imports this to count the rows a pattern claims before the rule is saved, so
 // it may hold no `node:` import. categorize.ts re-exports all of it.
 
-export type Overrides = Record<string, string>;
-
 export type Matcher = (haystack: string) => boolean;
 
 export type Pair = { category: string; subcategory: string | null };

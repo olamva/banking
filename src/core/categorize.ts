@@ -5,11 +5,11 @@ import {
   haystackOf,
   splitCategory,
   type Matcher,
-  type Overrides,
   type Pair,
 } from "./match.ts";
 import { makeCleaner } from "./names.ts";
 import { RULES_DIR } from "./paths.ts";
+import type { RuleMap } from "./ruleFiles.ts";
 import type { Categorized, Classified } from "./types.ts";
 
 const UNCATEGORIZED = "ukategorisert";
@@ -39,11 +39,11 @@ const VIPPS_PEER_DOUBLED = /vipps\*\s*vipps\*/i;
 
 const LUMP_TYPE = /^(giro|mobilgiro|overførsel|avtale)\b(?! mellom egne)/i;
 
-export const loadOverrides = (path = `${RULES_DIR}/overrides.json`) =>
-  loadJson<Overrides>(path, {});
+export const loadCategories = (path = `${RULES_DIR}/categories.json`) =>
+  loadJson<RuleMap>(path, {});
 
 export const loadGiro = (path = `${RULES_DIR}/giro.json`) =>
-  loadJson<Overrides>(path, {});
+  loadJson<RuleMap>(path, {});
 
 export const loadFamily = (path = `${RULES_DIR}/family.json`) =>
   loadJson<string[]>(path, []);
@@ -58,7 +58,7 @@ export const loadNotSubscriptions = (
 ) => loadJson<Subscriptions>(path, []);
 
 export const loadPayees = (path = `${RULES_DIR}/payees.json`) =>
-  loadJson<Overrides>(path, {});
+  loadJson<RuleMap>(path, {});
 
 export function renamePayees<
   T extends {
@@ -66,7 +66,7 @@ export function renamePayees<
     counterparty: string | null;
     remoteAccountNumber: string | null;
   },
->(txns: T[], payees: Overrides): T[] {
+>(txns: T[], payees: RuleMap): T[] {
   const rules = Object.entries(payees).map(([pattern, name]) => ({
     matches: compile(pattern, "rules/payees.json"),
     name,
@@ -89,16 +89,16 @@ type Rule = { matches: (haystack: string) => boolean; category: string };
 
 export function categorize(
   txns: Classified[],
-  overrides: Overrides,
+  categories: RuleMap,
   subscriptions: Subscriptions = [],
-  giro: Overrides = {},
+  giro: RuleMap = {},
   cards: Set<string> = new Set(),
   family: string[] = [],
   notSubscriptions: Subscriptions = [],
 ): Categorized[] {
-  const rules: Rule[] = Object.entries(overrides).map(
+  const rules: Rule[] = Object.entries(categories).map(
     ([pattern, category]) => ({
-      matches: compile(pattern, "rules/overrides.json"),
+      matches: compile(pattern, "rules/categories.json"),
       category,
     }),
   );
@@ -169,8 +169,8 @@ function categoryFor(
   cards: Set<string>,
 ): Pair {
   if (t.excluded) return flat(TRANSFER);
-  const override = rules.find((r) => r.matches(haystack));
-  if (override) return splitCategory(override.category);
+  const hit = rules.find((r) => r.matches(haystack));
+  if (hit) return splitCategory(hit.category);
   if (LUMP_TYPE.test(t.typeText ?? "")) {
     const named = giroRules.find((r) => r.matches(haystack));
     if (named) return splitCategory(named.category);
