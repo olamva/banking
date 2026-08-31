@@ -119,7 +119,10 @@ export const FilterSummary = ({
           The rule is the same one CLAUDE.md already states — a panel is anchored
           wherever its trigger is, so the trigger's position decides the anchor. */}
       <div className="absolute right-0 z-20 mt-1 flex max-h-72 w-64 flex-col rounded-md border border-line bg-surface p-1.5 shadow-lg">
-        <div className="min-h-0 space-y-2 overflow-y-auto px-0.5 py-0.5">
+        {/* `overflow-x-hidden` is load-bearing: each `Clear` hit area reaches
+            8px past this box, and `overflow-y` alone makes `overflow-x` compute
+            to `auto`, which puts a scrollbar under those 6px. */}
+        <div className="min-h-0 space-y-2 overflow-x-hidden overflow-y-auto px-0.5 py-0.5">
           {axes.map(({ key, outKey, title, on, out }) => (
             <Section
               key={key}
