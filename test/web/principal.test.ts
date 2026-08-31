@@ -47,8 +47,14 @@ test("a signed-in address that is not on the list is still refused", () => {
 });
 
 test("a display name or unknown claim cannot impersonate an address", () => {
-  assert.equal(principalEmail(header([{ typ: "name", val: "ola@example.com" }])), null);
-  assert.equal(principalEmail(header([{ typ: "unknown", val: "ola@example.com" }])), null);
+  assert.equal(
+    principalEmail(header([{ typ: "name", val: "ola@example.com" }])),
+    null,
+  );
+  assert.equal(
+    principalEmail(header([{ typ: "unknown", val: "ola@example.com" }])),
+    null,
+  );
 });
 
 test("conflicting, malformed and non-Google principals fail", () => {
@@ -61,8 +67,16 @@ test("conflicting, malformed and non-Google principals fail", () => {
     ),
     null,
   );
-  assert.equal(principalEmail(header([{ typ: GOOGLE_EMAIL_CLAIM, val: "bad" }])), null);
-  const other = Buffer.from(JSON.stringify({ auth_typ: "aad", claims: [{ typ: GOOGLE_EMAIL_CLAIM, val: "ola@example.com" }] })).toString("base64");
+  assert.equal(
+    principalEmail(header([{ typ: GOOGLE_EMAIL_CLAIM, val: "bad" }])),
+    null,
+  );
+  const other = Buffer.from(
+    JSON.stringify({
+      auth_typ: "aad",
+      claims: [{ typ: GOOGLE_EMAIL_CLAIM, val: "ola@example.com" }],
+    }),
+  ).toString("base64");
   assert.equal(principalEmail(other), null);
 });
 

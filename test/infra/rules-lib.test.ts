@@ -7,7 +7,10 @@ import { after, test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const lib = fileURLToPath(new URL("../../infra/rules-lib.sh", import.meta.url));
-const deploy = readFileSync(fileURLToPath(new URL("../../infra/deploy.sh", import.meta.url)), "utf8");
+const deploy = readFileSync(
+  fileURLToPath(new URL("../../infra/deploy.sh", import.meta.url)),
+  "utf8",
+);
 
 // The deploy guard runs in bash, so test it in bash. `ahead` and `behind` are
 // each a listing of rules/.history, one name per line.
@@ -22,8 +25,14 @@ const at = (stamp: number, file: string) => `${stamp}-${file}.json`;
 
 test("deployment uses the tracked lockfile", () => {
   assert.match(deploy, /cp "\$repo\/package\.json" "\$stage\/package\.json"/);
-  assert.match(deploy, /cp "\$repo\/pnpm-lock\.yaml" "\$stage\/pnpm-lock\.yaml"/);
-  assert.match(deploy, /pnpm install --dir "\$stage" .*--frozen-lockfile.*--ignore-scripts/);
+  assert.match(
+    deploy,
+    /cp "\$repo\/pnpm-lock\.yaml" "\$stage\/pnpm-lock\.yaml"/,
+  );
+  assert.match(
+    deploy,
+    /pnpm install --dir "\$stage" .*--frozen-lockfile.*--ignore-scripts/,
+  );
   assert.doesNotMatch(deploy, /Object\.fromEntries\(keep/);
 });
 

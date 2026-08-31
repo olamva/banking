@@ -34,7 +34,10 @@ test("a save adds an entry and an empty history gains two versions", () => {
 
 test("the newest version holds what the live file holds", () => {
   const [newest] = rules.versions("categories");
-  assert.deepEqual(rules.readVersion("categories", newest!), asMap("categories"));
+  assert.deepEqual(
+    rules.readVersion("categories", newest!),
+    asMap("categories"),
+  );
 });
 
 // Stepping back through the stack costs nothing. It moves the cursor, and it
@@ -46,7 +49,10 @@ test("undo steps one edit back, and it adds no version", () => {
     rema: "dagligvarer/andre_dagligvarer",
   });
   assert.equal(rules.versions("categories").length, before);
-  assert.equal(rules.current("categories"), rules.versions("categories").at(-1));
+  assert.equal(
+    rules.current("categories"),
+    rules.versions("categories").at(-1),
+  );
 });
 
 test("redo steps back up the stack", () => {
@@ -146,7 +152,8 @@ test("an empty pattern and an empty value are both refused", () => {
 // "Annet" below it.
 test("a category value must name a subcategory or none at all", () => {
   assert.throws(
-    () => rules.save({ file: "categories", key: "kiwi", value: "dagligvarer/" }),
+    () =>
+      rules.save({ file: "categories", key: "kiwi", value: "dagligvarer/" }),
     /category or category\/subcategory/,
   );
   rules.save({ file: "categories", key: "kiwi", value: "dagligvarer" });
