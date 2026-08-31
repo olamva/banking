@@ -65,7 +65,7 @@ pnpm typecheck
 
 Three views. _Dashboard_ shows the tiles and the charts. _Transactions_ shows the rows behind them. One pair of pickers chooses what both show. _Rules_ edits the category files, and it takes no period and no filter. A delta compares against one year back.
 
-Categories, merchants, accounts and countries each filter as two lists. A click includes. A meta-click excludes. An exclusion wins. None means all.
+Categories, merchants, accounts and countries each filter as two lists. In a picker, a click cycles: include, then exclude, then off. A meta-click jumps to exclude. An exclusion wins. None means all.
 
 The page lists subscriptions per subscription, not per charge. _Per month_ shows the last payment, not the average.
 
