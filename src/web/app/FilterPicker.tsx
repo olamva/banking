@@ -175,7 +175,7 @@ export const Picker = ({
       if (next >= limit) setLimit(next + PAGE);
     } else if (e.key === "Enter") {
       if (e.target instanceof HTMLButtonElement) return;
-      const i = at < 0 ? 0 : at;
+      const i = at < 0 && q && rows[1]?.sub ? 1 : Math.max(at, 0);
       const row = rows[i];
       if (!row) return;
       e.preventDefault();
