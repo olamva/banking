@@ -1,0 +1,14 @@
+{
+  "id": "e690aae0",
+  "ts": "2026-08-31T21:46:11+00:00",
+  "text": "preview_resize times out at 15s/30s/40s on a local vite tab; freeform and preset both fail, viewport stays 1280",
+  "tags": [
+    "preview",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "opus-5",
+  "session": "3a441e1f",
+  "where": "/Users/olavassbotn/Documents/banking/.claude/worktrees/search-escape-blur",
+  "branch": "worktree-search-escape-blur"
+}

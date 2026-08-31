@@ -1,0 +1,14 @@
+{
+  "id": "52f3e27d",
+  "ts": "2026-08-31T21:42:41+00:00",
+  "text": "zsh did not split quoted date pairs in a for loop, which caused invalid banking CLI date values",
+  "tags": [
+    "shell",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "/Users/olavassbotn/Documents/banking",
+  "branch": "main"
+}
