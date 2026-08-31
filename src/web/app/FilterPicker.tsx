@@ -346,9 +346,6 @@ export const Picker = ({
               })
             )}
           </div>
-          <div className="mt-1 shrink-0 px-1.5 pt-1 text-[11px] text-ink-muted">
-            Tap again to exclude.
-          </div>
         </div>
       )}
     </details>
