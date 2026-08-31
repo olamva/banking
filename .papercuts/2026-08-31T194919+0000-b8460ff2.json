@@ -1,0 +1,13 @@
+{
+  "id": "b8460ff2",
+  "ts": "2026-08-31T19:49:19+00:00",
+  "text": "preview_resize times out with 'Preview automation resize timed out' when the tab was opened with open=false; it works after preview_open with open=true",
+  "tags": [
+    "tools"
+  ],
+  "who": "agent",
+  "model": "opus-5",
+  "session": "06e00a36",
+  "where": "mcp__t3-code__preview_resize",
+  "branch": "worktree-fix-filter-panel-hscroll"
+}
