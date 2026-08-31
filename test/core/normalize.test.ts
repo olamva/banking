@@ -169,7 +169,7 @@ test("an account is named by rules/accounts.json, and by its key when it is not"
   );
 });
 
-test("pending rows are dropped, whichever account they are on", () => {
+test("pending rows are kept", () => {
   withMonthDir(
     {
       "acct.json": {
@@ -206,7 +206,7 @@ test("pending rows are dropped, whichever account they are on", () => {
     (dir) => {
       assert.deepEqual(
         normalizeMonth(dir).map((t) => t.id),
-        ["booked"],
+        ["booked", "pending"],
       );
     },
   );
