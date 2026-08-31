@@ -8,12 +8,10 @@ import {
   type Rules,
 } from "../../core/ruleFiles.ts";
 import type { Categorized } from "../../core/types.ts";
-import { Card } from "./Cards.tsx";
 import { SearchBox } from "./Transactions.tsx";
 import type { RulesApi } from "./data.ts";
 import {
   AddedIcon,
-  CategoryIcon,
   CloseIcon,
   Icon,
   LoadingIcon,
@@ -299,8 +297,8 @@ export const RulesView = ({
   const hasMatches = grouped ? shownGroups.length > 0 : shown.length > 0;
 
   return (
-    <Card title="Rules" icon={CategoryIcon}>
-      <p className="mb-3 text-[11px] text-ink-muted">{RULE_NOTE[file]}</p>
+    <section className="flex min-w-0 flex-col">
+      <p className="mb-3 text-sm text-ink-muted">{RULE_NOTE[file]}</p>
 
       {data === null ? (
         <div className="flex items-center justify-center gap-2 py-10 text-ink-muted">
@@ -384,7 +382,7 @@ export const RulesView = ({
           <History file={file} rules={rules} />
         </div>
       )}
-    </Card>
+    </section>
   );
 };
 
