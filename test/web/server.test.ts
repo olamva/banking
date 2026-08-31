@@ -156,5 +156,7 @@ test("debug logging contains no principal value", async () => {
     delete process.env.DEBUG;
     console.error = old;
   }
-  assert.ok(lines.every((line) => !String(line).includes("not-allowed@example.com")));
+  assert.ok(
+    lines.every((line) => !String(line).includes("not-allowed@example.com")),
+  );
 });

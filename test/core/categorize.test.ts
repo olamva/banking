@@ -287,10 +287,7 @@ test("loadCategories returns {} when the file is absent", async () => {
 test("an explicit override beats the Vipps peer rules", async () => {
   const dir = await mkdtemp(join(tmpdir(), "categorize-"));
   const file = join(dir, "o.json");
-  await writeFile(
-    file,
-    JSON.stringify({ "sit kafe": "kafe_og_restaurant" }),
-  );
+  await writeFile(file, JSON.stringify({ "sit kafe": "kafe_og_restaurant" }));
 
   const row = classified({
     description: "Vipps*Sit Kafe",
