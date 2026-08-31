@@ -166,6 +166,7 @@ interface DataTableProps {
   rows: ReactNode[][];
   scroll?: boolean;
   onRow?: (index: number) => void;
+  rowClassName?: (index: number) => string;
 }
 
 const WINDOW_OVER = 80;
@@ -174,7 +175,13 @@ const OVERSCAN = 12;
 
 const VIEWPORT = 460;
 
-export const DataTable = ({ columns, rows, scroll, onRow }: DataTableProps) => {
+export const DataTable = ({
+  columns,
+  rows,
+  scroll,
+  onRow,
+  rowClassName,
+}: DataTableProps) => {
   const [scrollTop, setScrollTop] = useState(0);
   const [rowH, setRowH] = useState(24);
   const probe = useRef<HTMLTableRowElement>(null);
@@ -280,7 +287,7 @@ export const DataTable = ({ columns, rows, scroll, onRow }: DataTableProps) => {
               key={first + i}
               ref={i === 0 ? probe : undefined}
               onClick={onRow && ((e) => !highlighting(e) && onRow(first + i))}
-              className={`hover:bg-hover ${onRow ? "cursor-pointer" : ""}`}
+              className={`hover:bg-hover ${onRow ? "cursor-pointer" : ""} ${rowClassName?.(first + i) ?? ""}`}
             >
               {row.map((cell, j) => (
                 // No cell wraps in a windowed table. One tall row moves every row below it

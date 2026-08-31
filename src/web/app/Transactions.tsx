@@ -395,6 +395,11 @@ export const TransactionsCard = ({
         <DataTable
           scroll
           onRow={(i) => setOpen(sorted[i] ?? null)}
+          rowClassName={(i) =>
+            sorted[i]?.isPending
+              ? "outline-1 -outline-offset-1 outline-dashed outline-line"
+              : ""
+          }
           columns={[
             head("Date", "date", { min: true }),
             head("Merchant / description", "merchant"),
@@ -417,14 +422,7 @@ export const TransactionsCard = ({
             >
               {t.date}
             </button>,
-            <div className="flex items-center gap-1.5">
-              <PickCell label={merchantOf(t)} onPick={onMerchant} />
-              {t.isPending && (
-                <span className="rounded-full border border-line bg-page px-1.5 py-0.5 text-[10px] font-medium text-ink-soft">
-                  Pending
-                </span>
-              )}
-            </div>,
+            <PickCell label={merchantOf(t)} onPick={onMerchant} />,
             <PickCell
               label={rowLabel(t.category, t.subcategory)}
               value={subcategoryOf(t)}
