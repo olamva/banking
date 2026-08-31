@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { merchantOf, subcategoryOf } from "../../core/select.ts";
 import type { SubscriptionGroup } from "../../core/stats.ts";
 import type { Categorized } from "../../core/types.ts";
+import type { RuleFile } from "../../core/ruleFiles.ts";
 import {
   AMOUNT_SIZE,
   AMOUNT_SIZE_EXACT,
@@ -240,8 +241,15 @@ export const SubscriptionsCard = ({
 interface TxnDialogProps {
   txn: Categorized;
   onClose: () => void;
-  onFile?: () => void;
+  onFile?: (file: RuleFile) => void;
 }
+
+const TXN_RULE_ACTIONS: [RuleFile, string][] = [
+  ["categories", "Recategorize…"],
+  ["payees", "Rename payee…"],
+  ["countries", "Set country…"],
+  ["family", "Mark as family…"],
+];
 
 const Chip = ({ children }: { children: ReactNode }) => (
   <span className="rounded-full border border-line px-2 py-0.5 text-[11px] text-ink-soft">
@@ -317,17 +325,25 @@ export const TxnDialog = ({ txn, onClose, onFile }: TxnDialogProps) => {
         </button>
       </div>
       <div className="px-5 py-4">
-        {/* The one control here that changes the data rather than reading it.
-            Above the fields, because a dialog this long scrolls. */}
         {onFile && (
-          <button
-            type="button"
-            onClick={onFile}
-            className="mb-3 flex items-center gap-1.5 rounded-md border border-line bg-page px-2.5 py-1.5 text-xs text-ink-soft"
-          >
-            <Icon aria-hidden icon={CategoryIcon} size={14} />
-            Recategorize…
-          </button>
+          <div className="mb-3 flex flex-wrap gap-1.5">
+            {[
+              ...TXN_RULE_ACTIONS,
+              txn.isSubscription
+                ? (["not-subscriptions", "Not a subscription…"] as const)
+                : (["subscriptions", "Mark as subscription…"] as const),
+            ].map(([file, label]) => (
+              <button
+                key={file}
+                type="button"
+                onClick={() => onFile(file)}
+                className="flex items-center gap-1.5 rounded-md border border-line bg-page px-2.5 py-1.5 text-xs text-ink-soft"
+              >
+                <Icon aria-hidden icon={CategoryIcon} size={14} />
+                {label}
+              </button>
+            ))}
+          </div>
         )}
         {(txn.excluded ||
           txn.isSubscription ||
@@ -385,7 +401,7 @@ interface TransactionsCardProps {
   onMerchant: (merchant: string, meta: boolean) => void;
   onCategory: (category: string, meta: boolean) => void;
   onAccount: (account: string, meta: boolean) => void;
-  onFile?: (txn: Categorized) => void;
+  onFile?: (txn: Categorized, file: RuleFile) => void;
 }
 
 export const TransactionsCard = ({
@@ -470,10 +486,10 @@ export const TransactionsCard = ({
           txn={open}
           onClose={() => setOpen(null)}
           {...(onFile && {
-            onFile: () => {
+            onFile: (file) => {
               const t = open;
               setOpen(null);
-              onFile(t);
+              onFile(t, file);
             },
           })}
         />

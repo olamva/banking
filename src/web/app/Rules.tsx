@@ -10,12 +10,7 @@ import {
 import type { Categorized } from "../../core/types.ts";
 import { SearchBox } from "./Transactions.tsx";
 import type { RulesApi } from "./data.ts";
-import {
-  AddedIcon,
-  CloseIcon,
-  Icon,
-  LoadingIcon,
-} from "./icons.ts";
+import { AddedIcon, CloseIcon, Icon, LoadingIcon } from "./icons.ts";
 import { Modal } from "./Modal.tsx";
 import { keyboardFocused } from "./Shortcuts.tsx";
 
@@ -401,6 +396,7 @@ export const suggestPattern = (t: Categorized): string =>
 
 export interface FileDialogProps {
   txn: Categorized;
+  file: RuleFile;
   rules: RulesApi;
   txns: Categorized[];
   pairs: string[];
@@ -409,17 +405,25 @@ export interface FileDialogProps {
 
 export const FileDialog = ({
   txn,
+  file,
   rules,
   txns,
   pairs,
   onClose,
 }: FileDialogProps) => {
   const [pattern, setPattern] = useState(() => suggestPattern(txn));
-  const [value, setValue] = useState(
-    txn.subcategory ? `${txn.category}/${txn.subcategory}` : txn.category,
-  );
+  const map = isMapFile(file);
+  const [value, setValue] = useState(() => {
+    if (CATEGORY_VALUED.has(file))
+      return txn.subcategory
+        ? `${txn.category}/${txn.subcategory}`
+        : txn.category;
+    if (file === "payees") return txn.counterparty ?? "";
+    if (file === "countries") return txn.country ?? "";
+    return "";
+  });
   const haystacks = useMemo(() => txns.map(haystackOf), [txns]);
-  const ready = pattern.trim() !== "" && value.trim() !== "";
+  const ready = pattern.trim() !== "" && (!map || value.trim() !== "");
 
   return (
     <Modal onClose={onClose} className="w-[min(960px,92vw)]">
@@ -427,13 +431,12 @@ export const FileDialog = ({
         method="dialog"
         className="flex flex-col gap-3 p-5"
         onSubmit={() => {
-          if (ready) rules.save("categories", pattern.trim(), value.trim());
+          if (ready)
+            rules.save(file, pattern.trim(), map ? value.trim() : undefined);
         }}
       >
-        <h2 className="text-base font-semibold">Recategorize</h2>
-        <p className="text-[11px] text-ink-muted">
-          This adds a category override for every row that matches the pattern.
-        </p>
+        <h2 className="text-base font-semibold">{RULE_LABEL[file]}</h2>
+        <p className="text-[11px] text-ink-muted">{RULE_NOTE[file]}</p>
 
         <label className="flex flex-col gap-1 text-xs text-ink-soft">
           Pattern
@@ -445,16 +448,26 @@ export const FileDialog = ({
         </label>
         <MatchNote pattern={pattern} txns={txns} haystacks={haystacks} />
 
-        <div className="flex flex-col gap-1 text-xs text-ink-soft [&>div]:basis-auto">
-          Category
-          <CategoryInput
-            value={value}
-            pairs={pairs}
-            label="Category"
-            onChange={setValue}
-            className={FIELD}
-          />
-        </div>
+        {map && (
+          <label className="flex flex-col gap-1 text-xs text-ink-soft [&>div]:basis-auto">
+            {VALUE_LABEL[file]}
+            {CATEGORY_VALUED.has(file) ? (
+              <CategoryInput
+                value={value}
+                pairs={pairs}
+                label={VALUE_LABEL[file]}
+                onChange={setValue}
+                className={FIELD}
+              />
+            ) : (
+              <input
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                className={FIELD}
+              />
+            )}
+          </label>
+        )}
 
         <div className="flex justify-end gap-2">
           <button type="button" onClick={onClose} className={BUTTON}>
