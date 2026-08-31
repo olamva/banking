@@ -46,6 +46,12 @@ export const SearchBox = ({
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key !== "Escape") return;
+          // WebKit clears a type="search" box on Escape. Keep the query.
+          e.preventDefault();
+          e.currentTarget.blur();
+        }}
         aria-label={placeholder}
       />
       {/* A shortcut that took over a browser one has to say so somewhere. `/`
