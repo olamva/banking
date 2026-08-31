@@ -10,12 +10,7 @@ import {
 import type { Categorized } from "../../core/types.ts";
 import { SearchBox } from "./Transactions.tsx";
 import type { RulesApi } from "./data.ts";
-import {
-  AddedIcon,
-  CloseIcon,
-  Icon,
-  LoadingIcon,
-} from "./icons.ts";
+import { AddedIcon, CloseIcon, Icon, LoadingIcon } from "./icons.ts";
 import { Modal } from "./Modal.tsx";
 import { keyboardFocused } from "./Shortcuts.tsx";
 
@@ -206,6 +201,15 @@ export interface RuleTabsProps {
   onFile: (file: RuleFile) => void;
 }
 
+const RULE_GROUPS: [string, RuleFile[]][] = [
+  [
+    "Transactions",
+    ["categories", "giro", "family", "subscriptions", "not-subscriptions"],
+  ],
+  ["Display", ["payees", "countries", "labels"]],
+];
+export const RULE_TAB_FILES = RULE_GROUPS.flatMap(([, files]) => files);
+
 // The tabs sit in the header, so they stay on the screen while the rules
 // scroll. Wraps rather than scrolls sideways. Eight names do not fit 375px in
 // one row, and nothing on this page may push it.
@@ -225,9 +229,10 @@ export const RuleTabs = ({ rules, file, onFile }: RuleTabsProps) => {
     const by = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
     if (!by || !keyboardFocused(e.currentTarget)) return;
     e.preventDefault();
-    const next = (at + by + RULE_FILES.length) % RULE_FILES.length;
-    onFile(RULE_FILES[next]!);
-    e.currentTarget.parentElement
+    const next = (at + by + RULE_TAB_FILES.length) % RULE_TAB_FILES.length;
+    onFile(RULE_TAB_FILES[next]!);
+    e.currentTarget
+      .closest("[role=tablist]")
       ?.querySelectorAll<HTMLButtonElement>("[role=tab]")
       [next]?.focus({ preventScroll: true });
   };
@@ -236,26 +241,42 @@ export const RuleTabs = ({ rules, file, onFile }: RuleTabsProps) => {
     <div
       role="tablist"
       aria-label="Rule files"
-      className="flex flex-wrap gap-1.5"
+      className="flex flex-wrap gap-x-5 gap-y-2"
     >
-      {RULE_FILES.map((f, i) => (
-        <button
-          key={f}
-          type="button"
-          role="tab"
-          aria-selected={file === f}
-          tabIndex={file === f ? 0 : -1}
-          onClick={() => onFile(f)}
-          onKeyDown={(e) => moveTab(e, i)}
-          className={`rounded-md border border-line px-2.5 py-1.5 text-[13px] ${
-            file === f ? "bg-series-1 text-white" : "bg-page text-ink-soft"
-          }`}
-        >
-          {RULE_LABEL[f]}
-          {counts[f] !== undefined && (
-            <span className="ml-1.5 text-[11px] opacity-70">{counts[f]}</span>
-          )}
-        </button>
+      {RULE_GROUPS.map(([label, files]) => (
+        <div key={label} role="group" aria-label={label} className="min-w-0">
+          <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-ink-muted">
+            {label}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {files.map((f) => {
+              const i = RULE_TAB_FILES.indexOf(f);
+              return (
+                <button
+                  key={f}
+                  type="button"
+                  role="tab"
+                  aria-selected={file === f}
+                  tabIndex={file === f ? 0 : -1}
+                  onClick={() => onFile(f)}
+                  onKeyDown={(e) => moveTab(e, i)}
+                  className={`rounded-md border border-line px-2.5 py-1.5 text-[13px] ${
+                    file === f
+                      ? "bg-series-1 text-white"
+                      : "bg-page text-ink-soft"
+                  }`}
+                >
+                  {RULE_LABEL[f]}
+                  {counts[f] !== undefined && (
+                    <span className="ml-1.5 text-[11px] opacity-70">
+                      {counts[f]}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       ))}
     </div>
   );

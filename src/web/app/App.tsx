@@ -7,7 +7,7 @@ import {
   type Dispatch,
   type SetStateAction,
 } from "react";
-import { RULE_FILES, type RuleFile } from "../../core/ruleFiles.ts";
+import type { RuleFile } from "../../core/ruleFiles.ts";
 import {
   NO_FILTERS,
   axisBounds,
@@ -33,7 +33,7 @@ import { LoadNote, Toolbar } from "./AppToolbar.tsx";
 import { Dashboard, ExcludedNote, pick } from "./Dashboard.tsx";
 import { FilterBar, type View } from "./FilterBar.tsx";
 import { Notification, Notifications } from "./Modal.tsx";
-import { FileDialog, RuleTabs, RulesView } from "./Rules.tsx";
+import { FileDialog, RULE_TAB_FILES, RuleTabs, RulesView } from "./Rules.tsx";
 import { ShortcutsDialog, useShortcuts, type Shortcut } from "./Shortcuts.tsx";
 import {
   THEMES,
@@ -178,8 +178,9 @@ export const App = () => {
     if (view !== "rules") return step(by);
     setRuleFile(
       (f) =>
-        RULE_FILES[
-          (RULE_FILES.indexOf(f) + by + RULE_FILES.length) % RULE_FILES.length
+        RULE_TAB_FILES[
+          (RULE_TAB_FILES.indexOf(f) + by + RULE_TAB_FILES.length) %
+            RULE_TAB_FILES.length
         ]!,
     );
   };
