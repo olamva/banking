@@ -10,7 +10,7 @@ import {
 import type { Categorized } from "../../core/types.ts";
 import { SearchBox } from "./Transactions.tsx";
 import type { RulesApi } from "./data.ts";
-import { AddedIcon, CloseIcon, Icon, LoadingIcon } from "./icons.ts";
+import { AddedIcon, BackIcon, CloseIcon, Icon, LoadingIcon } from "./icons.ts";
 import { Modal } from "./Modal.tsx";
 import { keyboardFocused } from "./Shortcuts.tsx";
 
@@ -470,8 +470,13 @@ export const FileDialog = ({
         )}
 
         <div className="flex justify-end gap-2">
-          <button type="button" onClick={onClose} className={BUTTON}>
-            Cancel
+          <button
+            type="button"
+            onClick={onClose}
+            className={`${BUTTON} flex items-center gap-1.5`}
+          >
+            <Icon aria-hidden icon={BackIcon} size={14} />
+            Back
           </button>
           <button
             type="submit"

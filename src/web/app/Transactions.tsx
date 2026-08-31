@@ -26,6 +26,7 @@ import {
 import {
   CategoryIcon,
   CloseIcon,
+  EditIcon,
   Icon,
   RecurringIcon,
   SearchIcon,
@@ -247,12 +248,11 @@ interface TxnDialogProps {
 const TXN_RULE_ACTIONS: [RuleFile, string][] = [
   ["categories", "Recategorize…"],
   ["payees", "Rename payee…"],
-  ["countries", "Set country…"],
   ["family", "Mark as family…"],
 ];
 
 const Chip = ({ children }: { children: ReactNode }) => (
-  <span className="rounded-full border border-line px-2 py-0.5 text-[11px] text-ink-soft">
+  <span className="inline-flex items-center gap-1 rounded-full border border-line px-2 py-0.5 text-[11px] text-ink-soft">
     {children}
   </span>
 );
@@ -308,8 +308,6 @@ export const TxnDialog = ({ txn, onClose, onFile }: TxnDialogProps) => {
             <span>{fmtDate(txn.date)}</span>
           </div>
         </div>
-        {/* Income is the colour, spending is not: everything here is money out,
-          and a page of red says nothing the sign does not. */}
         <div
           className={`text-xl font-semibold tabular-nums whitespace-nowrap ${txn.amount > 0 ? "text-good" : ""}`}
         >
@@ -350,24 +348,32 @@ export const TxnDialog = ({ txn, onClose, onFile }: TxnDialogProps) => {
           txn.isRecurring ||
           txn.country) && (
           <div className="mb-3 flex flex-wrap gap-1.5">
-            {/* First, because it is the one chip that says something about the
-                row rather than about how it is treated. */}
-            {txn.country && <Chip>{txn.country}</Chip>}
+            {txn.country && (
+              <Chip>
+                {txn.country}
+                {onFile && (
+                  <button
+                    type="button"
+                    onClick={() => onFile("countries")}
+                    aria-label="Edit country"
+                    className="-my-1 -mr-1 rounded p-1 text-ink-muted hover:bg-hover hover:text-ink"
+                  >
+                    <Icon aria-hidden icon={EditIcon} size={11} />
+                  </button>
+                )}
+              </Chip>
+            )}
             {txn.excluded && <Chip>Excluded</Chip>}
             {txn.isSubscription && <Chip>Subscription</Chip>}
             {txn.isRecurring && <Chip>Recurring</Chip>}
           </div>
         )}
-        {/* A line per field rather than a grid, so each can have a rule under
-            it: nineteen without is one paragraph shaped like a table. */}
         <dl className="text-xs">
           {bank && (
             <div className={ROW}>
               <dt className="shrink-0 text-ink-soft">Bank category</dt>
               <dd className="min-w-0 text-right">
                 <div className="text-sm wrap-break-word">{bank[0]}</div>
-                {/* The slug in the shape a rule is written in, monospaced
-                    because that is what it is. */}
                 <div className="font-mono text-[11px] break-all text-ink-muted">
                   {bank[1]}
                 </div>
@@ -377,9 +383,6 @@ export const TxnDialog = ({ txn, onClose, onFile }: TxnDialogProps) => {
           {txnFields(txn, SHOWN_ABOVE).map(([name, value]) => (
             <div key={name} className={ROW}>
               <dt className="shrink-0 text-ink-soft">{name}</dt>
-              {/* Cut in CSS rather than in the string, so the whole id is
-                  still there to select and copy — `min-w-0` because a flex item
-                  will not shrink below its content without it. */}
               <dd
                 className={`min-w-0 text-right ${name === ID_FIELD ? "truncate" : "wrap-break-word"}`}
                 title={name === ID_FIELD ? value : undefined}
@@ -486,11 +489,7 @@ export const TransactionsCard = ({
           txn={open}
           onClose={() => setOpen(null)}
           {...(onFile && {
-            onFile: (file) => {
-              const t = open;
-              setOpen(null);
-              onFile(t, file);
-            },
+            onFile: (file) => onFile(open, file),
           })}
         />
       )}
