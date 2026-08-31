@@ -465,11 +465,11 @@ test("loadFamily returns [] when the file is absent", async () => {
 test("a countries rule beats the country read off the name", () => {
   const rows = setCountries(
     [
-      classified({ description: "HOTELS.COM, Oslo, NOR", country: "Norway" }),
+      classified({ description: "DOMENE AS, Oslo, NOR", country: "NOR" }),
       classified({ description: "KAFFEBAR, Oslo, NORWAY", country: "Norway" }),
     ],
-    { "hotels.com": "United Kingdom" },
+    { "/,\\s*nor(?:\\s|$)/": "Norway" },
   );
-  assert.equal(rows[0]!.country, "United Kingdom");
+  assert.equal(rows[0]!.country, "Norway");
   assert.equal(rows[1]!.country, "Norway");
 });
