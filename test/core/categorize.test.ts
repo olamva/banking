@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import {
   categorize,
-  loadOverrides,
+  loadCategories,
   loadSubscriptions,
 } from "../../src/core/categorize.ts";
 import type { Classified } from "../../src/core/types.ts";
@@ -279,15 +279,15 @@ test("sb1 row with no bankCategory falls to ukategorisert", () => {
   assert.equal(out.category, "ukategorisert");
 });
 
-test("loadOverrides returns {} when the file is absent", async () => {
-  assert.deepEqual(await loadOverrides("does-not-exist.json"), {});
+test("loadCategories returns {} when the file is absent", async () => {
+  assert.deepEqual(await loadCategories("does-not-exist.json"), {});
 });
 
 test("an explicit override beats the Vipps peer rules", async () => {
   const dir = await mkdtemp(join(tmpdir(), "categorize-"));
-  const overrides = join(dir, "o.json");
+  const file = join(dir, "o.json");
   await writeFile(
-    overrides,
+    file,
     JSON.stringify({ "sit kafe": "kafe_og_restaurant" }),
   );
 
@@ -302,7 +302,7 @@ test("an explicit override beats the Vipps peer rules", async () => {
     categorize([row], { "sit kafe": "kafe_og_restaurant" })[0]!.category,
     "kafe_og_restaurant",
   );
-  assert.deepEqual(await loadOverrides(overrides), {
+  assert.deepEqual(await loadCategories(file), {
     "sit kafe": "kafe_og_restaurant",
   });
 });

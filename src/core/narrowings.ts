@@ -1,4 +1,5 @@
-import { compile, haystackOf, type Overrides } from "./match.ts";
+import { compile, haystackOf } from "./match.ts";
+import type { RuleMap } from "./ruleFiles.ts";
 import type { Categorized } from "./types.ts";
 
 const EXAMPLES = 3;
@@ -13,10 +14,10 @@ export type Overlap = {
   examples: string[];
 };
 
-export function overlaps(rows: Categorized[], overrides: Overrides): Overlap[] {
-  const compiled = Object.keys(overrides).map((p) => ({
+export function overlaps(rows: Categorized[], categories: RuleMap): Overlap[] {
+  const compiled = Object.keys(categories).map((p) => ({
     pattern: p,
-    matches: compile(p, "rules/overrides.json"),
+    matches: compile(p, "rules/categories.json"),
   }));
   const acc = new Map<string, Overlap>();
 
@@ -29,13 +30,13 @@ export function overlaps(rows: Categorized[], overrides: Overrides): Overlap[] {
       const key = `${winner!.pattern} | ${loser.pattern}`;
       const o = acc.get(key) ?? {
         winner: winner!.pattern,
-        winnerValue: overrides[winner!.pattern]!,
+        winnerValue: categories[winner!.pattern]!,
         loser: loser.pattern,
-        loserValue: overrides[loser.pattern]!,
+        loserValue: categories[loser.pattern]!,
         rows: 0,
         harmless:
-          overrides[winner!.pattern]!.split("/")[0] ===
-          overrides[loser.pattern]!.split("/")[0],
+          categories[winner!.pattern]!.split("/")[0] ===
+          categories[loser.pattern]!.split("/")[0],
         examples: [],
       };
       o.rows++;
@@ -67,10 +68,10 @@ function body(pattern: string): string | null {
 
 export function narrowings(
   rows: Categorized[],
-  overrides: Overrides,
+  categories: RuleMap,
 ): Narrowing[] {
   const byLoser = new Map<string, Narrowing>();
-  for (const c of overlaps(rows, overrides)) {
+  for (const c of overlaps(rows, categories)) {
     if (c.harmless) continue;
     const n = byLoser.get(c.loser) ?? {
       pattern: c.loser,

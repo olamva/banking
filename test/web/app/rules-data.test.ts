@@ -21,19 +21,19 @@ test("changeRules removes a map entry immediately", () => {
 
 test("moveRules applies rule history in both directions", () => {
   const data = {
-    files: { overrides: { old: "one", current: "two" } },
+    files: { categories: { old: "one", current: "two" } },
     history: {
-      overrides: [
+      categories: [
         { at: 2, changes: [{ key: "current", to: "two" }] },
         { at: 1, changes: [{ key: "old", to: "one" }] },
       ],
     },
-    at: { overrides: 2 },
+    at: { categories: 2 },
   } as unknown as RulesData;
 
-  const older = moveRules(data, "overrides", 1);
-  assert.deepEqual(older.files.overrides, { old: "one" });
-  assert.deepEqual(moveRules(older, "overrides", 2).files.overrides, {
+  const older = moveRules(data, "categories", 1);
+  assert.deepEqual(older.files.categories, { old: "one" });
+  assert.deepEqual(moveRules(older, "categories", 2).files.categories, {
     old: "one",
     current: "two",
   });

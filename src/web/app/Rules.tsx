@@ -20,22 +20,22 @@ import { Modal } from "./Modal.tsx";
 import { keyboardFocused } from "./Shortcuts.tsx";
 
 export const RULE_LABEL: Record<RuleFile, string> = {
-  overrides: "Overrides",
+  categories: "Categories",
   giro: "Giro",
   payees: "Payee names",
-  categories: "Category names",
+  labels: "Category names",
   family: "Family",
   subscriptions: "Subscriptions",
   "not-subscriptions": "Not subscriptions",
 };
 
 const RULE_NOTE: Record<RuleFile, string> = {
-  overrides:
+  categories:
     "Pattern to category. It beats every rule but the excluded flag, so it is the one to reach for first.",
   giro: "Pattern to category, on a lump only. A giro or a plain Overførsel, never an instant payment.",
   payees:
     "Pattern to the name on the page. A rename can never move money, so this file is safe to edit.",
-  categories: "Slug to the name on the page. Write the slug as category/sub.",
+  labels: "Slug to the name on the page. Write the slug as category/sub.",
   family:
     "A relative, by name or by account number. Money in is from family. Money out is a repayment.",
   subscriptions: "A pattern that makes a subscription certain.",
@@ -60,7 +60,7 @@ import {
   VALUE_LABEL,
   rowsFor,
 } from "./RuleFields.tsx";
-const GROUPED = new Set<RuleFile>(["overrides", "giro", "payees"]);
+const GROUPED = new Set<RuleFile>(["categories", "giro", "payees"]);
 
 const groupsOf = (entries: [string, string | null][]) => {
   const groups = new Map<string, string[]>();
@@ -419,7 +419,7 @@ export const FileDialog = ({
         method="dialog"
         className="flex flex-col gap-3 p-5"
         onSubmit={() => {
-          if (ready) rules.save("overrides", pattern.trim(), value.trim());
+          if (ready) rules.save("categories", pattern.trim(), value.trim());
         }}
       >
         <h2 className="text-base font-semibold">Recategorize</h2>

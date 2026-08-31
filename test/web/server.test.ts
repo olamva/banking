@@ -56,7 +56,7 @@ test("no principal is no page, whatever the path", async () => {
     "/api/txns",
     "/api/refresh",
     "/api/rules",
-    "/api/rules/save?file=overrides&key=x&value=y",
+    "/api/rules/save?file=categories&key=x&value=y",
   ])
     assert.equal((await fetch(`${base}${path}`)).status, 403);
 });
@@ -90,12 +90,12 @@ test("the rules read back behind the gate", async () => {
   });
   assert.equal(res.status, 200);
   const body = (await res.json()) as { files: Record<string, unknown> };
-  assert.ok("overrides" in body.files);
+  assert.ok("categories" in body.files);
 });
 
 test("a rule write without the custom header is refused", async () => {
   const res = await fetch(
-    `${base}/api/rules/save?file=overrides&key=x&value=mat/kantine`,
+    `${base}/api/rules/save?file=categories&key=x&value=mat/kantine`,
     { headers: { "x-ms-client-principal": header("ola@example.com") } },
   );
   assert.equal(res.status, 405);
