@@ -1,0 +1,14 @@
+{
+  "id": "0003b8c9",
+  "ts": "2026-08-31T17:45:31+00:00",
+  "text": "worktree-handback requires unlock, but git reports the worktree is not locked",
+  "tags": [
+    "git",
+    "skills"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "/Users/olavassbotn/.codex/skills/worktree-handback/SKILL.md",
+  "branch": "main"
+}
