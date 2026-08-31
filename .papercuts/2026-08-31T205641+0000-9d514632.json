@@ -1,0 +1,14 @@
+{
+  "id": "9d514632",
+  "ts": "2026-08-31T20:56:41+00:00",
+  "text": "pnpm install waits through repeated registry DNS retries before it returns control",
+  "tags": [
+    "network",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "pnpm",
+  "branch": "codex/rules-sync-speed"
+}

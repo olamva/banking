@@ -1,0 +1,14 @@
+{
+  "id": "3f7cdd2f",
+  "ts": "2026-08-31T21:00:40+00:00",
+  "text": "git status from a worktree rejects an absolute path in the main checkout",
+  "tags": [
+    "git",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "git-status",
+  "branch": "main"
+}
