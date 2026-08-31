@@ -395,6 +395,11 @@ export const TransactionsCard = ({
         <DataTable
           scroll
           onRow={(i) => setOpen(sorted[i] ?? null)}
+          rowClassName={(i) =>
+            sorted[i]?.isPending
+              ? "outline-1 -outline-offset-1 outline-dashed outline-line"
+              : ""
+          }
           columns={[
             head("Date", "date", { min: true }),
             head("Merchant / description", "merchant"),

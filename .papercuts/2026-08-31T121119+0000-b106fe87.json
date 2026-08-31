@@ -1,0 +1,14 @@
+{
+  "id": "b106fe87",
+  "ts": "2026-08-31T12:11:19+00:00",
+  "text": "git add in a worktree cannot create the shared index lock inside the sandbox",
+  "tags": [
+    "git",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "/private/tmp/banking-pending-txn",
+  "branch": "codex/pending-txn"
+}

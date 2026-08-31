@@ -20,6 +20,7 @@ function txn(over: Partial<Txn>): Txn {
     bankConfidence: null,
     typeText: "VISA Varekjøp",
     remoteAccountNumber: null,
+    isPending: false,
     isRecurring: false,
     isSubscription: false,
     ...over,

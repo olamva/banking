@@ -31,6 +31,7 @@ const row: Categorized = {
   bankConfidence: 100,
   remoteAccountNumber: null,
   typeText: "VISA Varekjøp",
+  isPending: false,
   isRecurring: false,
   isSubscription: false,
   excluded: false,

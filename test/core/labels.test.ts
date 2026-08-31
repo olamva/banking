@@ -20,6 +20,7 @@ function row(overrides: Partial<Categorized>): Categorized {
     bankConfidence: 100,
     typeText: null,
     remoteAccountNumber: null,
+    isPending: false,
     isRecurring: false,
     isSubscription: false,
     excluded: false,

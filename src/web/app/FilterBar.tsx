@@ -1,11 +1,11 @@
 import { useRef, useState, type ReactNode } from "react";
 import type { Axis, Filters, PeriodKind } from "../../core/select.ts";
 import { AXES, cycleFilter, NO_COUNTRY } from "../../core/select.ts";
+import { Picker, useDismiss } from "./FilterPicker.tsx";
+import { FilterSummary } from "./FilterSummary.tsx";
 import { pairLabel, treeLabel } from "./format.ts";
 import { DropdownIcon, Icon } from "./icons.ts";
 import { keyboardFocused } from "./Shortcuts.tsx";
-import { Picker, useDismiss } from "./FilterPicker.tsx";
-import { FilterSummary } from "./FilterSummary.tsx";
 
 export type View = "dashboard" | "transactions" | "rules";
 
@@ -257,7 +257,7 @@ export const FilterBar = ({
     picked + (filters.search !== "" && view !== "transactions" ? 1 : 0);
   const dirty = picked > 0 || filters.search !== "" || filters.showExcluded;
 
-  const views = (
+  const Views = () => (
     <div
       role="tablist"
       aria-label="Page"
@@ -296,56 +296,51 @@ export const FilterBar = ({
   if (view === "rules")
     return (
       <div className="flex flex-wrap items-center gap-2">
-        {views}
+        <Views />
         {tabs}
       </div>
     );
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {views}
+      <Views />
 
       {/* One menu: the years, and the months of whichever one is pointed at. */}
-      <PeriodMenu
-        months={months}
-        years={years}
-        period={period}
-        kind={kind}
-        from={from}
-        to={to}
-        onPeriod={onPeriod}
-      />
 
-      {/* Native date boxes — no picker component, no date library. An empty box
-          is the open end `inRange` already means by null. Bounded twice, by the
-          record and by the other box, so the calendar greys out what cannot be
-          picked; `min`/`max` are only advisory against a typed date. */}
-      {kind === "custom" && (
-        <>
-          <input
-            type="date"
-            className={CONTROL}
-            value={from ?? ""}
-            min={earliest}
-            max={to ?? latest}
-            onChange={(e) => onPeriod(`${e.target.value}..${to ?? ""}`)}
-            aria-label="From"
-          />
-          <input
-            type="date"
-            className={CONTROL}
-            value={to ?? ""}
-            min={from ?? earliest}
-            max={latest}
-            onChange={(e) => onPeriod(`${from ?? ""}..${e.target.value}`)}
-            aria-label="To"
-          />
-        </>
-      )}
-
-      {/* A tree: each category opens into the subcategories the bank names under
-          it, and both levels go into one list — see `Filters.categories`. */}
       <div className={GROUP}>
+        <PeriodMenu
+          months={months}
+          years={years}
+          period={period}
+          kind={kind}
+          from={from}
+          to={to}
+          onPeriod={onPeriod}
+        />
+
+        {kind === "custom" && (
+          <>
+            <input
+              type="date"
+              className={CONTROL}
+              value={from ?? ""}
+              min={earliest}
+              max={to ?? latest}
+              onChange={(e) => onPeriod(`${e.target.value}..${to ?? ""}`)}
+              aria-label="From"
+            />
+            <input
+              type="date"
+              className={CONTROL}
+              value={to ?? ""}
+              min={from ?? earliest}
+              max={latest}
+              onChange={(e) => onPeriod(`${from ?? ""}..${e.target.value}`)}
+              aria-label="To"
+            />
+          </>
+        )}
+
         <Picker
           title="Categories"
           options={categories}

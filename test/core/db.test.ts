@@ -23,6 +23,7 @@ function row(overrides: Partial<Categorized> = {}): Categorized {
     bankConfidence: null,
     typeText: "VISA Varekjøp",
     remoteAccountNumber: null,
+    isPending: false,
     isRecurring: false,
     isSubscription: false,
     excluded: false,
@@ -125,6 +126,26 @@ test("openDb on an existing file is idempotent and keeps prior data", () => {
       ["a1"],
     );
     second.close();
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("openDb adds the pending flag to an existing database", () => {
+  const dir = mkdtempSync(join(tmpdir(), "banking-db-test-"));
+  const path = join(dir, "banking.db");
+  try {
+    const legacy = openDb(path);
+    legacy.exec("ALTER TABLE transactions DROP COLUMN isPending");
+    legacy.close();
+    const upgraded = openDb(path);
+    assert.ok(
+      upgraded
+        .prepare("PRAGMA table_info(transactions)")
+        .all()
+        .some((column) => column.name === "isPending"),
+    );
+    upgraded.close();
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
