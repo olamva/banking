@@ -1,0 +1,14 @@
+{
+  "id": "461e8919",
+  "ts": "2026-08-31T01:02:52+00:00",
+  "text": "gh pr view could not reach api.github.com inside the sandbox",
+  "tags": [
+    "network",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "gh",
+  "branch": "main"
+}
