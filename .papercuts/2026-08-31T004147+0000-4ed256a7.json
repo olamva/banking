@@ -1,0 +1,14 @@
+{
+  "id": "4ed256a7",
+  "ts": "2026-08-31T00:41:47+00:00",
+  "text": "git add in a linked worktree cannot create the shared index lock inside the sandbox",
+  "tags": [
+    "git",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "/Users/olavassbotn/Documents/banking/.claude/worktrees/rename-overrides",
+  "branch": "worktree-rename-overrides"
+}
