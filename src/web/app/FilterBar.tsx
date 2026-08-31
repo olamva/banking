@@ -131,7 +131,7 @@ const PeriodMenu = ({
           className="shrink-0 text-ink-muted transition-transform group-open:rotate-180"
         />
       </summary>
-      <div className="absolute left-0 z-20 mt-1 w-72 rounded-md border border-line bg-surface p-1.5 shadow-lg max-sm:right-0 max-sm:left-auto">
+      <div className="absolute left-0 z-20 mt-1 w-72 rounded-md border border-line bg-surface p-1.5 shadow-lg">
         {/* The two periods that sit inside no year, above the ones that do. */}
         <div className="mb-1.5 flex gap-1 border-b border-line pb-1.5">
           <button
