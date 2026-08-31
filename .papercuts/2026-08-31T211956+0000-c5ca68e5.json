@@ -1,0 +1,14 @@
+{
+  "id": "c5ca68e5",
+  "ts": "2026-08-31T21:19:56+00:00",
+  "text": "pnpm test fails ten server tests because the sandbox blocks listen on 127.0.0.1",
+  "tags": [
+    "test",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "/Users/olavassbotn/Documents/banking",
+  "branch": "main"
+}
