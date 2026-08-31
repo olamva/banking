@@ -1,0 +1,14 @@
+{
+  "id": "34d0e86e",
+  "ts": "2026-08-31T22:50:30+00:00",
+  "text": "pnpm sb1 rebuild failed with a readonly database inside the managed sandbox",
+  "tags": [
+    "sandbox",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "/Users/olavassbotn/Documents/banking",
+  "branch": "main"
+}
