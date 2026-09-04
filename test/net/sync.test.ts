@@ -103,6 +103,8 @@ test("a span costs the files it is missing, not the months it covers", async (t)
 
   mkdirSync("data/raw/2026-06", { recursive: true });
   writeFileSync("data/raw/2026-06/a.json", "{}");
+  const captured = new Date("2026-07-06T12:00:00Z");
+  utimesSync("data/raw/2026-06/a.json", captured, captured);
   assert.equal(await rangeCost(months), 3);
 
   // Captured while June was still open, so June can still gain a row.
@@ -176,11 +178,6 @@ test("a range longer than five years is split, never refused", () => {
 
 test("a row is filed by its Oslo month, not its UTC one", () => {
   const midnightOslo1July = Date.UTC(2023, 5, 30, 22, 0, 0);
-  assert.equal(
-    new Date(midnightOslo1July).toISOString().slice(0, 7),
-    "2023-06",
-    "the trap: this timestamp is June in UTC",
-  );
   const split = splitSpan([
     { transaction: { date: midnightOslo1July, accountKey: "a" } },
   ]);

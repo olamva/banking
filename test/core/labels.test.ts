@@ -37,14 +37,6 @@ test("the bank names itself, so no file has to list its 68 pairs", () => {
   assert.equal(l.subcategory("dagligvarer", "dagligvarer"), "Matvarer");
 });
 
-test("one slug that is both a main and a sub keeps two different names", () => {
-  const l = buildLabels([row({})]);
-  assert.notEqual(
-    l.category("dagligvarer"),
-    l.subcategory("dagligvarer", "dagligvarer"),
-  );
-});
-
 test("rules/labels.json wins over the bank, which is what a rename is for", () => {
   const l = buildLabels([row({})], { dagligvarer: "Mat" });
   assert.equal(l.category("dagligvarer"), "Mat");

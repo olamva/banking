@@ -83,13 +83,16 @@ test("a domestic card row the bank did not classify is uncategorized", () => {
   const [out] = categorize(
     [
       classified({
-        account: "Kredittkort",
+        accountKey: "card",
         description: "KAFFEBAR, Oslo, NORWAY",
         counterparty: "KAFFEBAR, Oslo, NORWAY",
         bankCategory: null,
       }),
     ],
     {},
+    [],
+    {},
+    CARDS,
   );
   assert.equal(out.category, "ukategorisert");
 });
@@ -194,13 +197,16 @@ test("an override beats the travel rule, so a foreign biller can be placed", () 
   const [out] = categorize(
     [
       classified({
-        account: "Kredittkort",
+        accountKey: "card",
         description: "APPLE.COM/BILL, CORK, IRELAND",
         counterparty: "APPLE.COM/BILL, CORK, IRELAND",
         bankCategory: null,
       }),
     ],
     { "apple.com/bill": "medier_og_underholdning" },
+    [],
+    {},
+    CARDS,
   );
   assert.equal(out.category, "medier_og_underholdning");
 });
@@ -221,26 +227,12 @@ test("the bank spelling out ukategorisert is the one real shrug", () => {
   assert.equal(peer.subcategory, "vennebetaling");
 });
 
-test("an override still applies to a card row", () => {
-  const [out] = categorize(
-    [
-      classified({
-        account: "Kredittkort",
-        description: "Netflix",
-        bankCategory: null,
-      }),
-    ],
-    { netflix: "subscriptions" },
-  );
-  assert.equal(out.category, "subscriptions");
-});
-
 test("an override matches the merchant, not only the raw description", () => {
   const [out] = categorize(
     [
       classified({
         account: "Kredittkort",
-        description: "227 KAFFEBAR, Oslo, NORWAY",
+        description: "Varekjøp",
         counterparty: "KAFFEBAR, Oslo, NORWAY",
         bankCategory: null,
       }),

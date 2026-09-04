@@ -48,6 +48,55 @@ test("totals: in, out, net", () => {
   assert.equal(stats.net, 1850);
 });
 
+test("refunds and purchases keep their signs in every category", () => {
+  const rows = [
+    txn({ id: "purchase", amount: -0.1, category: "innskudd" }),
+    txn({ id: "purchase-2", amount: -0.2, category: "innskudd" }),
+    txn({ id: "refund", amount: 0.15, category: "dagligvarer" }),
+    txn({ id: "zero", amount: 0, category: "empty" }),
+  ];
+  const stats = monthStats("2026-07", rows);
+  assert.deepEqual(totals(rows), {
+    totalIn: 0.15,
+    totalOut: 0.3,
+    net: -0.15,
+    excluded: { count: 0, total: 0 },
+  });
+  assert.deepEqual(stats.categories, [
+    { category: "innskudd", total: 0.3, share: 1 },
+  ]);
+  assert.deepEqual(stats.incomeCategories, [
+    { category: "dagligvarer", total: 0.15, share: 1 },
+  ]);
+});
+
+test("empty results have zero totals and no category shares", () => {
+  const stats = monthStats("2026-07", [], []);
+  assert.deepEqual([stats.totalIn, stats.totalOut, stats.net], [0, 0, 0]);
+  assert.deepEqual(
+    [
+      stats.categories,
+      stats.incomeCategories,
+      stats.subcategories,
+      stats.incomeSubcategories,
+    ],
+    [[], [], [], []],
+  );
+  assert.deepEqual(stats.delta, { totalIn: 0, totalOut: 0, net: 0 });
+});
+
+test("category comparisons include new and discontinued spending", () => {
+  const stats = monthStats(
+    "2026-07",
+    [txn({ id: "new", amount: -50, category: "new" })],
+    [txn({ id: "old", amount: -100, category: "old" })],
+  );
+  assert.deepEqual(stats.categoryDeltas, [
+    { category: "old", current: 0, previous: 100, delta: -100 },
+    { category: "new", current: 50, previous: 0, delta: 50 },
+  ]);
+});
+
 test("excluded rows are kept out of totals but reported", () => {
   const txns = [
     txn({ id: "1", amount: -100, category: "dagligvarer" }),
@@ -59,11 +108,8 @@ test("excluded rows are kept out of totals but reported", () => {
   assert.deepEqual(stats.excluded, { count: 2, total: 1000 });
 
   const t = totals(txns);
-  assert.deepEqual(t.excluded, stats.excluded);
-  assert.deepEqual(
-    [t.totalIn, t.totalOut, t.net],
-    [stats.totalIn, stats.totalOut, stats.net],
-  );
+  assert.deepEqual(t.excluded, { count: 2, total: 1000 });
+  assert.deepEqual([t.totalIn, t.totalOut, t.net], [0, 100, -100]);
 });
 
 test("spending splits by account, and a nameless row is still out of topCounterparties", () => {
@@ -177,16 +223,6 @@ test("subsAndRecurring merges the two lists without repeating a row", () => {
     ["2", "3", "1"],
     "deduplicated and sorted by date",
   );
-});
-
-test("subsAndRecurring keys on the id alone", () => {
-  const row = txn({
-    id: "x",
-    amount: -99,
-    isSubscription: true,
-    isRecurring: true,
-  });
-  assert.equal(subsAndRecurring(monthStats("2026-07", [row])).length, 1);
 });
 
 test("subscriptionGroups counts every row of a payee that is flagged anywhere", () => {

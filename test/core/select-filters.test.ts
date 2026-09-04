@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Filters } from "../../src/core/select.ts";
 import {
-  AXES,
   cycleFilter,
   distinctCategories,
+  distinctCountries,
   distinctMerchants,
   distinctMonths,
   distinctSubcategories,
@@ -144,16 +144,6 @@ test("the account filter is the third axis, and works either way round", () => {
     shown({ accounts: ["Brukskonto"], categories: ["reise"] }),
     [],
   );
-});
-
-test("AXES names every list filter with the field holding its exclusions", () => {
-  for (const [list, out] of Object.entries(AXES)) {
-    assert.ok(
-      Array.isArray(NO_FILTERS[list as keyof typeof AXES]),
-      `${list} is a list`,
-    );
-    assert.deepEqual(NO_FILTERS[out], [], `${out} is an empty list`);
-  }
 });
 
 test("the category filter matches the pair, so one sub under two mains stays apart", () => {
@@ -349,4 +339,28 @@ test("a meta-tap goes straight to except, and back off", () => {
     cycleFilter(except, "categories", "mat", true).categoriesOut,
     [],
   );
+});
+
+test("country filters include unknown countries and respect exclusions", () => {
+  const rows = [
+    txn({ id: "local", amount: -1, country: "Norway" }),
+    txn({ id: "foreign", amount: -1, country: "Japan" }),
+    txn({ id: "unknown", amount: -1, country: null }),
+  ];
+  const shown = (filters: Partial<Filters>) =>
+    rows
+      .filter((row) => matchesFilters(row, { ...NO_FILTERS, ...filters }))
+      .map((row) => row.id);
+  assert.deepEqual(distinctCountries([...rows, rows[0]!]), [
+    "Japan",
+    "Norway",
+    "—",
+  ]);
+  assert.deepEqual(shown({ countries: ["—"] }), ["unknown"]);
+  assert.deepEqual(shown({ countriesOut: ["Norway"] }), ["foreign", "unknown"]);
+  assert.deepEqual(
+    shown({ countries: ["Japan", "Norway"], countriesOut: ["Japan"] }),
+    ["local"],
+  );
+  assert.deepEqual(shown({ countries: ["Japan"], accounts: ["Other"] }), []);
 });
