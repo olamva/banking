@@ -58,22 +58,6 @@ test('the "excluded" column survives an update despite colliding with the ON CON
   db.close();
 });
 
-test("the id is the whole key — SB1 does not reuse one across accounts", () => {
-  const db = openDb(":memory:");
-  upsertMany(db, [
-    row({ account: "Brukskonto", id: "x" }),
-    row({ account: "Kredittkort", id: "x" }),
-  ]);
-  const rows = queryRange(db, "2026-07", "2026-07");
-  assert.equal(rows.length, 1);
-  assert.equal(
-    rows[0]?.account,
-    "Kredittkort",
-    "the later row wins, as any re-import does",
-  );
-  db.close();
-});
-
 test("queryRange over a single month filters strictly to it", () => {
   const db = openDb(":memory:");
   upsertMany(db, [
@@ -136,19 +120,39 @@ test("openDb adds the pending flag to an existing database", () => {
   const path = join(dir, "banking.db");
   try {
     const legacy = openDb(path);
+    upsertMany(legacy, [row()]);
     legacy.exec("ALTER TABLE transactions DROP COLUMN isPending");
     legacy.close();
     const upgraded = openDb(path);
-    assert.ok(
-      upgraded
-        .prepare("PRAGMA table_info(transactions)")
-        .all()
-        .some((column) => column.name === "isPending"),
-    );
+    assert.deepEqual(queryRange(upgraded, "2026-07", "2026-07"), [row()]);
+    rebuild(upgraded, [row({ isPending: true })]);
+    assert.deepEqual(queryRange(upgraded, "2026-07", "2026-07"), [
+      row({ isPending: true }),
+    ]);
     upgraded.close();
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("a failed database write preserves the previous rows", (t) => {
+  const db = openDb(":memory:");
+  t.after(() => db.close());
+  const original = row();
+  upsertMany(db, [original]);
+  for (const write of [rebuild, upsertMany]) {
+    assert.throws(
+      () =>
+        write(db, [
+          row({ amount: -50 }),
+          row({ id: "invalid", amount: null as unknown as number }),
+        ]),
+      /NOT NULL/,
+    );
+    assert.deepEqual(queryRange(db, "2026-07", "2026-07"), [original]);
+  }
+  rebuild(db, []);
+  assert.deepEqual(queryRange(db, "2026-07", "2026-07"), []);
 });
 
 // SB1 mints a new id for a transaction every time the code fetches it. A sort

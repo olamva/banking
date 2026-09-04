@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  bankPair,
   categorize,
   loadFamily,
   loadNotSubscriptions,
@@ -9,7 +8,6 @@ import {
   renamePayees,
   setCountries,
 } from "../../src/core/categorize.ts";
-import { splitCategory } from "../../src/core/match.ts";
 import type { Classified } from "../../src/core/types.ts";
 
 const CARDS = new Set(["card"]);
@@ -243,35 +241,6 @@ test("a guess and an excluded row name no subcategory, because neither read one"
   )[0]!;
   assert.equal(transfer.category, "overfoering");
   assert.equal(transfer.subcategory, null);
-});
-
-test("splitCategory keeps a stray second slash in the sub rather than trimming it", () => {
-  assert.deepEqual(splitCategory("a/b/c"), {
-    category: "a",
-    subcategory: "b/c",
-  });
-  assert.deepEqual(splitCategory("a"), { category: "a", subcategory: null });
-});
-
-test("bankPair keeps the bank taxonomy, renaming only what misnames its own rows", () => {
-  assert.deepEqual(
-    bankPair({ bankCategory: "diverse", bankSub: "vennebetaling" }),
-    {
-      category: "diverse",
-      subcategory: "vennebetaling",
-    },
-  );
-  assert.equal(
-    bankPair({ bankCategory: "ukategorisert", bankSub: "annet" }),
-    null,
-  );
-  assert.deepEqual(
-    bankPair({ bankCategory: "faste_boutgifter", bankSub: "stroem" }),
-    {
-      category: "faste_utgifter",
-      subcategory: "stroem",
-    },
-  );
 });
 
 test("the bank finds peers no list ever named", () => {

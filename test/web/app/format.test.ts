@@ -6,7 +6,6 @@ import {
   ID_FIELD,
   bankLabel,
   categoryColor,
-  categoryLabel,
   fmtDate,
   fmtNOKExact,
   rowLabel,
@@ -59,8 +58,7 @@ test("txnFields drops the fields the bank sent nothing for", () => {
 
 test("txnFields keeps the øre, unlike every summed figure", () => {
   const amount = txnFields(row).find(([name]) => name === "Amount");
-  assert.equal(amount?.[1], fmtNOKExact(-249.5));
-  assert.match(amount![1], /50/);
+  assert.equal(amount?.[1], "−249,50 kr");
 });
 
 test("txnFields drops what the caller already shows itself", () => {
@@ -139,7 +137,7 @@ test("a category nobody registered keeps the ordinary text colour", () => {
 
 test("a row with no subcategory reads as its category, never as Annet", () => {
   setLabels(buildLabels([row]));
-  assert.equal(rowLabel("ukategorisert", null), categoryLabel("ukategorisert"));
+  assert.equal(rowLabel("ukategorisert", null), "Ukategorisert");
   assert.notEqual(rowLabel("ukategorisert", null), NO_SUB);
   assert.equal(
     rowLabel("dagligvarer", "andre_dagligvarer"),

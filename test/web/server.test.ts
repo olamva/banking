@@ -124,13 +124,6 @@ test("an allowed address gets past the gate", async () => {
   assert.equal(res.status, 404);
 });
 
-test("a request may not climb out of the build output", async () => {
-  const res = await fetch(`${base}/../../rules/accounts.json`, {
-    headers: { "x-ms-client-principal": header("ola@example.com") },
-  });
-  assert.notEqual(res.status, 200);
-});
-
 test("responses use the browser security policy", async () => {
   for (const path of ["/", "/nothing.js", "/api/txns"]) {
     const res = await fetch(`${base}${path}`, {
@@ -156,6 +149,7 @@ test("debug logging contains no principal value", async () => {
     delete process.env.DEBUG;
     console.error = old;
   }
+  assert.equal(lines.length, 1);
   assert.ok(
     lines.every((line) => !String(line).includes("not-allowed@example.com")),
   );

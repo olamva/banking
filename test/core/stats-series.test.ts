@@ -7,7 +7,6 @@ import {
   monthStats,
   monthlySeries,
   spendTrend,
-  totals,
   withGaps,
   yearStats,
 } from "../../src/core/stats.ts";
@@ -186,7 +185,7 @@ test("cumulative runs the totals forward and never loses a øre over a long seri
   assert.deepEqual(cumulative([]), []);
 });
 
-test("a cumulative series ends on the same numbers as totals()", () => {
+test("daily and monthly cumulative series preserve income and spending", () => {
   const txns = [
     txn({ id: "1", amount: -100.5, date: "2026-07-01" }),
     txn({ id: "2", amount: -49.5, date: "2026-07-03" }),
@@ -199,12 +198,11 @@ test("a cumulative series ends on the same numbers as totals()", () => {
       reason: "internal transfer",
     }),
   ];
-  const sums = totals(txns);
   const last = cumulative(dailySeries(txns, "2026-07-01", "2026-07-31")).at(-1);
-  assert.equal(last?.totalOut, sums.totalOut);
-  assert.equal(last?.totalIn, sums.totalIn);
+  assert.equal(last?.totalOut, 150);
+  assert.equal(last?.totalIn, 2000);
 
-  assert.equal(cumulative(monthlySeries(txns)).at(-1)?.totalOut, sums.totalOut);
+  assert.equal(cumulative(monthlySeries(txns)).at(-1)?.totalOut, 150);
 });
 
 test("yearStats builds a monthly series and per-category totals across the year", () => {

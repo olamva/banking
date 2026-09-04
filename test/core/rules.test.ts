@@ -1,17 +1,19 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { after, test } from "node:test";
+import { after, beforeEach, test } from "node:test";
 import { diffRules, isRuleFile } from "../../src/core/ruleFiles.ts";
 
-// RULES_DIR is read when the module loads, so point it at a scratch directory
-// before the import. The real rules are never touched by this file.
 const dir = mkdtempSync(join(tmpdir(), "rules-"));
 process.env.RULES_DIR = dir;
 after(() => rmSync(dir, { recursive: true, force: true }));
 
 const rules = await import("../../src/core/rules.ts");
+beforeEach(() => {
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir);
+});
 
 const put = (file: string, value: unknown) =>
   writeFileSync(`${dir}/${file}.json`, JSON.stringify(value, null, 2));
@@ -19,75 +21,46 @@ const put = (file: string, value: unknown) =>
 const asMap = (file: "categories" | "payees" | "giro" | "labels") =>
   rules.load(file) as Record<string, string>;
 
-test("a save adds an entry and an empty history gains two versions", () => {
-  put("categories", { rema: "dagligvarer/andre_dagligvarer" });
-  rules.save({ file: "categories", key: "kiwi", value: "dagligvarer/kiwi" });
-
-  assert.deepEqual(asMap("categories"), {
-    rema: "dagligvarer/andre_dagligvarer",
-    kiwi: "dagligvarer/kiwi",
+test("rule history supports undo, redo, restore, and edits after undo", () => {
+  put("categories", { shop: "food" });
+  const first = rules.save({
+    file: "categories",
+    key: "cafe",
+    value: "dining",
   });
-  // The state before the first edit, and the state after it. Without the first
-  // one, a file edited by hand has nothing to go back to.
+  const [newest, original] = rules.versions("categories");
+  assert.equal(newest, first);
   assert.equal(rules.versions("categories").length, 2);
-});
+  assert.deepEqual(rules.readVersion("categories", first), {
+    shop: "food",
+    cafe: "dining",
+  });
+  assert.deepEqual(asMap("categories"), { shop: "food", cafe: "dining" });
 
-test("the newest version holds what the live file holds", () => {
-  const [newest] = rules.versions("categories");
-  assert.deepEqual(
-    rules.readVersion("categories", newest!),
-    asMap("categories"),
-  );
-});
-
-// Stepping back through the stack costs nothing. It moves the cursor, and it
-// writes no version.
-test("undo steps one edit back, and it adds no version", () => {
-  const before = rules.versions("categories").length;
   rules.undo("categories");
-  assert.deepEqual(asMap("categories"), {
-    rema: "dagligvarer/andre_dagligvarer",
-  });
-  assert.equal(rules.versions("categories").length, before);
-  assert.equal(
-    rules.current("categories"),
-    rules.versions("categories").at(-1),
-  );
-});
-
-test("redo steps back up the stack", () => {
+  assert.deepEqual(asMap("categories"), { shop: "food" });
+  assert.equal(rules.current("categories"), original);
+  assert.throws(() => rules.undo("categories"), /no undo left/);
   rules.redo("categories");
-  assert.deepEqual(asMap("categories"), {
-    rema: "dagligvarer/andre_dagligvarer",
-    kiwi: "dagligvarer/kiwi",
-  });
-  assert.equal(rules.current("categories"), rules.versions("categories")[0]);
+  assert.deepEqual(asMap("categories"), { shop: "food", cafe: "dining" });
   assert.throws(() => rules.redo("categories"), /no redo left/);
-});
 
-test("restore names any version, however far back, and keeps the stack", () => {
-  const before = rules.versions("categories");
-  rules.restore("categories", before.at(-1)!);
-  assert.deepEqual(asMap("categories"), {
-    rema: "dagligvarer/andre_dagligvarer",
+  const second = rules.save({
+    file: "categories",
+    key: "train",
+    value: "travel",
   });
-  assert.deepEqual(rules.versions("categories"), before);
-  assert.equal(rules.current("categories"), before.at(-1));
-});
-
-// The rule of every editor: the redo side dies the moment you type.
-test("an edit below the top of the stack drops every version above it", () => {
-  const cursor = rules.current("categories")!;
-  assert.ok(rules.versions("categories").length > 1);
-  rules.save({ file: "categories", key: "meny", value: "dagligvarer/meny" });
-  const left = rules.versions("categories");
-  assert.equal(left.length, 2);
-  assert.equal(left.at(-1), cursor);
-  assert.equal(rules.current("categories"), left[0]);
-  assert.deepEqual(asMap("categories"), {
-    rema: "dagligvarer/andre_dagligvarer",
-    meny: "dagligvarer/meny",
+  rules.restore("categories", original!);
+  assert.deepEqual(asMap("categories"), { shop: "food" });
+  assert.deepEqual(rules.versions("categories"), [second, first, original]);
+  const replacement = rules.save({
+    file: "categories",
+    key: "hotel",
+    value: "travel",
   });
+  assert.deepEqual(asMap("categories"), { shop: "food", hotel: "travel" });
+  assert.deepEqual(rules.versions("categories"), [replacement, original]);
+  assert.throws(() => rules.redo("categories"), /no redo left/);
 });
 
 test("a remove drops the entry", () => {
@@ -122,12 +95,11 @@ test("a list file takes a bare entry, and a remove drops it", () => {
 });
 
 test("a repeated entry does not double on a list", () => {
+  put("family", ["tarjei"]);
   rules.save({ file: "family", key: "tarjei" });
   assert.deepEqual(rules.load("family"), ["tarjei"]);
 });
 
-// A pattern that does not compile would break every category at the next
-// rebuild, not only its own line.
 test("a broken regex is refused before it reaches the file", () => {
   put("categories", { rema: "dagligvarer/andre_dagligvarer" });
   assert.throws(
@@ -148,8 +120,6 @@ test("an empty pattern and an empty value are both refused", () => {
   );
 });
 
-// Every rule names both levels, or the page reads it as the category with
-// "Annet" below it.
 test("a category value must name a subcategory or none at all", () => {
   assert.throws(
     () =>
@@ -160,8 +130,6 @@ test("a category value must name a subcategory or none at all", () => {
   assert.equal(asMap("categories")["kiwi"], "dagligvarer");
 });
 
-// The file name arrives in a query string, so it is the one value that could
-// name a path.
 test("only the named rule files are rule files", () => {
   assert.equal(isRuleFile("categories"), true);
   assert.equal(isRuleFile("accounts"), false);
@@ -187,22 +155,21 @@ test("undo refuses when the file has no version before this one", () => {
 });
 
 test("latest reports the newest version of every file, and 0 for none", () => {
+  const saved = rules.save({ file: "categories", key: "shop", value: "food" });
   const stamps = rules.latest();
   assert.equal(stamps["not-subscriptions"], 0);
-  assert.equal(stamps["categories"], rules.versions("categories")[0]);
+  assert.equal(stamps["categories"], saved);
 });
 
-// Two writes in one millisecond would otherwise share a file name, and one of
-// them would disappear.
-test("versions stay distinct across a burst of edits", () => {
+test("versions stay distinct across a burst of edits", (t) => {
+  t.mock.method(Date, "now", () => 1_800_000_000_000);
   put("labels", {});
   for (let i = 0; i < 20; i++)
     rules.save({ file: "labels", key: `slug_${i}`, value: `Name ${i}` });
-  const names = readdirSync(`${dir}/.history`).filter((n) =>
-    n.endsWith("-labels.json"),
-  );
-  assert.equal(new Set(names).size, names.length);
   assert.equal(rules.versions("labels").length, 21);
+  rules.undo("labels");
+  assert.equal(Object.keys(asMap("labels")).length, 19);
+  assert.equal(asMap("labels")["slug_19"], undefined);
 });
 
 test("a diff names the value on both sides of a change", () => {
@@ -226,4 +193,46 @@ test("the history says what each version changed", () => {
   // The first version holds the state before the first edit, so it changed
   // nothing.
   assert.deepEqual(first!.changes, []);
+});
+
+test("renaming a rule preserves its value and takes one history step", () => {
+  put("payees", { old: "Shop", keep: "Other" });
+  rules.save({ file: "payees", key: "new", was: "old", value: "Shop" });
+  assert.deepEqual(asMap("payees"), { keep: "Other", new: "Shop" });
+  assert.equal(rules.versions("payees").length, 2);
+  rules.undo("payees");
+  assert.deepEqual(asMap("payees"), { old: "Shop", keep: "Other" });
+  put("family", ["old", "keep"]);
+  rules.save({ file: "family", key: "new", was: "old" });
+  assert.deepEqual(rules.load("family"), ["keep", "new"]);
+  rules.undo("family");
+  assert.deepEqual(rules.load("family"), ["old", "keep"]);
+});
+
+test("an invalid group edit changes no entry or history", () => {
+  put("payees", { shop: "Shop" });
+  assert.throws(
+    () => rules.saveValues("payees", ["shop", "/(/"], "New"),
+    /not a valid regex/,
+  );
+  assert.deepEqual(asMap("payees"), { shop: "Shop" });
+  assert.deepEqual(rules.versions("payees"), []);
+});
+
+test("limited history retains the oldest visible change", () => {
+  put("payees", { shop: "Original" });
+  rules.save({ file: "payees", key: "shop", value: "First" });
+  rules.save({ file: "payees", key: "shop", value: "Second" });
+  assert.deepEqual(
+    rules.history("payees", 1).map((v) => v.changes),
+    [[{ key: "shop", from: "First", to: "Second" }]],
+  );
+});
+
+test("a save preserves an external edit as an undo target", () => {
+  rules.save({ file: "payees", key: "shop", value: "First" });
+  put("payees", { shop: "External" });
+  rules.save({ file: "payees", key: "shop", value: "Second" });
+  rules.undo("payees");
+  assert.deepEqual(asMap("payees"), { shop: "External" });
 });

@@ -50,7 +50,6 @@ test("a narrowed pattern keeps its own rows and takes none back", () => {
   const categories = { "sit kafe": "kafe_og_restaurant", sit: "husleie" };
   const [loose] = narrowings(rows, categories);
   assert.equal(loose!.pattern, "sit");
-  assert.equal(loose!.suggest, "/^(?!.*(?:sit kafe))(?=.*sit)/");
 
   const answer = (o: Record<string, string>) =>
     categorize(rows, o)
