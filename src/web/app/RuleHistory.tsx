@@ -64,8 +64,8 @@ export const History = ({
   const ahead = Math.max(here, 0);
 
   return (
-    <section className="mt-4 border-t border-line pt-3 lg:sticky lg:top-(--header-bottom) lg:mt-0 lg:border-t-0 lg:pt-0">
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+    <section className="mt-4 flex max-h-115 flex-col border-t border-line pt-3 lg:sticky lg:top-(--header-bottom) lg:mt-0 lg:max-h-[calc(100dvh-var(--header-bottom)-1.5rem)] lg:border-t-0 lg:pt-0">
+      <div className="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2">
         <h3 className="text-[11px] font-medium tracking-wide text-ink-soft uppercase">
           History
           <span className="ml-1.5 text-ink-muted normal-case">
@@ -96,7 +96,7 @@ export const History = ({
         </div>
       </div>
       {ahead > 0 && (
-        <p className="mb-2 flex items-start gap-1.5 text-[11px] text-ink-muted">
+        <p className="mb-2 flex shrink-0 items-start gap-1.5 text-[11px] text-ink-muted">
           <Icon
             aria-hidden
             icon={InfoIcon}
@@ -106,7 +106,7 @@ export const History = ({
           The next edit drops the {ahead} version(s) above this point.
         </p>
       )}
-      <ol>
+      <ol className="min-h-0 flex-1 overflow-y-auto pr-1">
         {versions.map(({ at: version, changes }, i) => (
           <li
             key={version}
