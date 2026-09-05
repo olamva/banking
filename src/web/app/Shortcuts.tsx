@@ -25,6 +25,25 @@ const typing = (t: EventTarget | null) =>
 export const keyboardFocused = (el: Element | null | undefined) =>
   el?.matches(":focus-visible") ?? false;
 
+// The arrows of a tablist move the selection and the focus together. Both
+// tablists on the page wrap round, and both find their buttons the same way.
+export const rovingTab = <T,>(
+  e: React.KeyboardEvent<HTMLButtonElement>,
+  items: T[],
+  at: number,
+  onPick: (item: T) => void,
+): void => {
+  const by = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+  if (!by || !keyboardFocused(e.currentTarget)) return;
+  e.preventDefault();
+  const next = (at + by + items.length) % items.length;
+  onPick(items[next]!);
+  e.currentTarget
+    .closest("[role=tablist]")
+    ?.querySelectorAll<HTMLButtonElement>("[role=tab]")
+    [next]?.focus({ preventScroll: true });
+};
+
 // A tablist owns its arrows: the focused tab moves the selection and the focus
 // together. A page shortcut on the same key would run beside it, so the two
 // would both fire on one press. Only the arrows are held back, because a tab

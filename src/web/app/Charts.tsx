@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { type CategoryDelta } from "../../core/stats.ts";
-import { fmtNOK, useWidth } from "./format.ts";
+import { Caret, Empty } from "./Cards.tsx";
+import { fmtNOK, toggled, useWidth } from "./format.ts";
 import { ExpandIcon, Icon } from "./icons.ts";
 
 interface TipState {
@@ -35,14 +36,6 @@ export const useTooltip = () => {
 
   return { bind, show, hide, node };
 };
-
-interface EmptyProps {
-  children: ReactNode;
-}
-
-export const Empty = ({ children }: EmptyProps) => (
-  <div className="py-10 text-center text-ink-muted">{children}</div>
-);
 
 // SVG has no text-overflow. A character in 11px system-ui is about 5.6px wide.
 const ellipsis = (s: string, px: number) => {
@@ -88,12 +81,7 @@ export const HorizontalBars = ({
   const visible = showAll ? items : items.slice(0, max);
   const hidden = items.length - visible.length;
 
-  const toggle = (key: string) =>
-    setOpen((prev) => {
-      const next = new Set(prev);
-      if (!next.delete(key)) next.add(key);
-      return next;
-    });
+  const toggle = (key: string) => setOpen((prev) => toggled(prev, key));
 
   const bar = (
     item: BarItem,
@@ -166,12 +154,7 @@ export const HorizontalBars = ({
                     aria-label={`${expanded ? "Hide" : "Show"} ${item.label} breakdown`}
                     className="relative mr-0.5 flex h-6.5 w-3 shrink-0 items-center justify-center text-ink-soft before:absolute before:-inset-2 before:content-[''] hover:text-ink"
                   >
-                    <Icon
-                      aria-hidden
-                      icon={ExpandIcon}
-                      size={12}
-                      className={`transition-transform ${expanded ? "rotate-90" : ""}`}
-                    />
+                    <Caret open={expanded} />
                   </button>
                 ) : (
                   <span className="mr-0.5 w-3 shrink-0" />
@@ -202,7 +185,6 @@ export const HorizontalBars = ({
           className="mt-1 flex h-6.5 w-full items-center justify-center gap-1 rounded-md text-[11px] text-ink-muted hover:bg-hover hover:text-ink"
         >
           <Icon
-            aria-hidden
             icon={ExpandIcon}
             size={12}
             className={`transition-transform ${showAll ? "-rotate-90" : "rotate-90"}`}

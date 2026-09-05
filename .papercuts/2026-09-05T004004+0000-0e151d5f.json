@@ -1,0 +1,14 @@
+{
+  "id": "0e151d5f",
+  "ts": "2026-09-05T00:40:04+00:00",
+  "text": "oxlint has no ignore config, so 'pnpm lint' walks any build output dir in the worktree and drowns real findings in warnings from minified JS",
+  "tags": [
+    "lint",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "opus-5",
+  "session": "69118e2e",
+  "where": "package.json",
+  "branch": "worktree-slim-bundle"
+}

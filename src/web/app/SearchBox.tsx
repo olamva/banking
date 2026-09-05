@@ -34,7 +34,6 @@ export const SearchBox = ({
   return (
     <div className="relative">
       <Icon
-        aria-hidden
         icon={SearchIcon}
         size={17}
         className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-muted"

@@ -130,6 +130,12 @@ export const monthLabel = (month: string): string => {
 export const pointLabel = (at: string): string =>
   at.length > 7 ? `${Number(at.slice(8))}. ${monthLabel(at)}` : monthLabel(at);
 
+export const toggled = <T>(set: ReadonlySet<T>, value: T): Set<T> => {
+  const next = new Set(set);
+  if (!next.delete(value)) next.add(value);
+  return next;
+};
+
 export const niceStep = (maxVal: number): number => {
   if (maxVal <= 0) return 1;
   const rough = maxVal / 4;

@@ -5,10 +5,12 @@ import {
   monthLabel,
   niceStep,
   pointLabel,
+  toggled,
   useWidth,
 } from "./format.ts";
+import { Empty } from "./Cards.tsx";
 import { ChartLegend } from "./ChartLegend.tsx";
-import { Empty, useTooltip } from "./Charts.tsx";
+import { useTooltip } from "./Charts.tsx";
 const runsOf = <T,>(dense: (T | null)[]): { m: T; i: number }[][] => {
   const runs: { m: T; i: number }[][] = [];
   dense.forEach((m, i) => {
@@ -91,12 +93,7 @@ export const SpendLines = ({
 
   const [hidden, setHidden] = useState<ReadonlySet<Mark>>(new Set());
   const shows = (m: Mark) => !hidden.has(m);
-  const toggle = (m: Mark) =>
-    setHidden((prev) => {
-      const next = new Set(prev);
-      if (!next.delete(m)) next.add(m);
-      return next;
-    });
+  const toggle = (m: Mark) => setHidden((prev) => toggled(prev, m));
 
   const multiYear = new Set(series.map((p) => p.at.slice(0, 4))).size > 1;
   const height = multiYear ? 234 : 220;

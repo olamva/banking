@@ -7,9 +7,10 @@ import {
   type Rules,
 } from "../../core/ruleFiles.ts";
 import type { Categorized } from "../../core/types.ts";
+import { Empty, Loading } from "./Cards.tsx";
 import { SearchBox } from "./SearchBox.tsx";
 import type { RulesApi } from "./data.ts";
-import { AddedIcon, BackIcon, CloseIcon, Icon, LoadingIcon } from "./icons.ts";
+import { AddedIcon, BackIcon, Icon } from "./icons.ts";
 import { Modal } from "./Modal.tsx";
 
 export const RULE_LABEL: Record<RuleFile, string> = {
@@ -53,9 +54,13 @@ import {
   KEY_LABEL,
   MatchNote,
   PatternField,
+  RemoveButton,
   VALUE_LABEL,
   rowsFor,
 } from "./RuleFields.tsx";
+const GROUP_FIELD =
+  "min-w-20 max-w-full flex-1 bg-transparent px-2 py-1 font-mono text-xs text-ink outline-none";
+
 const GROUPED = new Set<RuleFile>([
   "categories",
   "giro",
@@ -125,17 +130,14 @@ const GroupEntry = ({ file, value, keys, pairs, rules }: GroupEntryProps) => {
                 if (changed && changed !== key)
                   rules.save(file, changed, value, key);
               }}
-              className="min-w-20 max-w-full flex-1 bg-transparent px-2 py-1 font-mono text-xs text-ink outline-none"
+              className={GROUP_FIELD}
             />
-            <button
-              type="button"
+            <RemoveButton
               onClick={() => rules.remove(file, key)}
               disabled={rules.busy}
-              aria-label={`Remove ${key}`}
-              className="relative shrink-0 rounded p-1 text-ink-muted before:absolute before:-inset-2 hover:text-ink disabled:opacity-60"
-            >
-              <Icon aria-hidden icon={CloseIcon} size={12} />
-            </button>
+              label={key}
+              size={12}
+            />
           </span>
         ))}
         {adding ? (
@@ -160,7 +162,7 @@ const GroupEntry = ({ file, value, keys, pairs, rules }: GroupEntryProps) => {
               }}
               placeholder={KEY_LABEL[file]}
               aria-label={`New ${KEY_LABEL[file]}`}
-              className="min-w-20 max-w-full flex-1 bg-transparent px-2 py-1 font-mono text-xs text-ink outline-none"
+              className={GROUP_FIELD}
             />
             <button
               type="submit"
@@ -182,7 +184,7 @@ const GroupEntry = ({ file, value, keys, pairs, rules }: GroupEntryProps) => {
             title={`Add ${KEY_LABEL[file]}`}
             className="relative rounded-md border border-dashed border-line px-2 py-1.5 text-ink-muted before:absolute before:-inset-1 hover:border-series-1 hover:text-ink"
           >
-            <Icon aria-hidden icon={AddedIcon} size={12} />
+            <Icon icon={AddedIcon} size={12} />
           </button>
         )}
       </div>
@@ -242,15 +244,7 @@ export const RulesView = ({
       <p className="mb-3 text-sm text-ink-muted">{RULE_NOTE[file]}</p>
 
       {data === null ? (
-        <div className="flex items-center justify-center gap-2 py-10 text-ink-muted">
-          <Icon
-            aria-hidden
-            icon={LoadingIcon}
-            size={16}
-            className="animate-spin"
-          />
-          Loading…
-        </div>
+        <Loading />
       ) : (
         <div className="lg:grid lg:grid-cols-[minmax(min(460px,100%),1fr)_20rem] lg:items-start lg:gap-6">
           <div className="min-w-0">
@@ -269,11 +263,11 @@ export const RulesView = ({
             />
 
             {!hasMatches ? (
-              <div className="py-8 text-center text-ink-muted">
+              <Empty>
                 {entries.length === 0
                   ? "No rules in this file yet."
                   : "No rule matches that."}
-              </div>
+              </Empty>
             ) : (
               <>
                 <div
@@ -414,7 +408,7 @@ export const FileDialog = ({
             onClick={onClose}
             className={`${BUTTON} flex items-center gap-1.5`}
           >
-            <Icon aria-hidden icon={BackIcon} size={14} />
+            <Icon icon={BackIcon} size={14} />
             Back
           </button>
           <button

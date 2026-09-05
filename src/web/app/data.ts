@@ -10,6 +10,15 @@ import type { Categorized } from "../../core/types.ts";
 
 type Payload = { txns: Categorized[]; names: Names };
 
+const msg = (e: unknown): string =>
+  e instanceof Error ? e.message : String(e);
+
+const getJson = async <T>(url: string, init?: RequestInit): Promise<T> => {
+  const r = await fetch(url, init);
+  if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
+  return (await r.json()) as T;
+};
+
 export type Load =
   | { status: "loading" }
   | { status: "error"; message: string }
@@ -21,23 +30,14 @@ export const useTransactions = (): [Load, () => void] => {
 
   useEffect(() => {
     let live = true;
-    fetch("/api/txns")
-      .then(async (r) => {
-        if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
-        return (await r.json()) as Payload;
-      })
+    getJson<Payload>("/api/txns")
       .then(
         ({ txns, names }) =>
           live &&
           setLoad({ status: "ready", txns, labels: buildLabels(txns, names) }),
       )
       .catch(
-        (e: unknown) =>
-          live &&
-          setLoad({
-            status: "error",
-            message: e instanceof Error ? e.message : String(e),
-          }),
+        (e: unknown) => live && setLoad({ status: "error", message: msg(e) }),
       );
     return () => {
       live = false;
@@ -87,7 +87,7 @@ export const useRefresh = (onDone: () => void): Refresh => {
       })
       .catch((e: unknown) => {
         setBad(true);
-        setNote(e instanceof Error ? e.message : String(e));
+        setNote(msg(e));
       })
       .finally(() => setBusy(false));
   };
@@ -140,13 +140,16 @@ const applyChanges = (
   return next;
 };
 
+export const versionAt = (data: RulesData, file: RuleFile): number =>
+  data.history[file].findIndex(({ at }) => at === data.at[file]);
+
 export const moveRules = (
   data: RulesData,
   file: RuleFile,
   target: number,
 ): RulesData => {
   const versions = data.history[file];
-  const from = versions.findIndex(({ at }) => at === data.at[file]);
+  const from = versionAt(data, file);
   const to = versions.findIndex(({ at }) => at === target);
   if (from < 0 || to < 0) return data;
   let rules = data.files[file];
@@ -195,19 +198,15 @@ export const useRules = (onRebuilt: () => void): RulesApi => {
   const queue = useRef(Promise.resolve());
   const pending = useRef(0);
 
-  const read = () =>
-    fetch("/api/rules")
-      .then(async (r) => {
-        if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
-        return (await r.json()) as RulesData;
-      })
-      .then(setData);
+  const fail = (e: unknown) => {
+    setBad(true);
+    setNote(msg(e));
+  };
+
+  const read = () => getJson<RulesData>("/api/rules").then(setData);
 
   useEffect(() => {
-    read().catch((e: unknown) => {
-      setBad(true);
-      setNote(e instanceof Error ? e.message : String(e));
-    });
+    read().catch(fail);
   }, []);
 
   const run = (
@@ -226,18 +225,11 @@ export const useRules = (onRebuilt: () => void): RulesApi => {
         setNote(`${said} ${String(body["rows"])} rows rebuilt.`);
         onRebuilt();
       })
-      .catch((e: unknown) => {
-        setBad(true);
-        setNote(e instanceof Error ? e.message : String(e));
-      })
+      .catch(fail)
       .finally(() => {
         pending.current -= 1;
         setBusy(pending.current > 0);
-        if (pending.current === 0)
-          read().catch((e: unknown) => {
-            setBad(true);
-            setNote(e instanceof Error ? e.message : String(e));
-          });
+        if (pending.current === 0) read().catch(fail);
       });
   };
 
@@ -273,16 +265,12 @@ export const useRules = (onRebuilt: () => void): RulesApi => {
       ),
     undo: (file) =>
       run(rulesUrl("undo", { file }), "Undone.", (data) => {
-        const versions = data.history[file];
-        const here = versions.findIndex(({ at }) => at === data.at[file]);
-        const target = versions[here + 1]?.at;
+        const target = data.history[file][versionAt(data, file) + 1]?.at;
         return target === undefined ? data : moveRules(data, file, target);
       }),
     redo: (file) =>
       run(rulesUrl("redo", { file }), "Redone.", (data) => {
-        const versions = data.history[file];
-        const here = versions.findIndex(({ at }) => at === data.at[file]);
-        const target = versions[here - 1]?.at;
+        const target = data.history[file][versionAt(data, file) - 1]?.at;
         return target === undefined ? data : moveRules(data, file, target);
       }),
     restore: (file, at) =>

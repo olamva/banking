@@ -2,14 +2,58 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { fmtNOK, fmtNOKExact, fmtPct } from "./format.ts";
 import {
   DownIcon,
+  ExpandIcon,
   FlatIcon,
   Icon,
+  LoadingIcon,
   SortAscIcon,
   SortDescIcon,
   SortableIcon,
   UpIcon,
   type IconSvgElement,
 } from "./icons.ts";
+
+export const BUTTON =
+  "shrink-0 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-ink-soft disabled:opacity-60";
+
+// The picked half of a segmented control, and the rest of it.
+export const PILL = (on: boolean): string =>
+  on ? "bg-series-1 text-white" : "bg-page text-ink-soft";
+
+export const Empty = ({ children }: { children: ReactNode }) => (
+  <div className="py-10 text-center text-ink-muted">{children}</div>
+);
+
+interface NoteProps {
+  icon: IconSvgElement;
+  className?: string;
+  children: ReactNode;
+}
+
+export const Note = ({ icon, className = "", children }: NoteProps) => (
+  <p
+    className={`flex items-start gap-1.5 text-[11px] text-ink-muted ${className}`}
+  >
+    <Icon icon={icon} size={12} className="mt-px shrink-0" />
+    <span>{children}</span>
+  </p>
+);
+
+// Points right when shut and down when open.
+export const Caret = ({ open }: { open: boolean }) => (
+  <Icon
+    icon={ExpandIcon}
+    size={12}
+    className={`transition-transform ${open ? "rotate-90" : ""}`}
+  />
+);
+
+export const Loading = () => (
+  <div className="flex items-center justify-center gap-2 py-10 text-ink-muted">
+    <Icon icon={LoadingIcon} size={16} className="animate-spin" />
+    Loading…
+  </div>
+);
 
 interface CardProps {
   title: string;
@@ -22,12 +66,7 @@ export const Card = ({ title, icon, action, children }: CardProps) => (
   <section className="flex min-w-0 flex-col">
     <h2 className="mb-2.5 flex items-center gap-1.5 text-sm font-semibold">
       {icon && (
-        <Icon
-          aria-hidden
-          icon={icon}
-          size={15}
-          className="shrink-0 text-ink-soft"
-        />
+        <Icon icon={icon} size={15} className="shrink-0 text-ink-soft" />
       )}
       {title}
       {action && <span className="ml-auto font-normal">{action}</span>}
@@ -74,6 +113,7 @@ export const StatTile = ({ label, value, delta, vs, sub }: StatTileProps) => (
       >
         {/* Labelled, not decorative: direction is otherwise only in the colour. */}
         <Icon
+          aria-hidden={false}
           role="img"
           aria-label={
             delta.raw > 0 ? "up" : delta.raw < 0 ? "down" : "unchanged"
@@ -259,7 +299,6 @@ export const DataTable = ({
                     {/* Always shown, so a sortable column looks sortable before anyone hovers it.
                       Decorative — `aria-sort` on the `th` above says the same thing. */}
                     <Icon
-                      aria-hidden
                       icon={
                         c.sort === "asc"
                           ? SortAscIcon

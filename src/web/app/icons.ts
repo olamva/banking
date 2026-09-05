@@ -1,5 +1,12 @@
-export { HugeiconsIcon as Icon } from "@hugeicons/react";
+import { createElement } from "react";
+import { HugeiconsIcon } from "@hugeicons/react";
+
 export type { IconSvgElement } from "@hugeicons/react";
+
+// Decorative unless a caller says otherwise. Every icon on this page sits
+// beside its own text, so `aria-hidden` was on all but one of them.
+export const Icon = (props: React.ComponentProps<typeof HugeiconsIcon>) =>
+  createElement(HugeiconsIcon, { "aria-hidden": true, ...props });
 
 export { default as DownIcon } from "@hugeicons/core-free-icons/ArrowDown02Icon";
 export { default as FlatIcon } from "@hugeicons/core-free-icons/ArrowRight02Icon";

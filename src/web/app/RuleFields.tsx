@@ -7,7 +7,7 @@ import {
 } from "../../core/ruleFiles.ts";
 import { merchantOf } from "../../core/select.ts";
 import type { Categorized } from "../../core/types.ts";
-import { AMOUNT_SIZE_EXACT, DataTable } from "./Cards.tsx";
+import { AMOUNT_SIZE_EXACT, BUTTON, DataTable } from "./Cards.tsx";
 import type { RulesApi } from "./data.ts";
 import {
   categoryColor,
@@ -54,8 +54,31 @@ export const FIELD =
 export const CELL =
   "min-w-0 rounded-md border border-transparent bg-transparent px-2 py-1 text-[13px] text-ink hover:border-line focus:border-line focus:bg-page";
 
-export const BUTTON =
-  "shrink-0 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-ink-soft disabled:opacity-60";
+export { BUTTON } from "./Cards.tsx";
+
+interface RemoveButtonProps {
+  onClick: () => void;
+  disabled: boolean;
+  label: string;
+  size: number;
+}
+
+export const RemoveButton = ({
+  onClick,
+  disabled,
+  label,
+  size,
+}: RemoveButtonProps) => (
+  <button
+    type="button"
+    onClick={onClick}
+    disabled={disabled}
+    aria-label={`Remove ${label}`}
+    className="relative shrink-0 rounded p-1 text-ink-muted before:absolute before:-inset-2 hover:bg-hover hover:text-ink disabled:opacity-60"
+  >
+    <Icon icon={CloseIcon} size={size} />
+  </button>
+);
 
 // A pattern is longer than its box, and an input hides the rest of it behind a
 // sideways scroll. A textarea wraps, and `field-sizing: content` gives it the
@@ -175,7 +198,6 @@ export const MatchNote = ({ pattern, txns, haystacks }: MatchNoteProps) => {
     >
       <div className="flex items-start gap-1.5 text-[11px]">
         <Icon
-          aria-hidden
           icon={loading ? LoadingIcon : result?.error ? ErrorIcon : InfoIcon}
           size={12}
           className={`mt-px shrink-0 ${loading ? "animate-spin" : ""}`}
@@ -272,7 +294,6 @@ export const CategoryInput = ({
         className={`${className} w-full pr-7`}
       />
       <Icon
-        aria-hidden
         icon={DropdownIcon}
         size={14}
         className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 text-ink-muted"
@@ -341,15 +362,12 @@ export const Entry = ({ file, entryKey, value, rules }: EntryProps) => (
         className={`${CELL} flex-1 basis-40 text-ink-soft`}
       />
     )}
-    <button
-      type="button"
+    <RemoveButton
       onClick={() => rules.remove(file, entryKey)}
       disabled={rules.busy}
-      aria-label={`Remove ${entryKey}`}
-      className="relative shrink-0 rounded p-1 text-ink-muted before:absolute before:-inset-2 hover:bg-hover hover:text-ink disabled:opacity-60"
-    >
-      <Icon aria-hidden icon={CloseIcon} size={14} />
-    </button>
+      label={entryKey}
+      size={14}
+    />
   </li>
 );
 

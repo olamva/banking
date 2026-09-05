@@ -29,7 +29,7 @@ import { totals } from "../../core/stats.ts";
 import type { Categorized } from "../../core/types.ts";
 import { LoadNote, Toolbar } from "./AppToolbar.tsx";
 import { StatTile } from "./Cards.tsx";
-import { Dashboard, ExcludedNote, pick } from "./Dashboard.tsx";
+import { CARD_GRID, Dashboard, ExcludedNote, pick } from "./Dashboard.tsx";
 import {
   THEMES,
   readTheme,
@@ -54,8 +54,9 @@ import { ShortcutsDialog, useShortcuts, type Shortcut } from "./Shortcuts.tsx";
 import { TransactionsCard } from "./Transactions.tsx";
 import { GRAINS, readUrl, writeUrl, type Grain } from "./url.ts";
 
-const CARD_GRID =
-  "grid grid-cols-[repeat(auto-fit,minmax(min(460px,100%),1fr))] gap-4 [&>*:last-child:nth-child(odd)]:col-span-full";
+// A picked value stays on the list after a filter takes it out of the period.
+const withPicked = (offered: string[], picked: string[]): string[] =>
+  [...new Set([...offered, ...picked])].sort((a, b) => a.localeCompare(b));
 
 type SetFilters = Dispatch<SetStateAction<Filters>>;
 interface TransactionsViewProps {
@@ -348,18 +349,12 @@ export const App = () => {
     [inPeriod, filters.categories],
   );
   const merchants = useMemo(
-    () =>
-      [...new Set([...distinctMerchants(inPeriod), ...filters.merchants])].sort(
-        (a, b) => a.localeCompare(b),
-      ),
+    () => withPicked(distinctMerchants(inPeriod), filters.merchants),
     [inPeriod, filters.merchants],
   );
   const people = useMemo(() => personMerchants(inPeriod), [inPeriod]);
   const accounts = useMemo(
-    () =>
-      [...new Set([...distinctAccounts(inPeriod), ...filters.accounts])].sort(
-        (a, b) => a.localeCompare(b),
-      ),
+    () => withPicked(distinctAccounts(inPeriod), filters.accounts),
     [inPeriod, filters.accounts],
   );
   const countries = useMemo(() => {

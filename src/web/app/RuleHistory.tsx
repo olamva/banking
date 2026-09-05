@@ -1,5 +1,6 @@
 import type { RuleChange, RuleFile } from "../../core/ruleFiles.ts";
-import type { RulesApi } from "./data.ts";
+import { Note } from "./Cards.tsx";
+import { versionAt, type RulesApi } from "./data.ts";
 import {
   AddedIcon,
   ChangedIcon,
@@ -27,7 +28,6 @@ const Change = ({ change: { key, from, to } }: { change: RuleChange }) => {
   return (
     <li className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-[11px]">
       <Icon
-        aria-hidden
         icon={gone ? RemovedIcon : from === undefined ? AddedIcon : ChangedIcon}
         size={11}
         className={`shrink-0 self-center ${gone ? "text-critical" : "text-series-1"}`}
@@ -54,13 +54,14 @@ export const History = ({
   file: RuleFile;
   rules: RulesApi;
 }) => {
-  const versions = rules.data?.history[file] ?? [];
-  const at = rules.data?.at[file] ?? null;
-  if (versions.length === 0) return null;
+  const data = rules.data;
+  const versions = data?.history[file] ?? [];
+  const at = data?.at[file] ?? null;
+  if (!data || versions.length === 0) return null;
 
   // A live file that matches no version reads as -1, so undo steps to the
   // newest version and redo has nowhere to go.
-  const here = versions.findIndex((v) => v.at === at);
+  const here = versionAt(data, file);
   const ahead = Math.max(here, 0);
 
   return (
@@ -81,7 +82,7 @@ export const History = ({
             title="Undo"
             className={ICON_BUTTON}
           >
-            <Icon aria-hidden icon={UndoIcon} size={14} />
+            <Icon icon={UndoIcon} size={14} />
           </button>
           <button
             type="button"
@@ -91,20 +92,14 @@ export const History = ({
             title="Redo"
             className={ICON_BUTTON}
           >
-            <Icon aria-hidden icon={RedoIcon} size={14} />
+            <Icon icon={RedoIcon} size={14} />
           </button>
         </div>
       </div>
       {ahead > 0 && (
-        <p className="mb-2 flex shrink-0 items-start gap-1.5 text-[11px] text-ink-muted">
-          <Icon
-            aria-hidden
-            icon={InfoIcon}
-            size={12}
-            className="mt-px shrink-0"
-          />
+        <Note icon={InfoIcon} className="mb-2 shrink-0">
           The next edit drops the {ahead} version(s) above this point.
-        </p>
+        </Note>
       )}
       <ol className="min-h-0 flex-1 overflow-y-auto pr-1">
         {versions.map(({ at: version, changes }, i) => (
@@ -143,7 +138,7 @@ export const History = ({
                 title="Go to this version"
                 className={ICON_BUTTON}
               >
-                <Icon aria-hidden icon={GoToVersionIcon} size={14} />
+                <Icon icon={GoToVersionIcon} size={14} />
               </button>
             )}
           </li>
