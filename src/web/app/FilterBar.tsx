@@ -1,11 +1,11 @@
 import { useRef, useState, type ReactNode } from "react";
 import type { Axis, Filters, PeriodKind } from "../../core/select.ts";
-import { AXES, cycleFilter, NO_COUNTRY } from "../../core/select.ts";
-import { Picker, useDismiss } from "./FilterPicker.tsx";
+import { axisPairs, cycleFilter, NO_COUNTRY } from "../../core/select.ts";
+import { PILL } from "./Cards.tsx";
+import { CONTROL, Menu, PANEL, Picker } from "./FilterPicker.tsx";
 import { FilterSummary } from "./FilterSummary.tsx";
 import { pairLabel, treeLabel } from "./format.ts";
-import { DropdownIcon, Icon } from "./icons.ts";
-import { keyboardFocused } from "./Shortcuts.tsx";
+import { rovingTab } from "./Shortcuts.tsx";
 
 export type View = "dashboard" | "transactions" | "rules";
 
@@ -35,9 +35,6 @@ interface FilterBarProps {
   filters: Filters;
   onFilters: (filters: Filters) => void;
 }
-
-const CONTROL =
-  "rounded-md border border-line bg-page px-2 py-1.5 text-[13px] text-ink";
 
 // A phone gives each control of a group an equal share of one line, because
 // none of them needs the whole width. Above `sm` the group is only the gap
@@ -85,7 +82,6 @@ const PeriodMenu = ({
   onPeriod,
 }: PeriodMenuProps) => {
   const menu = useRef<HTMLDetailsElement>(null);
-  useDismiss(menu);
   const [looking, setLooking] = useState<string | null>(null);
 
   const inView = kind === "month" || kind === "year" ? period.slice(0, 4) : "";
@@ -113,25 +109,14 @@ const PeriodMenu = ({
   const ON = "bg-series-1 text-white hover:bg-series-1";
 
   return (
-    <details
+    <Menu
       ref={menu}
-      className="group relative"
+      label={label}
       onToggle={(e) => {
         if (!e.currentTarget.open) setLooking(null);
       }}
     >
-      <summary
-        className={`${CONTROL} flex list-none items-center gap-1.5 marker:content-none`}
-      >
-        {label}
-        <Icon
-          aria-hidden
-          icon={DropdownIcon}
-          size={14}
-          className="shrink-0 text-ink-muted transition-transform group-open:rotate-180"
-        />
-      </summary>
-      <div className="absolute left-0 z-20 mt-1 w-72 rounded-md border border-line bg-surface p-1.5 shadow-lg">
+      <div className={`absolute left-0 z-20 mt-1 w-72 ${PANEL}`}>
         {/* The two periods that sit inside no year, above the ones that do. */}
         <div className="mb-1.5 flex gap-1 border-b border-line pb-1.5">
           <button
@@ -201,7 +186,7 @@ const PeriodMenu = ({
           </div>
         </div>
       </div>
-    </details>
+    </Menu>
   );
 };
 
@@ -248,7 +233,7 @@ export const FilterBar = ({
         ? "No country"
         : value;
 
-  const picked = (Object.entries(AXES) as [Axis, (typeof AXES)[Axis]][]).reduce(
+  const picked = axisPairs().reduce(
     (n, [key, outKey]) => n + filters[key].length + filters[outKey].length,
     0,
   );
@@ -271,18 +256,8 @@ export const FilterBar = ({
           aria-selected={view === v}
           tabIndex={view === v ? 0 : -1}
           onClick={() => onView(v)}
-          onKeyDown={(e) => {
-            const by =
-              e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
-            if (!by || !keyboardFocused(e.currentTarget)) return;
-            e.preventDefault();
-            const next = (i + by + VIEWS.length) % VIEWS.length;
-            onView(VIEWS[next]!);
-            e.currentTarget.parentElement
-              ?.querySelectorAll<HTMLButtonElement>("[role=tab]")
-              [next]?.focus({ preventScroll: true });
-          }}
-          className={`px-2 py-1.5 text-[13px] capitalize sm:px-3 ${view === v ? "bg-series-1 text-white" : "bg-page text-ink-soft"}`}
+          onKeyDown={(e) => rovingTab(e, VIEWS, i, onView)}
+          className={`px-2 py-1.5 text-[13px] capitalize sm:px-3 ${PILL(view === v)}`}
         >
           {v}
         </button>

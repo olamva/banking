@@ -1,12 +1,14 @@
-import { useEffect, useRef, useState } from "react";
-import { DropdownIcon, ExpandIcon, Icon, SearchIcon } from "./icons.ts";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Caret, PILL } from "./Cards.tsx";
+import { toggled } from "./format.ts";
+import { DropdownIcon, Icon, SearchIcon } from "./icons.ts";
 
-const CONTROL =
+export const CONTROL =
   "rounded-md border border-line bg-page px-2 py-1.5 text-[13px] text-ink";
 
-export const useDismiss = (
-  menu: React.RefObject<HTMLDetailsElement | null>,
-) => {
+export const PANEL = "rounded-md border border-line bg-surface p-1.5 shadow-lg";
+
+const useDismiss = (menu: React.RefObject<HTMLDetailsElement | null>) => {
   useEffect(() => {
     const close = (e: Event) => {
       const el = menu.current;
@@ -22,6 +24,50 @@ export const useDismiss = (
       document.removeEventListener("pointerdown", close);
     };
   }, [menu]);
+};
+
+interface MenuProps {
+  label: ReactNode;
+  ref?: React.RefObject<HTMLDetailsElement | null>;
+  className?: string;
+  summaryClassName?: string;
+  onToggle?: (e: React.SyntheticEvent<HTMLDetailsElement>) => void;
+  children: ReactNode;
+}
+
+// Every dropdown on the bar: the trigger, the caret and the dismiss handler.
+export const Menu = ({
+  label,
+  ref,
+  className = "",
+  summaryClassName = "",
+  onToggle,
+  children,
+}: MenuProps) => {
+  const own = useRef<HTMLDetailsElement>(null);
+  const menu = ref ?? own;
+  useDismiss(menu);
+
+  return (
+    <details
+      ref={menu}
+      className={`group relative ${className}`}
+      onToggle={onToggle}
+    >
+      {/* The caret is the only thing saying this opens rather than toggles. */}
+      <summary
+        className={`${CONTROL} flex list-none items-center gap-1.5 marker:content-none ${summaryClassName}`}
+      >
+        {label}
+        <Icon
+          icon={DropdownIcon}
+          size={14}
+          className="shrink-0 text-ink-muted transition-transform group-open:rotate-180"
+        />
+      </summary>
+      {children}
+    </details>
+  );
 };
 
 interface PickerProps {
@@ -63,11 +109,9 @@ export const Picker = ({
   const [limit, setLimit] = useState(PAGE);
   const on = (v: string) => picked.includes(v) || excluded.includes(v);
 
-  const menu = useRef<HTMLDetailsElement>(null);
   const reset = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [open, setOpen] = useState(false);
   const [pinned, setPinned] = useState<readonly string[]>([]);
-  useDismiss(menu);
   useEffect(() => () => clearTimeout(reset.current), []);
 
   const q = query.trim().toLowerCase();
@@ -121,14 +165,9 @@ export const Picker = ({
 
   const at = active === null ? -1 : Math.min(active, rows.length - 1);
 
-  const toggleOpen = (o: string) =>
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (!next.delete(o)) next.add(o);
-      return next;
-    });
+  const toggleOpen = (o: string) => setExpanded((prev) => toggled(prev, o));
 
-  const toggled = (e: React.SyntheticEvent<HTMLDetailsElement>) => {
+  const onOpenChange = (e: React.SyntheticEvent<HTMLDetailsElement>) => {
     clearTimeout(reset.current);
     setOpen(e.currentTarget.open);
     if (e.currentTarget.open) {
@@ -185,27 +224,20 @@ export const Picker = ({
   };
 
   return (
-    <details
-      ref={menu}
-      className="group relative select-none"
-      onToggle={toggled}
+    <Menu
+      className="select-none"
+      summaryClassName="whitespace-nowrap"
+      onToggle={onOpenChange}
+      label={
+        <>
+          {title}
+          {/* Both lists in one count: two ticks is two filters, whichever way
+              round they read. */}
+          {picked.length + excluded.length > 0 &&
+            ` (${picked.length + excluded.length})`}
+        </>
+      }
     >
-      {/* The caret is the only thing saying this opens rather than toggles. */}
-      <summary
-        className={`${CONTROL} flex list-none items-center gap-1.5 whitespace-nowrap marker:content-none`}
-      >
-        {title}
-        {/* Both lists in one count: two ticks is two filters, whichever way
-            round they read. */}
-        {picked.length + excluded.length > 0 &&
-          ` (${picked.length + excluded.length})`}
-        <Icon
-          aria-hidden
-          icon={DropdownIcon}
-          size={14}
-          className="shrink-0 text-ink-muted transition-transform group-open:rotate-180"
-        />
-      </summary>
       {open && (
         <div
           onKeyDown={navigate}
@@ -213,7 +245,7 @@ export const Picker = ({
              only as wide as its summary, so `max-w-full` would clamp a 256px panel to
              a 130px button. The right-hand picker of a pair hangs from its right edge
              instead, because 256px from its left edge is past the screen. */
-          className={`absolute ${right ? "right-0" : "left-0"} z-20 mt-1 flex max-h-72 w-64 flex-col rounded-md border border-line bg-surface p-1.5 shadow-lg`}
+          className={`absolute ${right ? "right-0" : "left-0"} z-20 mt-1 flex max-h-72 w-64 flex-col ${PANEL}`}
         >
           {/* Only where the caller says the list splits, which is merchants
               alone. Three plain buttons rather than a select: the whole control
@@ -236,7 +268,7 @@ export const Picker = ({
                     setActive(null);
                     setLimit(PAGE);
                   }}
-                  className={`flex-1 px-2 py-1 ${kind === value ? "bg-series-1 text-white" : "bg-page text-ink-soft"}`}
+                  className={`flex-1 px-2 py-1 ${PILL(kind === value)}`}
                 >
                   {text}
                 </button>
@@ -249,7 +281,6 @@ export const Picker = ({
               still on the summary and the arrows scrolled the page instead. */}
           <div className="relative mb-1.5 shrink-0">
             <Icon
-              aria-hidden
               icon={SearchIcon}
               size={14}
               className="pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-ink-muted"
@@ -306,12 +337,7 @@ export const Picker = ({
                         aria-label={`${openHere ? "Hide" : "Show"} ${label(row.value)} subcategories`}
                         className="relative flex h-6 w-3.25 shrink-0 items-center justify-center text-ink-muted before:absolute before:-inset-2 before:content-[''] hover:text-ink"
                       >
-                        <Icon
-                          aria-hidden
-                          icon={ExpandIcon}
-                          size={12}
-                          className={`transition-transform ${openHere ? "rotate-90" : ""}`}
-                        />
+                        <Caret open={openHere} />
                       </button>
                     ) : (
                       <span className="w-3.25 shrink-0" />
@@ -348,6 +374,6 @@ export const Picker = ({
           </div>
         </div>
       )}
-    </details>
+    </Menu>
   );
 };

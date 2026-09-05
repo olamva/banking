@@ -1,4 +1,4 @@
-import { type Dispatch, type SetStateAction } from "react";
+import { Fragment, type Dispatch, type SetStateAction } from "react";
 import {
   AXES,
   axisBounds,
@@ -21,7 +21,7 @@ import {
   type SubscriptionGroup,
 } from "../../core/stats.ts";
 import type { Categorized } from "../../core/types.ts";
-import { Card, StatTile, deltaInfo } from "./Cards.tsx";
+import { Card, Empty, Note, StatTile, deltaInfo } from "./Cards.tsx";
 import {
   DivergingBars,
   HorizontalBars,
@@ -36,13 +36,12 @@ import {
   CategoryIcon,
   ChangesIcon,
   CounterpartyIcon,
-  Icon,
   InfoIcon,
   MonthlyIcon,
 } from "./icons.ts";
 import type { Grain } from "./url.ts";
 
-const CARD_GRID =
+export const CARD_GRID =
   "grid grid-cols-[repeat(auto-fit,minmax(min(460px,100%),1fr))] gap-4 [&>*:last-child:nth-child(odd)]:col-span-full";
 
 const CARD_GRID_3 =
@@ -55,13 +54,10 @@ interface ExcludedNoteProps {
 
 export const ExcludedNote = ({ excluded, where }: ExcludedNoteProps) =>
   excluded.count === 0 ? null : (
-    <div className="mt-3 flex items-start gap-1.5 text-[11px] text-ink-muted">
-      <Icon aria-hidden icon={InfoIcon} size={13} className="mt-px shrink-0" />
-      <span>
-        {excluded.count} transaction(s) totalling {fmtNOK(excluded.total)}{" "}
-        excluded {where} (internal transfers, card bill payments).
-      </span>
-    </div>
+    <Note icon={InfoIcon} className="mt-3">
+      {excluded.count} transaction(s) totalling {fmtNOK(excluded.total)}{" "}
+      excluded {where} (internal transfers, card bill payments).
+    </Note>
   );
 
 type SetFilters = Dispatch<SetStateAction<Filters>>;
@@ -126,42 +122,35 @@ interface TotalsProps {
   vsLabel?: string;
 }
 
+// Spent and Income each hide when that side of the period is empty. Net needs
+// both sides, or it only repeats the one tile above it.
+const TILES = [
+  ["totalOut", "Spent", false],
+  ["totalIn", "Income", true],
+  ["net", "Net", true],
+] as const;
+
 const Totals = ({ stats, prev, yearly, vsLabel }: TotalsProps) => (
   <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(min(160px,100%),1fr))] gap-3">
-    {stats.totalOut > 0 && (
-      <StatTile
-        label="Spent"
-        value={fmtNOK(stats.totalOut)}
-        sub={
-          yearly ? `${fmtNOK(yearly.averageMonth.totalOut)} / month` : undefined
-        }
-        vs={vsLabel}
-        delta={
-          vsLabel ? deltaInfo(stats.totalOut, prev.totalOut, false) : undefined
-        }
-      />
-    )}
-    {stats.totalIn > 0 && (
-      <StatTile
-        label="Income"
-        value={fmtNOK(stats.totalIn)}
-        sub={
-          yearly ? `${fmtNOK(yearly.averageMonth.totalIn)} / month` : undefined
-        }
-        vs={vsLabel}
-        delta={
-          vsLabel ? deltaInfo(stats.totalIn, prev.totalIn, true) : undefined
-        }
-      />
-    )}
-    {stats.totalIn > 0 && stats.totalOut > 0 && (
-      <StatTile
-        label="Net"
-        value={fmtNOK(stats.net)}
-        sub={yearly ? `${fmtNOK(yearly.averageMonth.net)} / month` : undefined}
-        vs={vsLabel}
-        delta={vsLabel ? deltaInfo(stats.net, prev.net, true) : undefined}
-      />
+    {TILES.map(([key, label, goodIfUp]) =>
+      (key === "net" ? stats.totalIn > 0 && stats.totalOut > 0 : stats[key] > 0)
+        ? [
+            <StatTile
+              key={key}
+              label={label}
+              value={fmtNOK(stats[key])}
+              sub={
+                yearly
+                  ? `${fmtNOK(yearly.averageMonth[key])} / month`
+                  : undefined
+              }
+              vs={vsLabel}
+              delta={
+                vsLabel ? deltaInfo(stats[key], prev[key], goodIfUp) : undefined
+              }
+            />,
+          ]
+        : [],
     )}
   </div>
 );
@@ -236,67 +225,60 @@ const Breakdowns = ({
   const onMerchant = pick(onFilters, "merchants");
   const onAccount = pick(onFilters, "accounts");
 
+  // Three breakdowns per direction, named the same way on both sides:
+  // "<direction> by <axis>". The income half hides itself period by period, on
+  // exactly the same emptiness rules as the spending half.
+  const sides = [
+    { tone: "spend", side: "Spending", cats, cps, accounts },
+    {
+      tone: "income",
+      side: "Income",
+      cats: inCats,
+      cps: inCps,
+      accounts: inAccounts,
+    },
+  ] as const;
+
   return (
     <>
       <div className={grid}>
-        {/* Three breakdowns per direction, named the same way on both sides:
-            "<direction> by <axis>". The income half hides itself period by
-            period, on exactly the same emptiness rules as the spending half. */}
-        {!single && cats.length > 0 && (
-          <Card title="Spending by category" icon={CategoryIcon}>
-            <HorizontalBars
-              items={cats}
-              onPick={onCategory}
-              onPickSub={onSubcategory}
-              tone="spend"
-            />
-          </Card>
-        )}
+        {sides.map(({ tone, side, cats, cps, accounts }) => (
+          // A fragment adds no DOM child, so the grid still counts the cards.
+          <Fragment key={tone}>
+            {!single && cats.length > 0 && (
+              <Card title={`${side} by category`} icon={CategoryIcon}>
+                <HorizontalBars
+                  items={cats}
+                  onPick={onCategory}
+                  onPickSub={onSubcategory}
+                  tone={tone}
+                />
+              </Card>
+            )}
 
-        {!single && deltas.length > 0 && (
-          <Card title={`Biggest changes vs ${vsLabel}`} icon={ChangesIcon}>
-            <DivergingBars deltas={deltas} onPick={onCategory} />
-          </Card>
-        )}
+            {tone === "spend" && !single && deltas.length > 0 && (
+              <Card title={`Biggest changes vs ${vsLabel}`} icon={ChangesIcon}>
+                <DivergingBars deltas={deltas} onPick={onCategory} />
+              </Card>
+            )}
 
-        {cps.length > 0 && (
-          <Card title="Spending by merchant" icon={CounterpartyIcon}>
-            <HorizontalBars items={cps} onPick={onMerchant} tone="spend" />
-          </Card>
-        )}
+            {cps.length > 0 && (
+              <Card title={`${side} by merchant`} icon={CounterpartyIcon}>
+                <HorizontalBars items={cps} onPick={onMerchant} tone={tone} />
+              </Card>
+            )}
 
-        {accounts.length > 1 && (
-          <Card title="Spending by account" icon={AccountIcon}>
-            <HorizontalBars items={accounts} onPick={onAccount} tone="spend" />
-          </Card>
-        )}
-
-        {!single && inCats.length > 0 && (
-          <Card title="Income by category" icon={CategoryIcon}>
-            <HorizontalBars
-              items={inCats}
-              onPick={onCategory}
-              onPickSub={onSubcategory}
-              tone="income"
-            />
-          </Card>
-        )}
-
-        {inCps.length > 0 && (
-          <Card title="Income by merchant" icon={CounterpartyIcon}>
-            <HorizontalBars items={inCps} onPick={onMerchant} tone="income" />
-          </Card>
-        )}
-
-        {inAccounts.length > 1 && (
-          <Card title="Income by account" icon={AccountIcon}>
-            <HorizontalBars
-              items={inAccounts}
-              onPick={onAccount}
-              tone="income"
-            />
-          </Card>
-        )}
+            {accounts.length > 1 && (
+              <Card title={`${side} by account`} icon={AccountIcon}>
+                <HorizontalBars
+                  items={accounts}
+                  onPick={onAccount}
+                  tone={tone}
+                />
+              </Card>
+            )}
+          </Fragment>
+        ))}
       </div>
 
       {groups.length > 0 && (
@@ -340,9 +322,7 @@ export const Dashboard = ({
   if (shown.length === 0)
     return (
       <>
-        <div className="py-10 text-center text-ink-muted">
-          No transactions match the current filters.
-        </div>
+        <Empty>No transactions match the current filters.</Empty>
         <ExcludedNote excluded={totals(all).excluded} where="in this period" />
       </>
     );

@@ -2,7 +2,8 @@ import { useMemo } from "react";
 import { RULE_FILES, type RuleFile } from "../../core/ruleFiles.ts";
 import { RULE_LABEL, entriesOf } from "./Rules.tsx";
 import type { RulesApi } from "./data.ts";
-import { keyboardFocused } from "./Shortcuts.tsx";
+import { PILL } from "./Cards.tsx";
+import { rovingTab } from "./Shortcuts.tsx";
 
 export interface RuleTabsProps {
   rules: RulesApi;
@@ -34,18 +35,6 @@ export const RuleTabs = ({ rules, file, onFile }: RuleTabsProps) => {
     [data],
   );
 
-  const moveTab = (e: React.KeyboardEvent<HTMLButtonElement>, at: number) => {
-    const by = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
-    if (!by || !keyboardFocused(e.currentTarget)) return;
-    e.preventDefault();
-    const next = (at + by + RULE_TAB_FILES.length) % RULE_TAB_FILES.length;
-    onFile(RULE_TAB_FILES[next]!);
-    e.currentTarget
-      .closest("[role=tablist]")
-      ?.querySelectorAll<HTMLButtonElement>("[role=tab]")
-      [next]?.focus({ preventScroll: true });
-  };
-
   return (
     <div
       role="tablist"
@@ -68,12 +57,8 @@ export const RuleTabs = ({ rules, file, onFile }: RuleTabsProps) => {
                   aria-selected={file === f}
                   tabIndex={file === f ? 0 : -1}
                   onClick={() => onFile(f)}
-                  onKeyDown={(e) => moveTab(e, i)}
-                  className={`rounded-md border border-line px-2.5 py-1.5 text-[13px] ${
-                    file === f
-                      ? "bg-series-1 text-white"
-                      : "bg-page text-ink-soft"
-                  }`}
+                  onKeyDown={(e) => rovingTab(e, RULE_TAB_FILES, i, onFile)}
+                  className={`rounded-md border border-line px-2.5 py-1.5 text-[13px] ${PILL(file === f)}`}
                 >
                   {RULE_LABEL[f]}
                   {counts[f] !== undefined && (

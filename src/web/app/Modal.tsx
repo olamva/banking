@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { highlighting } from "./Cards.tsx";
 import { ErrorIcon, Icon, InfoIcon } from "./icons.ts";
 
 interface ModalProps {
@@ -14,9 +15,7 @@ export const Modal = ({ children, className, onClose }: ModalProps) => (
     }}
     onClose={onClose}
     onClick={(e) => {
-      const selecting =
-        e.detail > 0 && !(window.getSelection()?.isCollapsed ?? true);
-      if (e.target === e.currentTarget && !selecting) onClose();
+      if (e.target === e.currentTarget && !highlighting(e)) onClose();
     }}
     className={`m-auto rounded-xl border border-line bg-surface p-0 text-ink shadow-2xl backdrop:bg-black/50 ${className}`}
   >
@@ -48,7 +47,6 @@ export const Notification = ({ note, bad }: NotificationProps) => {
       className={`flex max-w-full items-start gap-2 rounded-lg border bg-surface px-3 py-2.5 text-sm shadow-lg ${bad ? "border-critical text-critical" : "border-good text-ink"}`}
     >
       <Icon
-        aria-hidden
         icon={bad ? ErrorIcon : InfoIcon}
         size={16}
         className={`mt-0.5 shrink-0 ${bad ? "text-critical" : "text-good"}`}

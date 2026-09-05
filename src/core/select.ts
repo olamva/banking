@@ -22,6 +22,10 @@ export const AXES = {
 
 export type Axis = keyof typeof AXES;
 
+// `Object.entries` widens the key to `string`, and both callers want the pair.
+export const axisPairs = (): [Axis, (typeof AXES)[Axis]][] =>
+  Object.entries(AXES) as [Axis, (typeof AXES)[Axis]][];
+
 export const NO_FILTERS: Filters = {
   categories: [],
   categoriesOut: [],
@@ -166,25 +170,28 @@ export function axisBounds(
   };
 }
 
-export function distinctMonths(txns: Categorized[]): string[] {
-  return [...new Set(txns.map((t) => t.date.slice(0, 7)))].sort();
-}
+const byLocale = (a: string, b: string) => a.localeCompare(b);
 
-export function distinctYears(txns: Categorized[]): string[] {
-  return [...new Set(txns.map((t) => t.date.slice(0, 4)))].sort();
-}
+const distinct = (
+  txns: Categorized[],
+  of: (t: Categorized) => string,
+  cmp?: (a: string, b: string) => number,
+): string[] => [...new Set(txns.map(of))].sort(cmp);
 
-export function distinctCategories(txns: Categorized[]): string[] {
-  return [...new Set(txns.map((t) => t.category))].sort();
-}
+export const distinctMonths = (txns: Categorized[]): string[] =>
+  distinct(txns, (t) => t.date.slice(0, 7));
 
-export function distinctSubcategories(txns: Categorized[]): string[] {
-  return [...new Set(txns.map(subcategoryOf))].sort();
-}
+export const distinctYears = (txns: Categorized[]): string[] =>
+  distinct(txns, (t) => t.date.slice(0, 4));
 
-export function distinctMerchants(txns: Categorized[]): string[] {
-  return [...new Set(txns.map(merchantOf))].sort((a, b) => a.localeCompare(b));
-}
+export const distinctCategories = (txns: Categorized[]): string[] =>
+  distinct(txns, (t) => t.category);
+
+export const distinctSubcategories = (txns: Categorized[]): string[] =>
+  distinct(txns, subcategoryOf);
+
+export const distinctMerchants = (txns: Categorized[]): string[] =>
+  distinct(txns, merchantOf, byLocale);
 
 const PEER = new Set([
   "diverse/vennebetaling",
@@ -207,16 +214,13 @@ export const NO_COUNTRY = "—";
 
 export const countryOf = (t: Categorized): string => t.country ?? NO_COUNTRY;
 
-export function distinctCountries(txns: Categorized[]): string[] {
-  const all = [...new Set(txns.map(countryOf))];
+// The dash sorts last, not among the letters.
+export const distinctCountries = (txns: Categorized[]): string[] => {
+  const all = distinct(txns, countryOf, byLocale);
   return all
     .filter((c) => c !== NO_COUNTRY)
-    .sort((a, b) => a.localeCompare(b))
     .concat(all.includes(NO_COUNTRY) ? [NO_COUNTRY] : []);
-}
+};
 
-export function distinctAccounts(txns: Categorized[]): string[] {
-  return [...new Set(txns.map((t) => t.account))].sort((a, b) =>
-    a.localeCompare(b),
-  );
-}
+export const distinctAccounts = (txns: Categorized[]): string[] =>
+  distinct(txns, (t) => t.account, byLocale);

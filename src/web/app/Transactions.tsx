@@ -8,6 +8,7 @@ import {
   AMOUNT_SIZE_EXACT,
   Card,
   DataTable,
+  Empty,
   PickCell,
   highlighting,
   type Column,
@@ -140,9 +141,7 @@ export const SubscriptionsCard = ({
         placeholder="Search subscriptions…"
       />
       {sorted.length === 0 ? (
-        <div className="py-10 text-center text-ink-muted">
-          No subscriptions match the search.
-        </div>
+        <Empty>No subscriptions match the search.</Empty>
       ) : (
         <DataTable
           scroll
@@ -232,6 +231,12 @@ const SHOWN_ABOVE = [
   "bankConfidence",
 ];
 
+const DOT = (
+  <span aria-hidden className="text-ink-muted">
+    ·
+  </span>
+);
+
 const ROW =
   "flex items-baseline justify-between gap-4 border-b border-line py-1.5 last:border-0";
 
@@ -255,13 +260,9 @@ export const TxnDialog = ({ txn, onClose, onFile }: TxnDialogProps) => {
             >
               {rowLabel(txn.category, txn.subcategory)}
             </span>
-            <span aria-hidden className="text-ink-muted">
-              ·
-            </span>
+            {DOT}
             <span>{txn.account}</span>
-            <span aria-hidden className="text-ink-muted">
-              ·
-            </span>
+            {DOT}
             <span>{fmtDate(txn.date)}</span>
           </div>
         </div>
@@ -276,7 +277,7 @@ export const TxnDialog = ({ txn, onClose, onFile }: TxnDialogProps) => {
           aria-label="Close"
           className="-m-1 shrink-0 rounded p-1 text-ink-muted hover:bg-hover hover:text-ink"
         >
-          <Icon aria-hidden icon={CloseIcon} size={16} />
+          <Icon icon={CloseIcon} size={16} />
         </button>
       </div>
       <div className="px-5 py-4">
@@ -294,7 +295,7 @@ export const TxnDialog = ({ txn, onClose, onFile }: TxnDialogProps) => {
                 onClick={() => onFile(file)}
                 className="flex items-center gap-1.5 rounded-md border border-line bg-page px-2.5 py-1.5 text-xs text-ink-soft"
               >
-                <Icon aria-hidden icon={CategoryIcon} size={14} />
+                <Icon icon={CategoryIcon} size={14} />
                 {label}
               </button>
             ))}
@@ -309,7 +310,7 @@ export const TxnDialog = ({ txn, onClose, onFile }: TxnDialogProps) => {
             {txn.country && (
               <Chip onClick={onFile ? () => onFile("countries") : undefined}>
                 {txn.country}
-                {onFile && <Icon aria-hidden icon={EditIcon} size={11} />}
+                {onFile && <Icon icon={EditIcon} size={11} />}
               </Chip>
             )}
             {txn.excluded && <Chip>Excluded</Chip>}
@@ -378,7 +379,6 @@ export const TransactionsCard = ({
       <div className="px-3 sm:px-0">
         <h2 className="mb-2.5 flex items-center gap-1.5 text-sm font-semibold">
           <Icon
-            aria-hidden
             icon={TransactionsIcon}
             size={15}
             className="shrink-0 text-ink-soft"
@@ -393,9 +393,7 @@ export const TransactionsCard = ({
         />
       </div>
       {sorted.length === 0 ? (
-        <div className="py-10 text-center text-ink-muted">
-          No transactions match the current filters.
-        </div>
+        <Empty>No transactions match the current filters.</Empty>
       ) : (
         <DataTable
           scroll

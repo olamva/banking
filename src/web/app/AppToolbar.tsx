@@ -1,3 +1,4 @@
+import { BUTTON, Loading } from "./Cards.tsx";
 import {
   THEMES,
   setTheme,
@@ -32,10 +33,9 @@ const RefreshButton = ({ refresh }: RefreshButtonProps) => (
     onClick={refresh.run}
     disabled={refresh.busy}
     aria-label="Refresh from the bank"
-    className="flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-ink-soft disabled:opacity-60"
+    className={`${BUTTON} flex items-center gap-1.5`}
   >
     <Icon
-      aria-hidden
       icon={refresh.busy ? LoadingIcon : RefreshIcon}
       size={14}
       className={refresh.busy ? "animate-spin" : undefined}
@@ -65,9 +65,9 @@ export const Toolbar = ({ refresh, theme, onTheme, onHelp }: ToolbarProps) => (
         type="button"
         onClick={onHelp}
         aria-label="Keyboard shortcuts"
-        className="flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-ink-soft"
+        className={`${BUTTON} flex items-center gap-1.5`}
       >
-        <Icon aria-hidden icon={KeyboardIcon} size={14} />
+        <Icon icon={KeyboardIcon} size={14} />
         <span className="max-sm:hidden">Shortcuts</span>
       </button>
       {/* Three named options rather than a cycling button: a toggle whose next
@@ -75,7 +75,6 @@ export const Toolbar = ({ refresh, theme, onTheme, onHelp }: ToolbarProps) => (
           option picked — "system" is the machine, not the way it resolved. */}
       <div className="relative">
         <Icon
-          aria-hidden
           icon={THEME_ICONS[theme]}
           size={14}
           className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-ink-soft"
@@ -111,22 +110,11 @@ export const LoadNote = ({
   count: number;
   refresh: Refresh;
 }) => {
-  if (load.status === "loading")
-    return (
-      <div className="flex items-center justify-center gap-2 py-10 text-ink-muted">
-        <Icon
-          aria-hidden
-          icon={LoadingIcon}
-          size={16}
-          className="animate-spin"
-        />
-        Loading…
-      </div>
-    );
+  if (load.status === "loading") return <Loading />;
   if (load.status === "error")
     return (
       <div className="flex items-center justify-center gap-2 py-10 text-critical">
-        <Icon aria-hidden icon={ErrorIcon} size={16} className="shrink-0" />
+        <Icon icon={ErrorIcon} size={16} className="shrink-0" />
         Could not load transactions: {load.message}
       </div>
     );

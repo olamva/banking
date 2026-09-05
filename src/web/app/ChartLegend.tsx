@@ -16,6 +16,28 @@ interface LegendKeyProps {
   children: ReactNode;
 }
 
+// Same stroke and same gap as the chart, so the key and the line it explains
+// are the same mark.
+const Dash = ({
+  y,
+  dashes,
+  className,
+}: {
+  y: number;
+  dashes: string;
+  className: string;
+}) => (
+  <line
+    x1={0}
+    x2={16}
+    y1={y}
+    y2={y}
+    strokeWidth={3}
+    strokeDasharray={dashes}
+    className={className}
+  />
+);
+
 const LegendKey = ({ on, onToggle, name, children }: LegendKeyProps) => (
   <button
     type="button"
@@ -64,15 +86,7 @@ export const ChartLegend = ({
       {trend && (
         <LegendKey {...key("trend")} name="the fitted trend">
           <svg aria-hidden width={16} height={3} className="shrink-0">
-            <line
-              x1={0}
-              x2={16}
-              y1={1.5}
-              y2={1.5}
-              strokeWidth={3}
-              strokeDasharray="7 5"
-              className="stroke-series-1"
-            />
+            <Dash y={1.5} dashes="7 5" className="stroke-series-1" />
           </svg>
           Trend
         </LegendKey>
@@ -83,8 +97,7 @@ export const ChartLegend = ({
           Drawn as SVG rather than as a dashed CSS border, which is the swatch
           this had first: a 12px border draws one dash and reads as a solid grey
           rule, which is neither dashed nor either of the two colours it stands
-          for. Same stroke and same gap as the chart, so the key and the line it
-          explains are the same mark. */}
+          for. */}
       {compareLabel && (
         <LegendKey {...key("compare")} name={compareLabel}>
           <svg
@@ -94,24 +107,12 @@ export const ChartLegend = ({
             className="shrink-0 opacity-40"
           >
             {spend && (
-              <line
-                x1={0}
-                x2={16}
-                y1={1.5}
-                y2={1.5}
-                strokeWidth={3}
-                strokeDasharray="4 3"
-                className="stroke-critical-strong"
-              />
+              <Dash y={1.5} dashes="4 3" className="stroke-critical-strong" />
             )}
             {income && (
-              <line
-                x1={0}
-                x2={16}
-                y1={spend ? 7.5 : 1.5}
-                y2={spend ? 7.5 : 1.5}
-                strokeWidth={3}
-                strokeDasharray="4 3"
+              <Dash
+                y={spend ? 7.5 : 1.5}
+                dashes="4 3"
                 className="stroke-good-strong"
               />
             )}
