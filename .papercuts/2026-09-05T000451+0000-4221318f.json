@@ -1,0 +1,14 @@
+{
+  "id": "4221318f",
+  "ts": "2026-09-05T00:04:51+00:00",
+  "text": "pnpm install cannot resolve registry.npmjs.org in the sandbox",
+  "tags": [
+    "network",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-6",
+  "session": "",
+  "where": "/private/tmp/banking-simplify",
+  "branch": "codex/simplify"
+}

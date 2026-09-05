@@ -1,0 +1,14 @@
+{
+  "id": "c70a1b5e",
+  "ts": "2026-09-05T00:17:28+00:00",
+  "text": "Collaborative preview click fails after a successful snapshot and evaluation",
+  "tags": [
+    "preview",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-6",
+  "session": "",
+  "where": "/private/tmp/banking-simplify",
+  "branch": "codex/simplify"
+}

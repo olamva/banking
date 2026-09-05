@@ -23,7 +23,8 @@ export function overlaps(rows: Categorized[], categories: RuleMap): Overlap[] {
 
   for (const t of rows) {
     if (t.excluded) continue;
-    const hit = compiled.filter((c) => c.matches(haystackOf(t)));
+    const haystack = haystackOf(t);
+    const hit = compiled.filter((c) => c.matches(haystack));
     if (hit.length < 2) continue;
     const [winner, ...losers] = hit;
     for (const loser of losers) {

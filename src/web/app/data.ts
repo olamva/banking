@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { buildLabels, type Labels, type Names } from "../../core/labels.ts";
-import type { RuleChange, RuleFile, Rules } from "../../core/ruleFiles.ts";
+import {
+  changeRules,
+  type RuleChange,
+  type RuleFile,
+  type Rules,
+} from "../../core/ruleFiles.ts";
 import type { Categorized } from "../../core/types.ts";
 
 type Payload = { txns: Categorized[]; names: Names };
@@ -111,23 +116,7 @@ export type RulesApi = {
   restore: (file: RuleFile, at: number) => void;
 };
 
-export const changeRules = (
-  rules: Rules,
-  key: string,
-  value?: string,
-  was?: string,
-  remove = false,
-): Rules => {
-  if (Array.isArray(rules)) {
-    const next = rules.filter((item) => item !== key && item !== was);
-    return remove ? next : [...next, key];
-  }
-  const next = { ...rules };
-  if (was !== undefined) delete next[was];
-  if (remove) delete next[key];
-  else next[key] = value!;
-  return next;
-};
+export { changeRules } from "../../core/ruleFiles.ts";
 
 const changedFile = (
   data: RulesData,

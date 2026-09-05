@@ -12,6 +12,7 @@ import {
   CATEGORY_VALUED,
   RULE_FILES,
   diffRules,
+  changeRules,
   isMapFile as isMap,
   type RuleChange,
   type RuleFile,
@@ -162,16 +163,7 @@ function check({ file, key, value, remove }: Edit): void {
 export function save(edit: Edit): number {
   const { file, key, value, remove, was } = edit;
   check(edit);
-  const existing = load(file);
-  if (Array.isArray(existing)) {
-    const without = existing.filter((k) => k !== key && k !== was);
-    return commit(file, remove ? without : [...without, key]);
-  }
-  const next = { ...existing };
-  if (was !== undefined) delete next[was];
-  if (remove) delete next[key];
-  else next[key] = value!;
-  return commit(file, next);
+  return commit(file, changeRules(load(file), key, value, was, remove));
 }
 
 export function saveValues(

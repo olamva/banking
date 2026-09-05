@@ -56,13 +56,7 @@ export type MonthStats = {
   accounts: AccountTotal[];
 };
 
-export type MonthSummary = {
-  month: string;
-  totalIn: number;
-  totalOut: number;
-  net: number;
-  excluded: ExcludedSummary;
-};
+export type MonthSummary = Totals & { month: string };
 
 const toCents = (amount: number) => Math.round(amount * 100);
 const fromCents = (cents: number) => cents / 100;
@@ -135,11 +129,12 @@ function subcategoriesFromCents(
       });
     }
   }
-  const parentTotal = (c: string) =>
-    out.reduce((n, x) => n + (x.category === c ? x.total : 0), 0);
+  const parentTotals = new Map<string, number>();
+  for (const x of out) bump(parentTotals, x.category, x.total);
   return out.sort(
     (a, b) =>
-      parentTotal(b.category) - parentTotal(a.category) || b.total - a.total,
+      parentTotals.get(b.category)! - parentTotals.get(a.category)! ||
+      b.total - a.total,
   );
 }
 
@@ -207,12 +202,23 @@ export type Totals = {
 };
 
 export function totals(txns: Categorized[]): Totals {
-  const agg = aggregateCents(txns);
+  let incoming = 0;
+  let outgoing = 0;
+  let excluded = 0;
+  let count = 0;
+  for (const t of txns) {
+    const cents = toCents(t.amount);
+    if (t.excluded) {
+      count++;
+      excluded += Math.abs(cents);
+    } else if (cents > 0) incoming += cents;
+    else outgoing -= cents;
+  }
   return {
-    totalIn: fromCents(agg.in.cents),
-    totalOut: fromCents(agg.out.cents),
-    net: fromCents(agg.in.cents - agg.out.cents),
-    excluded: { count: agg.excludedCount, total: fromCents(agg.excludedCents) },
+    totalIn: fromCents(incoming),
+    totalOut: fromCents(outgoing),
+    net: fromCents(incoming - outgoing),
+    excluded: { count, total: fromCents(excluded) },
   };
 }
 
@@ -303,15 +309,8 @@ export function monthStats(
 export function byMonth(
   txns: Categorized[],
 ): { month: string; txns: Categorized[] }[] {
-  const buckets = new Map<string, Categorized[]>();
-  for (const t of txns) {
-    const month = t.date.slice(0, 7);
-    const bucket = buckets.get(month);
-    if (bucket) bucket.push(t);
-    else buckets.set(month, [t]);
-  }
-  return [...buckets.entries()]
-    .sort()
+  return [...Map.groupBy(txns, (t) => t.date.slice(0, 7))]
+    .sort(([a], [b]) => a.localeCompare(b))
     .map(([month, txns]) => ({ month, txns }));
 }
 
@@ -322,12 +321,8 @@ export type SeriesPoint = {
 };
 
 const point = (at: string, txns: Categorized[]): SeriesPoint => {
-  const agg = aggregateCents(txns);
-  return {
-    at,
-    totalIn: fromCents(agg.in.cents),
-    totalOut: fromCents(agg.out.cents),
-  };
+  const { totalIn, totalOut } = totals(txns);
+  return { at, totalIn, totalOut };
 };
 
 const eachDay = (from: string, to: string): string[] => {
@@ -346,12 +341,7 @@ export function dailySeries(
   from: string,
   to: string,
 ): SeriesPoint[] {
-  const buckets = new Map<string, Categorized[]>();
-  for (const t of txns) {
-    const bucket = buckets.get(t.date);
-    if (bucket) bucket.push(t);
-    else buckets.set(t.date, [t]);
-  }
+  const buckets = Map.groupBy(txns, (t) => t.date);
   return eachDay(from, to).map((at) => point(at, buckets.get(at) ?? []));
 }
 
@@ -421,19 +411,7 @@ export function yearStats(
 ): YearStats {
   const sorted = [...monthsTxns].sort((a, b) => a.month.localeCompare(b.month));
 
-  const months: MonthSummary[] = sorted.map(({ month, txns }) => {
-    const agg = aggregateCents(txns);
-    return {
-      month,
-      totalIn: fromCents(agg.in.cents),
-      totalOut: fromCents(agg.out.cents),
-      net: fromCents(agg.in.cents - agg.out.cents),
-      excluded: {
-        count: agg.excludedCount,
-        total: fromCents(agg.excludedCents),
-      },
-    };
-  });
+  const months = sorted.map(({ month, txns }) => ({ month, ...totals(txns) }));
 
   const agg = aggregateCents(sorted.flatMap((m) => m.txns));
   const n = months.length || 1;
