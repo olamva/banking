@@ -1,4 +1,5 @@
 {
+  "ignorePatterns": ["data", "data.local", "dist", ".claude/worktrees"],
   "rules": {
     "complexity": "error",
     "max-depth": ["error", { "max": 3 }],

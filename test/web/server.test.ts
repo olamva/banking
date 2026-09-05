@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import type { AddressInfo } from "node:net";
+import { createServer, type AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { after, afterEach, beforeEach, test } from "node:test";
+import { after, afterEach, beforeEach, test as always } from "node:test";
 import { GOOGLE_EMAIL_CLAIM } from "../../src/web/principal.ts";
 
 const dir = mkdtempSync(join(tmpdir(), "server-"));
@@ -17,6 +17,17 @@ process.env.DATA_DIR = dataDir;
 process.env.RULES_DIR = rulesDir;
 process.env.DB_FILE = dbFile;
 const { server } = await import("../../src/web/server.ts");
+
+// A sandbox answers EPERM to a listen on loopback. Every case here needs a real
+// port, so skip them as one instead of failing ten times with the same error.
+const loopback = await new Promise<boolean>((done, fail) => {
+  const probe = createServer();
+  probe.once("error", (e: NodeJS.ErrnoException) =>
+    e.code === "EPERM" || e.code === "EACCES" ? done(false) : fail(e),
+  );
+  probe.listen(0, "127.0.0.1", () => probe.close(() => done(true)));
+});
+const test = loopback ? always : (always.skip as typeof always);
 
 const header = (email: string): string =>
   Buffer.from(

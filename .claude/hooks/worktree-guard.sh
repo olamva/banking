@@ -77,6 +77,16 @@ Bash)
   redirect='(^|[[:space:]])>>?[[:space:]]*[^ &|]'
   has "$redirect" || exit 0
   has '>>?[[:space:]]*(/tmp/|/dev/|/var/folders/|\$CLAUDE|\$TMPDIR)' && exit 0
+
+  # This guard covers one repository. A path outside it is another repository's
+  # business, or nobody's. ~/.claude/CLAUDE.md is the common one.
+  target=$(printf '%s' "$cmd" | sed -nE "s/.*(^|[[:space:]])>>?[[:space:]]*([^ &|]+).*/\\2/p")
+  target=${target/#\~/$HOME}
+  root=$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null)
+  case $target in
+  "$root"/*) ;;
+  /*) exit 0 ;;
+  esac
   deny "A redirect writes a file in the main checkout."
   ;;
 esac
