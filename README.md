@@ -113,6 +113,21 @@ A refresh prices the whole sweep first, and the pricing costs nothing. It stops 
 
 ## Categories
 
+Open a transaction and select **Remember category** to save a category without a pattern.
+The imported payee, payment type, direction, and recipient account must match exactly.
+Inspect the matching transactions before saving.
+The choice applies to matching past and future transactions.
+It overrides category patterns, but it cannot override an exclusion.
+Display names and transaction IDs do not affect this match.
+
+**Rules → Remembered categories** groups bank categories and estimates for optional review.
+The page stores confirmed choices in `rules/preferences.json` and uses the existing history for undo and redo.
+It does not learn from its own predictions or send transactions to a model.
+Transaction details show which classification source applies.
+
+After an upgrade, select **Rebuild saved transactions** if the Rules page requests it.
+This rebuild reads cached files and makes no bank request.
+
 The bank labels its own transactions, and it is wrong often enough to matter. The rules live in `rules/`, and none of them are in git.
 
 `rules/categories.json` maps a case-insensitive substring to a category. The code checks it against the description, the merchant and the account number of the payee.
@@ -131,7 +146,11 @@ Every line must work in any position. Narrow the _pattern_ to fix two lines that
 }
 ```
 
-`pnpm sb1 match "<pattern>"` counts the rows that a pattern claims. It reads the name **before** any rename in `rules/payees.json`, so a pattern tested against the database can pass and then claim nothing. `pnpm sb1 rebuild` warns about every line that still depends on its position, and it prints the narrowed form.
+`pnpm sb1 match "<pattern>"` counts the rows that a pattern claims.
+The database preserves the imported payee, so the editor and classifier match the same text.
+The Rules page lists conflicting category and payee rules.
+Different subcategories count as a conflict.
+`pnpm sb1 rebuild` prints category conflict warnings without `DEBUG` and suggests narrower patterns where possible.
 
 The other four files:
 

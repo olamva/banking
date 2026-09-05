@@ -1,0 +1,14 @@
+{
+  "id": "c1d60b6c",
+  "ts": "2026-09-05T01:19:35+00:00",
+  "text": "HTTP integration tests need sandbox escalation to bind localhost",
+  "tags": [
+    "tests",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-6",
+  "session": "",
+  "where": "/private/tmp/banking-classifier-implementation",
+  "branch": "feat/remember-categories"
+}

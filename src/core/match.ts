@@ -16,9 +16,10 @@ export function splitCategory(value: string): Pair {
 export const haystackOf = (t: {
   description: string;
   counterparty: string | null;
+  originalCounterparty?: string;
   remoteAccountNumber: string | null;
 }): string =>
-  `${t.description} ${t.counterparty ?? ""} ${t.remoteAccountNumber ?? ""}`.toLowerCase();
+  `${t.description} ${t.originalCounterparty ?? t.counterparty ?? ""} ${t.remoteAccountNumber ?? ""}`.toLowerCase();
 
 export function compile(pattern: string, source: string): Matcher {
   const asRegex = /^\/(.+)\/([a-z]*)$/.exec(pattern);
@@ -29,7 +30,10 @@ export function compile(pattern: string, source: string): Matcher {
   try {
     // Match without case. The code makes the haystack lowercase first.
     const re = new RegExp(asRegex[1]!, asRegex[2]!.replace("i", "") + "i");
-    return (h) => re.test(h);
+    return (h) => {
+      re.lastIndex = 0;
+      return re.test(h);
+    };
   } catch (e) {
     throw new Error(
       `${source}: ${pattern} is not a valid regex — ${e instanceof Error ? e.message : e}`,

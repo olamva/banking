@@ -9,6 +9,7 @@ import {
   loadGiro,
   loadNotSubscriptions,
   loadPayees,
+  loadPreferences,
   loadSubscriptions,
   renamePayees,
   setCountries,
@@ -66,6 +67,7 @@ export async function pipeline(
     cards,
     await loadFamily(),
     await loadNotSubscriptions(),
+    await loadPreferences(),
   );
   return rename ? renamePayees(rows, await loadPayees()) : rows;
 }
@@ -102,7 +104,7 @@ export async function rebuildAll(): Promise<number> {
     }
     const loose = narrowings(rows, await loadCategories());
     for (const l of loose) {
-      debug(
+      console.error(
         `\nwarning: ${JSON.stringify(l.pattern)} only works where it sits, losing rows to ` +
           l.beaten.map((b) => JSON.stringify(b.pattern)).join(", ") +
           (l.suggest
@@ -114,7 +116,7 @@ export async function rebuildAll(): Promise<number> {
     // This removes real money from both totals.
     for (const [, net] of netByReason(rows)) {
       if (Math.abs(net) < 0.005) continue;
-      debug(
+      console.error(
         `\nwarning: excluded reason nets to a non-zero value.` +
           `\nOne leg of a pair is being excluded while the other is counted.`,
       );

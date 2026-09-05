@@ -152,7 +152,10 @@ test("renamePayees collapses a payee that writes the month into every payment", 
     ["Simen leie", "Simen leie", "Theo leie", "Theo leie", "Rema 1000"],
   );
   assert.equal(renamed[0]!.description, "SIMEN LEIE Februar Husleie");
-  assert.deepEqual(renamePayees(rows, {}), rows);
+  assert.deepEqual(
+    renamePayees(rows, {}),
+    rows.map((r) => ({ ...r, originalCounterparty: r.counterparty })),
+  );
 });
 
 test("renamePayees names a row the bank left nameless, by account number", () => {

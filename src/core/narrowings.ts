@@ -14,7 +14,11 @@ export type Overlap = {
   examples: string[];
 };
 
-export function overlaps(rows: Categorized[], categories: RuleMap): Overlap[] {
+export function overlaps(
+  rows: Categorized[],
+  categories: RuleMap,
+  includeExcluded = false,
+): Overlap[] {
   const compiled = Object.keys(categories).map((p) => ({
     pattern: p,
     matches: compile(p, "rules/categories.json"),
@@ -22,7 +26,7 @@ export function overlaps(rows: Categorized[], categories: RuleMap): Overlap[] {
   const acc = new Map<string, Overlap>();
 
   for (const t of rows) {
-    if (t.excluded) continue;
+    if (t.excluded && !includeExcluded) continue;
     const haystack = haystackOf(t);
     const hit = compiled.filter((c) => c.matches(haystack));
     if (hit.length < 2) continue;
@@ -35,9 +39,7 @@ export function overlaps(rows: Categorized[], categories: RuleMap): Overlap[] {
         loser: loser.pattern,
         loserValue: categories[loser.pattern]!,
         rows: 0,
-        harmless:
-          categories[winner!.pattern]!.split("/")[0] ===
-          categories[loser.pattern]!.split("/")[0],
+        harmless: categories[winner!.pattern] === categories[loser.pattern],
         examples: [],
       };
       o.rows++;
