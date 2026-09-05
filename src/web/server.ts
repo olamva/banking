@@ -78,7 +78,38 @@ function file(res: ServerResponse, path: string): void {
 export const server = createServer((req, res) => {
   const principal = req.headers["x-ms-client-principal"] as string | undefined;
   const email = principalEmail(principal);
-  if (!email || !allowed(email, process.env.ALLOWED_EMAILS)) {
+  const permitted = !!email && allowed(email, process.env.ALLOWED_EMAILS);
+  if (process.env.TRAFFIC_LOG === "1") {
+    const start = performance.now();
+    res.once("close", () =>
+      console.info(
+        JSON.stringify({
+          event: "http_request",
+          time: new Date().toISOString(),
+          method: req.method,
+          path: (req.url ?? "/").split(/[?#]/, 1)[0]!.slice(0, 512),
+          userAgent: String(req.headers["user-agent"] ?? "").slice(0, 512),
+          forwardedFor: String(req.headers["x-forwarded-for"] ?? "").slice(
+            0,
+            512,
+          ),
+          access: permitted ? "allowed" : principal ? "denied" : "anonymous",
+          status: res.writableFinished ? res.statusCode : 0,
+          durationMs: Math.round(performance.now() - start),
+        }),
+      ),
+    );
+  }
+  if (!principal) {
+    res.writeHead(302, {
+      ...SECURITY,
+      "Cache-Control": "no-store",
+      Location: "/.auth/login/google?post_login_redirect_uri=%2F",
+    });
+    res.end();
+    return;
+  }
+  if (!permitted) {
     if (process.env.DEBUG === "1")
       console.error(
         `refused: principal ${principal ? "present" : "absent"}, ` +

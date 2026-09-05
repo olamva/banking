@@ -69,6 +69,7 @@ resource "azurerm_container_app_environment" "bank" {
   name                = var.name
   resource_group_name = azurerm_resource_group.bank.name
   location            = azurerm_resource_group.bank.location
+  logs_destination    = "azure-monitor"
 }
 
 resource "azurerm_container_app_environment_storage" "data" {
@@ -169,6 +170,10 @@ resource "azurerm_container_app" "bank" {
       memory = "1Gi"
 
       env {
+        name  = "TRAFFIC_LOG"
+        value = "1"
+      }
+      env {
         name  = "DATA_DIR"
         value = "/data"
       }
@@ -248,8 +253,7 @@ resource "azapi_resource" "auth" {
         enabled = true
       }
       globalValidation = {
-        unauthenticatedClientAction = "RedirectToLoginPage"
-        redirectToProvider          = "google"
+        unauthenticatedClientAction = "AllowAnonymous"
       }
       identityProviders = {
         google = {

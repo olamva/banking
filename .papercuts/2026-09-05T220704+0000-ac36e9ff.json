@@ -1,0 +1,14 @@
+{
+  "id": "ac36e9ff",
+  "ts": "2026-09-05T22:07:04+00:00",
+  "text": "ContainerAppHTTPLogs cannot use ingestion transformations, so OAuth query values cannot be redacted before storage",
+  "tags": [
+    "azure",
+    "security"
+  ],
+  "who": "agent",
+  "model": "gpt-6",
+  "session": "",
+  "where": "/private/tmp/banking-app-traffic",
+  "branch": "investigate/app-traffic"
+}

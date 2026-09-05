@@ -50,15 +50,77 @@ after(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-test("no principal is no page, whatever the path", async () => {
+test("anonymous requests redirect before any page or API action", async () => {
   for (const path of [
     "/",
     "/api/txns",
     "/api/refresh",
     "/api/rules",
     "/api/rules/save?file=categories&key=x&value=y",
-  ])
-    assert.equal((await fetch(`${base}${path}`)).status, 403);
+  ]) {
+    const res = await fetch(`${base}${path}`, { redirect: "manual" });
+    assert.equal(res.status, 302);
+    assert.equal(
+      res.headers.get("location"),
+      "/.auth/login/google?post_login_redirect_uri=%2F",
+    );
+    assert.equal(await res.text(), "");
+  }
+});
+
+test("traffic logs separate access outcomes and omit sensitive request values", async (t) => {
+  const lines: string[] = [];
+  t.mock.method(console, "info", (line: string) => lines.push(line));
+  process.env.TRAFFIC_LOG = "1";
+  try {
+    for (const principal of [
+      undefined,
+      header("eve@example.com"),
+      header("ola@example.com"),
+      "malformed",
+    ]) {
+      const res = await fetch(
+        `${base}/nothing.js?code=secret-query&key=private-rule`,
+        {
+          method: "POST",
+          body: "secret-body",
+          redirect: "manual",
+          headers: {
+            ...(principal ? { "x-ms-client-principal": principal } : {}),
+            "user-agent": "traffic-test",
+            "x-forwarded-for": "192.0.2.1",
+            cookie: "session=secret-cookie",
+            authorization: "Bearer secret-header",
+            referer: "https://example.com/?code=secret-referrer",
+          },
+        },
+      );
+      await res.text();
+    }
+  } finally {
+    delete process.env.TRAFFIC_LOG;
+  }
+  assert.equal(lines.length, 4);
+  const records = lines.map((line) => JSON.parse(line));
+  assert.deepEqual(
+    records.map((r) => [r.access, r.status]),
+    [
+      ["anonymous", 302],
+      ["denied", 403],
+      ["allowed", 405],
+      ["denied", 403],
+    ],
+  );
+  for (const r of records) {
+    assert.equal(r.path, "/nothing.js");
+    assert.equal(r.userAgent, "traffic-test");
+    assert.equal(r.forwardedFor, "192.0.2.1");
+    assert.ok(r.durationMs >= 0);
+  }
+  assert.doesNotMatch(
+    lines.join(""),
+    /secret-|private-rule|example.com|malformed/,
+  );
 });
 
 test("a signed-in address off the list is refused", async () => {

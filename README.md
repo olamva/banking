@@ -83,11 +83,42 @@ Never share the dashboard. It holds every transaction you have, and so does a sc
 
 The same page runs on Azure Container Apps, behind Google sign-in, so that a phone can read it away from this wifi. Only an address in `ALLOWED_EMAILS` gets in. The site scales to zero, so the first request after an idle period waits a few seconds.
 
-Easy Auth is the gate, and it is configuration and not code. Container Apps runs the OAuth exchange and passes the identity in `X-MS-CLIENT-PRINCIPAL`. It proves who somebody is. It does not restrict to one person. `src/web/principal.ts` decodes the header, and `allowed()` in `src/auth/session.ts` tests the address against `ALLOWED_EMAILS`. An empty list denies everybody. `test/web/` pins every refusal.
+Easy Auth runs the Google login exchange and passes the identity in `X-MS-CLIENT-PRINCIPAL`.
+It passes anonymous requests to the server so that traffic logs include them.
+The server redirects anonymous requests to Google login before it serves any route.
+`src/web/principal.ts` decodes the identity header.
+`allowed()` in `src/auth/session.ts` checks the address against `ALLOWED_EMAILS`.
+An empty list denies everybody. `test/web/` checks the access controls.
 
 `src/web/server.ts` serves `data/dist` and the same three endpoints, on `node:http` and no framework. An Azure Files share mounts at `/data`. It holds `data/raw`, the database, the rules and the request ledger. The image holds only the code and the built page, so a scale to zero loses nothing.
 
 Terraform owns the resources. `pnpm deploy` owns their contents. The registry builds the image, so this machine needs no container runtime.
+
+### Traffic
+
+Run `pnpm traffic` to group the last 30 days of requests by browser header and forwarded IP addresses.
+The command reads Azure logs. It needs an Azure CLI login and an initialized Terraform backend.
+Install the Azure CLI `log-analytics` extension if the command requests it.
+Open **banking-dashboard-traffic → Logs** in Azure Portal to run [the same query](infra/traffic.kql).
+
+The report separates allowed, denied, and anonymous requests.
+The report shows times in `Europe/Oslo`.
+An allowed request passes the email check. Its response can still contain an error.
+A request count is not a visit count. One page can request several files.
+Compare new visits from each device with the report to identify their browser headers and IP addresses.
+Arc can report a Chrome browser header. Safari on an iPhone usually includes `iPhone` in its header.
+IP addresses can change or be shared. Headers can be forged. Neither proves who sends a request.
+
+The server records time, method, path, browser header, forwarded IP addresses, access result, status, and duration.
+It removes query strings and excludes cookies, authentication headers, email addresses, request bodies, and response bodies.
+Azure retains console logs for 30 days. Azure log ingestion charges apply.
+Requests that Azure handles before the server, including `/.auth/*`, do not appear in this report.
+Use the Azure **Requests** metric for total ingress counts.
+Native HTTP logs remain disabled because they store authentication query values without a supported ingestion transformation.
+
+Deploy the server before applying the Terraform changes when upgrading an existing site.
+Run `pnpm deploy`, then `terraform -chdir=infra apply`, from the main checkout after merging this change.
+Logging starts after activation. Earlier requests cannot be recovered.
 
 ### Setting it up
 
