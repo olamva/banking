@@ -54,3 +54,21 @@ export function diffRules(before: Rules, after: Rules): RuleChange[] {
     if (!(key in b)) out.push({ key, from });
   return out;
 }
+
+export const changeRules = (
+  rules: Rules,
+  key: string,
+  value?: string,
+  was?: string,
+  remove = false,
+): Rules => {
+  if (Array.isArray(rules)) {
+    const next = rules.filter((item) => item !== key && item !== was);
+    return remove ? next : [...next, key];
+  }
+  const next = { ...rules };
+  if (was !== undefined) delete next[was];
+  if (remove) delete next[key];
+  else next[key] = value!;
+  return next;
+};

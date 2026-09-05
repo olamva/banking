@@ -30,14 +30,10 @@ const CASH_IN = /^(innskudd automat|kontantinnskudd)/i;
 const isCashDeposit = (t: Txn): boolean => CASH_IN.test(t.typeText ?? "");
 
 function transferPairs(txns: Txn[], mine: Set<string>): Set<string> {
-  const groups = new Map<string, Txn[]>();
-  for (const t of txns) {
-    if (!mine.has(t.accountKey) || !isTransferType(t)) continue;
-    const k = `${t.date}|${Math.abs(t.amount).toFixed(2)}`;
-    const g = groups.get(k);
-    if (g) g.push(t);
-    else groups.set(k, [t]);
-  }
+  const groups = Map.groupBy(
+    txns.filter((t) => mine.has(t.accountKey) && isTransferType(t)),
+    (t) => `${t.date}|${Math.abs(t.amount).toFixed(2)}`,
+  );
 
   const paired = new Set<string>();
   for (const group of groups.values()) {

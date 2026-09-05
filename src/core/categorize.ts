@@ -63,6 +63,14 @@ export const loadPayees = (path = `${RULES_DIR}/payees.json`) =>
 export const loadCountries = (path = `${RULES_DIR}/countries.json`) =>
   loadJson<RuleMap>(path, {});
 
+type Rule = { matches: Matcher; value: string };
+
+const compileMap = (map: RuleMap, file: string): Rule[] =>
+  Object.entries(map).map(([pattern, value]) => ({
+    matches: compile(pattern, `rules/${file}.json`),
+    value,
+  }));
+
 // The rule wins over the country the shape heuristic reads off the card name.
 export function setCountries<
   T extends {
@@ -72,14 +80,12 @@ export function setCountries<
     country: string | null;
   },
 >(txns: T[], countries: RuleMap): T[] {
-  const rules = Object.entries(countries).map(([pattern, country]) => ({
-    matches: compile(pattern, "rules/countries.json"),
-    country,
-  }));
+  const rules = compileMap(countries, "countries");
   if (rules.length === 0) return txns;
   return txns.map((t) => {
-    const hit = rules.find((r) => r.matches(haystackOf(t)));
-    return hit ? { ...t, country: hit.country } : t;
+    const haystack = haystackOf(t);
+    const hit = rules.find((r) => r.matches(haystack));
+    return hit ? { ...t, country: hit.value } : t;
   });
 }
 
@@ -90,25 +96,21 @@ export function renamePayees<
     remoteAccountNumber: string | null;
   },
 >(txns: T[], payees: RuleMap): T[] {
-  const rules = Object.entries(payees).map(([pattern, name]) => ({
-    matches: compile(pattern, "rules/payees.json"),
-    name,
-  }));
+  const rules = compileMap(payees, "payees");
   const clean = makeCleaner(
     txns.map((t) => t.counterparty).filter((n) => n !== null),
   );
   return txns.map((t) => {
-    const hit = rules.find((r) => r.matches(haystackOf(t)));
+    const haystack = haystackOf(t);
+    const hit = rules.find((r) => r.matches(haystack));
     // Use the name from the rule exactly as written. The shape heuristic would
     // change `IKEA` to `Ikea`.
-    if (hit) return { ...t, counterparty: hit.name };
+    if (hit) return { ...t, counterparty: hit.value };
     return t.counterparty === null
       ? t
       : { ...t, counterparty: clean(t.counterparty) };
   });
 }
-
-type Rule = { matches: (haystack: string) => boolean; category: string };
 
 export function categorize(
   txns: Classified[],
@@ -119,16 +121,8 @@ export function categorize(
   family: string[] = [],
   notSubscriptions: Subscriptions = [],
 ): Categorized[] {
-  const rules: Rule[] = Object.entries(categories).map(
-    ([pattern, category]) => ({
-      matches: compile(pattern, "rules/categories.json"),
-      category,
-    }),
-  );
-  const giroRules: Rule[] = Object.entries(giro).map(([pattern, category]) => ({
-    matches: compile(pattern, "rules/giro.json"),
-    category,
-  }));
+  const rules = compileMap(categories, "categories");
+  const giroRules = compileMap(giro, "giro");
   const familyRules = family.map((pattern) =>
     compile(pattern, "rules/family.json"),
   );
@@ -193,10 +187,10 @@ function categoryFor(
 ): Pair {
   if (t.excluded) return flat(TRANSFER);
   const hit = rules.find((r) => r.matches(haystack));
-  if (hit) return splitCategory(hit.category);
+  if (hit) return splitCategory(hit.value);
   if (LUMP_TYPE.test(t.typeText ?? "")) {
     const named = giroRules.find((r) => r.matches(haystack));
-    if (named) return splitCategory(named.category);
+    if (named) return splitCategory(named.value);
   }
   if (familyRules.some((m) => m(haystack)))
     return splitCategory(t.amount > 0 ? FAMILY : PEER_PAYMENT);

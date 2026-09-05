@@ -31,10 +31,10 @@ type Sb1File = {
   }>;
 };
 
+const oslo = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Oslo" });
+
 export function osloDate(epochMs: number): string {
-  return new Date(epochMs).toLocaleDateString("en-CA", {
-    timeZone: "Europe/Oslo",
-  });
+  return oslo.format(epochMs);
 }
 
 const NO_ACCOUNT = "-1";
