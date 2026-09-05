@@ -1,0 +1,14 @@
+{
+  "id": "587dd5e6",
+  "ts": "2026-09-05T00:05:32+00:00",
+  "text": "Server tests need permission to listen on loopback in the sandbox",
+  "tags": [
+    "tests",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-6",
+  "session": "",
+  "where": "/private/tmp/banking-simplify",
+  "branch": "codex/simplify"
+}

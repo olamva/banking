@@ -1,0 +1,14 @@
+{
+  "id": "6ef5b344",
+  "ts": "2026-09-05T00:12:03+00:00",
+  "text": "A large deepEqual database failure exhausts the comparison process before it prints the mismatch",
+  "tags": [
+    "tests",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-6",
+  "session": "",
+  "where": "/private/tmp/banking-simplify",
+  "branch": "codex/simplify"
+}
