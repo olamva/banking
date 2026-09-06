@@ -117,7 +117,7 @@ export const App = () => {
   const [initial] = useState(readUrl);
   const [view, setView] = useState<View>(initial.view);
   const shownView = useDeferredValue(view);
-  const [ruleFile, setRuleFile] = useState<RuleFile>("categories");
+  const [ruleFile, setRuleFile] = useState<RuleFile>(initial.ruleFile);
   const [chosen, setChosen] = useState<string | null>(initial.period);
   const [filters, setFilters] = useState<Filters>(initial.filters);
   const [chosenGrain, setChosenGrain] = useState<Grain>(initial.grain);
@@ -162,8 +162,8 @@ export const App = () => {
   const grain = grains.includes(chosenGrain) ? chosenGrain : grains[0]!;
 
   useEffect(
-    () => writeUrl({ view, period: chosen, grain, filters }),
-    [view, chosen, grain, filters],
+    () => writeUrl({ view, ruleFile, period: chosen, grain, filters }),
+    [view, ruleFile, chosen, grain, filters],
   );
 
   const changeView = (next: View) => {
