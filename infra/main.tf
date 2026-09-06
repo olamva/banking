@@ -81,6 +81,7 @@ resource "azurerm_container_app_environment_storage" "data" {
   access_mode                  = "ReadWrite"
 }
 
+# Azure fixes retention at creation. This vault uses seven days.
 resource "azurerm_key_vault" "bank" {
   name                       = local.vault_name
   resource_group_name        = azurerm_resource_group.bank.name
@@ -88,7 +89,7 @@ resource "azurerm_key_vault" "bank" {
   tenant_id                  = data.azurerm_client_config.current.tenant_id
   sku_name                   = "standard"
   purge_protection_enabled   = true
-  soft_delete_retention_days = 90
+  soft_delete_retention_days = 7
   rbac_authorization_enabled = true
 }
 
