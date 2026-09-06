@@ -1,0 +1,13 @@
+{
+  "id": "6f5706d9",
+  "ts": "2026-09-05T21:40:15+00:00",
+  "text": "Azure metrics with start-time but no end-time returns a near-empty interval instead of through now",
+  "tags": [
+    "azure"
+  ],
+  "who": "agent",
+  "model": "gpt-6",
+  "session": "",
+  "where": "/private/tmp/banking-app-traffic",
+  "branch": "investigate/app-traffic"
+}

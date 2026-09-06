@@ -1,0 +1,13 @@
+{
+  "id": "e2cb5145",
+  "ts": "2026-09-05T21:39:18+00:00",
+  "text": "An unquoted src/server glob fails in zsh during traffic inspection",
+  "tags": [
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-6",
+  "session": "",
+  "where": "/private/tmp/banking-app-traffic",
+  "branch": "investigate/app-traffic"
+}
