@@ -10,7 +10,7 @@
     "sb1": "node --env-file=.env.local src/cli.ts",
     "dev": "vite",
     "test": "oxlint && node --test 'test/**/*.test.ts'",
-    "worktree:link": "main=$(dirname \"$(git rev-parse --git-common-dir)\") && ln -sfn \"$main/.env.local\" \"$main/data\" \"$main/rules\" .",
+    "worktree:link": "node infra/worktree-link.ts",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
     "build": "vite build",
@@ -20,7 +20,8 @@
     "rules:pull": "bash infra/rules-pull.sh",
     "seed:azure": "bash infra/seed-token.sh",
     "lint": "oxlint",
-    "lint:fix": "oxlint --fix"
+    "lint:fix": "oxlint --fix",
+    "worktree:cleanup": "node infra/worktree-cleanup.ts"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",

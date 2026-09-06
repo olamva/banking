@@ -1,0 +1,13 @@
+{
+  "id": "9f7fc3b2",
+  "ts": "2026-09-06T18:10:01+00:00",
+  "text": "Concurrent pnpm script invocation during dependency installation triggers a no-TTY purge refusal",
+  "tags": [
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-6",
+  "session": "",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3code-4d6e6506",
+  "branch": "t3code/automated-threaded-pr-workflow"
+}

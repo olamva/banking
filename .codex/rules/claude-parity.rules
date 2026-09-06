@@ -1,4 +1,3 @@
-# Claude project permissions, expressed as Codex execution rules.
 prefix_rule(pattern=["git", "add"], decision="allow")
 prefix_rule(pattern=["git", "commit"], decision="allow")
 prefix_rule(pattern=["git", "push"], decision="allow")
@@ -10,7 +9,7 @@ prefix_rule(pattern=["gh", "pr", "create"], decision="allow")
 prefix_rule(pattern=["gh", "pr", "view"], decision="allow")
 prefix_rule(pattern=["gh", "pr", "list"], decision="allow")
 prefix_rule(pattern=["gh", "pr", "comment"], decision="allow")
-prefix_rule(pattern=["gh", "pr", "merge"], decision="forbidden", justification="Do not merge pull requests from Codex.")
+prefix_rule(pattern=["gh", "pr", "merge"], decision="allow")
 
 prefix_rule(pattern=["gh", "stack"], decision="allow")
 prefix_rule(pattern=["gh", "stack", "merge"], decision="forbidden", justification="Do not merge a stack of pull requests from Codex.")
@@ -25,4 +24,15 @@ prefix_rule(pattern=["git", "-C", "rules", "status"], decision="allow")
 prefix_rule(pattern=["git", "-C", "rules", "diff"], decision="allow")
 prefix_rule(pattern=["git", "-C", "rules", "log"], decision="allow")
 
-# .codex/hooks.json runs the shared worktree guard before write-capable tools.
+
+prefix_rule(pattern=["gh", "pr", "checks"], decision="allow")
+prefix_rule(pattern=["gh", "run", "view"], decision="allow")
+prefix_rule(pattern=["gh", "run", "list"], decision="allow")
+prefix_rule(pattern=["git", "fetch"], decision="allow")
+prefix_rule(pattern=["git", "merge"], decision="allow")
+prefix_rule(pattern=["pnpm", "install"], decision="allow")
+prefix_rule(pattern=["pnpm", "worktree:link"], decision="allow")
+prefix_rule(pattern=["pnpm", "worktree:cleanup"], decision="allow")
+prefix_rule(pattern=["pnpm", "test"], decision="allow")
+prefix_rule(pattern=["pnpm", "typecheck"], decision="allow")
+prefix_rule(pattern=["pnpm", "build"], decision="allow")

@@ -1,0 +1,13 @@
+{
+  "id": "55199627",
+  "ts": "2026-09-06T18:08:51+00:00",
+  "text": "Local build refuses linked worktrees; run build from an isolated source export",
+  "tags": [
+    "build"
+  ],
+  "who": "agent",
+  "model": "gpt-6",
+  "session": "",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3code-4d6e6506",
+  "branch": "t3code/automated-threaded-pr-workflow"
+}

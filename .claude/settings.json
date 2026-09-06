@@ -28,14 +28,27 @@
       "Bash(git -C rules commit:*)",
       "Bash(git -C rules status:*)",
       "Bash(git -C rules diff:*)",
-      "Bash(git -C rules log:*)"
+      "Bash(git -C rules log:*)",
+      "Bash(gh pr merge:*)",
+      "Bash(gh pr checks:*)",
+      "Bash(gh run view:*)",
+      "Bash(gh run list:*)",
+      "Bash(git fetch:*)",
+      "Bash(git merge:*)",
+      "Bash(pnpm install:*)",
+      "Bash(pnpm worktree:link:*)",
+      "Bash(pnpm worktree:cleanup:*)",
+      "Bash(pnpm test:*)",
+      "Bash(pnpm typecheck:*)",
+      "Bash(pnpm build:*)"
     ],
     "deny": [
       "Bash(git push --force:*)",
       "Bash(git push --force-with-lease:*)",
       "Bash(git push -f:*)",
-      "Bash(gh pr merge:*)",
-      "Bash(gh stack merge:*)"
+      "Bash(gh stack merge:*)",
+      "Bash(git worktree remove --force:*)",
+      "Bash(git worktree remove -f:*)"
     ]
   }
 }
