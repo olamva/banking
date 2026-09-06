@@ -1,0 +1,14 @@
+{
+  "id": "a6ea55f2",
+  "ts": "2026-09-06T17:51:44+00:00",
+  "text": "Sandbox blocks git index.lock in the shared worktree metadata",
+  "tags": [
+    "git",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-6",
+  "session": "",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3code-1f5a3611",
+  "branch": "t3code/sanitize-agent-instructions"
+}
