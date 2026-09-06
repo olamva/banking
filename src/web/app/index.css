@@ -152,9 +152,10 @@
   .striped {
     background-image: repeating-linear-gradient(
       -45deg,
-      transparent 0 12px,
-      color-mix(in oklab, var(--color-ink) 4%, transparent) 12px 16px
+      transparent 0 8px,
+      color-mix(in oklab, var(--color-ink) 4%, transparent) 8px 16px
     );
+    animation: stripe-sweep 1.5s linear infinite paused;
   }
 
   @keyframes stripe-sweep {
@@ -167,11 +168,11 @@
   }
 
   .striped:hover {
-    animation: stripe-sweep 1.5s linear infinite;
+    animation-play-state: running;
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .striped:hover {
+    .striped {
       animation: none;
     }
   }
