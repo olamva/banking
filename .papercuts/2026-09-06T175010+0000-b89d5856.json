@@ -1,0 +1,14 @@
+{
+  "id": "b89d5856",
+  "ts": "2026-09-06T17:50:10+00:00",
+  "text": "GitHub CLI cannot reach api.github.com inside the sandbox",
+  "tags": [
+    "network",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-6",
+  "session": "",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3code-1f5a3611",
+  "branch": "t3code/sanitize-agent-instructions"
+}

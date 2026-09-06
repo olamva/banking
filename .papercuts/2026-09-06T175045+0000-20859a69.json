@@ -1,0 +1,14 @@
+{
+  "id": "20859a69",
+  "ts": "2026-09-06T17:50:45+00:00",
+  "text": "pnpm exec triggers dependency installation and fails on sandbox DNS during a documentation check",
+  "tags": [
+    "network",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-6",
+  "session": "",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3code-1f5a3611",
+  "branch": "t3code/sanitize-agent-instructions"
+}

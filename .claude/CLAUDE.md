@@ -1,97 +1,105 @@
 # banking
 
-This is a private repo for one user. It is not a product.
+This private repository serves one user.
 
-When you are finished, create a PR to merge your changes into `main`. If you require feedback, ask for it in the PR description. Use `.claude/skills/babysit-pr/SKILL.md` after creating or updating a PR.
-Wait for all checks to pass before merging.
-If you are happy with the PR, merge the PR yourself.
+## Complete the work
 
-A rule edit that you make by hand is finished only after you commit it there, in the same turn. An edit made on the page needs no such commit, because `rules/.history/` versions it. The last paragraph, below the code block, becomes:
+Create a PR into `main`. Put feedback requests in its description.
+Apply `.claude/skills/babysit-pr/SKILL.md` after creating or updating the PR.
+Wait for all checks to pass. Merge the PR yourself when the change is ready.
 
-```bash
-git -C rules add -A && git -C rules commit -m "chore: …"
-```
+Commit manual rule edits in the `rules/` repository during the same turn.
+Stage only the intended edits. Page edits need no commit because `rules/.history/` versions them.
 
-(This commit is required)
+## Data and requests
 
-## Layout
+Keep fetching in `src/net/` and analysis in `src/core/`. Use `src/web/` to compose them.
+Keep `src/core/` compatible with Node and browsers. Never import `node:` modules or `src/net/` there.
+Ask where a new file belongs if its directory is unclear.
 
-`src/` is split by the side of the rule that each file is on. `net/` may make requests. `core/` may not. `web/` composes them. Ask which side of "analysis never calls the API" a new file sits on when its directory is not obvious.
+Treat `data/raw/` as the source of truth. Analysis reads local data and never calls the bank API.
+Insert database rows only through `rebuild`. It empties the table and rebuilds from raw files.
+Never rely on transaction IDs across syncs. SB1 changes them on every fetch and when reservations book.
 
-`data/raw/` is the source of truth. It is the only thing that costs an API call to reproduce. The database is derived and disposable.
+Keep `/api/txns` reading only `data/banking.db`.
+Allow page requests to the bank API only through `/api/refresh`, after the user presses Refresh.
+Never call the bank API on page load, reload, filter changes, or timers.
+These routes live in `vite.config.ts`.
 
-Both Node and the browser import everything under `src/core/`. That code must have no `node:` imports. This lets the page aggregate with the same code that `node --test` pins.
+Use `reconcile` to identify missing months.
+Remove `data/raw/<month>/*.json` and press Refresh to fetch a stored month again. Do not add a force flag.
 
-## Rules
+Format dates with `Europe/Oslo`. API dates use epoch milliseconds at Norwegian midnight, which is `22:00Z` during summer.
+UTC formatting can place a transaction in the previous month.
 
-Analysis never calls the API. `src/net/` holds the fetching. Every later step reads `data/raw/`. No file in `src/core/` may import from `src/net/`.
+Use only `pnpm deploy` to send personal data off this machine.
+It uploads `data/dist`, `rules/*.json`, and `rules/.history/` to the Azure site.
+Keep the deployment gate. Get an explicit decision before adding another upload route.
+Use `pnpm rules:pull` to download these files without sending personal data.
 
-No page view costs a request. `/api/txns` reads only `data/banking.db`. Only `/api/refresh` calls the API, and only a press of the Refresh button reaches it. Both live in `vite.config.ts`. Never make a request on load, on a filter, on a reload or on a timer.
+## Money and classification
 
-Deleting a raw file is how you make the bank restate one. No force flag exists. Remove `data/raw/<month>/*.json` and press Refresh. `reconcile` is what tells you a month is owed.
+Read `card: true` from `rules/accounts.json` for `billReason` and the travel guess.
+Use `typeText` to distinguish peer payments from lump transfers. A name alone cannot distinguish them.
+Instant and card payments are peer payments. Giro and plain `Overførsel` transactions are lumps.
+Use `rules/giro.json` to assign meaning to lumps. The payment type describes movement, not purpose.
+Keep `remoteAccountNumber` on `Txn` and in override matching. It distinguishes unrelated bills from the same payee.
 
-Dates are Oslo-local. The `date` field from the API is epoch milliseconds at Norwegian midnight. Every summer timestamp is therefore `22:00Z`. Format with `Europe/Oslo`. UTC moves the first day of the month into the previous month.
+Split income and spending by sign, never category.
+Use `exclude.ts` to remove income from totals, and preserve the netting invariant.
+Keep refunds as income within their spending categories. Show them in `Income by category`.
+Reconcile both totals to the øre.
 
-One route sends personal data off this machine, and only one. `pnpm deploy` uploads `data/dist`, `rules/*.json` and `rules/.history/` to the Azure site. `pnpm rules:pull` reads the same files back, and it sends nothing. Both hold personal data. This is deliberate, and it is the reason the gate exists. No other command may send this data anywhere. Adding a second route needs a decision, not a patch.
+Preserve this `categorize` precedence:
 
-## Data model
+1. Excluded rows → `overfoering`; retain the exclusion `reason`.
+2. `rules/categories.json` → `category/sub`.
+3. `rules/giro.json`, for lumps only.
+4. `rules/family.json`.
+5. The two Vipps peer shapes.
+6. The bank's category pair.
+7. The travel guess, for card rows only.
 
-- Two rules need to know which account is the credit card. Both read `card: true` from `rules/accounts.json`. These rules are `billReason` and the travel guess.
-- A name alone does not mean a peer payment. A flatmate has two relationships at once: small instant payments, and a standing monthly transfer. The description is the bare name in both. `typeText` separates them. An instant or card payment is a peer payment. A giro or a plain `Overførsel` is a lump. The type shows how the money moved. It never shows why. `rules/giro.json` therefore maps the name to the meaning of its lumps.
-- One payee can bill two unrelated things under one name. Only `remoteAccountNumber` separates them. This is why that field is on `Txn` and in the override haystack.
-- Income and spending split on the sign, not on the category. No category can move money between the two totals. To take something out of income, exclude it in `exclude.ts`. That is a money change with a netting invariant. It is not a rules edit.
-- A spending category with income in it is expected. A merchant refund is money in, filed where the money went out. `Income by category` shows this rather than hiding it. Both sides reconcile to the øre.
+Keep `rules/categories.json` independent of line order. Reordering must never change a row's category.
+Fix collisions between different categories by narrowing patterns, never by changing the matcher or line order.
+Use `rebuild` to report collisions and suggested patterns. Leave collisions within the same category alone.
 
-## Categorising
+Use names from `rules/payees.json` exactly as written.
+Apply mechanical formatting in `src/core/names.ts` only when no payee rule matches.
+Give `rules/countries.json` precedence over card-name parsing and currency fallback.
+Keep name and country changes independent of money totals.
 
-`categorize` runs its rules in this order. The order is part of the design.
+Apply `rules/family.json` regardless of sign.
+Categorize money from relatives as `innskudd/familie` and repayments to relatives as `diverse/vennebetaling`.
 
-1. excluded -> `overfoering`, above every other rule. `reason` says why a row is out, so the category adds nothing.
-2. `rules/categories.json` — pattern -> `category/sub`.
-3. `rules/giro.json`. This rule applies only when the row is a lump.
-4. `rules/family.json`. It sits below the lump rule, so pocket money keeps the better label. It sits above the Vipps rules, which would call every gift a peer payment.
-5. The two Vipps peer shapes. They sit above the bank's own category. A row that keeps `diverse/overforing` reads a peer payment as a transfer.
-6. The bank's own pair.
-7. The travel guess, on card rows only.
+## Rule history and synchronization
 
-Every line in `rules/categories.json` works in any position. `categorize` takes the first pattern that matches, so the file _can_ act as a sequence. It must not. Two lines that claim the same row under different categories make the order load-bearing and invisible. You may sort, group or reorder the file freely, and every row must land where it landed before.
+Keep `rules/.history/` ignored with its `*` pattern. Store whole-file snapshots there.
+Write the snapshot and live file together in `save`. Keep the newest snapshot identical to the live file.
+Implement `undo` by copying the second-newest snapshot.
 
-Fix a collision in the _pattern_. Do not fix it in the matcher or in the order. `rebuild` prints every offending pair and the narrowed form of the loser. One example is `/^(?!.*(?:sit kafe))(?=.*\bsit\b)/`. It holds a refusal lookahead and a requirement lookahead. Neither one consumes any characters. A collision where both lines name the same category is harmless. Leave it alone.
+Preserve the version comparisons in `infra/rules-lib.sh`.
+Make `pnpm deploy` refuse to overwrite newer site rules.
+Make `pnpm rules:pull` refuse to overwrite newer local rules.
+Keep pull's local rule commit and rebuild. Never overwrite newer rules silently.
 
-A name is either known or only shaped. The two never mix. `rules/payees.json` carries knowledge: NSB is Vy, and two spellings are one bookshop. `src/core/names.ts` carries the opposite. It carries the formatting that SB1 puts on every name, which is mechanical. It runs only on names that no rule claimed. Use the name from a rule exactly as written. The cleaner would return `IKEA` as `Ikea`. A rename can never move money. That property makes the file safe to edit.
+## Transfer exclusions
 
-The country splits the same way. `src/core/names.ts` reads the shape of the card name, and it falls back to the currency. `rules/countries.json` carries the knowledge, and it beats the shape. A country can never move money either.
+Flag internal transfers without dropping rows. Keep exclusions auditable.
+Match equal amounts, the same date, and opposite signs across different accounts marked `mine`.
+Require both transactions' `Txn.typeText` values to contain the transfer stem `overfør`.
+Never match on amount, date, and sign alone.
 
-`rules/family.json` names relatives. The sign decides what the entry means. The sign does not decide whether the entry applies. Money in is `innskudd/familie`. Money out to the same person is a repayment to a relative, so it is `diverse/vennebetaling`. The category enforces this.
+Use `transferPairs` once per month. Pair transactions one-to-one and consume each transaction once.
+Never replace pairing with a counterpart-existence check.
 
-## Editing the rules on the page
+## Phone layout
 
-`rules/.history/` is the version control. A whole-file snapshot needs no diff format and no replay, and undo is a copy. The directory holds a `.gitignore` of `*`, because `rules/` is a git repo on the Mac and a plain directory on the volume. Versioning the versions helps nobody.
+Open the local page in the collaborative preview without asking. Standing permission applies.
+Inspect every UI change at 375 CSS px before completion.
+Use one responsive layout. Prevent horizontal page scrolling.
+Never bind the development server to `0.0.0.0`. The local page has no access gate and serves all transactions.
 
-The newest version holds what the live file holds. `save` writes the snapshot and the live file together, so the two never disagree. This is what makes `undo` the second-newest version, and it is what lets `infra/rules-lib.sh` say which host is ahead without reading a rule. Keep the two writes together.
-
-`pnpm deploy` refuses to overwrite a newer rule on the site. The site writes its own `rules/` now, so the upload is no longer a one-way copy of a file that only the Mac writes. The deploy compares the newest version on each side and stops. `pnpm rules:pull` brings the site copy back, commits it to the local `rules/` git repo, and rebuilds. The pull refuses in the other direction for the same reason. Never make either one overwrite in silence.
-
-## Exclusions
-
-The code flags an internal transfer. It never drops one. The excluded set must stay auditable. Both sides are present because the code syncs every account. Match on amount, date and opposite sign. Restrict the match to accounts marked `mine`.
-
-Amount, date and opposite sign are not enough alone. They are a weak signal at these volumes. 22 kr of deposit interest matches a 22 kr coffee exactly. Every such collision removes real money from the totals. The bank must also type both legs as a transfer. Match `Txn.typeText` on the stem `overfør`. Check both legs. Never check one.
-
-Pairing is one to one. That is not the same as "a counterpart exists". An existence check lets two +200 rows and one −200 row all answer yes. `transferPairs` decides the pairing one time each month, and it consumes each leg. The two legs must sit on different accounts.
-
-## The page is read on a phone
-
-The user gives standing permission to open the local banking page in the collaborative preview. Do not ask again.
-
-A UI change is finished only after you look at it at 375 CSS px. There is no separate mobile page, and there must not be one. Use one layout that adapts. Nothing may make the page scroll sideways.
-
-Resize the preview to 375 px. Never bind the dev server to `0.0.0.0` to reach it from a real phone. The local page has no gate, and it serves every transaction.
-
-Hover and meta-click are shortcuts. They are never the only route. A phone has neither one. Every number in a tooltip must be readable somewhere else. A gesture behind a modifier key needs a plain control that does the same thing.
-
-Wide content scrolls inside its own box. `DataTable` wraps itself in `overflow-x-auto`. Give the same treatment to anything else that cannot shrink.
-
-## Rows only enter the database by rebuild
-
-`rebuild` empties the table and builds it again from `data/raw/`. There is no incremental path. SB1 gives a transaction a new id every time the code fetches it. It gives another new id when a reservation books. Nothing keyed on `id` is therefore stable across syncs.
+Provide plain controls for modifier-key actions. Keep hover and meta-click optional.
+Show every tooltip number somewhere accessible without hover.
+Contain wide content in a scrolling box. Use `overflow-x-auto`, as `DataTable` does.
