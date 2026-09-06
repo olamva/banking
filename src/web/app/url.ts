@@ -1,9 +1,11 @@
+import { RULE_FILES, type RuleFile } from "../../core/ruleFiles.ts";
 import { period, type Filters, type PeriodKind } from "../../core/select.ts";
 
 export type Grain = "running" | "day" | "month";
 
 export type UrlState = {
   view: "dashboard" | "transactions" | "rules";
+  ruleFile: RuleFile;
   period: string | null;
   grain: Grain;
   filters: Filters;
@@ -25,6 +27,7 @@ const grainsFor = (p: string | null): Grain[] =>
 export const toParams = (s: UrlState): string => {
   const p = new URLSearchParams();
   if (s.view !== "dashboard") p.set("view", s.view);
+  if (s.view === "rules") p.set("tab", s.ruleFile);
   if (s.period) p.set("p", s.period);
   if (s.grain !== grainsFor(s.period)[0]) p.set("g", s.grain);
   if (s.filters.categories.length) p.set("cat", s.filters.categories.join(","));
@@ -74,6 +77,7 @@ export const fromParams = (p: URLSearchParams): UrlState => {
   );
   return {
     view: VIEWS.find((v) => v === p.get("view")) ?? "dashboard",
+    ruleFile: RULE_FILES.find((file) => file === p.get("tab")) ?? "categories",
     period: p.get("p") || null,
     grain:
       ALL_GRAINS.find((g) => g === p.get("g")) ??

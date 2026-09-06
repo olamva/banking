@@ -9,6 +9,7 @@ import {
 
 const DEFAULT: UrlState = {
   view: "dashboard",
+  ruleFile: "categories",
   period: null,
   grain: "running",
   filters: NO_FILTERS,
@@ -21,6 +22,7 @@ test("the untouched page has no query string at all", () => {
 test("a populated state round-trips, nulls included", () => {
   const state: UrlState = {
     view: "transactions",
+    ruleFile: "categories",
     grain: "month",
     period: "2026",
     filters: {
@@ -46,6 +48,7 @@ test("the period is one param, and the same one in either view", () => {
     toParams({
       ...DEFAULT,
       view: "transactions",
+      ruleFile: "categories",
       period: "all",
       grain: "month",
     }),

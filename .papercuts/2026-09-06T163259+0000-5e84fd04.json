@@ -1,0 +1,13 @@
+{
+  "id": "5e84fd04",
+  "ts": "2026-09-06T16:32:59+00:00",
+  "text": "Sandbox blocks Vite from listening on 127.0.0.1:4000",
+  "tags": [
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-6",
+  "session": "",
+  "where": "/Users/olavassbotn/Documents/banking",
+  "branch": "main"
+}
