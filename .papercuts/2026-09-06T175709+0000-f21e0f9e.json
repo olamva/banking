@@ -1,0 +1,13 @@
+{
+  "id": "f21e0f9e",
+  "ts": "2026-09-06T17:57:09+00:00",
+  "text": "Sandbox blocks gh access to api.github.com",
+  "tags": [
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-6",
+  "session": "",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3code-15417b4e",
+  "branch": "t3code/merge-dependabot-updates"
+}
