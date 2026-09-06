@@ -1,0 +1,13 @@
+{
+  "id": "a84e479d",
+  "ts": "2026-09-06T16:12:09+00:00",
+  "text": "FileDialog lives in Rules.tsx rather than its own file",
+  "tags": [
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-6",
+  "session": "",
+  "where": "/Users/olavassbotn/Documents/banking",
+  "branch": "main"
+}

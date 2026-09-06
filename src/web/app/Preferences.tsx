@@ -23,12 +23,15 @@ interface RememberDialogProps {
 }
 
 export const RememberDialog = ({
-  txn,
+  txn: selected,
   txns,
   pairs,
   rules,
   onClose,
 }: RememberDialogProps) => {
+  const txn =
+    txns.find((t) => t.id === selected.id && t.account === selected.account) ??
+    selected;
   const key = preferenceKey(txn);
   const [value, setValue] = useState(
     txn.subcategory ? `${txn.category}/${txn.subcategory}` : txn.category,
@@ -70,10 +73,17 @@ export const RememberDialog = ({
       >
         <h2 className="text-base font-semibold">Remember category</h2>
         {stale ? (
-          <p className="text-sm">
-            Open Rules and rebuild saved transactions first. This does not
-            contact the bank.
-          </p>
+          <div className="space-y-3 text-sm">
+            <p>Rebuild saved transactions to use the original payee text.</p>
+            <button
+              type="button"
+              className={BUTTON}
+              disabled={rules.busy}
+              onClick={rules.rebuild}
+            >
+              Rebuild saved transactions
+            </button>
+          </div>
         ) : txn.excluded ? (
           <p className="text-sm">Excluded transactions keep their exclusion.</p>
         ) : key === null ? (
