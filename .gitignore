@@ -36,3 +36,4 @@ infra/*.tfstate*
 infra/tfplan
 *.tfplan
 *.tfvars
+!.agents/rules
