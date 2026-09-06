@@ -2,50 +2,13 @@
 
 This is a private repo for one user. It is not a product.
 
-## Committing
-
-Commit, push and PRs are authorised in this repo. Commit when the work reaches a state worth keeping. Push your own branch. Open the PR against `main` when the work is done. `.claude/settings.json` holds the matching permissions, so none of these actions prompts.
-
-A PR body holds no account numbers, no payee names and no amounts.
-
-Never merge. `gh pr merge` and `gh stack merge` are denied on purpose. Open the PR, report it, and let the user merge.
-
-`pnpm test` runs oxlint and `node --test`. Node reads TypeScript itself, so there is no `tsx` and no build step for a test. The repo has no CI, so this command on the Mac is the whole gate.
-
-A rule edit that you make by hand is finished only after you commit it there, in the same turn. An edit made on the page needs no such commit, because `rules/.history/` versions it.
-
-The last paragraph, below the code block, becomes:
+A rule edit that you make by hand is finished only after you commit it there, in the same turn. An edit made on the page needs no such commit, because `rules/.history/` versions it. The last paragraph, below the code block, becomes:
 
 ```bash
 git -C rules add -A && git -C rules commit -m "chore: …"
 ```
 
-This commit is required, not only permitted.
-
-## Working in a worktree
-
-Run `pnpm install`, then run `pnpm worktree:link`. These two commands are the whole provisioning step. The second command makes symlinks to `.env.local`, `data` and `rules` in the main checkout.
-
-Retry `pnpm install` with network permission when sandbox DNS fails. Do not use `--offline` as a fallback.
-
-`pnpm sb1 rebuild` is not isolated. It writes the shared database through the `data` link. Rebuild through the page, or run the command from the main checkout. The sandbox also makes that database read-only, so the command needs write permission.
-
-You cannot change `rules/` or `data/` from a worktree. The symlink does not avoid this rule. The isolation guard resolves the link to the shared path and refuses the write. There is also nothing to isolate, because no commit carries those files. Make a rules edit in the main checkout. Do not enter a worktree for a task that only edits rules.
-
-The Bash guard refuses a compound command inside an isolated session. This covers heredocs, redirects and `&&` chains. The guard is syntactic. Write the script to `$CLAUDE_JOB_DIR/tmp` and run it in one plain call.
-
-`EnterWorktree` branches from `origin/main`. Check the base before you build on it. A branch that appears to stack on work that is not on `main` shows this error.
-
-Deploy from the main checkout. The deploy reads `data/banking.db` and `rules/`, and it writes `data/dist`. All of them resolve to the shared path, so a worktree cannot do it. `vite build` refuses to run in a worktree for that reason, and the deploy builds first, so one guard covers both.
-
-## Deploying
-
-```bash
-pnpm sb1 rebuild                # only when the rules changed
-pnpm deploy                     # build, push the code and the page, upload the rules
-```
-
-`terraform -chdir=infra apply` creates the resources. `pnpm deploy` fills them. Run the deploy from the main checkout.
+(This commit is required)
 
 ## Layout
 
