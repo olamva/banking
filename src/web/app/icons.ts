@@ -8,42 +8,42 @@ export type { IconSvgElement } from "@hugeicons/react";
 export const Icon = (props: React.ComponentProps<typeof HugeiconsIcon>) =>
   createElement(HugeiconsIcon, { "aria-hidden": true, ...props });
 
-export { default as DownIcon } from "@hugeicons/core-free-icons/ArrowDown02Icon";
-export { default as FlatIcon } from "@hugeicons/core-free-icons/ArrowRight02Icon";
-export { default as UpIcon } from "@hugeicons/core-free-icons/ArrowUp02Icon";
+export { ArrowDown02Icon as DownIcon } from "@hugeicons/core-free-icons";
+export { ArrowRight02Icon as FlatIcon } from "@hugeicons/core-free-icons";
+export { ArrowUp02Icon as UpIcon } from "@hugeicons/core-free-icons";
 
-export { default as SortDescIcon } from "@hugeicons/core-free-icons/ArrowDown01Icon";
-export { default as SortAscIcon } from "@hugeicons/core-free-icons/ArrowUp01Icon";
-export { default as SortableIcon } from "@hugeicons/core-free-icons/ArrowUpDownIcon";
+export { ArrowDown01Icon as SortDescIcon } from "@hugeicons/core-free-icons";
+export { ArrowUp01Icon as SortAscIcon } from "@hugeicons/core-free-icons";
+export { ArrowUpDownIcon as SortableIcon } from "@hugeicons/core-free-icons";
 
-export { default as DropdownIcon } from "@hugeicons/core-free-icons/ArrowDown01Icon";
-export { default as CloseIcon } from "@hugeicons/core-free-icons/Cancel01Icon";
-export { default as BackIcon } from "@hugeicons/core-free-icons/ArrowLeft02Icon";
-export { default as EditIcon } from "@hugeicons/core-free-icons/Edit02Icon";
-export { default as ResetFiltersIcon } from "@hugeicons/core-free-icons/FilterResetIcon";
-export { default as KeyboardIcon } from "@hugeicons/core-free-icons/KeyboardIcon";
-export { default as RefreshIcon } from "@hugeicons/core-free-icons/RefreshIcon";
-export { default as SearchIcon } from "@hugeicons/core-free-icons/Search01Icon";
-export { default as ExpandIcon } from "@hugeicons/core-free-icons/ArrowRight01Icon";
-export { default as SystemThemeIcon } from "@hugeicons/core-free-icons/ComputerIcon";
-export { default as DarkThemeIcon } from "@hugeicons/core-free-icons/Moon02Icon";
-export { default as LightThemeIcon } from "@hugeicons/core-free-icons/Sun03Icon";
+export { ArrowDown01Icon as DropdownIcon } from "@hugeicons/core-free-icons";
+export { Cancel01Icon as CloseIcon } from "@hugeicons/core-free-icons";
+export { ArrowLeft02Icon as BackIcon } from "@hugeicons/core-free-icons";
+export { Edit02Icon as EditIcon } from "@hugeicons/core-free-icons";
+export { FilterResetIcon as ResetFiltersIcon } from "@hugeicons/core-free-icons";
+export { KeyboardIcon as KeyboardIcon } from "@hugeicons/core-free-icons";
+export { RefreshIcon as RefreshIcon } from "@hugeicons/core-free-icons";
+export { Search01Icon as SearchIcon } from "@hugeicons/core-free-icons";
+export { ArrowRight01Icon as ExpandIcon } from "@hugeicons/core-free-icons";
+export { ComputerIcon as SystemThemeIcon } from "@hugeicons/core-free-icons";
+export { Moon02Icon as DarkThemeIcon } from "@hugeicons/core-free-icons";
+export { Sun03Icon as LightThemeIcon } from "@hugeicons/core-free-icons";
 
-export { default as MonthlyIcon } from "@hugeicons/core-free-icons/ChartColumnIcon";
-export { default as ChangesIcon } from "@hugeicons/core-free-icons/ChartIncreaseIcon";
-export { default as TransactionsIcon } from "@hugeicons/core-free-icons/Invoice01Icon";
-export { default as CategoryIcon } from "@hugeicons/core-free-icons/PieChartIcon";
-export { default as RecurringIcon } from "@hugeicons/core-free-icons/RepeatIcon";
-export { default as CounterpartyIcon } from "@hugeicons/core-free-icons/Store01Icon";
-export { default as AccountIcon } from "@hugeicons/core-free-icons/Wallet01Icon";
+export { ChartColumnIcon as MonthlyIcon } from "@hugeicons/core-free-icons";
+export { ChartIncreaseIcon as ChangesIcon } from "@hugeicons/core-free-icons";
+export { Invoice01Icon as TransactionsIcon } from "@hugeicons/core-free-icons";
+export { PieChartIcon as CategoryIcon } from "@hugeicons/core-free-icons";
+export { RepeatIcon as RecurringIcon } from "@hugeicons/core-free-icons";
+export { Store01Icon as CounterpartyIcon } from "@hugeicons/core-free-icons";
+export { Wallet01Icon as AccountIcon } from "@hugeicons/core-free-icons";
 
-export { default as UndoIcon } from "@hugeicons/core-free-icons/Undo02Icon";
-export { default as RedoIcon } from "@hugeicons/core-free-icons/Redo02Icon";
-export { default as GoToVersionIcon } from "@hugeicons/core-free-icons/HistoryIcon";
-export { default as AddedIcon } from "@hugeicons/core-free-icons/PlusSignIcon";
-export { default as RemovedIcon } from "@hugeicons/core-free-icons/MinusSignIcon";
-export { default as ChangedIcon } from "@hugeicons/core-free-icons/Exchange01Icon";
+export { Undo02Icon as UndoIcon } from "@hugeicons/core-free-icons";
+export { Redo02Icon as RedoIcon } from "@hugeicons/core-free-icons";
+export { HistoryIcon as GoToVersionIcon } from "@hugeicons/core-free-icons";
+export { PlusSignIcon as AddedIcon } from "@hugeicons/core-free-icons";
+export { MinusSignIcon as RemovedIcon } from "@hugeicons/core-free-icons";
+export { Exchange01Icon as ChangedIcon } from "@hugeicons/core-free-icons";
 
-export { default as ErrorIcon } from "@hugeicons/core-free-icons/AlertCircleIcon";
-export { default as InfoIcon } from "@hugeicons/core-free-icons/InformationCircleIcon";
-export { default as LoadingIcon } from "@hugeicons/core-free-icons/Loading03Icon";
+export { AlertCircleIcon as ErrorIcon } from "@hugeicons/core-free-icons";
+export { InformationCircleIcon as InfoIcon } from "@hugeicons/core-free-icons";
+export { Loading03Icon as LoadingIcon } from "@hugeicons/core-free-icons";

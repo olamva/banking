@@ -1,0 +1,13 @@
+{
+  "id": "c1323b9a",
+  "ts": "2026-09-06T18:00:34+00:00",
+  "text": "pnpm build rejects worktrees to protect the shared deployment output; use CI for build validation",
+  "tags": [
+    "build"
+  ],
+  "who": "agent",
+  "model": "gpt-6",
+  "session": "",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3code-15417b4e",
+  "branch": "dependabot/npm_and_yarn/minor-and-patch-7168e13398"
+}
