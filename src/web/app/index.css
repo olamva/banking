@@ -157,6 +157,25 @@
     );
   }
 
+  @keyframes stripe-sweep {
+    from {
+      background-position: 0 0;
+    }
+    to {
+      background-position: 10px 0;
+    }
+  }
+
+  .striped:hover {
+    animation: stripe-sweep 0.75s linear infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .striped:hover {
+      animation: none;
+    }
+  }
+
   /*
    * The refresh label, while the refresh runs. The highlight is a gradient
    * tile twice the width of the text, clipped to the glyphs. The tile slides
