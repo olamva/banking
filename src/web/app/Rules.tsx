@@ -211,10 +211,9 @@ export const RulesView = ({
   pairs,
   file: chosen,
 }: RulesViewProps) => {
-  // payees.json holds 580 lines, and each one draws two fields. A held arrow
-  // steps through eight files faster than that draws, so the body follows one
-  // step behind and React drops the states it cannot reach in time. The tabs
-  // above answer at once, because they are not this list.
+  // The largest rule file draws two fields for each entry. A held arrow steps
+  // through the eight tabs faster than that draws. The deferred value lets the
+  // tabs answer at once and the body follow one step behind.
   // ponytail: no windowing. One file still draws whole. Window the list like
   // DataTable when one of these files reaches a few thousand lines.
   const file = useDeferredValue(chosen);

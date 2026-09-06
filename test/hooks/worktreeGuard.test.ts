@@ -90,6 +90,9 @@ test("an in-place rewriter is refused, and a formatter and a patch with it", () 
 test("a redirect is refused only when it names a path in the repo", () => {
   assert.equal(bash(main, "node -e 1 > notes.txt"), true);
   assert.equal(bash(main, "node -e 1 > /tmp/out.txt"), false);
+  // The guard covers one repository, so a path outside it is not its business.
+  assert.equal(bash(main, "node -e 1 > ~/.claude/CLAUDE.md"), false);
+  assert.equal(bash(main, "node -e 1 > /etc/hosts"), false);
 });
 
 // 2>&1 and a grep for => both hold a ">" that redirects nothing. The guard runs

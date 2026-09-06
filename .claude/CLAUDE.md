@@ -8,6 +8,10 @@ Commit, push and PRs are authorised in this repo. Commit when the work reaches a
 
 A PR body holds no account numbers, no payee names and no amounts.
 
+Never merge. `gh pr merge` and `gh stack merge` are denied on purpose. Open the PR, report it, and let the user merge.
+
+`pnpm test` runs oxlint and `node --test`. Node reads TypeScript itself, so there is no `tsx` and no build step for a test. The repo has no CI, so this command on the Mac is the whole gate.
+
 A rule edit that you make by hand is finished only after you commit it there, in the same turn. An edit made on the page needs no such commit, because `rules/.history/` versions it.
 
 The last paragraph, below the code block, becomes:
@@ -24,7 +28,7 @@ Run `pnpm install`, then run `pnpm worktree:link`. These two commands are the wh
 
 Retry `pnpm install` with network permission when sandbox DNS fails. Do not use `--offline` as a fallback.
 
-`pnpm sb1 rebuild` is not isolated. It writes the shared database through the `data` link. Rebuild through the page, or run the command from the main checkout.
+`pnpm sb1 rebuild` is not isolated. It writes the shared database through the `data` link. Rebuild through the page, or run the command from the main checkout. The sandbox also makes that database read-only, so the command needs write permission.
 
 You cannot change `rules/` or `data/` from a worktree. The symlink does not avoid this rule. The isolation guard resolves the link to the shared path and refuses the write. There is also nothing to isolate, because no commit carries those files. Make a rules edit in the main checkout. Do not enter a worktree for a task that only edits rules.
 
@@ -114,6 +118,8 @@ Pairing is one to one. That is not the same as "a counterpart exists". An existe
 The user gives standing permission to open the local banking page in the collaborative preview. Do not ask again.
 
 A UI change is finished only after you look at it at 375 CSS px. There is no separate mobile page, and there must not be one. Use one layout that adapts. Nothing may make the page scroll sideways.
+
+Resize the preview to 375 px. Never bind the dev server to `0.0.0.0` to reach it from a real phone. The local page has no gate, and it serves every transaction.
 
 Hover and meta-click are shortcuts. They are never the only route. A phone has neither one. Every number in a tooltip must be readable somewhere else. A gesture behind a modifier key needs a plain control that does the same thing.
 

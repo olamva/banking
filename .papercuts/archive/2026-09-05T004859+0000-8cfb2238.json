@@ -1,0 +1,13 @@
+{
+  "id": "8cfb2238",
+  "ts": "2026-09-05T00:48:59+00:00",
+  "text": "Worktree provisioning hits sandbox DNS failures for registry.npmjs.org",
+  "tags": [
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-6",
+  "session": "",
+  "where": "/private/tmp/banking-classifier-review",
+  "branch": "research/classifier-review"
+}

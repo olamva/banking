@@ -23,8 +23,11 @@ data
 # here cannot replace the one the main checkout serves
 data.local
 
-# hand-edited local rules — they carry account keys, names and descriptions
+# hand-edited local rules — they carry account keys, names and descriptions.
+# The pattern has no slash, so it also matches the agent rules under .codex/.
+# Those are tracked and hold no personal data.
 rules
+!.codex/rules
 
 # a tfvars file holds every secret in the clear, and so does a saved plan.
 # The state itself lives in Azure, not here.
