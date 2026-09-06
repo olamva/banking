@@ -2,7 +2,9 @@
 
 This is a private repo for one user. It is not a product.
 
-When you are finished, create a PR to merge your changes into `main`. If you require feedback, ask for it in the PR description. If you are happy with the PR, merge the PR yourself.
+When you are finished, create a PR to merge your changes into `main`. If you require feedback, ask for it in the PR description. Use `.claude/skills/babysit-pr/SKILL.md` after creating or updating a PR.
+Wait for all checks to pass before merging.
+If you are happy with the PR, merge the PR yourself.
 
 A rule edit that you make by hand is finished only after you commit it there, in the same turn. An edit made on the page needs no such commit, because `rules/.history/` versions it. The last paragraph, below the code block, becomes:
 

@@ -1,0 +1,14 @@
+{
+  "id": "0b523bf6",
+  "ts": "2026-09-06T16:49:12+00:00",
+  "text": "Protected .agents directory requires escalation for the skill mirror symlink",
+  "tags": [
+    "permissions",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-6",
+  "session": "",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3code-342cb0d3",
+  "branch": "t3code/add-workflows-public-readiness"
+}
