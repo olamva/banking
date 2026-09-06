@@ -22,3 +22,7 @@ GitHub now enables automatic remote branch deletion after merge.
 The T3 schema supports runOnWorktreeCreate scripts.
 Antigravity user permissions already allow gh commands.
 Codex loads project execution rules at session startup.
+
+PR 140 passes CI, including tests, types, and build.
+The current session rejects gh pr merge with the old Codex prohibition after the repository rule changes.
+Start a new agent session to load the updated merge permission before retrying PR 140.

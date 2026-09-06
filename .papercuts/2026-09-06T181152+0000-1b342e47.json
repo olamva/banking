@@ -1,0 +1,13 @@
+{
+  "id": "1b342e47",
+  "ts": "2026-09-06T18:11:52+00:00",
+  "text": "Active Codex policy retains the old PR merge prohibition after the requested project permission change",
+  "tags": [
+    "permissions"
+  ],
+  "who": "agent",
+  "model": "gpt-6",
+  "session": "",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3code-4d6e6506",
+  "branch": "t3code/automated-threaded-pr-workflow"
+}
