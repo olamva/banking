@@ -1,0 +1,13 @@
+{
+  "id": "9a16c104",
+  "ts": "2026-09-06T17:59:12+00:00",
+  "text": "Repository search included absent .t3 directory",
+  "tags": [
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-6",
+  "session": "",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3code-4d6e6506",
+  "branch": "t3code/automated-threaded-pr-workflow"
+}

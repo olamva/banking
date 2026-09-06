@@ -6,7 +6,31 @@ This private repository serves one user.
 
 Create a PR into `main`. Put feedback requests in its description.
 Apply `.claude/skills/babysit-pr/SKILL.md` after creating or updating the PR.
+Complete implementation, relevant tests, and a review of the final diff before merging.
+Fix failures and resolve review feedback within the requested scope.
 Wait for all checks to pass. Merge the PR yourself when the change is ready.
+Continue through these steps without asking for routine confirmation.
+Ask only when a missing decision, permission, or external failure prevents progress.
+Notify the user in the thread when work needs input and when the PR merges.
+Include the PR URL, validation results, and cleanup status in the final response.
+Keep T3 and its agent process running while checks run.
+
+Fetch `origin/main` before merging. Merge it into the task branch when the task branch falls behind.
+Push the updated branch and repeat all checks for its new commit.
+Use merge commits. Never force-push, bypass protection, or merge a PR stack.
+Keep GitHub's required CI check and strict branch updating enabled.
+
+Use `pnpm worktree:link` after dependency installation when T3 does not run setup.
+Keep each task's changes in its existing worktree.
+Never remove an active thread's worktree or another task's branch.
+Run `pnpm worktree:cleanup <path> <pr-number>` from another checkout to inspect cleanup eligibility.
+Use `--apply` only after the thread finishes and T3 stops.
+Preserve thread history. Never edit T3's internal database.
+Never force worktree removal. Preserve uncommitted changes, local data, and commits outside `origin/main`.
+Leave cleanup pending when these conditions prevent removal.
+
+Keep shared `rules/` edits, shared database rebuilds, and deployments separate from concurrent writers.
+Do not assume that worktrees isolate the linked `rules/` and `data/` directories.
 
 Commit manual rule edits in the `rules/` repository during the same turn.
 Stage only the intended edits. Page edits need no commit because `rules/.history/` versions them.

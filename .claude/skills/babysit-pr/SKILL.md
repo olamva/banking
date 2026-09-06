@@ -22,6 +22,10 @@ Fix failures within the authorized task, push the changes, and restart monitorin
 Do not disable checks or weaken assertions to obtain success.
 Report an external blocker and leave the PR open when further work needs user input or unavailable service access.
 
+After checks finish, fetch `origin/main` and check whether the task branch includes it.
+Use `git merge origin/main` when the branch falls behind. Resolve conflicts, push, and restart monitoring.
+Never rebase a published branch or force-push it.
+Treat GitHub's behind or blocked merge state as a blocker.
 After checks finish, query the PR head and checks again.
 Require every expected check to report success for the current head commit.
 Require every other reported check to finish without failure.
@@ -32,3 +36,7 @@ Merge only when the user or repository instructions authorize it.
 Use `gh pr merge <pr> --merge --match-head-commit <sha>` to prevent merging a different head commit.
 Do not use `--admin` or merge while checks remain pending.
 Confirm the merged state and report the PR URL.
+Check remote branch deletion. GitHub deletes merged branches automatically in this repository.
+Leave an active worktree in place. Report its path for later cleanup.
+Use `pnpm worktree:cleanup <path> <pr-number>` from another checkout after the thread finishes.
+Read `docs/thread-workflow.md` for cleanup requirements.

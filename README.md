@@ -26,6 +26,11 @@ pnpm worktree:link                  # symlink .env.local, data and rules back
 pnpm dev                            # its own port in 4010-4089, and its own database
 ```
 
+## Agent threads
+
+T3 runs dependency installation and worktree linking after creating a worktree.
+Follow [the thread workflow](docs/thread-workflow.md) for PR completion, permissions, merge checks, and cleanup.
+
 ## Commands
 
 ```bash
