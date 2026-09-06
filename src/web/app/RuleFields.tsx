@@ -28,6 +28,7 @@ import { TxnDialog } from "./Transactions.tsx";
 
 export const KEY_LABEL: Record<RuleFile, string> = {
   categories: "Pattern",
+  preferences: "Conditions",
   giro: "Pattern",
   payees: "Pattern",
   countries: "Pattern",
@@ -39,6 +40,7 @@ export const KEY_LABEL: Record<RuleFile, string> = {
 
 export const VALUE_LABEL: Record<RuleFile, string> = {
   categories: "category/sub",
+  preferences: "category/sub",
   giro: "category/sub",
   payees: "Name",
   countries: "Country",
@@ -122,7 +124,7 @@ interface MatchTableProps {
   loading: boolean;
 }
 
-const MatchTable = ({ txns, loading }: MatchTableProps) => {
+export const MatchTable = ({ txns, loading }: MatchTableProps) => {
   const [selected, setSelected] = useState<Categorized | null>(null);
 
   return (
@@ -163,7 +165,7 @@ const MatchTable = ({ txns, loading }: MatchTableProps) => {
 
 // What the pattern claims, before it is saved. A regex that reads as narrow and
 // matches four hundred rows is the failure this exists to catch.
-export const MatchNote = ({ pattern, txns, haystacks }: MatchNoteProps) => {
+const PatternMatchNote = ({ pattern, txns, haystacks }: MatchNoteProps) => {
   const [checkedPattern, setCheckedPattern] = useState(pattern);
   const [open, setOpen] = useState(false);
 
@@ -221,6 +223,15 @@ export const MatchNote = ({ pattern, txns, haystacks }: MatchNoteProps) => {
     </div>
   );
 };
+
+export const MatchNote = (props: MatchNoteProps) =>
+  props.txns.some((t) => t.originalCounterparty === undefined) ? (
+    <p className="text-xs text-ink-muted">
+      Rebuild saved transactions to preview matches.
+    </p>
+  ) : (
+    <PatternMatchNote {...props} />
+  );
 
 interface CategoryInputProps {
   value: string;

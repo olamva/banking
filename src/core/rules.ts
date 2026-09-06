@@ -7,6 +7,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { compile, splitCategory } from "./match.ts";
+import { readPreference } from "./preferences.ts";
 import { RULES_DIR } from "./paths.ts";
 import {
   CATEGORY_VALUED,
@@ -147,7 +148,8 @@ function check({ file, key, value, remove }: Edit): void {
   if (!key.trim()) throw new Error("the pattern is empty");
   // A bad regex throws here rather than at the next rebuild, where it would
   // break every category at once.
-  compile(key, `${file}.json`);
+  if (file === "preferences") readPreference(key);
+  else compile(key, `${file}.json`);
   if (remove) return;
   if (!isMap(file)) return;
   if (!value?.trim()) throw new Error(`${file}.json needs a value`);

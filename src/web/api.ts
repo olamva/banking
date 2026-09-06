@@ -142,7 +142,8 @@ export function rulesRoute(
 
   let work: Promise<Edited>;
   try {
-    if (path === "/api/rules/save") work = applied(save(ruleEdit(params)));
+    if (path === "/api/rules/rebuild") work = applied(0);
+    else if (path === "/api/rules/save") work = applied(save(ruleEdit(params)));
     else if (path === "/api/rules/group")
       work = applied(
         saveValues(

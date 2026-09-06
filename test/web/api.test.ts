@@ -5,6 +5,8 @@ import { join } from "node:path";
 import { after, afterEach, beforeEach, mock, test } from "node:test";
 import { totals } from "../../src/core/stats.ts";
 import type { Categorized } from "../../src/core/types.ts";
+import { preferenceKey } from "../../src/core/preferences.ts";
+import { haystackOf } from "../../src/core/match.ts";
 
 const dir = mkdtempSync(join(tmpdir(), "api-"));
 process.env.DATA_DIR = join(dir, "data");
@@ -22,6 +24,68 @@ const edit = (route: string, params: Record<string, string>) =>
 
 const network = mock.method(globalThis, "fetch", () => {
   throw new Error("Offline analysis must not fetch");
+});
+
+test("remembered categories survive rebuild and undo without changing totals", async () => {
+  await rebuildAll();
+  const before = readRows();
+  const purchase = before.find((t) => t.id === "purchase")!;
+  assert.equal(purchase.originalCounterparty, "SHOP");
+  assert.equal(haystackOf(purchase).includes("ikea"), false);
+  const key = preferenceKey(purchase)!;
+  assert.equal(
+    (await edit("save", { file: "preferences", key, value: "home/furniture" }))
+      .status,
+    200,
+  );
+  let rows = readRows();
+  assert.equal(
+    rows.find((t) => t.id === "purchase")!.categorySource,
+    "Remembered category",
+  );
+  assert.equal(rows.find((t) => t.id === "refund")!.category, "food");
+  assert.deepEqual(totals(rows), totals(before));
+  assert.equal((await edit("rebuild", {})).status, 200);
+  assert.equal(readRows().find((t) => t.id === "purchase")!.category, "home");
+  assert.equal((await edit("undo", { file: "preferences" })).status, 200);
+  rows = readRows();
+  assert.equal(rows.find((t) => t.id === "purchase")!.category, "food");
+  assert.deepEqual(totals(rows), totals(before));
+  assert.equal((await edit("redo", { file: "preferences" })).status, 200);
+  assert.equal(readRows().find((t) => t.id === "purchase")!.category, "home");
+});
+
+test("invalid preferences change no rules and rebuild requires the request header", async () => {
+  const before = (
+    await rulesRoute("/api/rules", new URLSearchParams(), undefined)!
+  ).body;
+  assert.equal(
+    (await edit("save", { file: "preferences", key: "[]", value: "food" }))
+      .status,
+    400,
+  );
+  assert.equal(
+    (await rulesRoute("/api/rules", new URLSearchParams(), undefined)!).body,
+    before,
+  );
+  assert.equal(
+    (await rulesRoute("/api/rules/rebuild", new URLSearchParams(), undefined)!)
+      .status,
+    405,
+  );
+});
+
+test("subcategory collisions produce warnings without DEBUG", async (t) => {
+  put("rules/categories.json", {
+    shop: "food/groceries",
+    "/shop/": "food/dining",
+  });
+  const warning = t.mock.method(console, "error", () => {});
+  delete process.env.DEBUG;
+  await rebuildAll();
+  assert.ok(
+    warning.mock.calls.some((c) => String(c.arguments[0]).includes("warning:")),
+  );
 });
 afterEach(() => assert.equal(network.mock.callCount(), 0));
 after(() => mock.restoreAll());

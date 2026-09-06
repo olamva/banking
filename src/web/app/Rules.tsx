@@ -1,10 +1,12 @@
 import { useDeferredValue, useMemo, useState } from "react";
 import { haystackOf } from "../../core/match.ts";
+import { overlaps } from "../../core/narrowings.ts";
 import {
   CATEGORY_VALUED,
   isMapFile,
   type RuleFile,
   type Rules,
+  type RuleMap,
 } from "../../core/ruleFiles.ts";
 import type { Categorized } from "../../core/types.ts";
 import { Empty, Loading } from "./Cards.tsx";
@@ -12,9 +14,11 @@ import { SearchBox } from "./SearchBox.tsx";
 import type { RulesApi } from "./data.ts";
 import { AddedIcon, BackIcon, Icon } from "./icons.ts";
 import { Modal } from "./Modal.tsx";
+import { PreferencesView, RememberDialog } from "./Preferences.tsx";
 
 export const RULE_LABEL: Record<RuleFile, string> = {
   categories: "Categories",
+  preferences: "Remembered categories",
   giro: "Giro",
   payees: "Payee names",
   countries: "Countries",
@@ -26,7 +30,8 @@ export const RULE_LABEL: Record<RuleFile, string> = {
 
 const RULE_NOTE: Record<RuleFile, string> = {
   categories:
-    "Pattern to category. It beats every rule but the excluded flag, so it is the one to reach for first.",
+    "Patterns set categories unless an exclusion or a remembered category applies.",
+  preferences: "Save a category for an exact payee and payment context.",
   giro: "Pattern to category, on a lump only. A giro or a plain Overførsel, never an instant payment.",
   payees:
     "Pattern to the name on the page. A rename can never move money, so this file is safe to edit.",
@@ -220,6 +225,15 @@ export const RulesView = ({
   const [find, setFind] = useState("");
   const haystacks = useMemo(() => txns.map(haystackOf), [txns]);
   const data = rules.data;
+  const conflicts = useMemo(() => {
+    if (!data || (file !== "categories" && file !== "payees")) return [];
+    return overlaps(
+      txns,
+      data.files[file] as RuleMap,
+      file === "payees",
+    ).filter((c) => !c.harmless);
+  }, [data, file, txns]);
+  const stale = txns.some((t) => t.originalCounterparty === undefined);
   const entries = data ? entriesOf(data.files[file]) : [];
   const needle = find.trim().toLowerCase();
   const shown = needle
@@ -238,9 +252,56 @@ export const RulesView = ({
   );
   const hasMatches = grouped ? shownGroups.length > 0 : shown.length > 0;
 
+  if (stale)
+    return (
+      <section className="space-y-3 text-sm">
+        <p>
+          Rebuild saved transactions to use the original payee text. This does
+          not contact the bank.
+        </p>
+        <button
+          type="button"
+          className={BUTTON}
+          disabled={rules.busy}
+          onClick={rules.rebuild}
+        >
+          Rebuild saved transactions
+        </button>
+      </section>
+    );
+  if (file === "preferences")
+    return <PreferencesView rules={rules} txns={txns} pairs={pairs} />;
+
   return (
     <section className="flex min-w-0 flex-col">
       <p className="mb-3 text-sm text-ink-muted">{RULE_NOTE[file]}</p>
+      {conflicts.length > 0 && (
+        <details className="mb-4 min-w-0 rounded-md border border-line p-3 text-xs">
+          <summary className="cursor-pointer text-critical">
+            Conflicting rules ({conflicts.length})
+          </summary>
+          <p className="my-2">
+            These rules assign different values to the same transactions. The
+            first matching rule wins.
+          </p>
+          <ul className="space-y-3">
+            {conflicts.map((c) => (
+              <li
+                key={`${c.winner}|${c.loser}`}
+                className="break-words [overflow-wrap:anywhere]"
+              >
+                <p>
+                  <code>{c.winner}</code> → {c.winnerValue}
+                </p>
+                <p>
+                  Overrides <code>{c.loser}</code> → {c.loserValue}
+                </p>
+                <p>{c.rows} matching transaction(s).</p>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
 
       {data === null ? (
         <Loading />
@@ -334,7 +395,7 @@ export interface FileDialogProps {
   onClose: () => void;
 }
 
-export const FileDialog = ({
+const PatternDialog = ({
   txn,
   file,
   rules,
@@ -422,3 +483,10 @@ export const FileDialog = ({
     </Modal>
   );
 };
+
+export const FileDialog = (props: FileDialogProps) =>
+  props.file === "preferences" ? (
+    <RememberDialog {...props} />
+  ) : (
+    <PatternDialog {...props} />
+  );

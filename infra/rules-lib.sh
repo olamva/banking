@@ -9,7 +9,7 @@
 # ponytail: neither side deletes. An edit below the cursor drops the versions
 # above it, and the other side keeps its copies until somebody prunes by hand.
 
-RULE_FILES="categories giro payees labels family subscriptions not-subscriptions"
+RULE_FILES="categories preferences giro payees labels countries family subscriptions not-subscriptions"
 
 # Read names on stdin, print the newest stamp for one rule file, or nothing.
 newest_stamp() {

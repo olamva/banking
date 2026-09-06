@@ -70,6 +70,7 @@ export const ID_FIELD = "Transaction ID";
 const FIELD_NAMES: Record<string, string> = {
   id: ID_FIELD,
   counterparty: "Merchant",
+  originalCounterparty: "Imported payee",
   typeText: "Type",
   reason: "Excluded because",
 };

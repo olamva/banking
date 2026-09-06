@@ -14,7 +14,14 @@ export interface RuleTabsProps {
 const RULE_GROUPS: [string, RuleFile[]][] = [
   [
     "Transactions",
-    ["categories", "giro", "family", "subscriptions", "not-subscriptions"],
+    [
+      "preferences",
+      "categories",
+      "giro",
+      "family",
+      "subscriptions",
+      "not-subscriptions",
+    ],
   ],
   ["Display", ["payees", "countries", "labels"]],
 ];

@@ -1,4 +1,5 @@
 import type { RuleChange, RuleFile } from "../../core/ruleFiles.ts";
+import { preferenceLabel } from "../../core/preferences.ts";
 import { Note } from "./Cards.tsx";
 import { versionAt, type RulesApi } from "./data.ts";
 import {
@@ -22,7 +23,12 @@ const fmtStamp = (at: number): string =>
     timeStyle: "short",
   });
 
-const Change = ({ change: { key, from, to } }: { change: RuleChange }) => {
+interface ChangeProps {
+  change: RuleChange;
+  file: RuleFile;
+}
+
+const Change = ({ change: { key, from, to }, file }: ChangeProps) => {
   const gone = to === undefined;
   const value = gone ? from : from === undefined ? to : `${from} → ${to}`;
   return (
@@ -32,7 +38,9 @@ const Change = ({ change: { key, from, to } }: { change: RuleChange }) => {
         size={11}
         className={`shrink-0 self-center ${gone ? "text-critical" : "text-series-1"}`}
       />
-      <span className="min-w-0 truncate font-mono text-ink">{key}</span>
+      <span className="min-w-0 break-words text-ink [overflow-wrap:anywhere]">
+        {file === "preferences" ? preferenceLabel(key) : key}
+      </span>
       {value && (
         <span className="min-w-0 truncate text-ink-muted">{value}</span>
       )}
@@ -47,13 +55,12 @@ const CHANGES_SHOWN = 6;
 // The stack, and the cursor in it. Stepping back costs nothing, so nothing here
 // asks before it moves. The next edit is what drops the versions above the
 // cursor, and the note below says so before the reader types.
-export const History = ({
-  file,
-  rules,
-}: {
+interface HistoryProps {
   file: RuleFile;
   rules: RulesApi;
-}) => {
+}
+
+export const History = ({ file, rules }: HistoryProps) => {
   const data = rules.data;
   const versions = data?.history[file] ?? [];
   const at = data?.at[file] ?? null;
@@ -119,7 +126,7 @@ export const History = ({
               ) : (
                 <ul className="mt-0.5">
                   {changes.slice(0, CHANGES_SHOWN).map((change) => (
-                    <Change key={change.key} change={change} />
+                    <Change key={change.key} change={change} file={file} />
                   ))}
                   {changes.length > CHANGES_SHOWN && (
                     <li className="text-[11px] text-ink-muted">

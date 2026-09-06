@@ -6,6 +6,7 @@
 // account numbers, opening balances and sync floors that no page may set.
 export const MAP_FILES = [
   "categories",
+  "preferences",
   "giro",
   "payees",
   "labels",
@@ -22,9 +23,11 @@ export type RuleFile = (typeof RULE_FILES)[number];
 export type RuleMap = Record<string, string>;
 export type Rules = RuleMap | string[];
 
-// A value in these two names a category. The other two name a payee or a
-// category, which is free text.
-export const CATEGORY_VALUED = new Set<RuleFile>(["categories", "giro"]);
+export const CATEGORY_VALUED = new Set<RuleFile>([
+  "categories",
+  "giro",
+  "preferences",
+]);
 
 export const isMapFile = (file: RuleFile): boolean =>
   (MAP_FILES as readonly string[]).includes(file);

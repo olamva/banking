@@ -8,6 +8,8 @@ export type Txn = {
   amount: number;
   description: string;
   counterparty: string | null;
+  // An empty string preserves an absent imported payee after a rule supplies a display name.
+  originalCounterparty?: string;
   country: string | null;
   bankCategory: string | null;
   bankSub: string | null;
@@ -30,4 +32,5 @@ export type Classified = Txn & {
 export type Categorized = Classified & {
   category: string;
   subcategory: string | null;
+  categorySource?: string;
 };

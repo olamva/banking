@@ -12,6 +12,8 @@ CREATE TABLE IF NOT EXISTS transactions (
   amount REAL NOT NULL,
   description TEXT NOT NULL,
   counterparty TEXT,
+  originalCounterparty TEXT,
+  categorySource TEXT,
   country TEXT,
   bankCategory TEXT,
   bankSub TEXT,
@@ -43,6 +45,9 @@ export function openDb(path = DB_FILE): DatabaseSync {
     db.exec(
       "ALTER TABLE transactions ADD COLUMN isPending INTEGER NOT NULL DEFAULT 0",
     );
+  for (const field of ["originalCounterparty", "categorySource"])
+    if (!columns.some(({ name }) => name === field))
+      db.exec(`ALTER TABLE transactions ADD COLUMN ${field} TEXT`);
   return db;
 }
 
@@ -54,6 +59,8 @@ const COLUMNS = [
   "amount",
   "description",
   "counterparty",
+  "originalCounterparty",
+  "categorySource",
   "country",
   "bankCategory",
   "bankSub",
@@ -99,6 +106,8 @@ export function upsertMany(
         row.amount,
         row.description,
         row.counterparty,
+        row.originalCounterparty ?? null,
+        row.categorySource ?? null,
         row.country,
         row.bankCategory,
         row.bankSub,
@@ -139,6 +148,8 @@ export function queryRange(
   for (const row of rows) {
     // SQLite returns objects with no prototype and stores flags as integers.
     Object.setPrototypeOf(row, Object.prototype);
+    if (row.originalCounterparty === null) delete row.originalCounterparty;
+    if (row.categorySource === null) delete row.categorySource;
     row.isPending = !!row.isPending;
     row.isRecurring = !!row.isRecurring;
     row.isSubscription = !!row.isSubscription;

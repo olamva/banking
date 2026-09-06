@@ -86,9 +86,11 @@ test("a name that is not a version is ignored", () => {
 test("every rule file is compared, and no other name is", () => {
   const all = [
     "categories",
+    "preferences",
     "giro",
     "payees",
     "labels",
+    "countries",
     "family",
     "subscriptions",
     "not-subscriptions",

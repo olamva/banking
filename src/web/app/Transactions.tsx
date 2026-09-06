@@ -186,7 +186,8 @@ interface TxnDialogProps {
 }
 
 const TXN_RULE_ACTIONS: [RuleFile, string][] = [
-  ["categories", "Recategorize…"],
+  ["preferences", "Remember category…"],
+  ["categories", "Category pattern…"],
   ["payees", "Rename payee…"],
   ["family", "Mark as family…"],
 ];
@@ -229,6 +230,7 @@ const SHOWN_ABOVE = [
   "bankCategoryName",
   "bankSubName",
   "bankConfidence",
+  "categorySource",
 ];
 
 const DOT = (
@@ -320,6 +322,12 @@ export const TxnDialog = ({ txn, onClose, onFile }: TxnDialogProps) => {
           </div>
         )}
         <dl className="text-xs">
+          {txn.categorySource && (
+            <div className={ROW}>
+              <dt className="shrink-0 text-ink-soft">Classification</dt>
+              <dd className="min-w-0 text-right">{txn.categorySource}</dd>
+            </div>
+          )}
           {bank && (
             <div className={ROW}>
               <dt className="shrink-0 text-ink-soft">Bank category</dt>
@@ -442,7 +450,10 @@ export const TransactionsCard = ({
           txn={open}
           onClose={() => setOpen(null)}
           {...(onFile && {
-            onFile: (file) => onFile(open, file),
+            onFile: (file) => {
+              setOpen(null);
+              onFile(open, file);
+            },
           })}
         />
       )}

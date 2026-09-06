@@ -188,6 +188,8 @@ test("the bank pair, its names and its confidence round-trip, subcategory includ
     bankConfidence: 96,
     category: "helse_og_velvaere",
     subcategory: "apotek",
+    originalCounterparty: "",
+    categorySource: "Remembered category",
   });
   upsertMany(db, [populated]);
   assert.deepEqual(queryRange(db, "2026-07", "2026-07"), [populated]);
