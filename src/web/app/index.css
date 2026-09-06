@@ -148,6 +148,15 @@
 }
 
 @layer components {
+  /* An image, not a colour, so the `hover:bg-hover` of the row still paints under it. */
+  .striped {
+    background-image: repeating-linear-gradient(
+      -45deg,
+      transparent 0 5px,
+      color-mix(in oklab, var(--color-ink) 9%, transparent) 5px 10px
+    );
+  }
+
   /*
    * The refresh label, while the refresh runs. The highlight is a gradient
    * tile twice the width of the text, clipped to the glyphs. The tile slides

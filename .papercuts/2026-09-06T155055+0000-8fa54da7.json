@@ -1,0 +1,14 @@
+{
+  "id": "8fa54da7",
+  "ts": "2026-09-06T15:50:55+00:00",
+  "text": "preview_click with role=button[name='Transactions'] fails on the local Vite page, but a plain DOM click on the same button works",
+  "tags": [
+    "preview",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "opus-5",
+  "session": "3e25dfb6",
+  "where": "mcp__t3-code__preview_click",
+  "branch": "worktree-pending-txn-stripes"
+}
