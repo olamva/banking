@@ -152,8 +152,8 @@
   .striped {
     background-image: repeating-linear-gradient(
       -45deg,
-      transparent 0 5px,
-      color-mix(in oklab, var(--color-ink) 9%, transparent) 5px 10px
+      transparent 0 12px,
+      color-mix(in oklab, var(--color-ink) 4%, transparent) 12px 16px
     );
   }
 
@@ -162,12 +162,12 @@
       background-position: 0 0;
     }
     to {
-      background-position: 10px 0;
+      background-position: 22.627417px 0;
     }
   }
 
   .striped:hover {
-    animation: stripe-sweep 0.75s linear infinite;
+    animation: stripe-sweep 1.5s linear infinite;
   }
 
   @media (prefers-reduced-motion: reduce) {

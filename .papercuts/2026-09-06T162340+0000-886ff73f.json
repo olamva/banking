@@ -1,0 +1,13 @@
+{
+  "id": "886ff73f",
+  "ts": "2026-09-06T16:23:40+00:00",
+  "text": "pnpm worktree:link attempts dependency installation before running the script",
+  "tags": [
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-6",
+  "session": "",
+  "where": "/private/tmp/banking-pr129",
+  "branch": "worktree-pending-txn-stripes"
+}
