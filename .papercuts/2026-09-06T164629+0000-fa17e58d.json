@@ -1,0 +1,14 @@
+{
+  "id": "fa17e58d",
+  "ts": "2026-09-06T16:46:29+00:00",
+  "text": "GitHub CLI cannot reach api.github.com inside the sandbox",
+  "tags": [
+    "network",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-6",
+  "session": "",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3code-342cb0d3",
+  "branch": "t3code/add-workflows-public-readiness"
+}
