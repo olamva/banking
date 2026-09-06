@@ -1,0 +1,13 @@
+{
+  "id": "fdc0d743",
+  "ts": "2026-09-06T16:24:19+00:00",
+  "text": "GitHub reads fail inside the network sandbox; escalation succeeds",
+  "tags": [
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-6",
+  "session": "",
+  "where": "/private/tmp/banking-pr129",
+  "branch": "worktree-pending-txn-stripes"
+}

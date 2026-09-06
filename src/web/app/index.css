@@ -148,6 +148,35 @@
 }
 
 @layer components {
+  /* An image, not a colour, so the `hover:bg-hover` of the row still paints under it. */
+  .striped {
+    background-image: repeating-linear-gradient(
+      -45deg,
+      transparent 0 8px,
+      color-mix(in oklab, var(--color-ink) 4%, transparent) 8px 16px
+    );
+    animation: stripe-sweep 1.5s linear infinite paused;
+  }
+
+  @keyframes stripe-sweep {
+    from {
+      background-position: 0 0;
+    }
+    to {
+      background-position: 22.627417px 0;
+    }
+  }
+
+  .striped:hover {
+    animation-play-state: running;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .striped {
+      animation: none;
+    }
+  }
+
   /*
    * The refresh label, while the refresh runs. The highlight is a gradient
    * tile twice the width of the text, clipped to the glyphs. The tile slides
