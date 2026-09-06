@@ -1,0 +1,13 @@
+{
+  "id": "01da2b1b",
+  "ts": "2026-09-05T01:05:19+00:00",
+  "text": "pnpm install in a worktree needs network permission because sandbox DNS fails",
+  "tags": [
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-6",
+  "session": "",
+  "where": "/private/tmp/banking-classifier-implementation",
+  "branch": "feat/remember-categories"
+}
