@@ -1,0 +1,13 @@
+{
+  "id": "c866f3ba",
+  "ts": "2026-09-06T17:58:25+00:00",
+  "text": "gh pr diff does not accept a file path filter",
+  "tags": [
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-6",
+  "session": "",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3code-15417b4e",
+  "branch": "dependabot/github_actions/actions-7e7a8faa9d"
+}
