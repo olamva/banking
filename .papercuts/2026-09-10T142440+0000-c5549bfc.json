@@ -1,0 +1,14 @@
+{
+  "id": "c5549bfc",
+  "ts": "2026-09-10T14:24:40+00:00",
+  "text": "Sandbox blocks Vite binding to loopback with EPERM",
+  "tags": [
+    "preview",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-6",
+  "session": "",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3code-bf76ce8b",
+  "branch": "t3code/unify-category-selectors"
+}
