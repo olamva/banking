@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { categorize } from "../../src/core/categorize.ts";
-import { narrowings } from "../../src/core/narrowings.ts";
+import { narrowings, overlaps } from "../../src/core/narrowings.ts";
 import type { Categorized } from "../../src/core/types.ts";
 
 function row(overrides: Partial<Categorized>): Categorized {
@@ -69,6 +69,22 @@ test("a narrowed pattern keeps its own rows and takes none back", () => {
   assert.equal(
     answer({ sit: "husleie", "sit kafe": "kafe_og_restaurant" }),
     "husleie,husleie",
+  );
+});
+
+test("rows with the same text each count toward an overlap", () => {
+  const rows = [
+    row({ id: "1" }),
+    row({ id: "2" }),
+    row({ id: "3", excluded: true }),
+    row({ id: "4", description: "Kiwi", counterparty: "Kiwi" }),
+  ];
+  const [o] = overlaps(rows, { rema: "reise", "rema 1000": "dagligvarer" });
+  assert.equal(o!.rows, 2);
+  assert.equal(
+    overlaps(rows, { rema: "reise", "rema 1000": "dagligvarer" }, true)[0]!
+      .rows,
+    3,
   );
 });
 
