@@ -40,13 +40,25 @@ Concurrent agents can encounter an outdated branch after another merge. Repeat t
 
 ## Cleanup
 
-Run the inspection from another checkout:
+Delete the local task branch after merge and remote branch deletion:
+
+```sh
+pnpm worktree:cleanup /absolute/worktree/path 123 --branch-only --apply
+```
+
+Run this step before the final response, while T3 remains open.
+The command detaches the checkout at its existing commit and deletes the verified local branch and its configuration.
+It preserves ignored local files and thread history. It refuses uncommitted changes and commits outside `origin/main`.
+It requires remote branch deletion. Fetching prunes obsolete remote references.
+Create a new task branch before making further commits in a detached checkout.
+
+Run worktree inspection from another checkout:
 
 ```sh
 pnpm worktree:cleanup /absolute/worktree/path 123
 ```
 
-The command fetches `origin/main` and reads the PR from this checkout's GitHub repository.
+The command fetches origin with pruning and reads the PR from this checkout's GitHub repository.
 It requires a merged PR into `main` and an exact match between the branch and PR head.
 It also requires both the branch head and merge commit in `origin/main`.
 It preserves locked worktrees, uncommitted changes, untracked files, and local commits outside `origin/main`.
@@ -62,12 +74,12 @@ pnpm worktree:cleanup /absolute/worktree/path 123 --apply
 
 Removal requires macOS process checks and refuses detected T3 processes or working directories inside the target.
 Keep T3 stopped throughout removal. Do not start another writer during cleanup.
-Git removes the worktree without force. The command deletes the local branch only at its verified commit.
+Git removes the worktree without force. Removal also accepts a checkout detached by branch cleanup.
 GitHub handles remote branch deletion. The command never deletes another remote branch.
 
 This command does not change T3's thread history or internal database.
 T3 can retain a reference to the removed path. Create a new worktree before resuming that thread.
-Automatic cleanup during active T3 sessions remains unavailable without a verified thread lifecycle interface.
+Worktree removal during active T3 sessions remains unavailable without a verified thread lifecycle interface.
 No background cleanup service runs.
 
 ## Shared files
