@@ -1,0 +1,14 @@
+{
+  "id": "da900a3f",
+  "ts": "2026-09-10T15:05:45+00:00",
+  "text": "Sandbox dependency installation cannot resolve registry.npmjs.org; an elevated retry is required.",
+  "tags": [
+    "network",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-6",
+  "session": "",
+  "where": "/Users/olavassbotn/Developer/banking-visual-review",
+  "branch": "docs/visual-review"
+}
