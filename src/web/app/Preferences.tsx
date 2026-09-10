@@ -10,7 +10,13 @@ import { Empty } from "./Cards.tsx";
 import type { RulesApi } from "./data.ts";
 import { rowLabel, splitPair } from "./format.ts";
 import { Modal } from "./Modal.tsx";
-import { BUTTON, FIELD, MatchTable, RemoveButton } from "./RuleFields.tsx";
+import {
+  BUTTON,
+  CategoryInput,
+  FIELD,
+  MatchTable,
+  RemoveButton,
+} from "./RuleFields.tsx";
 import { History } from "./RuleHistory.tsx";
 import { SearchBox } from "./SearchBox.tsx";
 
@@ -105,18 +111,13 @@ export const RememberDialog = ({
             </p>
             <label className="block space-y-1 text-sm">
               <span>Category</span>
-              <select
-                aria-label="Category"
+              <CategoryInput
+                label="Category"
                 value={value}
-                onChange={(e) => setValue(e.target.value)}
-                className={`${FIELD} w-full`}
-              >
-                {[...new Set([value, ...pairs])].map((pair) => (
-                  <option key={pair} value={pair}>
-                    {rowLabel(...splitPair(pair))}
-                  </option>
-                ))}
-              </select>
+                pairs={pairs}
+                onChange={setValue}
+                className={FIELD}
+              />
             </label>
             <p className="text-xs">
               {matches.length} matching transaction(s). {changed} category
