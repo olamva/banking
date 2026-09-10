@@ -1,4 +1,6 @@
 import { useMemo, useState, type ReactNode } from "react";
+import type { BulkFile } from "../../core/bulkRules.ts";
+import { BulkToolbar } from "./BulkToolbar.tsx";
 import type { RuleFile } from "../../core/ruleFiles.ts";
 import { merchantOf, subcategoryOf } from "../../core/select.ts";
 import type { SubscriptionGroup } from "../../core/stats.ts";
@@ -364,6 +366,7 @@ interface TransactionsCardProps {
   onCategory: (category: string, meta: boolean) => void;
   onAccount: (account: string, meta: boolean) => void;
   onFile?: (txn: Categorized, file: RuleFile) => void;
+  onBulk?: (txns: Categorized[], file: BulkFile) => void;
 }
 
 export const TransactionsCard = ({
@@ -374,9 +377,14 @@ export const TransactionsCard = ({
   onCategory,
   onAccount,
   onFile,
+  onBulk,
 }: TransactionsCardProps) => {
   const { sorted, head } = useTxnSort(txns);
   const [open, setOpen] = useState<Categorized | null>(null);
+  const [selected, setSelected] = useState<Set<Categorized>>(new Set());
+  const picked = txns.filter((t) => selected.has(t));
+  if (picked.length !== selected.size) setSelected(new Set(picked));
+
   const subcategorySizes = useMemo(
     () => [...new Set(txns.map((t) => rowLabel(t.category, t.subcategory)))],
     [txns],
@@ -399,6 +407,14 @@ export const TransactionsCard = ({
           onChange={onSearch}
           placeholder="Search merchant or description…"
         />
+        {onBulk && txns.length > 0 && (
+          <BulkToolbar
+            txns={txns}
+            picked={picked}
+            onBulk={onBulk}
+            onSelect={setSelected}
+          />
+        )}
       </div>
       {sorted.length === 0 ? (
         <Empty>No transactions match the current filters.</Empty>
@@ -406,8 +422,11 @@ export const TransactionsCard = ({
         <DataTable
           scroll
           onRow={(i) => setOpen(sorted[i] ?? null)}
-          rowClassName={(i) => (sorted[i]?.isPending ? "striped" : "")}
+          rowClassName={(i) =>
+            `${sorted[i]?.isPending ? "striped" : ""} ${selected.has(sorted[i]!) ? "bg-hover" : ""}`
+          }
           columns={[
+            ...(onBulk ? [{ label: "Select", min: true }] : []),
             head("Date", "date", { min: true }),
             head("Merchant / description", "merchant"),
             head("Category", "subcategory", {
@@ -422,6 +441,27 @@ export const TransactionsCard = ({
             }),
           ]}
           rows={sorted.map((t) => [
+            ...(onBulk
+              ? [
+                  <label
+                    className="flex min-h-8 min-w-8 cursor-pointer items-center justify-center"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <input
+                      type="checkbox"
+                      className="size-4 accent-series-1"
+                      aria-label={`Select ${merchantOf(t)} on ${t.date}, ${fmtNOKExact(t.amount)}`}
+                      checked={selected.has(t)}
+                      onChange={(e) => {
+                        const next = new Set(selected);
+                        if (e.target.checked) next.add(t);
+                        else next.delete(t);
+                        setSelected(next);
+                      }}
+                    />
+                  </label>,
+                ]
+              : []),
             <button
               type="button"
               onClick={(e) => !highlighting(e) && setOpen(t)}

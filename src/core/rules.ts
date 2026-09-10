@@ -168,6 +168,25 @@ export function save(edit: Edit): number {
   return commit(file, changeRules(load(file), key, value, was, remove));
 }
 
+export function saveBulk(
+  file: RuleFile,
+  keys: string[],
+  value: string,
+): number {
+  if (file !== "payees" && file !== "preferences")
+    throw new Error("Bulk edits support payees and remembered categories");
+  if (keys.length === 0) throw new Error("Select at least one transaction");
+  for (const key of keys) check({ file, key, value });
+  const existing = load(file) as Record<string, string>;
+  const changes = Object.fromEntries(keys.map((key) => [key, value]));
+  return commit(file, {
+    ...changes,
+    ...Object.fromEntries(
+      Object.entries(existing).filter(([key]) => !Object.hasOwn(changes, key)),
+    ),
+  });
+}
+
 export function saveValues(
   file: RuleFile,
   keys: string[],

@@ -236,3 +236,38 @@ test("a save preserves an external edit as an undo target", () => {
   rules.undo("payees");
   assert.deepEqual(asMap("payees"), { shop: "External" });
 });
+
+test("bulk edits insert and replace rules in one reversible history step", () => {
+  put("payees", { shop: "Old", keep: "Other" });
+  rules.saveBulk("payees", ["/^shop shop $/", "new"], "Unified");
+  assert.deepEqual(Object.entries(asMap("payees")), [
+    ["/^shop shop $/", "Unified"],
+    ["new", "Unified"],
+    ["shop", "Old"],
+    ["keep", "Other"],
+  ]);
+  assert.equal(rules.versions("payees").length, 2);
+  assert.deepEqual(
+    rules.readVersion("payees", rules.current("payees")!),
+    rules.load("payees"),
+  );
+  rules.undo("payees");
+  assert.deepEqual(asMap("payees"), { shop: "Old", keep: "Other" });
+  rules.redo("payees");
+  assert.equal(asMap("payees")["new"], "Unified");
+});
+
+test("bulk validation rejects the entire edit before writing any history", () => {
+  put("payees", { shop: "Old" });
+  assert.throws(
+    () => rules.saveBulk("payees", ["new", "/(/"], "New"),
+    /not a valid regex/,
+  );
+  assert.throws(() => rules.saveBulk("payees", [], "New"), /Select at least/);
+  assert.throws(
+    () => rules.saveBulk("categories", ["shop"], "food"),
+    /Bulk edits support/,
+  );
+  assert.deepEqual(asMap("payees"), { shop: "Old" });
+  assert.deepEqual(rules.versions("payees"), []);
+});

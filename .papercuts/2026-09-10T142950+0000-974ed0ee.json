@@ -1,0 +1,13 @@
+{
+  "id": "974ed0ee",
+  "ts": "2026-09-10T14:29:50+00:00",
+  "text": "pnpm dev triggers dependency installation but sandbox DNS blocks the registry",
+  "tags": [
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-6",
+  "session": "",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3code-b8a00bb5",
+  "branch": "t3code/add-bulk-transaction-actions"
+}

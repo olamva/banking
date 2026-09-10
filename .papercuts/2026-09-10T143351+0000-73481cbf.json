@@ -1,0 +1,13 @@
+{
+  "id": "73481cbf",
+  "ts": "2026-09-10T14:33:51+00:00",
+  "text": "Sandbox blocks the worktree preview server from binding 127.0.0.1:4060",
+  "tags": [
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-6",
+  "session": "",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3code-b8a00bb5",
+  "branch": "t3code/add-bulk-transaction-actions"
+}
