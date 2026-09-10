@@ -24,11 +24,14 @@ export function overlaps(
     matches: compile(p, "rules/categories.json"),
   }));
   const acc = new Map<string, Overlap>();
+  const hits = new Map<string, typeof compiled>();
 
   for (const t of rows) {
     if (t.excluded && !includeExcluded) continue;
     const haystack = haystackOf(t);
-    const hit = compiled.filter((c) => c.matches(haystack));
+    const hit =
+      hits.get(haystack) ?? compiled.filter((c) => c.matches(haystack));
+    hits.set(haystack, hit);
     if (hit.length < 2) continue;
     const [winner, ...losers] = hit;
     for (const loser of losers) {
