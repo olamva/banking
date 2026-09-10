@@ -8,7 +8,7 @@ Create a PR into `main`. Put feedback requests in its description.
 Apply `.claude/skills/babysit-pr/SKILL.md` after creating or updating the PR.
 Complete implementation, relevant tests, and a review of the final diff before merging.
 Fix failures and resolve review feedback within the requested scope.
-Wait for all checks to pass. Merge the PR yourself when the change is ready.
+Wait for all checks to pass. Merge the PR yourself when the change is ready and any required visual approval is present.
 Continue through these steps without asking for routine confirmation.
 Ask only when a missing decision, permission, or external failure prevents progress.
 Notify the user in the thread when work needs input and when the PR merges.
@@ -120,6 +120,19 @@ Never match on amount, date, and sign alone.
 
 Use `transferPairs` once per month. Pair transactions one-to-one and consume each transaction once.
 Never replace pairing with a counterpart-existence check.
+
+## Visual review before merge
+
+Require my explicit visual approval before merging any visual change beyond a minor correction.
+Require review for noticeable changes to layout, navigation, typography, color scheme, component styling, or responsive behavior.
+Limit minor corrections to isolated fixes that preserve the existing design.
+Require review when the classification is unclear.
+Prepare the completed changes before requesting approval.
+Provide either a working preview with access instructions or before-and-after screenshots embedded in the PR body.
+Include the affected pages, states, and screen sizes needed to assess the changes.
+Wait for my explicit approval of the presented visual changes before merging or enabling automatic merge.
+Do not treat silence, passing tests, screenshots alone, or earlier implementation permission as visual approval.
+Request renewed approval if subsequent changes materially alter the reviewed appearance.
 
 ## Phone layout
 
