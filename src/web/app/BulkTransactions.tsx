@@ -5,7 +5,7 @@ import type { Categorized } from "../../core/types.ts";
 import type { RulesApi } from "./data.ts";
 import { rowLabel, splitPair } from "./format.ts";
 import { Modal } from "./Modal.tsx";
-import { BUTTON, FIELD, MatchTable } from "./RuleFields.tsx";
+import { BUTTON, FIELD, MatchTable, CategoryInput } from "./RuleFields.tsx";
 
 interface BulkTransactionsProps {
   selected: Categorized[];
@@ -224,20 +224,15 @@ const BulkPreview = ({
             disabled={saving}
           />
         ) : (
-          <select
-            autoFocus
-            className={`${FIELD} w-full`}
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            disabled={saving}
-          >
-            <option value="">Choose a category…</option>
-            {pairs.map((pair) => (
-              <option key={pair} value={pair}>
-                {rowLabel(...splitPair(pair))}
-              </option>
-            ))}
-          </select>
+          <fieldset disabled={saving}>
+            <CategoryInput
+              label="New category"
+              value={value}
+              pairs={pairs}
+              onChange={setValue}
+              className={FIELD}
+            />
+          </fieldset>
         )}
       </label>
       {rename && (
