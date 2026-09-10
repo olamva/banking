@@ -1,0 +1,14 @@
+{
+  "id": "194d5d4a",
+  "ts": "2026-09-10T14:24:03+00:00",
+  "text": "pnpm automatically installs missing dependencies and retries downloads despite sandbox network restrictions",
+  "tags": [
+    "setup",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-6",
+  "session": "",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3code-bf76ce8b",
+  "branch": "t3code/unify-category-selectors"
+}
