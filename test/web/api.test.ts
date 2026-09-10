@@ -233,3 +233,44 @@ test("a rebuild failure returns an error instead of a successful rule response",
   assert.equal(response.status, 500);
   assert.match(JSON.parse(response.body).error, /2026-07/);
 });
+
+test("bulk rename and categories rebuild offline and undo as whole actions", async () => {
+  const { bulkPlan } = await import("../../src/core/bulkRules.ts");
+  await rebuildAll();
+  const before = readRows();
+  const selected = before.filter((t) =>
+    ["purchase", "trip", "out"].includes(t.id),
+  );
+  const apply = async (file: "payees" | "preferences", value: string) => {
+    const { keys } = bulkPlan(selected, before, file);
+    const params = new URLSearchParams({ file, value });
+    for (const key of keys) params.append("key", key);
+    assert.equal(
+      (await rulesRoute("/api/rules/bulk", params, undefined)!).status,
+      405,
+    );
+    const result = await rulesRoute("/api/rules/bulk", params, "1")!;
+    assert.equal(result.status, 200);
+    assert.equal(JSON.parse(result.body).rows, before.length);
+  };
+  await apply("payees", "One payee");
+  assert.equal(
+    readRows().find((t) => t.id === "purchase")!.counterparty,
+    "One payee",
+  );
+  assert.equal(
+    readRows().find((t) => t.id === "trip")!.counterparty,
+    "One payee",
+  );
+  assert.deepEqual(totals(readRows()), totals(before));
+  await apply("preferences", "home/furniture");
+  const rows = readRows();
+  assert.equal(rows.find((t) => t.id === "purchase")!.category, "home");
+  assert.equal(rows.find((t) => t.id === "trip")!.category, "home");
+  assert.equal(rows.find((t) => t.id === "refund")!.category, "food");
+  assert.equal(rows.find((t) => t.id === "out")!.excluded, true);
+  assert.deepEqual(totals(rows), totals(before));
+  await edit("undo", { file: "preferences" });
+  await edit("undo", { file: "payees" });
+  assert.deepEqual(readRows(), before);
+});

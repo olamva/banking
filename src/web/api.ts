@@ -11,6 +11,7 @@ import {
   restore,
   save,
   saveValues,
+  saveBulk,
   undo,
   type Edit,
 } from "../core/rules.ts";
@@ -144,6 +145,14 @@ export function rulesRoute(
   try {
     if (path === "/api/rules/rebuild") work = applied(0);
     else if (path === "/api/rules/save") work = applied(save(ruleEdit(params)));
+    else if (path === "/api/rules/bulk")
+      work = applied(
+        saveBulk(
+          ruleTarget(params),
+          params.getAll("key"),
+          params.get("value") ?? "",
+        ),
+      );
     else if (path === "/api/rules/group")
       work = applied(
         saveValues(

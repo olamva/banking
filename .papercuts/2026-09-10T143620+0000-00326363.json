@@ -1,0 +1,13 @@
+{
+  "id": "00326363",
+  "ts": "2026-09-10T14:36:20+00:00",
+  "text": "Preview typing by textbox role fails for an input with a datalist; use its placeholder selector",
+  "tags": [
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-6",
+  "session": "",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3code-b8a00bb5",
+  "branch": "t3code/add-bulk-transaction-actions"
+}

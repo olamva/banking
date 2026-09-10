@@ -7,6 +7,8 @@ import {
   type Dispatch,
   type SetStateAction,
 } from "react";
+import { bulkFilters, type BulkFile } from "../../core/bulkRules.ts";
+import { BulkTransactions } from "./BulkTransactions.tsx";
 import type { RuleFile } from "../../core/ruleFiles.ts";
 import {
   NO_FILTERS,
@@ -64,6 +66,7 @@ interface TransactionsViewProps {
   filters: Filters;
   onFilters: SetFilters;
   onFile: (txn: Categorized, file: RuleFile) => void;
+  onBulk: (txns: Categorized[], file: BulkFile) => void;
 }
 
 const TransactionsView = ({
@@ -71,6 +74,7 @@ const TransactionsView = ({
   filters,
   onFilters,
   onFile,
+  onBulk,
 }: TransactionsViewProps) => {
   const search = useDeferredValue(filters.search);
   const shown = rows.filter((t) => matchesFilters(t, { ...filters, search }));
@@ -96,6 +100,7 @@ const TransactionsView = ({
           onCategory={pick(onFilters, "categories")}
           onAccount={pick(onFilters, "accounts")}
           onFile={onFile}
+          onBulk={onBulk}
         />
       </div>
 
@@ -107,6 +112,11 @@ const TransactionsView = ({
 
 export const App = () => {
   const [load, reload] = useTransactions();
+  const [bulk, setBulk] = useState<{
+    selected: Categorized[];
+    all: Categorized[];
+    file: BulkFile;
+  } | null>(null);
   const refresh = useRefresh(reload);
   // A rule edit rebuilds the database, so the page must read the rows again.
   const rules = useRules(reload);
@@ -451,12 +461,26 @@ export const App = () => {
                   filters={filters}
                   onFilters={setFilters}
                   onFile={(txn, file) => setFiling({ txn, file })}
+                  onBulk={(selected, file) =>
+                    setBulk({ selected, all: txns, file })
+                  }
                 />
               ))}
           </>
         )}
       </div>
 
+      {bulk && (
+        <BulkTransactions
+          {...bulk}
+          pairs={pairs}
+          rules={rules}
+          onClose={() => setBulk(null)}
+          onSaved={(file, value) =>
+            setFilters((f) => bulkFilters(f, file, value))
+          }
+        />
+      )}
       {filing && (
         <FileDialog
           txn={filing.txn}

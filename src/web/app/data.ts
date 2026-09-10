@@ -110,6 +110,7 @@ export type RulesApi = {
   bad: boolean;
   save: (file: RuleFile, key: string, value?: string, was?: string) => void;
   rebuild: () => void;
+  saveBulk: (file: RuleFile, keys: string[], value: string) => Promise<boolean>;
   saveGroup: (file: RuleFile, keys: string[], value: string) => void;
   remove: (file: RuleFile, key: string) => void;
   undo: (file: RuleFile) => void;
@@ -196,7 +197,7 @@ export const useRules = (onRebuilt: () => void): RulesApi => {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [bad, setBad] = useState(false);
-  const queue = useRef(Promise.resolve());
+  const queue = useRef<Promise<unknown>>(Promise.resolve());
   const pending = useRef(0);
 
   const fail = (e: unknown) => {
@@ -220,18 +221,24 @@ export const useRules = (onRebuilt: () => void): RulesApi => {
     setNote(null);
     setBad(false);
     setData((current) => (current ? optimistic(current) : current));
-    queue.current = queue.current
+    const result = queue.current
       .then(() => ask(url))
       .then((body) => {
         setNote(`${said} ${String(body["rows"])} rows rebuilt.`);
         onRebuilt();
+        return true;
       })
-      .catch(fail)
+      .catch((e: unknown) => {
+        fail(e);
+        return false;
+      })
       .finally(() => {
         pending.current -= 1;
         setBusy(pending.current > 0);
         if (pending.current === 0) read().catch(fail);
       });
+    queue.current = result;
+    return result;
   };
 
   return {
@@ -244,6 +251,11 @@ export const useRules = (onRebuilt: () => void): RulesApi => {
         changedFile(data, file, (rules) => changeRules(rules, key, value, was)),
       ),
     rebuild: () => run(rulesUrl("rebuild", {}), "Updated.", (data) => data),
+    saveBulk: (file, keys, value) => {
+      const q = new URLSearchParams({ file, value });
+      for (const key of keys) q.append("key", key);
+      return run(`/api/rules/bulk?${q}`, "Saved bulk edit.", (data) => data);
+    },
     saveGroup: (file, keys, value) => {
       const q = new URLSearchParams({ file, value });
       for (const key of keys) q.append("key", key);
