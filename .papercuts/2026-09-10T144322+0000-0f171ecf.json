@@ -1,0 +1,14 @@
+{
+  "id": "0f171ecf",
+  "ts": "2026-09-10T14:43:22+00:00",
+  "text": "pnpm exec triggers automatic dependency installation and sandbox DNS retries",
+  "tags": [
+    "pnpm",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-6",
+  "session": "",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3code-8633fcdf",
+  "branch": "t3code/cleanup-merged-local-branches"
+}

@@ -16,6 +16,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import {
   inspectWorktree,
+  removeBranch,
   removeWorktree,
 } from "../../infra/worktree-cleanup.ts";
 import { linkWorktree } from "../../infra/worktree-link.ts";
@@ -52,6 +53,9 @@ function fixture(t: { after: (fn: () => void) => void }) {
   git(main, "merge", "--no-ff", "task", "-m", "merge");
   const merge = git(main, "rev-parse", "HEAD");
   git(main, "update-ref", "refs/remotes/origin/main", merge);
+  git(main, "init", "--bare", "-q", join(dir, "origin.git"));
+  git(main, "remote", "add", "origin", join(dir, "origin.git"));
+  git(main, "push", "-q", "origin", "main");
   const pr = {
     state: "MERGED",
     baseRefName: "main",
@@ -155,4 +159,44 @@ test("cleanup requires the branch and merge commit in origin main", (t) => {
   git(main, "update-ref", "refs/remotes/origin/main", pr.headRefOid);
   assert.throws(() => removeWorktree(main, target, pr));
   assert.equal(existsSync(target), true);
+});
+
+test("branch cleanup preserves local data and supports later worktree removal", (t) => {
+  const { main, target, pr, git } = fixture(t);
+  mkdirSync(join(target, "data.local"));
+  writeFileSync(join(target, "data.local", "database"), "keep");
+  git(target, "config", "branch.task.remote", "origin");
+  git(target, "config", "branch.task.merge", "refs/heads/task");
+  removeBranch(target, target, pr);
+  removeBranch(target, target, pr);
+  assert.equal(git(main, "branch", "--list", "task"), "");
+  assert.equal(git(target, "rev-parse", "HEAD"), pr.headRefOid);
+  assert.equal(git(target, "rev-parse", "--abbrev-ref", "HEAD"), "HEAD");
+  assert.throws(() => git(main, "config", "--get", "branch.task.remote"));
+  assert.equal(existsSync(join(target, "data.local", "database")), true);
+  assert.throws(() => removeWorktree(main, target, pr), /Preserve/);
+  rmSync(join(target, "data.local"), { recursive: true });
+  removeWorktree(main, target, pr);
+  assert.equal(existsSync(target), false);
+});
+
+test("branch cleanup waits for remote deletion", (t) => {
+  const { main, target, pr, git } = fixture(t);
+  git(main, "push", "-q", "origin", "task");
+  assert.throws(
+    () => removeBranch(target, target, pr),
+    /remote branch deletion/,
+  );
+  assert.equal(git(target, "rev-parse", "--abbrev-ref", "HEAD"), "task");
+});
+
+test("branch cleanup preserves unmerged commits and changed branch references", (t) => {
+  const { main, target, pr, git } = fixture(t);
+  git(main, "update-ref", "refs/remotes/origin/main", "HEAD^1");
+  assert.throws(() => removeBranch(target, target, pr));
+  git(main, "update-ref", "refs/remotes/origin/main", pr.mergeCommit.oid);
+  git(target, "switch", "--detach", pr.headRefOid);
+  git(main, "update-ref", "refs/heads/task", pr.mergeCommit.oid);
+  assert.throws(() => removeBranch(target, target, pr), /changed local branch/);
+  assert.equal(git(main, "rev-parse", "task"), pr.mergeCommit.oid);
 });

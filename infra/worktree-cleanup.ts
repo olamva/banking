@@ -20,7 +20,12 @@ function git(cwd: string, ...args: string[]) {
   }).trim();
 }
 
-export function inspectWorktree(cwd: string, path: string, pr: PullRequest) {
+export function inspectWorktree(
+  cwd: string,
+  path: string,
+  pr: PullRequest,
+  branchOnly = false,
+) {
   const target = realpathSync(path);
   const common = git(
     cwd,
@@ -32,7 +37,7 @@ export function inspectWorktree(cwd: string, path: string, pr: PullRequest) {
   if (target === realpathSync(main))
     throw new Error("Preserve the main checkout.");
   const current = realpathSync(cwd);
-  if (current === target || current.startsWith(target + sep))
+  if (!branchOnly && (current === target || current.startsWith(target + sep)))
     throw new Error("Run cleanup from another checkout.");
   const entries = git(cwd, "worktree", "list", "--porcelain", "-z").split(
     "\0\0",
@@ -45,7 +50,11 @@ export function inspectWorktree(cwd: string, path: string, pr: PullRequest) {
     entry.split("\0").some((line) => /^(locked|prunable)( |$)/.test(line))
   )
     throw new Error("The worktree is absent, locked, or prunable.");
-  const branch = git(target, "symbolic-ref", "--short", "HEAD");
+  const branch =
+    entry
+      .split("\0")
+      .find((line) => line.startsWith("branch "))
+      ?.slice("branch refs/heads/".length) ?? pr.headRefName;
   const head = git(target, "rev-parse", "HEAD");
   if (
     branch === "main" ||
@@ -66,6 +75,11 @@ export function inspectWorktree(cwd: string, path: string, pr: PullRequest) {
   );
   if (git(target, "status", "--porcelain", "--untracked-files=all"))
     throw new Error("Preserve uncommitted or untracked files.");
+  if (!branchOnly) inspectIgnoredFiles(target, main);
+  return { target, branch, head, url: pr.url };
+}
+
+function inspectIgnoredFiles(target: string, main: string) {
   const ignored = git(
     target,
     "ls-files",
@@ -87,13 +101,27 @@ export function inspectWorktree(cwd: string, path: string, pr: PullRequest) {
       continue;
     throw new Error(`Preserve the ignored path: ${relative}`);
   }
-  return { target, branch, head, url: pr.url };
 }
 
 export function removeWorktree(cwd: string, path: string, pr: PullRequest) {
   const result = inspectWorktree(cwd, path, pr);
+  removeBranch(cwd, path, pr);
   git(cwd, "worktree", "remove", result.target);
-  git(cwd, "update-ref", "-d", `refs/heads/${result.branch}`, result.head);
+  return result;
+}
+
+export function removeBranch(cwd: string, path: string, pr: PullRequest) {
+  const result = inspectWorktree(cwd, path, pr, true);
+  if (git(cwd, "ls-remote", "--heads", "origin", `refs/heads/${result.branch}`))
+    throw new Error("Wait for remote branch deletion.");
+  const ref = git(cwd, "branch", "--list", result.branch);
+  if (
+    ref &&
+    git(cwd, "rev-parse", `refs/heads/${result.branch}`) !== result.head
+  )
+    throw new Error("Preserve the changed local branch.");
+  git(result.target, "switch", "--detach", result.head);
+  if (ref) git(result.target, "branch", "-d", result.branch);
   return result;
 }
 
@@ -125,18 +153,20 @@ if (
   import.meta.url === pathToFileURL(resolve(process.argv[1])).href
 ) {
   try {
-    const [path, number, apply, ...extra] = process.argv.slice(2);
+    const [path, number, ...flags] = process.argv.slice(2);
+    const apply = flags.includes("--apply");
+    const branchOnly = flags.includes("--branch-only");
     if (
       !path ||
       !/^\d+$/.test(number ?? "") ||
-      (apply && apply !== "--apply") ||
-      extra.length
+      flags.some((flag) => !["--apply", "--branch-only"].includes(flag)) ||
+      new Set(flags).size !== flags.length
     )
       throw new Error(
-        "Use pnpm worktree:cleanup <path> <pr-number> [--apply].",
+        "Use pnpm worktree:cleanup <path> <pr-number> [--branch-only] [--apply].",
       );
     const cwd = process.cwd();
-    git(cwd, "fetch", "origin", "main");
+    git(cwd, "fetch", "--prune", "origin");
     const pr: PullRequest = JSON.parse(
       execFileSync(
         "gh",
@@ -150,12 +180,19 @@ if (
         { cwd, encoding: "utf8" },
       ),
     );
-    const result = inspectWorktree(cwd, path, pr);
-    if (apply) {
+    const result = inspectWorktree(cwd, path, pr, branchOnly);
+    if (apply && branchOnly) removeBranch(cwd, path, pr);
+    else if (apply) {
       requireIdle(result.target);
       removeWorktree(cwd, path, pr);
     }
-    console.log(JSON.stringify({ ...result, removed: Boolean(apply) }));
+    console.log(
+      JSON.stringify({
+        ...result,
+        removed: apply && !branchOnly,
+        branchRemoved: apply,
+      }),
+    );
   } catch (error) {
     console.error(error instanceof Error ? error.message : "Cleanup fails.");
     process.exitCode = 1;
