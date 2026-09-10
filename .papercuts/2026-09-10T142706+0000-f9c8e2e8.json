@@ -1,0 +1,14 @@
+{
+  "id": "f9c8e2e8",
+  "ts": "2026-09-10T14:27:06+00:00",
+  "text": "Preview click and type report failures; evaluate with object results works",
+  "tags": [
+    "preview",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-6",
+  "session": "",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3code-bf76ce8b",
+  "branch": "t3code/unify-category-selectors"
+}
