@@ -1,0 +1,13 @@
+{
+  "id": "fdc11b17",
+  "ts": "2026-09-10T14:28:56+00:00",
+  "text": "preview_navigate fails with 'No active preview tab' until preview_open creates one",
+  "tags": [
+    "tools"
+  ],
+  "who": "agent",
+  "model": "opus-5",
+  "session": "618de38f",
+  "where": "mcp__t3-code__preview_navigate",
+  "branch": "t3code/fix-rules-tab-performance"
+}

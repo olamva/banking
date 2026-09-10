@@ -197,8 +197,6 @@ const GroupEntry = ({ file, value, keys, pairs, rules }: GroupEntryProps) => {
   );
 };
 
-// What one version did to the file. A stamp alone says when somebody edited a
-// rule. It never says which rule, which is the whole question.
 import { History } from "./RuleHistory.tsx";
 
 export interface RulesViewProps {
@@ -225,14 +223,23 @@ export const RulesView = ({
   const [find, setFind] = useState("");
   const haystacks = useMemo(() => txns.map(haystackOf), [txns]);
   const data = rules.data;
-  const conflicts = useMemo(() => {
-    if (!data || (file !== "categories" && file !== "payees")) return [];
-    return overlaps(
-      txns,
-      data.files[file] as RuleMap,
-      file === "payees",
-    ).filter((c) => !c.harmless);
-  }, [data, file, txns]);
+  const categoryRules = data?.files.categories as RuleMap | undefined;
+  const payeeRules = data?.files.payees as RuleMap | undefined;
+  const categoryConflicts = useMemo(
+    () => overlaps(txns, categoryRules ?? {}),
+    [txns, categoryRules],
+  );
+  const payeeConflicts = useMemo(
+    () => overlaps(txns, payeeRules ?? {}, true),
+    [txns, payeeRules],
+  );
+  const conflicts = (
+    file === "payees"
+      ? payeeConflicts
+      : file === "categories"
+        ? categoryConflicts
+        : []
+  ).filter((c) => !c.harmless);
   const stale = txns.some((t) => t.originalCounterparty === undefined);
   const entries = data ? entriesOf(data.files[file]) : [];
   const needle = find.trim().toLowerCase();
