@@ -400,6 +400,14 @@ export const TransactionsCard = ({
             className="shrink-0 text-ink-soft"
           />
           Transactions ({txns.length})
+          {onBulk && txns.length > 0 && (
+            <BulkToolbar
+              txns={txns}
+              picked={picked}
+              onBulk={onBulk}
+              onSelect={setSelected}
+            />
+          )}
         </h2>
         <SearchBox
           hotkey
@@ -407,14 +415,6 @@ export const TransactionsCard = ({
           onChange={onSearch}
           placeholder="Search merchant or description…"
         />
-        {onBulk && txns.length > 0 && (
-          <BulkToolbar
-            txns={txns}
-            picked={picked}
-            onBulk={onBulk}
-            onSelect={setSelected}
-          />
-        )}
       </div>
       {sorted.length === 0 ? (
         <Empty>No transactions match the current filters.</Empty>
@@ -426,7 +426,7 @@ export const TransactionsCard = ({
             `${sorted[i]?.isPending ? "striped" : ""} ${selected.has(sorted[i]!) ? "bg-hover" : ""}`
           }
           columns={[
-            ...(onBulk ? [{ label: "Select", min: true }] : []),
+            ...(onBulk ? [{ label: "", min: true }] : []),
             head("Date", "date", { min: true }),
             head("Merchant / description", "merchant"),
             head("Category", "subcategory", {
@@ -444,12 +444,12 @@ export const TransactionsCard = ({
             ...(onBulk
               ? [
                   <label
-                    className="flex min-h-8 min-w-8 cursor-pointer items-center justify-center"
+                    className="flex cursor-pointer items-center"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <input
                       type="checkbox"
-                      className="size-4 accent-series-1"
+                      className="size-3.5 accent-series-1"
                       aria-label={`Select ${merchantOf(t)} on ${t.date}, ${fmtNOKExact(t.amount)}`}
                       checked={selected.has(t)}
                       onChange={(e) => {
