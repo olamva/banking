@@ -1,0 +1,14 @@
+{
+  "id": "8299222b",
+  "ts": "2026-09-10T14:39:35+00:00",
+  "text": "GitHub API access requires sandbox escalation",
+  "tags": [
+    "github",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-6",
+  "session": "",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3code-8633fcdf",
+  "branch": "t3code/cleanup-merged-local-branches"
+}

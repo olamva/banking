@@ -22,9 +22,13 @@ Keep GitHub's required CI check and strict branch updating enabled.
 
 Use `pnpm worktree:link` after dependency installation when T3 does not run setup.
 Keep each task's changes in its existing worktree.
-Never remove an active thread's worktree or another task's branch.
+After merge, run `pnpm worktree:cleanup <path> <pr-number> --branch-only --apply` before the final response.
+This prunes remote references, verifies remote deletion, detaches the checkout, and deletes its merged local branch.
+Keep T3 running for branch cleanup. Preserve local files and thread history.
+Create a new task branch before making further commits in a detached checkout.
+Never remove an active thread's worktree or another task's branch without explicit user authorization.
 Run `pnpm worktree:cleanup <path> <pr-number>` from another checkout to inspect cleanup eligibility.
-Use `--apply` only after the thread finishes and T3 stops.
+Use worktree removal with `--apply` only after the thread finishes and T3 stops.
 Preserve thread history. Never edit T3's internal database.
 Never force worktree removal. Preserve uncommitted changes, local data, and commits outside `origin/main`.
 Leave cleanup pending when these conditions prevent removal.

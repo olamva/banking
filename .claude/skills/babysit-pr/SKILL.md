@@ -37,6 +37,9 @@ Use `gh pr merge <pr> --merge --match-head-commit <sha>` to prevent merging a di
 Do not use `--admin` or merge while checks remain pending.
 Confirm the merged state and report the PR URL.
 Check remote branch deletion. GitHub deletes merged branches automatically in this repository.
-Leave an active worktree in place. Report its path for later cleanup.
+Run `pnpm worktree:cleanup <path> <pr-number> --branch-only --apply` before the final response.
+Keep T3 running. The command preserves files and detaches the checkout before deleting its merged local branch.
+Create a new task branch before making further commits in a detached checkout.
+Leave an active worktree in place. Report branch deletion and its path for later worktree cleanup.
 Use `pnpm worktree:cleanup <path> <pr-number>` from another checkout after the thread finishes.
 Read `docs/thread-workflow.md` for cleanup requirements.
