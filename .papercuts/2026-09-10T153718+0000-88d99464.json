@@ -1,0 +1,14 @@
+{
+  "id": "88d99464",
+  "ts": "2026-09-10T15:37:18+00:00",
+  "text": "pnpm exec asar tried to install project dependencies and stalled on sandbox DNS",
+  "tags": [
+    "dependencies",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3code-d2ca5d03",
+  "branch": "t3code/add-preview-browser-action"
+}
