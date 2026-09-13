@@ -1,0 +1,14 @@
+{
+  "id": "ef63d030",
+  "ts": "2026-09-10T15:36:25+00:00",
+  "text": "Sandbox DNS blocked the t3.json schema request",
+  "tags": [
+    "docs",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "https://t3.codes/schema/t3.json",
+  "branch": "t3code/add-preview-browser-action"
+}
