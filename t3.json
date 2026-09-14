@@ -6,6 +6,13 @@
       "command": "pnpm install --frozen-lockfile && pnpm worktree:link",
       "icon": "configure",
       "runOnWorktreeCreate": true
+    },
+    {
+      "name": "Open Transactions Preview",
+      "command": "true",
+      "icon": "play",
+      "previewUrl": "http://127.0.0.1:4070/?view=transactions&p=all",
+      "autoOpenPreview": true
     }
   ]
 }
