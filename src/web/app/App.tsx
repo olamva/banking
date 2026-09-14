@@ -50,6 +50,7 @@ import {
   subcategoryLabel,
 } from "./format.ts";
 import { Notification, Notifications } from "./Modal.tsx";
+import { ReleaseFooter } from "./Releases.tsx";
 import { FileDialog, RulesView } from "./Rules.tsx";
 import { RULE_TAB_FILES, RuleTabs } from "./RuleTabs.tsx";
 import { ShortcutsDialog, useShortcuts, type Shortcut } from "./Shortcuts.tsx";
@@ -425,8 +426,6 @@ export const App = () => {
       />
 
       <div className="mx-auto max-w-295 py-4 sm:px-6 sm:py-6">
-        {/* The rules stand on their own. They are readable and editable before
-            the first sync, so no load state gates them. */}
         {shownView === "rules" ? (
           <div className="px-3 sm:px-0">
             <RulesView
@@ -469,6 +468,7 @@ export const App = () => {
           </>
         )}
       </div>
+      <ReleaseFooter />
 
       {bulk && (
         <BulkTransactions
