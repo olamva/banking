@@ -84,6 +84,14 @@ To make the bank restate a month, delete `data/raw/<month>/*.json` and press Ref
 
 Never share the dashboard. It holds every transaction you have, and so does a screenshot. It has two homes and no third one: `127.0.0.1` here, and the private Azure site below.
 
+### Releases
+
+Add each release to the start of `src/web/app/releases.ts`.
+Increase the semantic version for each release.
+Write short notes for important new features and major changes.
+Do not generate notes from commit messages.
+Exclude routine fixes, maintenance, and internal changes.
+
 ## The hosted dashboard
 
 The same page runs on Azure Container Apps, behind Google sign-in, so that a phone can read it away from this wifi. Only an address in `ALLOWED_EMAILS` gets in. The site scales to zero, so the first request after an idle period waits a few seconds.
