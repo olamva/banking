@@ -11,6 +11,7 @@ Show the current app version in the footer. Show curated release notes in a dial
 - The local preview uses `http://127.0.0.1:4022/`.
 - The 375-pixel layout has no horizontal page scroll.
 - All 346 tests pass. TypeScript passes.
+- GitHub CI passed for commit `f5b70fded165dc8053f63cca251e7f5a67c46da5`.
 
 ## Open decisions
 
