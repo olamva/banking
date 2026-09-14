@@ -1,0 +1,14 @@
+{
+  "id": "a71a54f2",
+  "ts": "2026-09-14T12:58:17+00:00",
+  "text": "The collaborative browser has no attached browser surface, so the Adyen lookup form cannot be tested through UI automation",
+  "tags": [
+    "browser",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3code-48d0cd39",
+  "branch": "t3code/name-investigated-merchants"
+}
