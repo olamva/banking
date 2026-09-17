@@ -165,6 +165,7 @@ export const AMOUNT_SIZE_EXACT = [fmtNOKExact(-100000.5)];
 
 export interface Column {
   label: string;
+  header?: ReactNode;
   num?: boolean;
   sizer?: string[];
   min?: boolean;
@@ -311,7 +312,7 @@ export const DataTable = ({
                     />
                   </button>
                 ) : (
-                  c.label
+                  (c.header ?? c.label)
                 )}
               </th>
             ))}

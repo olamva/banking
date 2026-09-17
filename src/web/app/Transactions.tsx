@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from "react";
 import type { BulkFile } from "../../core/bulkRules.ts";
-import { BulkToolbar } from "./BulkToolbar.tsx";
+import { BulkCheckbox, BulkSelectAll, BulkToolbar } from "./BulkToolbar.tsx";
 import type { RuleFile } from "../../core/ruleFiles.ts";
 import { merchantOf, subcategoryOf } from "../../core/select.ts";
 import type { SubscriptionGroup } from "../../core/stats.ts";
@@ -36,7 +36,6 @@ import {
 } from "./icons.ts";
 import { Modal } from "./Modal.tsx";
 import { SearchBox } from "./SearchBox.tsx";
-
 const useSort = <T, S extends Record<string, (a: T, b: T) => number>>(
   items: T[],
   sorts: S,
@@ -405,7 +404,7 @@ export const TransactionsCard = ({
               txns={txns}
               picked={picked}
               onBulk={onBulk}
-              onSelect={setSelected}
+              onClear={() => setSelected(new Set())}
             />
           )}
         </h2>
@@ -426,7 +425,22 @@ export const TransactionsCard = ({
             `${sorted[i]?.isPending ? "striped" : ""} ${selected.has(sorted[i]!) ? "bg-hover" : ""}`
           }
           columns={[
-            ...(onBulk ? [{ label: "", min: true }] : []),
+            ...(onBulk
+              ? [
+                  {
+                    label: "Select transactions",
+                    header: (
+                      <BulkSelectAll
+                        checked={selected.size === txns.length}
+                        onChange={(checked) =>
+                          setSelected(checked ? new Set(txns) : new Set())
+                        }
+                      />
+                    ),
+                    min: true,
+                  },
+                ]
+              : []),
             head("Date", "date", { min: true }),
             head("Merchant / description", "merchant"),
             head("Category", "subcategory", {
@@ -443,23 +457,11 @@ export const TransactionsCard = ({
           rows={sorted.map((t) => [
             ...(onBulk
               ? [
-                  <label
-                    className="flex cursor-pointer items-center"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <input
-                      type="checkbox"
-                      className="size-3.5 accent-series-1"
-                      aria-label={`Select ${merchantOf(t)} on ${t.date}, ${fmtNOKExact(t.amount)}`}
-                      checked={selected.has(t)}
-                      onChange={(e) => {
-                        const next = new Set(selected);
-                        if (e.target.checked) next.add(t);
-                        else next.delete(t);
-                        setSelected(next);
-                      }}
-                    />
-                  </label>,
+                  <BulkCheckbox
+                    txn={t}
+                    selected={selected}
+                    onSelect={setSelected}
+                  />,
                 ]
               : []),
             <button
