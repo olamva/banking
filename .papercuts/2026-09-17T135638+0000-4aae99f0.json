@@ -1,0 +1,14 @@
+{
+  "id": "4aae99f0",
+  "ts": "2026-09-17T13:56:38+00:00",
+  "text": "pnpm build refuses after the required pnpm worktree:link because data links to the main checkout",
+  "tags": [
+    "docs",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3code-67574044",
+  "branch": "t3code/txn-header-selection"
+}
