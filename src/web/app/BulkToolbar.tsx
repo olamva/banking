@@ -18,13 +18,15 @@ interface BulkSelectAllProps {
 }
 
 export const BulkSelectAll = ({ checked, onChange }: BulkSelectAllProps) => (
-  <input
-    type="checkbox"
-    className="size-3.5 accent-series-1"
-    aria-label="Select all transactions"
-    checked={checked}
-    onChange={(e) => onChange(e.target.checked)}
-  />
+  <label className="flex items-center">
+    <input
+      type="checkbox"
+      className="size-3.5 accent-series-1"
+      aria-label="Select all transactions"
+      checked={checked}
+      onChange={(e) => onChange(e.target.checked)}
+    />
+  </label>
 );
 
 interface BulkCheckboxProps {
