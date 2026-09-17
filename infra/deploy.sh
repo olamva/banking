@@ -83,7 +83,7 @@ az storage directory create --account-name "$storage" --account-key "$key" \
   --share-name data --name rules --only-show-errors >/dev/null
 az storage file upload-batch --account-name "$storage" --account-key "$key" \
   --destination "data/rules" --source "$repo/rules" --pattern "*.json" \
-  --only-show-errors >/dev/null
+  --no-progress --only-show-errors >/dev/null
 # The versions go with them, or the site keeps a history that its own live file
 # left behind, and undo there restores the state before this deploy.
 if [ -d "$repo/rules/.history" ]; then
