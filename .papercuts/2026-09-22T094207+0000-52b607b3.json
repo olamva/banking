@@ -1,0 +1,14 @@
+{
+  "id": "52b607b3",
+  "ts": "2026-09-22T09:42:07+00:00",
+  "text": "git fetch in a linked worktree cannot write FETCH_HEAD inside the sandbox",
+  "tags": [
+    "git",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3code-1a74a24a",
+  "branch": "t3code/move-local-commit-merge-pr"
+}
