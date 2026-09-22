@@ -44,12 +44,17 @@ const NAMES_NOBODY = /^(til|fra)[\s:.-]*$/i;
 const named = (s?: string) =>
   s && !NAMES_NOBODY.test(s.trim()) ? s : undefined;
 
-function normalizeSb1(file: Sb1File, names: Record<string, string>): Txn[] {
+function normalizeSb1(
+  file: Sb1File,
+  names: Record<string, string>,
+  cards: ReadonlySet<string>,
+): Txn[] {
   return file.transactions.map(
     ({ transaction: t, categories, recurring, subscription }) => ({
       id: t.id,
       accountKey: t.accountKey,
       account: names[t.accountKey] ?? t.accountKey,
+      card: cards.has(t.accountKey),
       date: osloDate(t.date),
       amount: t.amount,
       description: t.description ?? t.typeText ?? "",
@@ -78,12 +83,17 @@ function normalizeSb1(file: Sb1File, names: Record<string, string>): Txn[] {
 export function normalizeMonth(
   dir: string,
   names: Record<string, string> = {},
+  cards: ReadonlySet<string> = new Set(),
 ): Txn[] {
   const out: Txn[] = [];
   for (const file of readdirSync(dir)) {
     if (!file.endsWith(".json")) continue;
     out.push(
-      ...normalizeSb1(JSON.parse(readFileSync(join(dir, file), "utf8")), names),
+      ...normalizeSb1(
+        JSON.parse(readFileSync(join(dir, file), "utf8")),
+        names,
+        cards,
+      ),
     );
   }
   return out;

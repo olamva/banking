@@ -46,7 +46,6 @@ const useSort = <T, S extends Record<string, (a: T, b: T) => number>>(
   const firstAsc = (key: K) => ascFirst.includes(key);
   const [by, setBy] = useState<K | null>(initial);
   const [asc, setAsc] = useState(firstAsc(initial));
-
   const sorted = useMemo(
     () =>
       by ? [...items].sort((a, b) => (asc ? 1 : -1) * sorts[by](a, b)) : items,
@@ -167,6 +166,7 @@ export const SubscriptionsCard = ({
             <PickCell
               label={categoryLabel(g.category)}
               value={g.category}
+              color={categoryColor(g.category)}
               onPick={onCategory}
             />,
             g.count,

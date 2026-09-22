@@ -3,6 +3,7 @@ export type Txn = {
   id: string;
   accountKey: string;
   account: string;
+  card?: boolean;
   date: string;
   // The amount is signed. A negative amount is money out.
   amount: number;
