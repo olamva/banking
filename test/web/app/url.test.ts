@@ -56,6 +56,12 @@ test("the period is one param, and the same one in either view", () => {
   );
 });
 
+test("the insights view round-trips through the URL", () => {
+  const state: UrlState = { ...DEFAULT, view: "insights", period: "2026" };
+  assert.equal(toParams(state), "view=insights&p=2026");
+  assert.deepEqual(fromParams(new URLSearchParams(toParams(state))), state);
+});
+
 test("the chart grain rides along, and only when it is not the default", () => {
   assert.equal(toParams(DEFAULT), "");
   assert.equal(toParams({ ...DEFAULT, grain: "day" }), "g=day");

@@ -155,9 +155,14 @@ test("an account is named by rules/accounts.json, and by its key when it is not"
       },
     },
     (dir) => {
-      const [txn] = normalizeMonth(dir, { "card-key": "Kredittkort" });
+      const [txn] = normalizeMonth(
+        dir,
+        { "card-key": "Kredittkort" },
+        new Set(["card-key"]),
+      );
       assert.equal(txn.account, "Kredittkort");
       assert.equal(txn.accountKey, "card-key");
+      assert.equal(txn.card, true);
       assert.equal(txn.date, "2026-07-15");
       assert.equal(txn.amount, -250);
       assert.equal(txn.counterparty, "SHOP, Oslo, NORWAY");
@@ -165,6 +170,7 @@ test("an account is named by rules/accounts.json, and by its key when it is not"
       assert.equal(txn.typeText, "Transaksjon");
       assert.equal(txn.remoteAccountNumber, null);
       assert.equal(normalizeMonth(dir)[0].account, "card-key");
+      assert.equal(normalizeMonth(dir)[0].card, false);
     },
   );
 });

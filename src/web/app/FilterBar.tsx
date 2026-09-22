@@ -7,9 +7,9 @@ import { FilterSummary } from "./FilterSummary.tsx";
 import { pairLabel, treeLabel } from "./format.ts";
 import { rovingTab } from "./Shortcuts.tsx";
 
-export type View = "dashboard" | "transactions" | "rules";
+export type View = "dashboard" | "insights" | "transactions" | "rules";
 
-const VIEWS: View[] = ["dashboard", "transactions", "rules"];
+const VIEWS: View[] = ["dashboard", "transactions", "insights", "rules"];
 
 interface FilterBarProps {
   view: View;

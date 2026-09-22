@@ -83,7 +83,7 @@ export const txnFields = (
   skip: readonly string[] = [],
 ): [string, string][] =>
   Object.entries(t).flatMap(([key, value]) => {
-    if (key === "accountKey" || skip.includes(key)) return [];
+    if (key === "accountKey" || key === "card" || skip.includes(key)) return [];
     if (value === null || value === "") return [];
     const text =
       typeof value === "boolean"
