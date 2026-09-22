@@ -1,0 +1,14 @@
+{
+  "id": "a4193a5a",
+  "ts": "2026-09-22T08:55:47+00:00",
+  "text": "pnpm build fails after pnpm worktree:link because linked data triggers the main-checkout guard",
+  "tags": [
+    "build",
+    "worktree"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "vite.config.ts",
+  "branch": "t3code/add-spending-statistics"
+}

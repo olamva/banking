@@ -1,12 +1,4 @@
-import {
-  useDeferredValue,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type Dispatch,
-  type SetStateAction,
-} from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { bulkFilters, type BulkFile } from "../../core/bulkRules.ts";
 import { BulkTransactions } from "./BulkTransactions.tsx";
 import type { RuleFile } from "../../core/ruleFiles.ts";
@@ -21,17 +13,14 @@ import {
   distinctSubcategories,
   distinctYears,
   inRange,
-  matchesFilters,
   period,
   personMerchants,
   todayOslo,
   type Filters,
 } from "../../core/select.ts";
-import { totals } from "../../core/stats.ts";
 import type { Categorized } from "../../core/types.ts";
 import { LoadNote, Toolbar } from "./AppToolbar.tsx";
-import { StatTile } from "./Cards.tsx";
-import { CARD_GRID, Dashboard, ExcludedNote, pick } from "./Dashboard.tsx";
+import { Dashboard, pick } from "./Dashboard.tsx";
 import {
   THEMES,
   readTheme,
@@ -43,73 +32,19 @@ import {
   type Theme,
 } from "./data.ts";
 import { FilterBar, type View } from "./FilterBar.tsx";
-import {
-  fmtNOK,
-  setCategoryHues,
-  setLabels,
-  subcategoryLabel,
-} from "./format.ts";
+import { setCategoryHues, setLabels, subcategoryLabel } from "./format.ts";
 import { Notification, Notifications } from "./Modal.tsx";
+import { Insights } from "./Insights.tsx";
 import { ReleaseFooter } from "./Releases.tsx";
 import { FileDialog, RulesView } from "./Rules.tsx";
 import { RULE_TAB_FILES, RuleTabs } from "./RuleTabs.tsx";
 import { ShortcutsDialog, useShortcuts, type Shortcut } from "./Shortcuts.tsx";
-import { TransactionsCard } from "./Transactions.tsx";
+import { TransactionsView } from "./TransactionsView.tsx";
 import { GRAINS, readUrl, writeUrl, type Grain } from "./url.ts";
 
 // A picked value stays on the list after a filter takes it out of the period.
 const withPicked = (offered: string[], picked: string[]): string[] =>
   [...new Set([...offered, ...picked])].sort((a, b) => a.localeCompare(b));
-
-type SetFilters = Dispatch<SetStateAction<Filters>>;
-interface TransactionsViewProps {
-  rows: Categorized[];
-  filters: Filters;
-  onFilters: SetFilters;
-  onFile: (txn: Categorized, file: RuleFile) => void;
-  onBulk: (txns: Categorized[], file: BulkFile) => void;
-}
-
-const TransactionsView = ({
-  rows,
-  filters,
-  onFilters,
-  onFile,
-  onBulk,
-}: TransactionsViewProps) => {
-  const search = useDeferredValue(filters.search);
-  const shown = rows.filter((t) => matchesFilters(t, { ...filters, search }));
-  const sums = totals(shown);
-
-  return (
-    <>
-      {/* All three, always — unlike the dashboards, which hide a tile they have
-          no rows for. Here the numbers move on every keystroke, and a tile that
-          vanishes at zero takes the rows below it for a ride up the page. */}
-      <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(min(160px,100%),1fr))] gap-3 px-3 sm:px-0">
-        <StatTile label="Spent" value={fmtNOK(sums.totalOut)} />
-        <StatTile label="Income" value={fmtNOK(sums.totalIn)} />
-        <StatTile label="Net" value={fmtNOK(sums.net)} />
-      </div>
-
-      <div className={CARD_GRID}>
-        <TransactionsCard
-          txns={shown}
-          search={filters.search}
-          onSearch={(search) => onFilters((f) => ({ ...f, search }))}
-          onMerchant={pick(onFilters, "merchants")}
-          onCategory={pick(onFilters, "categories")}
-          onAccount={pick(onFilters, "accounts")}
-          onFile={onFile}
-          onBulk={onBulk}
-        />
-      </div>
-
-      {/* Over the period, not over `shown` — the note audits the range, not the search box. */}
-      <ExcludedNote excluded={totals(rows).excluded} where="in view" />
-    </>
-  );
-};
 
 export const App = () => {
   const [load, reload] = useTransactions();
@@ -223,6 +158,12 @@ export const App = () => {
     {
       keys: ["3"],
       cap: "3",
+      what: "Insights",
+      run: () => changeView("insights"),
+    },
+    {
+      keys: ["4"],
+      cap: "4",
       what: "Rules",
       run: () => changeView("rules"),
     },
@@ -452,6 +393,15 @@ export const App = () => {
                     grain={grain}
                     offered={grains}
                     onGrain={setChosenGrain}
+                  />
+                </div>
+              ) : shownView === "insights" ? (
+                <div className="px-3 sm:px-0">
+                  <Insights
+                    rows={inPeriod}
+                    filters={filters}
+                    onMerchant={pick(setFilters, "merchants")}
+                    onCategory={pick(setFilters, "categories")}
                   />
                 </div>
               ) : (

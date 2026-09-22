@@ -1,0 +1,14 @@
+{
+  "id": "f1416a32",
+  "ts": "2026-09-22T09:55:42+00:00",
+  "text": "git add cannot write the linked-worktree index inside the sandbox",
+  "tags": [
+    "git",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3code-e4123d0a",
+  "branch": "t3code/automate-dependabot-reviews"
+}

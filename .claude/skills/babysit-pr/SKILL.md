@@ -7,7 +7,6 @@ Use this skill whenever you create or update a PR in this repository.
 
 Record the PR number and current head commit with `gh pr view <pr> --json number,headRefOid,statusCheckRollup`.
 Inspect `.github/workflows/` to identify expected checks.
-Expect `Tests, types, and build` from CI in this repository.
 
 Run `gh pr checks <pr> --watch --interval 10`.
 Keep the command asynchronous so you can provide progress updates.
