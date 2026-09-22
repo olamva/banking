@@ -11,6 +11,7 @@ function row(overrides: Partial<Categorized> = {}): Categorized {
     id: "a1",
     account: "Brukskonto",
     accountKey: "acc1",
+    card: false,
     date: "2026-07-15",
     amount: -100,
     description: "Coop",
@@ -45,6 +46,13 @@ test("upsertMany inserts, then updates in place on re-import", () => {
   const rows = queryRange(db, "2026-07", "2026-07");
   assert.equal(rows.length, 1);
   assert.equal(rows[0]?.amount, -55);
+  db.close();
+});
+
+test("the card account flag round-trips", () => {
+  const db = openDb(":memory:");
+  upsertMany(db, [row({ card: true })]);
+  assert.equal(queryRange(db, "2026-07", "2026-07")[0]?.card, true);
   db.close();
 });
 

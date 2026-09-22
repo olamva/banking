@@ -1,0 +1,14 @@
+{
+  "id": "c22cdcee",
+  "ts": "2026-09-22T09:18:14+00:00",
+  "text": "Direct node test command referenced the uninstalled tsx loader",
+  "tags": [
+    "tests",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3code-5402f13c",
+  "branch": "t3code/add-spending-statistics"
+}

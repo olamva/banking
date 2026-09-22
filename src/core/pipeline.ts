@@ -56,7 +56,7 @@ export async function pipeline(
   const rows = categorize(
     exclude(
       setCountries(
-        normalizeMonth(`${RAW}/${month}`, names),
+        normalizeMonth(`${RAW}/${month}`, names, cards),
         await loadCountries(),
       ),
       accounts,

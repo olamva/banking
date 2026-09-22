@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS transactions (
   id TEXT NOT NULL,
   accountKey TEXT NOT NULL,
   account TEXT NOT NULL,
+  card INTEGER NOT NULL DEFAULT 0,
   date TEXT NOT NULL,
   month TEXT NOT NULL,
   amount REAL NOT NULL,
@@ -45,6 +46,10 @@ export function openDb(path = DB_FILE): DatabaseSync {
     db.exec(
       "ALTER TABLE transactions ADD COLUMN isPending INTEGER NOT NULL DEFAULT 0",
     );
+  if (!columns.some(({ name }) => name === "card"))
+    db.exec(
+      "ALTER TABLE transactions ADD COLUMN card INTEGER NOT NULL DEFAULT 0",
+    );
   for (const field of ["originalCounterparty", "categorySource"])
     if (!columns.some(({ name }) => name === field))
       db.exec(`ALTER TABLE transactions ADD COLUMN ${field} TEXT`);
@@ -55,6 +60,7 @@ const COLUMNS = [
   "id",
   "accountKey",
   "account",
+  "card",
   "date",
   "amount",
   "description",
@@ -102,6 +108,7 @@ export function upsertMany(
         row.id,
         row.accountKey,
         row.account,
+        row.card ? 1 : 0,
         row.date,
         row.amount,
         row.description,
@@ -151,6 +158,7 @@ export function queryRange(
     if (row.originalCounterparty === null) delete row.originalCounterparty;
     if (row.categorySource === null) delete row.categorySource;
     row.isPending = !!row.isPending;
+    row.card = !!row.card;
     row.isRecurring = !!row.isRecurring;
     row.isSubscription = !!row.isSubscription;
     row.excluded = !!row.excluded;

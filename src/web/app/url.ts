@@ -4,14 +4,19 @@ import { period, type Filters, type PeriodKind } from "../../core/select.ts";
 export type Grain = "running" | "day" | "month";
 
 export type UrlState = {
-  view: "dashboard" | "transactions" | "rules";
+  view: "dashboard" | "insights" | "transactions" | "rules";
   ruleFile: RuleFile;
   period: string | null;
   grain: Grain;
   filters: Filters;
 };
 
-const VIEWS: UrlState["view"][] = ["dashboard", "transactions", "rules"];
+const VIEWS: UrlState["view"][] = [
+  "dashboard",
+  "transactions",
+  "insights",
+  "rules",
+];
 const ALL_GRAINS: Grain[] = ["running", "day", "month"];
 
 export const GRAINS: Record<PeriodKind, Grain[]> = {

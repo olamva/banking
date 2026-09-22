@@ -105,7 +105,9 @@ export const StatTile = ({ label, value, delta, vs, sub }: StatTileProps) => (
     {/* Smaller on a phone, where two tiles share a 375px row: `123 456 kr` at
         26px is wider than the 128px a tile has left inside its own padding, and
         a six-figure total is the ordinary case here rather than the outlier. */}
-    <div className="mt-1 text-[22px] font-semibold sm:text-[26px]">{value}</div>
+    <div className="mt-1 min-w-0 break-words text-[22px] font-semibold sm:text-[26px]">
+      {value}
+    </div>
     {sub && <div className="mt-1 text-xs text-ink-muted">{sub}</div>}
     {delta && (
       <div

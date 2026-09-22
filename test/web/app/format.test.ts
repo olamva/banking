@@ -18,6 +18,7 @@ const row: Categorized = {
   id: "row-1",
   accountKey: "secret-key",
   account: "Brukskonto",
+  card: true,
   date: "2026-07-04",
   amount: -249.5,
   description: "a description",
@@ -39,9 +40,10 @@ const row: Categorized = {
   subcategory: null,
 };
 
-test("txnFields never shows the account key", () => {
+test("txnFields never shows internal account fields", () => {
   const names = txnFields(row).map(([name]) => name);
   assert.ok(!names.includes("Account key"));
+  assert.ok(!names.includes("Card"));
   assert.ok(!txnFields(row).some(([, value]) => value === "secret-key"));
 });
 
