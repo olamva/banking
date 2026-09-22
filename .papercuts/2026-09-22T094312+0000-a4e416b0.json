@@ -1,0 +1,14 @@
+{
+  "id": "a4e416b0",
+  "ts": "2026-09-22T09:43:12+00:00",
+  "text": "linked worktree index updates fail because the sandbox blocks the shared index.lock",
+  "tags": [
+    "git",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-5.6-sol",
+  "session": "",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3code-1a74a24a",
+  "branch": "t3code/move-local-commit-merge-pr"
+}
