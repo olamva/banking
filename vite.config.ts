@@ -86,9 +86,9 @@ const api = (): Plugin => ({
   },
 });
 
-// A worktree links `data` to the main checkout, so a build there empties and
-// replaces the page that the main checkout deploys. `.git` is a file in a
-// worktree and a directory in the main checkout.
+// A worktree links `data` to the main checkout, so a build there must write to
+// `data.local` or it replaces the page that the main checkout deploys. `.git`
+// is a file in a worktree and a directory in the main checkout.
 const isWorktree = (): boolean => {
   const dotGit = resolve(import.meta.dirname, ".git");
   return existsSync(dotGit) && statSync(dotGit).isFile();
@@ -125,12 +125,7 @@ const isolate = (): number => {
   return 4010 + hash;
 };
 
-export default defineConfig(({ command, mode }) => {
-  if (command === "build" && isWorktree())
-    throw new Error(
-      "build from the main checkout: `data` is a link to it, and this build " +
-        "would replace the page that it deploys.",
-    );
+export default defineConfig(({ mode }) => {
   // The dashboard is offline, but the refresh endpoint is not. `pnpm dev` runs
   // vite, not `node --env-file`, so load .env.local here.
   Object.assign(process.env, loadEnv(mode, import.meta.dirname, ""));
@@ -140,7 +135,10 @@ export default defineConfig(({ command, mode }) => {
   return {
     root: "src/web/app",
     build: {
-      outDir: resolve(import.meta.dirname, "data/dist"),
+      outDir: resolve(
+        import.meta.dirname,
+        isWorktree() ? "data.local/dist" : "data/dist",
+      ),
       emptyOutDir: true,
     },
     plugins: [react(), tailwindcss(), api()],
