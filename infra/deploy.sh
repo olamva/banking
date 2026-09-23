@@ -27,6 +27,7 @@ cp "$here/Dockerfile" "$stage/Dockerfile"
 
 cp "$repo/package.json" "$stage/package.json"
 cp "$repo/pnpm-lock.yaml" "$stage/pnpm-lock.yaml"
+cp "$repo/pnpm-workspace.yaml" "$stage/pnpm-workspace.yaml"
 
 echo "==> install the runtime dependencies"
 pnpm install --dir "$stage" --prod --node-linker=hoisted --frozen-lockfile --ignore-scripts
