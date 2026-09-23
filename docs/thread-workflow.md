@@ -34,7 +34,8 @@ Fetch `origin/main` before merging.
 Merge `origin/main` into an outdated task branch, resolve conflicts, and push without rewriting history.
 Repeat checks for the new commit.
 Run `pnpm test` and `pnpm typecheck` locally.
-Let CI run `pnpm build`; the local build guard refuses linked worktrees.
+Run one test file with `node --test <file>`. Node runs TypeScript without a loader.
+Run `pnpm build`. A linked worktree builds to `data.local/dist`.
 Use the babysit-pr skill to check every reported result and merge the exact reviewed commit.
 Concurrent agents can encounter an outdated branch after another merge. Repeat this update cycle when GitHub refuses merging.
 
@@ -87,4 +88,5 @@ No background cleanup service runs.
 The setup links share `rules/` and `data/` between worktrees.
 Coordinate edits to shared files before changing them.
 The development server uses a separate database in `data.local`.
+Each branch gets a fixed port. Reuse a running server when `pnpm dev` reports that its port is in use.
 Do not run simultaneous shared rule edits, shared database rebuilds, or deployments.
