@@ -6,6 +6,38 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "1.2.0",
+    date: "2026-09-22",
+    highlights: [
+      {
+        title: "Spending insights",
+        detail:
+          "Open Insights to see your top merchants, card visits by weekday, and when each merchant usually returns.",
+      },
+      {
+        title: "Merchant habits table",
+        detail:
+          "Sort merchants by visits, spend, and timing. Category cells use the same colors as the transaction tables.",
+      },
+    ],
+  },
+  {
+    version: "1.1.0",
+    date: "2026-09-17",
+    highlights: [
+      {
+        title: "Selection in the table header",
+        detail:
+          "Select all transactions from the table header. Clear the selection from the selected-count control.",
+      },
+      {
+        title: "Quieter rule uploads",
+        detail:
+          "Deployments no longer list each uploaded rule file. Azure errors still show.",
+      },
+    ],
+  },
+  {
     version: "1.0.0",
     date: "2026-09-14",
     highlights: [
