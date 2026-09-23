@@ -30,11 +30,6 @@ export const RELEASES: Release[] = [
         detail:
           "Select all transactions from the table header. Clear the selection from the selected-count control.",
       },
-      {
-        title: "Quieter rule uploads",
-        detail:
-          "Deployments no longer list each uploaded rule file. Azure errors still show.",
-      },
     ],
   },
   {
