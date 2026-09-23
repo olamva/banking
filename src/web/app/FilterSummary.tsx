@@ -93,7 +93,7 @@ export const FilterSummary = ({
           page's own width, never narrower than the 375px the phone rule sets.
 
           The pickers get away with the default because they sit at the *left*.
-          The rule is the same one CLAUDE.md already states — a panel is anchored
+          The rule is the same one AGENTS.md already states — a panel is anchored
           wherever its trigger is, so the trigger's position decides the anchor. */}
       <div
         className={`absolute right-0 z-20 mt-1 flex max-h-72 w-64 flex-col ${PANEL}`}

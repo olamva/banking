@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # PreToolUse guard: refuse a tracked change in the main checkout.
 #
-# .claude/CLAUDE.md says to make every tracked code change in an isolated
+# AGENTS.md says to make every tracked code change in an isolated
 # worktree. Prose alone did not hold, so this is the backstop.
 #
 # Reads the hook payload on stdin, prints a deny decision, exits 0 either way:
