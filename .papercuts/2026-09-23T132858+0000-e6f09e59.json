@@ -1,0 +1,14 @@
+{
+  "id": "e6f09e59",
+  "ts": "2026-09-23T13:28:58+00:00",
+  "text": "pnpm traffic fails in a fresh worktree: terraform backend not initialized; workspace id lookup needs terraform init",
+  "tags": [
+    "infra",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "opus-5.5",
+  "session": "59934834",
+  "where": "infra/traffic.sh",
+  "branch": "t3code/analyze-app-traffic"
+}
