@@ -11,7 +11,10 @@ interface ModalProps {
 export const Modal = ({ children, className, onClose }: ModalProps) => (
   <dialog
     ref={(el) => {
-      if (el && !el.open) el.showModal();
+      if (el && !el.open) {
+        el.showModal();
+        el.scrollTop = 0;
+      }
     }}
     onClose={onClose}
     onClick={(e) => {
