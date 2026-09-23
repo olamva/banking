@@ -21,7 +21,8 @@
     "seed:azure": "bash infra/seed-token.sh",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
-    "worktree:cleanup": "node infra/worktree-cleanup.ts"
+    "worktree:cleanup": "node infra/worktree-cleanup.ts",
+    "release:check": "node infra/release-check.ts"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
