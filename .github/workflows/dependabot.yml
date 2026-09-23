@@ -32,8 +32,8 @@ jobs:
         run: |
           files="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR}/files" --jq '.[].filename')"
           case "$ECOSYSTEM" in
-            npm) unexpected="$(printf '%s\n' "$files" | grep -Ev '^(package.json|pnpm-lock.yaml)$' || true)" ;;
-            github-actions) unexpected="$(printf '%s\n' "$files" | grep -Ev '^\.github/workflows/[^/]+$' || true)" ;;
+            npm_and_yarn) unexpected="$(printf '%s\n' "$files" | grep -Ev '^(package.json|pnpm-lock.yaml)$' || true)" ;;
+            github_actions) unexpected="$(printf '%s\n' "$files" | grep -Ev '^\.github/workflows/[^/]+$' || true)" ;;
             *) unexpected="$files" ;;
           esac
           if [[ -n "$unexpected" ]]; then
