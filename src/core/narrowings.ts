@@ -94,7 +94,7 @@ export function narrowings(
     const theirs = n.beaten.map((b) => body(b.pattern));
     n.suggest =
       mine && theirs.every(Boolean)
-        ? `/^(?!.*(?:${theirs.join("|")}))(?=.*${mine})/`
+        ? `/^(?!.*(?:${theirs.join("|")}))(?=.*(?:${mine}))/`
         : "";
   }
   return [...byLoser.values()].sort(

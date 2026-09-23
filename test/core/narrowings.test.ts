@@ -72,6 +72,28 @@ test("a narrowed pattern keeps its own rows and takes none back", () => {
   );
 });
 
+test("a narrowed alternation keeps every branch after the winner check", () => {
+  const rows = [
+    row({ id: "1", description: "Joker Samfundet", counterparty: null }),
+    row({
+      id: "2",
+      description: "Vipps Studentersamfunnet",
+      counterparty: null,
+    }),
+  ];
+  const categories = {
+    joker: "dagligvarer",
+    "/samfundet|studentersamfun/": "fritid",
+  };
+  const [loose] = narrowings(rows, categories);
+  assert.deepEqual(
+    categorize(rows, { joker: "dagligvarer", [loose!.suggest]: "fritid" }).map(
+      (t) => t.category,
+    ),
+    ["dagligvarer", "fritid"],
+  );
+});
+
 test("rows with the same text each count toward an overlap", () => {
   const rows = [
     row({ id: "1" }),

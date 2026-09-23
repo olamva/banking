@@ -1,0 +1,14 @@
+{
+  "id": "6d4ef9fb",
+  "ts": "2026-09-23T13:08:10+00:00",
+  "text": "T3 worktree setup did not run: no rules/ link or node_modules in new worktree",
+  "tags": [
+    "setup",
+    "t3"
+  ],
+  "who": "agent",
+  "model": "opus-5.5",
+  "session": "3e3fb0bd",
+  "where": "t3.json",
+  "branch": "t3code/resolve-conflicting-rules"
+}
