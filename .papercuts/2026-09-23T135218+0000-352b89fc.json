@@ -1,0 +1,14 @@
+{
+  "id": "352b89fc",
+  "ts": "2026-09-23T13:52:18+00:00",
+  "text": "pnpm deploy discards az acr build output, so a failed image build shows only 'ERROR: Run failed'; logs need az acr task logs",
+  "tags": [
+    "deploy",
+    "infra"
+  ],
+  "who": "agent",
+  "model": "opus-5.5",
+  "session": "aa10ed77",
+  "where": "infra/deploy.sh",
+  "branch": "t3code/fix-deploy-image-build"
+}
