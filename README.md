@@ -91,6 +91,9 @@ Increase the semantic version for each release.
 Write short notes for important new features and major changes.
 Do not generate notes from commit messages.
 Exclude routine fixes, maintenance, and internal changes.
+Apply the `no release` label to a PR without a release.
+CI runs `pnpm release:check` and fails a PR with neither a new release nor the label.
+Dependabot PRs need no label.
 
 ## The hosted dashboard
 
