@@ -26,6 +26,6 @@ work twice. If nothing is unanswered, say so in one line and stop. Do not
 comment on the PR to say there was nothing to do.
 
 **Disagree by replying, never by editing.** If a comment is wrong, unclear, or
-asks for something that breaks a rule in `.claude/CLAUDE.md`, change nothing.
+asks for something that breaks a rule in `AGENTS.md`, change nothing.
 Answer on the PR with the reason and let me decide. It is better to ask one
 question than to push a commit I did not want. Act only on what you understand.
