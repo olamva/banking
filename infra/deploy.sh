@@ -12,16 +12,11 @@ app="$(terraform -chdir="$here" output -raw app)"
 group="$(terraform -chdir="$here" output -raw resource_group)"
 storage="$(terraform -chdir="$here" output -raw storage_account)"
 
-# GitHub Actions builds the image from every commit on main, so this machine
-# needs no container runtime, and the site runs what main holds.
-git -C "$repo" fetch --quiet origin main
-sha="$(git -C "$repo" rev-parse origin/main)"
+# GitHub Actions builds the image when a commit on main changes its inputs, so
+# this machine needs no container runtime. The newest build is the current code.
+read -r run sha < <(gh run list --workflow image.yml --branch main --limit 1 \
+  --json databaseId,headSha -q '.[0] | "\(.databaseId) \(.headSha)"')
 echo "==> wait for the image of $sha"
-run="$(gh run list --workflow image.yml --commit "$sha" --json databaseId -q '.[0].databaseId')"
-if [ -z "$run" ]; then
-  echo "no image build exists for $sha yet" >&2
-  exit 1
-fi
 gh run watch "$run" --exit-status >/dev/null
 
 echo "==> point the app at the new image"

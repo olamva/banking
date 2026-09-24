@@ -3,6 +3,15 @@ name: Image
 on:
   push:
     branches: [main]
+    paths:
+      - src/**
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - tsconfig.json
+      - vite.config.ts
+      - infra/Dockerfile
+      - .github/workflows/image.yml
   workflow_dispatch:
 
 permissions:
