@@ -16,6 +16,10 @@ resource "azurerm_monitor_diagnostic_setting" "traffic" {
   enabled_log {
     category = "ContainerAppConsoleLogs"
   }
+
+  lifecycle {
+    ignore_changes = [log_analytics_destination_type]
+  }
 }
 
 output "traffic_workspace_id" {

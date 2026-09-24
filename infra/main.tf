@@ -110,6 +110,20 @@ resource "azurerm_user_assigned_identity" "deploy" {
   location            = azurerm_resource_group.bank.location
 }
 
+resource "azurerm_role_definition" "deploy_apps" {
+  name              = "${var.name}-deploy-container-apps"
+  scope             = azurerm_resource_group.bank.id
+  assignable_scopes = [azurerm_resource_group.bank.id]
+
+  permissions {
+    actions = [
+      "Microsoft.App/containerApps/read",
+      "Microsoft.App/containerApps/write",
+      "Microsoft.App/managedEnvironments/join/action",
+    ]
+  }
+}
+
 resource "azurerm_federated_identity_credential" "deploy" {
   name                      = "github-main"
   user_assigned_identity_id = azurerm_user_assigned_identity.deploy.id
@@ -119,9 +133,9 @@ resource "azurerm_federated_identity_credential" "deploy" {
 }
 
 resource "azurerm_role_assignment" "deploy_apps" {
-  scope                = azurerm_resource_group.bank.id
-  role_definition_name = "Container Apps Contributor"
-  principal_id         = azurerm_user_assigned_identity.deploy.principal_id
+  scope              = azurerm_resource_group.bank.id
+  role_definition_id = azurerm_role_definition.deploy_apps.role_definition_resource_id
+  principal_id       = azurerm_user_assigned_identity.deploy.principal_id
 }
 
 resource "azurerm_container_app" "bank" {

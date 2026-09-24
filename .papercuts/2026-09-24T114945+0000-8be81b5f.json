@@ -1,0 +1,14 @@
+{
+  "id": "8be81b5f",
+  "ts": "2026-09-24T11:49:45+00:00",
+  "text": "Terraform provider schema fails in sandbox after successful init; elevated execution works",
+  "tags": [
+    "terraform",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "gpt-6-astra",
+  "session": "",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3code-f2fe01f3",
+  "branch": "t3code/narrow-terraform-deploy-role"
+}
