@@ -1,0 +1,15 @@
+{
+  "id": "bca0cb19",
+  "ts": "2026-09-24T11:30:52+00:00",
+  "text": "GitHub OIDC subject uses immutable IDs (repo:owner@id/repo@id:...), so the documented repo:owner/repo subject fails with AADSTS700213",
+  "tags": [
+    "azure",
+    "github",
+    "infra"
+  ],
+  "who": "agent",
+  "model": "opus-5.5",
+  "session": "9fec839b",
+  "where": "infra/main.tf",
+  "branch": "t3code/deploy-in-actions"
+}
