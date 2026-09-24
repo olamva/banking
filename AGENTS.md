@@ -62,9 +62,9 @@ Remove `data/raw/<month>/*.json` and press Refresh to fetch a stored month again
 Format dates with `Europe/Oslo`. API dates use epoch milliseconds at Norwegian midnight, which is `22:00Z` during summer.
 UTC formatting can place a transaction in the previous month.
 
-Use only `pnpm deploy` to send personal data off this machine.
+Use only `pnpm rules:push` to send personal data off this machine.
 It uploads `rules/*.json` and `rules/.history/` to the Azure site.
-GitHub Actions builds the image from git. The image holds no personal data.
+GitHub Actions builds and deploys the image from git. The image holds no personal data.
 Keep the deployment gate. Get an explicit decision before adding another upload route.
 Use `pnpm rules:pull` to download these files without sending personal data.
 
@@ -110,7 +110,7 @@ Write the snapshot and live file together in `save`. Keep the newest snapshot id
 Implement `undo` by copying the second-newest snapshot.
 
 Preserve the version comparisons in `infra/rules-lib.sh`.
-Make `pnpm deploy` refuse to overwrite newer site rules.
+Make `pnpm rules:push` refuse to overwrite newer site rules.
 Make `pnpm rules:pull` refuse to overwrite newer local rules.
 Keep pull's local rule commit and rebuild. Never overwrite newer rules silently.
 

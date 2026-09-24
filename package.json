@@ -15,7 +15,7 @@
     "format": "prettier --write .",
     "build": "vite build",
     "start": "node src/web/server.ts",
-    "deploy": "bash infra/deploy.sh",
+    "rules:push": "bash infra/rules-push.sh",
     "traffic": "bash infra/traffic.sh",
     "rules:pull": "bash infra/rules-pull.sh",
     "seed:azure": "bash infra/seed-token.sh",

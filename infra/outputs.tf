@@ -39,6 +39,18 @@ output "resource_group" {
   value = azurerm_resource_group.bank.name
 }
 
+output "deploy_client_id" {
+  value = azurerm_user_assigned_identity.deploy.client_id
+}
+
+output "tenant_id" {
+  value = data.azurerm_client_config.current.tenant_id
+}
+
+output "subscription_id" {
+  value = data.azurerm_client_config.current.subscription_id
+}
+
 output "storage_account" {
   value = azurerm_storage_account.bank.name
 }

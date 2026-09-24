@@ -28,12 +28,17 @@ variable "share_quota_gb" {
 variable "image" {
   type        = string
   default     = "mcr.microsoft.com/k8se/quickstart:latest"
-  description = "The first apply runs this placeholder, because no image exists yet. `pnpm deploy` points the app at the real one. Terraform ignores the field after that."
+  description = "The first apply runs this placeholder, because no image exists yet. The Deploy workflow points the app at the real one. Terraform ignores the field after that."
 }
 
 variable "ghcr_username" {
   type    = string
   default = "olamva"
+}
+
+variable "github_repository" {
+  type    = string
+  default = "olamva/banking"
 }
 
 variable "ghcr_token" {
