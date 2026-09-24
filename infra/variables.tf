@@ -37,8 +37,9 @@ variable "ghcr_username" {
 }
 
 variable "github_repository" {
-  type    = string
-  default = "olamva/banking"
+  type        = string
+  default     = "olamva@93545174/banking@1327730066"
+  description = "The repository as the GitHub OIDC subject names it, with the immutable owner and repository IDs."
 }
 
 variable "ghcr_token" {
