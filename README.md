@@ -109,8 +109,8 @@ An empty list denies everybody. `test/web/` checks the access controls.
 `src/web/server.ts` serves `data/dist` and the same three endpoints, on `node:http` and no framework. An Azure Files share mounts at `/data`. It holds `data/raw`, the database, the rules and the request ledger. The image holds only the code and the built page, so a scale to zero loses nothing.
 
 Terraform owns the resources. `pnpm deploy` owns their contents.
-GitHub Actions builds the image from every commit on `main` and pushes it to `ghcr.io`.
-`pnpm deploy` points the app at the image of `origin/main`, so this machine needs no container runtime.
+GitHub Actions builds the image when a commit on `main` changes its inputs, and pushes it to `ghcr.io`.
+`pnpm deploy` points the app at the newest image, so this machine needs no container runtime.
 The app pulls the image with a classic GitHub token that has only the `read:packages` scope.
 
 ### Traffic
