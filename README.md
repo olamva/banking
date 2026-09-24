@@ -56,7 +56,7 @@ pnpm sb1 match "<pattern>"          # which rows does a rule pattern claim?
 pnpm sb1 budget                     # what SB1 last reported as left of its limit
 
 pnpm build                          # vite build -> data/dist. The hosted page only
-pnpm deploy                         # push the code, the page and the rules to Azure
+pnpm rules:push                     # push the rules to Azure
 pnpm rules:pull                     # bring the rules the hosted site holds back here
 
 pnpm dev                            # the dashboard on :4000
@@ -74,7 +74,7 @@ Categories, merchants, accounts and countries each filter as two lists. In a pic
 
 The page lists subscriptions per subscription, not per charge. _Per month_ shows the last payment, not the average.
 
-Every rule save writes a snapshot to `rules/.history/`. _Undo the last change_ steps back one edit, and the version list restores any older state. Nothing leaves the history. The site edits its own copy, so `pnpm deploy` stops when the site holds an edit that this machine does not, and it names `pnpm rules:pull`.
+Every rule save writes a snapshot to `rules/.history/`. _Undo the last change_ steps back one edit, and the version list restores any older state. Nothing leaves the history. The site edits its own copy, so `pnpm rules:push` stops when the site holds an edit that this machine does not, and it names `pnpm rules:pull`.
 
 Refresh is the only control on the page that touches the network. It fetches the months that can still change, rebuilds `data/banking.db` and reloads the page. One refresh runs at a time. A typical press is one request.
 
@@ -108,9 +108,10 @@ An empty list denies everybody. `test/web/` checks the access controls.
 
 `src/web/server.ts` serves `data/dist` and the same three endpoints, on `node:http` and no framework. An Azure Files share mounts at `/data`. It holds `data/raw`, the database, the rules and the request ledger. The image holds only the code and the built page, so a scale to zero loses nothing.
 
-Terraform owns the resources. `pnpm deploy` owns their contents.
-GitHub Actions builds the image when a commit on `main` changes its inputs, and pushes it to `ghcr.io`.
-`pnpm deploy` points the app at the newest image, so this machine needs no container runtime.
+Terraform owns the resources. The Deploy workflow owns the image, and `pnpm rules:push` owns the rules.
+The Deploy workflow runs when a commit on `main` changes the image inputs.
+It builds the image, pushes it to `ghcr.io`, and points the app at it, so this machine needs no container runtime.
+It signs in to Azure with a federated identity that may change only the container apps in the resource group.
 The app pulls the image with a classic GitHub token that has only the `read:packages` scope.
 
 ### Traffic
@@ -136,7 +137,7 @@ Use the Azure **Requests** metric for total ingress counts.
 Native HTTP logs remain disabled because they store authentication query values without a supported ingestion transformation.
 
 Deploy the server before applying the Terraform changes when upgrading an existing site.
-Run `pnpm deploy`, then `terraform -chdir=infra apply`, from the main checkout after merging this change.
+Merge this change to `main` and wait for the Deploy workflow. Then run `terraform -chdir=infra apply` from the main checkout.
 Logging starts after activation. Earlier requests cannot be recovered.
 
 ### Setting it up
@@ -147,7 +148,7 @@ The SB1 values arrive last, because the developer portal wants a redirect before
 2. Copy `infra/terraform.tfvars.example` to `infra/terraform.tfvars`. Fill in the subscription, the GitHub token, the allowlist and the two Google values. Leave the four SB1 values empty.
 3. Run `infra/bootstrap.sh`, then `terraform -chdir=infra init`, then `terraform -chdir=infra apply`. It prints `google_redirect_uri`.
 4. Add that URI to the **Authorised redirect URIs** of the Google client. It must match exactly.
-5. Run `pnpm deploy`. The page now works, and it reads an empty database.
+5. Run `infra/github-vars.sh`, then run the Deploy workflow from the Actions tab. Run `pnpm rules:push`. The page now works, and it reads an empty database.
 6. Register a **second SpareBank 1 client** in the developer portal. The BankID login runs on this machine, so the redirect is a localhost URL. Use a port that the first client does not use.
 7. Put the four SB1 values in `infra/terraform.tfvars` and apply again.
 8. Run `pnpm seed:azure`. The token lands in Key Vault instead of the keychain. Do not use `pnpm sb1 login`, which reads `.env.local` and would put the token of this machine in the vault.
@@ -225,7 +226,7 @@ src/web/server.ts  the hosted site: the page, /api/txns, /api/refresh, /api/rule
 src/auth/      allowed(), the whole access rule. Pure and tested
 src/cli.ts     command dispatch
 vite.config.ts pnpm dev: the app plus the same three endpoints
-infra/         terraform for Azure, the deploy script and the rules pull
+infra/         terraform for Azure, the rules push and the rules pull
 test/          node --test, mirroring src/
 rules/         the rules as JSON, gitignored
 rules/.history/  one file for each version of a rule file. Undo reads it

@@ -1,6 +1,5 @@
 #!/bin/bash
-# Point the app at the image of main, and upload the rules.
-# Terraform owns the resources. This script owns their contents.
+# Upload the rules to the site.
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -8,25 +7,10 @@ repo="$(dirname "$here")"
 
 . "$here/rules-lib.sh"
 
-app="$(terraform -chdir="$here" output -raw app)"
-group="$(terraform -chdir="$here" output -raw resource_group)"
 storage="$(terraform -chdir="$here" output -raw storage_account)"
 
-# GitHub Actions builds the image when a commit on main changes its inputs, so
-# this machine needs no container runtime. The newest build is the current code.
-read -r run sha < <(gh run list --workflow image.yml --branch main --limit 1 \
-  --json databaseId,headSha -q '.[0] | "\(.databaseId) \(.headSha)"')
-echo "==> wait for the image of $sha"
-gh run watch "$run" --exit-status >/dev/null
-
-echo "==> point the app at the new image"
-az containerapp update --resource-group "$group" --name "$app" \
-  --image "ghcr.io/$(gh repo view --json nameWithOwner -q .nameWithOwner):$sha" \
-  --only-show-errors >/dev/null
-
-# The rules never enter git. They reach Azure only here, and every deploy
+# The rules never enter git. They reach Azure only here, and every push
 # re-sends them, so an edit on the Mac cannot drift out of step.
-echo "==> upload the rules"
 key="$(storage_key "$storage")"
 
 # The site can edit its own rules now, so this upload is no longer a one-way

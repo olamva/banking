@@ -2,7 +2,7 @@
 # Bring the rules the site holds back to this machine, and commit them.
 #
 # The site writes rules/ on its volume when somebody edits a rule on the page.
-# `pnpm deploy` refuses to overwrite those, and `pnpm rules:pull` is what it
+# `pnpm rules:push` refuses to overwrite those, and `pnpm rules:pull` is what it
 # tells you to run.
 set -euo pipefail
 

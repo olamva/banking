@@ -1,4 +1,4 @@
-# Which side holds the newer rules. Sourced by deploy.sh and rules-pull.sh.
+# Which side holds the newer rules. Sourced by rules-push.sh and rules-pull.sh.
 #
 # rules/.history holds one file for each version, named <epoch-ms>-<file>.json.
 # A new version always takes the time it was written, so the newest stamp only

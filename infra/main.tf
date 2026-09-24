@@ -104,6 +104,26 @@ resource "azurerm_role_assignment" "me_secrets" {
   principal_id         = data.azurerm_client_config.current.object_id
 }
 
+resource "azurerm_user_assigned_identity" "deploy" {
+  name                = "${var.name}-deploy"
+  resource_group_name = azurerm_resource_group.bank.name
+  location            = azurerm_resource_group.bank.location
+}
+
+resource "azurerm_federated_identity_credential" "deploy" {
+  name                      = "github-main"
+  user_assigned_identity_id = azurerm_user_assigned_identity.deploy.id
+  audience                  = ["api://AzureADTokenExchange"]
+  issuer                    = "https://token.actions.githubusercontent.com"
+  subject                   = "repo:${var.github_repository}:ref:refs/heads/main"
+}
+
+resource "azurerm_role_assignment" "deploy_apps" {
+  scope                = azurerm_resource_group.bank.id
+  role_definition_name = "Container Apps Contributor"
+  principal_id         = azurerm_user_assigned_identity.deploy.principal_id
+}
+
 resource "azurerm_container_app" "bank" {
   name                         = var.name
   resource_group_name          = azurerm_resource_group.bank.name
@@ -225,7 +245,7 @@ resource "azurerm_container_app" "bank" {
   ]
 
   lifecycle {
-    # Terraform owns the resource. `pnpm deploy` owns the image it runs.
+    # Terraform owns the resource. The Deploy workflow owns the image it runs.
     ignore_changes = [template[0].container[0].image]
   }
 }
