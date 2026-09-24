@@ -6,7 +6,7 @@ variable "subscription_id" {
 variable "name" {
   type        = string
   default     = "banking-dashboard"
-  description = "The resource group, the environment and the app all take this name. The storage account and the registry derive from it."
+  description = "The resource group, the environment and the app all take this name. The storage account derives from it."
 
   validation {
     condition     = can(regex("^[a-z0-9][a-z0-9-]{1,17}[a-z0-9]$", var.name))
@@ -28,7 +28,18 @@ variable "share_quota_gb" {
 variable "image" {
   type        = string
   default     = "mcr.microsoft.com/k8se/quickstart:latest"
-  description = "The first apply runs this placeholder, because no image exists yet. `pnpm deploy` builds the real one and updates the app. Terraform ignores the field after that."
+  description = "The first apply runs this placeholder, because no image exists yet. `pnpm deploy` points the app at the real one. Terraform ignores the field after that."
+}
+
+variable "ghcr_username" {
+  type    = string
+  default = "olamva"
+}
+
+variable "ghcr_token" {
+  type        = string
+  sensitive   = true
+  description = "A classic GitHub token with only the read:packages scope. The app pulls its image from ghcr.io with it."
 }
 
 variable "allowed_emails" {

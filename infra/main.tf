@@ -23,13 +23,12 @@ provider "azapi" {}
 
 data "azurerm_client_config" "current" {}
 
-# A storage account and a registry each take a short global name with no dashes.
+# A storage account takes a short global name with no dashes.
 # The digest keeps the name unique without a second provider for randomness.
 locals {
   flat       = substr(replace(var.name, "-", ""), 0, 14)
   digest     = substr(sha1(var.subscription_id), 0, 6)
   storage    = "${local.flat}${local.digest}"
-  registry   = "${local.flat}${local.digest}"
   vault_name = trimsuffix(substr("${var.name}-vault", 0, 24), "-")
 }
 
@@ -55,14 +54,6 @@ resource "azurerm_storage_share" "data" {
   name               = "data"
   storage_account_id = azurerm_storage_account.bank.id
   quota              = var.share_quota_gb
-}
-
-resource "azurerm_container_registry" "bank" {
-  name                = local.registry
-  resource_group_name = azurerm_resource_group.bank.name
-  location            = azurerm_resource_group.bank.location
-  sku                 = "Basic"
-  admin_enabled       = false
 }
 
 resource "azurerm_container_app_environment" "bank" {
@@ -113,12 +104,6 @@ resource "azurerm_role_assignment" "me_secrets" {
   principal_id         = data.azurerm_client_config.current.object_id
 }
 
-resource "azurerm_role_assignment" "app_pull" {
-  scope                = azurerm_container_registry.bank.id
-  role_definition_name = "AcrPull"
-  principal_id         = azurerm_user_assigned_identity.app.principal_id
-}
-
 resource "azurerm_container_app" "bank" {
   name                         = var.name
   resource_group_name          = azurerm_resource_group.bank.name
@@ -131,8 +116,14 @@ resource "azurerm_container_app" "bank" {
   }
 
   registry {
-    server   = azurerm_container_registry.bank.login_server
-    identity = azurerm_user_assigned_identity.app.id
+    server               = "ghcr.io"
+    username             = var.ghcr_username
+    password_secret_name = "ghcr-token"
+  }
+
+  secret {
+    name  = "ghcr-token"
+    value = var.ghcr_token
   }
 
   secret {
@@ -230,7 +221,6 @@ resource "azurerm_container_app" "bank" {
   }
 
   depends_on = [
-    azurerm_role_assignment.app_pull,
     azurerm_role_assignment.app_secrets,
   ]
 

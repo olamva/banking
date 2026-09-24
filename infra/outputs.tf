@@ -39,10 +39,6 @@ output "resource_group" {
   value = azurerm_resource_group.bank.name
 }
 
-output "registry" {
-  value = azurerm_container_registry.bank.name
-}
-
 output "storage_account" {
   value = azurerm_storage_account.bank.name
 }

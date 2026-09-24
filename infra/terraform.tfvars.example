@@ -4,6 +4,10 @@
 
 subscription_id = "00000000-0000-0000-0000-000000000000"
 
+# A classic GitHub token with only the read:packages scope. The app pulls its
+# image from ghcr.io with it.
+ghcr_token = ""
+
 # An empty list denies everybody.
 allowed_emails = ["you@example.com"]
 

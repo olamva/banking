@@ -1,48 +1,32 @@
 #!/bin/bash
-# Build the image, push it, and upload the rules.
+# Point the app at the image of main, and upload the rules.
 # Terraform owns the resources. This script owns their contents.
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
 repo="$(dirname "$here")"
-stage="$repo/data/deploy"
 
 . "$here/rules-lib.sh"
 
 app="$(terraform -chdir="$here" output -raw app)"
 group="$(terraform -chdir="$here" output -raw resource_group)"
-registry="$(terraform -chdir="$here" output -raw registry)"
 storage="$(terraform -chdir="$here" output -raw storage_account)"
-tag="$(date -u +%Y%m%d%H%M%S)"
 
-echo "==> build the page"
-pnpm --dir "$repo" build
-
-echo "==> stage $stage"
-rm -rf "$stage"
-mkdir -p "$stage/data"
-cp -R "$repo/src" "$stage/src"
-cp -R "$repo/data/dist" "$stage/data/dist"
-cp "$here/Dockerfile" "$stage/Dockerfile"
-
-cp "$repo/package.json" "$stage/package.json"
-cp "$repo/pnpm-lock.yaml" "$stage/pnpm-lock.yaml"
-cp "$repo/pnpm-workspace.yaml" "$stage/pnpm-workspace.yaml"
-
-echo "==> install the runtime dependencies"
-pnpm install --dir "$stage" --prod --node-linker=hoisted --frozen-lockfile --ignore-scripts
-
-# ACR builds the image itself, so this machine needs no container runtime.
-echo "==> build the image in the registry"
-# --file resolves against the working directory, not the context, so build
-# from inside the context rather than passing a path.
-(cd "$stage" && az acr build --registry "$registry" \
-  --image "banking:$tag" --image "banking:latest" \
-  --file Dockerfile . --only-show-errors >/dev/null)
+# GitHub Actions builds the image from every commit on main, so this machine
+# needs no container runtime, and the site runs what main holds.
+git -C "$repo" fetch --quiet origin main
+sha="$(git -C "$repo" rev-parse origin/main)"
+echo "==> wait for the image of $sha"
+run="$(gh run list --workflow image.yml --commit "$sha" --json databaseId -q '.[0].databaseId')"
+if [ -z "$run" ]; then
+  echo "no image build exists for $sha yet" >&2
+  exit 1
+fi
+gh run watch "$run" --exit-status >/dev/null
 
 echo "==> point the app at the new image"
 az containerapp update --resource-group "$group" --name "$app" \
-  --image "$(az acr show --name "$registry" --query loginServer -o tsv)/banking:$tag" \
+  --image "ghcr.io/$(gh repo view --json nameWithOwner -q .nameWithOwner):$sha" \
   --only-show-errors >/dev/null
 
 # The rules never enter git. They reach Azure only here, and every deploy
@@ -103,5 +87,4 @@ if [ -d "$repo/rules/.history" ]; then
   fi
 fi
 
-rm -rf "$stage"
 echo "==> done: $(terraform -chdir="$here" output -raw url)"

@@ -63,7 +63,8 @@ Format dates with `Europe/Oslo`. API dates use epoch milliseconds at Norwegian m
 UTC formatting can place a transaction in the previous month.
 
 Use only `pnpm deploy` to send personal data off this machine.
-It uploads `data/dist`, `rules/*.json`, and `rules/.history/` to the Azure site.
+It uploads `rules/*.json` and `rules/.history/` to the Azure site.
+GitHub Actions builds the image from git. The image holds no personal data.
 Keep the deployment gate. Get an explicit decision before adding another upload route.
 Use `pnpm rules:pull` to download these files without sending personal data.
 

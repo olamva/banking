@@ -108,7 +108,10 @@ An empty list denies everybody. `test/web/` checks the access controls.
 
 `src/web/server.ts` serves `data/dist` and the same three endpoints, on `node:http` and no framework. An Azure Files share mounts at `/data`. It holds `data/raw`, the database, the rules and the request ledger. The image holds only the code and the built page, so a scale to zero loses nothing.
 
-Terraform owns the resources. `pnpm deploy` owns their contents. The registry builds the image, so this machine needs no container runtime.
+Terraform owns the resources. `pnpm deploy` owns their contents.
+GitHub Actions builds the image from every commit on `main` and pushes it to `ghcr.io`.
+`pnpm deploy` points the app at the image of `origin/main`, so this machine needs no container runtime.
+The app pulls the image with a classic GitHub token that has only the `read:packages` scope.
 
 ### Traffic
 
@@ -141,7 +144,7 @@ Logging starts after activation. Earlier requests cannot be recovered.
 The SB1 values arrive last, because the developer portal wants a redirect before it issues a client.
 
 1. Create a Google **OAuth client ID** of type **Web application**.
-2. Copy `infra/terraform.tfvars.example` to `infra/terraform.tfvars`. Fill in the subscription, the allowlist and the two Google values. Leave the four SB1 values empty.
+2. Copy `infra/terraform.tfvars.example` to `infra/terraform.tfvars`. Fill in the subscription, the GitHub token, the allowlist and the two Google values. Leave the four SB1 values empty.
 3. Run `infra/bootstrap.sh`, then `terraform -chdir=infra init`, then `terraform -chdir=infra apply`. It prints `google_redirect_uri`.
 4. Add that URI to the **Authorised redirect URIs** of the Google client. It must match exactly.
 5. Run `pnpm deploy`. The page now works, and it reads an empty database.
@@ -150,7 +153,7 @@ The SB1 values arrive last, because the developer portal wants a redirect before
 8. Run `pnpm seed:azure`. The token lands in Key Vault instead of the keychain. Do not use `pnpm sb1 login`, which reads `.env.local` and would put the token of this machine in the vault.
 9. Open the site and press Refresh.
 
-SB1 rotates the refresh token on every exchange, so two processes on one chain invalidate each other. The second client gives Azure an independent chain. The compute scales to zero, and only the registry and the file share bill whatever happens. Both are small.
+SB1 rotates the refresh token on every exchange, so two processes on one chain invalidate each other. The second client gives Azure an independent chain. The compute scales to zero, and only the file share bills whatever happens. It is small.
 
 ### Staying inside the rate limit
 
