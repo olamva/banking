@@ -1,0 +1,13 @@
+{
+  "id": "c02dcc9c",
+  "ts": "2026-09-26T09:28:33+00:00",
+  "text": "Headless Chrome --screenshot ignores --window-size below about 500 px and crops the output",
+  "tags": [
+    "tools"
+  ],
+  "who": "agent",
+  "model": "opus-5.5",
+  "session": "7d299615",
+  "where": "Google Chrome headless",
+  "branch": "t3code/pwa-install"
+}
