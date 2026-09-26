@@ -1,0 +1,13 @@
+{
+  "id": "efb6aeec",
+  "ts": "2026-09-26T09:22:45+00:00",
+  "text": "ImageMagick MSVG renders gradient fills in icon.svg as solid black",
+  "tags": [
+    "tools"
+  ],
+  "who": "agent",
+  "model": "opus-5.5",
+  "session": "7d299615",
+  "where": "magick",
+  "branch": "t3code/add-pwa-home-screen-support"
+}

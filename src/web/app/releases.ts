@@ -6,6 +6,17 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "1.3.0",
+    date: "2026-09-26",
+    highlights: [
+      {
+        title: "Add the dashboard to your home screen",
+        detail:
+          "Install the dashboard from the browser menu. It opens in its own window with the dollar icon.",
+      },
+    ],
+  },
+  {
     version: "1.2.0",
     date: "2026-09-22",
     highlights: [
