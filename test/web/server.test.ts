@@ -42,7 +42,10 @@ beforeEach(async () => {
   process.env.ALLOWED_EMAILS = "ola@example.com";
   await new Promise<void>((done, fail) => {
     server.once("error", fail);
-    server.listen(0, "127.0.0.1", done);
+    server.listen(0, "127.0.0.1", () => {
+      server.off("error", fail);
+      done();
+    });
   });
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 });
@@ -77,6 +80,22 @@ test("anonymous requests redirect before any page or API action", async () => {
     );
     assert.equal(await res.text(), "");
   }
+});
+
+test("anonymous requests reach the install icons and nothing next to them", async () => {
+  for (const path of ["/apple-touch-icon.png", "/manifest.webmanifest"]) {
+    const res = await fetch(`${base}${path}`, { redirect: "manual" });
+    assert.notEqual(res.status, 302);
+  }
+  for (const path of ["/theme.js", "/index.html"]) {
+    const res = await fetch(`${base}${path}`, { redirect: "manual" });
+    assert.equal(res.status, 302);
+  }
+  const posted = await fetch(`${base}/icon.svg`, {
+    method: "POST",
+    redirect: "manual",
+  });
+  assert.equal(posted.status, 302);
 });
 
 test("traffic logs separate access outcomes and omit sensitive request values", async (t) => {

@@ -19,6 +19,15 @@ const TYPES: Record<string, string> = {
   ".woff2": "font/woff2",
 };
 
+const PUBLIC = new Set([
+  "/manifest.webmanifest",
+  "/icon.svg",
+  "/apple-touch-icon.png",
+  "/icon-192.png",
+  "/icon-512.png",
+  "/icon-maskable-512.png",
+]);
+
 const SECURITY = {
   "X-Frame-Options": "DENY",
   "X-Content-Type-Options": "nosniff",
@@ -100,6 +109,12 @@ export const server = createServer((req, res) => {
       ),
     );
   }
+  const url = new URL(req.url ?? "/", "http://localhost");
+  const path = url.pathname;
+  if (PUBLIC.has(path) && (req.method === "GET" || req.method === "HEAD")) {
+    file(res, path);
+    return;
+  }
   if (!principal) {
     res.writeHead(302, {
       ...SECURITY,
@@ -118,9 +133,6 @@ export const server = createServer((req, res) => {
     send(res, 403, "text/plain; charset=utf-8", "Not your dashboard.\n");
     return;
   }
-
-  const url = new URL(req.url ?? "/", "http://localhost");
-  const path = url.pathname;
 
   const rules = rulesRoute(
     path,
