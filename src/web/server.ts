@@ -1,6 +1,17 @@
 import { createReadStream, existsSync, statSync } from "node:fs";
-import { createServer, type ServerResponse } from "node:http";
+import {
+  createServer,
+  type IncomingMessage,
+  type ServerResponse,
+} from "node:http";
 import { extname, join, resolve, sep } from "node:path";
+import {
+  brotliCompressSync,
+  constants,
+  createBrotliCompress,
+  createGzip,
+  gzipSync,
+} from "node:zlib";
 import { allowed } from "../auth/session.ts";
 import { payload, refresh, rulesRoute } from "./api.ts";
 import { claimTypes, principalEmail } from "./principal.ts";
@@ -36,24 +47,49 @@ const SECURITY = {
     "default-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
 };
 
+const BROTLI = { params: { [constants.BROTLI_PARAM_QUALITY]: 5 } };
+
+type Coding = "br" | "gzip" | undefined;
+
+const coding = (req: IncomingMessage, type: string): Coding => {
+  if (!/^(text\/|application\/(json|manifest)|image\/svg)/.test(type)) return;
+  const accept = String(req.headers["accept-encoding"] ?? "");
+  return /\bbr\b/.test(accept)
+    ? "br"
+    : /\bgzip\b/.test(accept)
+      ? "gzip"
+      : undefined;
+};
+
+const encoded = (c: Coding) =>
+  c ? { "Content-Encoding": c, Vary: "Accept-Encoding" } : {};
+
 const send = (
   res: ServerResponse,
   status: number,
   type: string,
   body: string,
+  c?: Coding,
 ): void => {
   res.writeHead(status, {
     ...SECURITY,
+    ...encoded(c),
     "Content-Type": type,
     "Cache-Control": "no-store",
   });
-  res.end(body);
+  res.end(
+    c === "br" ? brotliCompressSync(body, BROTLI) : c ? gzipSync(body) : body,
+  );
 };
 
-const json = (res: ServerResponse, status: number, body: unknown): void =>
-  send(res, status, "application/json; charset=utf-8", JSON.stringify(body));
+const JSON_TYPE = "application/json; charset=utf-8";
 
-function file(res: ServerResponse, path: string): void {
+const json = (res: ServerResponse, status: number, body: unknown): void =>
+  send(res, status, JSON_TYPE, JSON.stringify(body));
+
+let ready: Promise<unknown> = Promise.resolve();
+
+function file(req: IncomingMessage, res: ServerResponse, path: string): void {
   // A request may not climb out of the build output.
   const full = resolve(DIST, `.${path}`);
   if (full !== DIST && !full.startsWith(DIST + sep)) {
@@ -71,20 +107,27 @@ function file(res: ServerResponse, path: string): void {
     send(res, 404, "text/plain; charset=utf-8", "no build output\n");
     return;
   }
-  const ext = extname(serve);
+  const type = TYPES[extname(serve)] ?? "application/octet-stream";
+  const c = coding(req, type);
   res.writeHead(200, {
     ...SECURITY,
-    "Content-Type": TYPES[ext] ?? "application/octet-stream",
+    ...encoded(c),
+    "Content-Type": type,
     // The page and the payload both hold transactions. Only the hashed assets
     // may sit in a cache.
     "Cache-Control": serve.includes(`${sep}assets${sep}`)
       ? "private, max-age=31536000, immutable"
       : "private, no-store",
   });
-  createReadStream(serve).pipe(res);
+  const stream = createReadStream(serve);
+  if (!c) stream.pipe(res);
+  else
+    stream
+      .pipe(c === "br" ? createBrotliCompress(BROTLI) : createGzip())
+      .pipe(res);
 }
 
-export const server = createServer((req, res) => {
+export const server = createServer(async (req, res) => {
   const principal = req.headers["x-ms-client-principal"] as string | undefined;
   const email = principalEmail(principal);
   const permitted = !!email && allowed(email, process.env.ALLOWED_EMAILS);
@@ -112,7 +155,7 @@ export const server = createServer((req, res) => {
   const url = new URL(req.url ?? "/", "http://localhost");
   const path = url.pathname;
   if (PUBLIC.has(path) && (req.method === "GET" || req.method === "HEAD")) {
-    file(res, path);
+    file(req, res, path);
     return;
   }
   if (!principal) {
@@ -133,6 +176,7 @@ export const server = createServer((req, res) => {
     send(res, 403, "text/plain; charset=utf-8", "Not your dashboard.\n");
     return;
   }
+  if (path.startsWith("/api/")) await ready;
 
   const rules = rulesRoute(
     path,
@@ -141,14 +185,14 @@ export const server = createServer((req, res) => {
   );
   if (rules) {
     rules.then((a) =>
-      send(res, a.status, "application/json; charset=utf-8", a.body),
+      send(res, a.status, JSON_TYPE, a.body, coding(req, JSON_TYPE)),
     );
     return;
   }
 
   if (path === "/api/txns") {
     try {
-      send(res, 200, "application/json; charset=utf-8", payload());
+      send(res, 200, JSON_TYPE, payload(), coding(req, JSON_TYPE));
     } catch (e) {
       send(
         res,
@@ -182,18 +226,18 @@ export const server = createServer((req, res) => {
     send(res, 405, "text/plain; charset=utf-8", "GET only\n");
     return;
   }
-  file(res, path);
+  file(req, res, path);
 });
 
 // A test imports this file. Only a direct run binds the port.
 if (process.argv[1] === import.meta.filename) {
   const port = Number(process.env.PORT ?? 8080);
   // The database sits on the local disk, so a cold start begins without one.
-  // Build it again from the raw files on the volume before serving a request.
+  // Build it again from the raw files on the volume before an API request.
   const { DB_FILE } = await import("../core/paths.ts");
   if (!existsSync(DB_FILE)) {
     const { rebuildAll } = await import("../core/pipeline.ts");
-    await rebuildAll().catch((e: unknown) =>
+    ready = rebuildAll().catch((e: unknown) =>
       console.error(
         `rebuild on start failed: ${e instanceof Error ? e.message : e}`,
       ),

@@ -246,3 +246,20 @@ test("debug logging contains no principal value", async () => {
     lines.every((line) => !String(line).includes("not-allowed@example.com")),
   );
 });
+
+test("the transactions arrive compressed only for a client that accepts it", async () => {
+  const principal = header("ola@example.com");
+  const packed = await fetch(`${base}/api/txns`, {
+    headers: { "x-ms-client-principal": principal, "accept-encoding": "br" },
+  });
+  assert.equal(packed.headers.get("content-encoding"), "br");
+  assert.equal(packed.headers.get("vary"), "Accept-Encoding");
+  const plain = await fetch(`${base}/api/txns`, {
+    headers: {
+      "x-ms-client-principal": principal,
+      "accept-encoding": "identity",
+    },
+  });
+  assert.equal(plain.headers.get("content-encoding"), null);
+  assert.deepEqual(await packed.json(), await plain.json());
+});
