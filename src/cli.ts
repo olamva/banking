@@ -113,7 +113,7 @@ async function reconcileCmd(): Promise<void> {
 
   const txns: Txn[] = [];
   for (const month of monthsOnDisk())
-    txns.push(...normalizeMonth(`${RAW}/${month}`));
+    txns.push(...(await normalizeMonth(`${RAW}/${month}`)));
 
   const kr = (n: number) =>
     n.toLocaleString("nb-NO", {

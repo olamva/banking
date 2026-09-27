@@ -36,40 +36,75 @@ export function monthsOnDisk(): string[] {
     .sort();
 }
 
-export async function pipeline(
-  month: string,
-  { rename = true } = {},
-): Promise<Categorized[]> {
+export async function loadRules() {
   const accounts: Accounts = JSON.parse(
     await readFile(`${RULES_DIR}/accounts.json`, "utf8"),
   );
-  const names = Object.fromEntries(
-    Object.entries(accounts).flatMap(([key, a]) =>
-      a.name ? [[key, a.name] as const] : [],
+  const [
+    countries,
+    categories,
+    subscriptions,
+    giro,
+    family,
+    notSubscriptions,
+    preferences,
+    payees,
+  ] = await Promise.all([
+    loadCountries(),
+    loadCategories(),
+    loadSubscriptions(),
+    loadGiro(),
+    loadFamily(),
+    loadNotSubscriptions(),
+    loadPreferences(),
+    loadPayees(),
+  ]);
+  return {
+    accounts,
+    names: Object.fromEntries(
+      Object.entries(accounts).flatMap(([key, a]) =>
+        a.name ? [[key, a.name] as const] : [],
+      ),
     ),
-  );
-  const cards = new Set(
-    Object.entries(accounts)
-      .filter(([, a]) => a.card)
-      .map(([key]) => key),
-  );
+    cards: new Set(
+      Object.entries(accounts)
+        .filter(([, a]) => a.card)
+        .map(([key]) => key),
+    ),
+    countries,
+    categories,
+    subscriptions,
+    giro,
+    family,
+    notSubscriptions,
+    preferences,
+    payees,
+  };
+}
+
+export async function pipeline(
+  month: string,
+  { rename = true } = {},
+  rules?: Awaited<ReturnType<typeof loadRules>>,
+): Promise<Categorized[]> {
+  const r = rules ?? (await loadRules());
   const rows = categorize(
     exclude(
       setCountries(
-        normalizeMonth(`${RAW}/${month}`, names, cards),
-        await loadCountries(),
+        await normalizeMonth(`${RAW}/${month}`, r.names, r.cards),
+        r.countries,
       ),
-      accounts,
+      r.accounts,
     ),
-    await loadCategories(),
-    await loadSubscriptions(),
-    await loadGiro(),
-    cards,
-    await loadFamily(),
-    await loadNotSubscriptions(),
-    await loadPreferences(),
+    r.categories,
+    r.subscriptions,
+    r.giro,
+    r.cards,
+    r.family,
+    r.notSubscriptions,
+    r.preferences,
   );
-  return rename ? renamePayees(rows, await loadPayees()) : rows;
+  return rename ? renamePayees(rows, r.payees) : rows;
 }
 
 export function netByReason(rows: Categorized[]): Map<string, number> {
@@ -91,18 +126,20 @@ export async function rebuildAll(): Promise<number> {
   const db = openDb(DB_FILE);
   try {
     const months = monthsOnDisk();
-    const rows: Categorized[] = [];
-    for (const month of months) {
-      try {
-        rows.push(...(await pipeline(month, { rename: false })));
-      } catch (e) {
-        throw new Error(
-          `${RAW}/${month}: ${e instanceof Error ? e.message : e}`,
-          { cause: e },
-        );
-      }
-    }
-    const loose = narrowings(rows, await loadCategories());
+    const rules = await loadRules();
+    const rows = (
+      await Promise.all(
+        months.map((month) =>
+          pipeline(month, { rename: false }, rules).catch((e: unknown) => {
+            throw new Error(
+              `${RAW}/${month}: ${e instanceof Error ? e.message : e}`,
+              { cause: e },
+            );
+          }),
+        ),
+      )
+    ).flat();
+    const loose = narrowings(rows, rules.categories);
     for (const l of loose) {
       console.error(
         `\nwarning: ${JSON.stringify(l.pattern)} only works where it sits, losing rows to ` +
@@ -121,7 +158,7 @@ export async function rebuildAll(): Promise<number> {
           `\nOne leg of a pair is being excluded while the other is counted.`,
       );
     }
-    rebuildDb(db, renamePayees(rows, await loadPayees()));
+    rebuildDb(db, renamePayees(rows, rules.payees));
     debug(
       `rebuilt ${DB_FILE} from ${months.length} months, ${rows.length} rows`,
     );

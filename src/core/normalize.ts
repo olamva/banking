@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { countryOf } from "./names.ts";
 import type { Txn } from "./types.ts";
@@ -80,21 +80,14 @@ function normalizeSb1(
   );
 }
 
-export function normalizeMonth(
+export async function normalizeMonth(
   dir: string,
   names: Record<string, string> = {},
   cards: ReadonlySet<string> = new Set(),
-): Txn[] {
-  const out: Txn[] = [];
-  for (const file of readdirSync(dir)) {
-    if (!file.endsWith(".json")) continue;
-    out.push(
-      ...normalizeSb1(
-        JSON.parse(readFileSync(join(dir, file), "utf8")),
-        names,
-        cards,
-      ),
-    );
-  }
-  return out;
+): Promise<Txn[]> {
+  const files = (await readdir(dir)).filter((f) => f.endsWith(".json"));
+  const bodies = await Promise.all(
+    files.map((f) => readFile(join(dir, f), "utf8")),
+  );
+  return bodies.flatMap((b) => normalizeSb1(JSON.parse(b), names, cards));
 }

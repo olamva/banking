@@ -5,24 +5,24 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { normalizeMonth } from "../../src/core/normalize.ts";
 
-function withMonthDir(
+async function withMonthDir(
   files: Record<string, unknown>,
-  run: (dir: string) => void,
+  run: (dir: string) => Promise<void>,
 ) {
   const dir = mkdtempSync(join(tmpdir(), "normalize-test-"));
   try {
     for (const [name, data] of Object.entries(files)) {
       writeFileSync(join(dir, name), JSON.stringify(data));
     }
-    run(dir);
+    await run(dir);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 }
 
-test("SB1 date formats at Oslo midnight, not UTC", () => {
+test("SB1 date formats at Oslo midnight, not UTC", async () => {
   const midnightOslo = Date.UTC(2026, 5, 30, 22, 0, 0);
-  withMonthDir(
+  await withMonthDir(
     {
       "acct.json": {
         transactions: [
@@ -43,8 +43,8 @@ test("SB1 date formats at Oslo midnight, not UTC", () => {
         ],
       },
     },
-    (dir) => {
-      const [txn] = normalizeMonth(dir);
+    async (dir) => {
+      const [txn] = await normalizeMonth(dir);
       assert.equal(txn.date, "2026-07-01");
       assert.equal(txn.account, "acct");
       assert.equal(txn.counterparty, "Clean Desc");
@@ -54,8 +54,8 @@ test("SB1 date formats at Oslo midnight, not UTC", () => {
   );
 });
 
-test("SB1 falls back to remoteAccountName when cleanedDescription is absent", () => {
-  withMonthDir(
+test("SB1 falls back to remoteAccountName when cleanedDescription is absent", async () => {
+  await withMonthDir(
     {
       "acct.json": {
         transactions: [
@@ -75,16 +75,16 @@ test("SB1 falls back to remoteAccountName when cleanedDescription is absent", ()
         ],
       },
     },
-    (dir) => {
-      const [txn] = normalizeMonth(dir);
+    async (dir) => {
+      const [txn] = await normalizeMonth(dir);
       assert.equal(txn.description, "Betaling med melding");
       assert.equal(txn.counterparty, "Theo leie");
     },
   );
 });
 
-test("a cleanedDescription that names nobody loses to remoteAccountName", () => {
-  withMonthDir(
+test("a cleanedDescription that names nobody loses to remoteAccountName", async () => {
+  await withMonthDir(
     {
       "acct.json": {
         transactions: [
@@ -121,8 +121,8 @@ test("a cleanedDescription that names nobody loses to remoteAccountName", () => 
         ],
       },
     },
-    (dir) => {
-      const [nameless, named] = normalizeMonth(dir);
+    async (dir) => {
+      const [nameless, named] = await normalizeMonth(dir);
       assert.equal(nameless!.counterparty, "A Named Payee");
       assert.equal(nameless!.description, "Til: 1234 56 78901");
       assert.equal(named!.counterparty, "Til: Someone - Online");
@@ -130,8 +130,8 @@ test("a cleanedDescription that names nobody loses to remoteAccountName", () => 
   );
 });
 
-test("an account is named by rules/accounts.json, and by its key when it is not", () => {
-  withMonthDir(
+test("an account is named by rules/accounts.json, and by its key when it is not", async () => {
+  await withMonthDir(
     {
       "card-key.json": {
         transactions: [
@@ -154,8 +154,8 @@ test("an account is named by rules/accounts.json, and by its key when it is not"
         ],
       },
     },
-    (dir) => {
-      const [txn] = normalizeMonth(
+    async (dir) => {
+      const [txn] = await normalizeMonth(
         dir,
         { "card-key": "Kredittkort" },
         new Set(["card-key"]),
@@ -169,14 +169,14 @@ test("an account is named by rules/accounts.json, and by its key when it is not"
       assert.equal(txn.bankCategory, "dagligvarer");
       assert.equal(txn.typeText, "Transaksjon");
       assert.equal(txn.remoteAccountNumber, null);
-      assert.equal(normalizeMonth(dir)[0].account, "card-key");
-      assert.equal(normalizeMonth(dir)[0].card, false);
+      assert.equal((await normalizeMonth(dir))[0].account, "card-key");
+      assert.equal((await normalizeMonth(dir))[0].card, false);
     },
   );
 });
 
-test("pending rows are kept", () => {
-  withMonthDir(
+test("pending rows are kept", async () => {
+  await withMonthDir(
     {
       "acct.json": {
         transactions: [
@@ -209,9 +209,9 @@ test("pending rows are kept", () => {
         ],
       },
     },
-    (dir) => {
+    async (dir) => {
       assert.deepEqual(
-        normalizeMonth(dir).map((t) => [t.id, t.isPending]),
+        (await normalizeMonth(dir)).map((t) => [t.id, t.isPending]),
         [
           ["booked", false],
           ["pending", true],
@@ -221,8 +221,8 @@ test("pending rows are kept", () => {
   );
 });
 
-test("a month directory flattens every account file it holds", () => {
-  withMonthDir(
+test("a month directory flattens every account file it holds", async () => {
+  await withMonthDir(
     {
       "acct.json": {
         transactions: [
@@ -258,9 +258,9 @@ test("a month directory flattens every account file it holds", () => {
         ],
       },
     },
-    (dir) => {
+    async (dir) => {
       const names = { acct: "Brukskonto", "card-key": "Kredittkort" };
-      const txns = normalizeMonth(dir, names).sort((a, b) =>
+      const txns = (await normalizeMonth(dir, names)).sort((a, b) =>
         a.account.localeCompare(b.account),
       );
       assert.deepEqual(
@@ -274,8 +274,8 @@ test("a month directory flattens every account file it holds", () => {
   );
 });
 
-test("an SB1 row with no description at all falls back to typeText", () => {
-  withMonthDir(
+test("an SB1 row with no description at all falls back to typeText", async () => {
+  await withMonthDir(
     {
       "acct.json": {
         transactions: [
@@ -294,16 +294,16 @@ test("an SB1 row with no description at all falls back to typeText", () => {
         ],
       },
     },
-    (dir) => {
-      const [txn] = normalizeMonth(dir);
+    async (dir) => {
+      const [txn] = await normalizeMonth(dir);
       assert.equal(txn.description, "Overføring");
       assert.equal(txn.counterparty, null);
     },
   );
 });
 
-test("the bank subcategory and both i18n names come through, with the confidence", () => {
-  withMonthDir(
+test("the bank subcategory and both i18n names come through, with the confidence", async () => {
+  await withMonthDir(
     {
       "acct.json": {
         transactions: [
@@ -338,8 +338,8 @@ test("the bank subcategory and both i18n names come through, with the confidence
         ],
       },
     },
-    (dir) => {
-      const [txn] = normalizeMonth(dir);
+    async (dir) => {
+      const [txn] = await normalizeMonth(dir);
       assert.equal(txn!.bankCategory, "helse_og_velvaere");
       assert.equal(txn!.bankSub, "apotek");
       assert.equal(txn!.bankCategoryName, "Helse og velvære");
@@ -349,8 +349,8 @@ test("the bank subcategory and both i18n names come through, with the confidence
   );
 });
 
-test("a category with no sub reads as no sub, rather than crashing the rebuild", () => {
-  withMonthDir(
+test("a category with no sub reads as no sub, rather than crashing the rebuild", async () => {
+  await withMonthDir(
     {
       "acct.json": {
         transactions: [
@@ -370,8 +370,8 @@ test("a category with no sub reads as no sub, rather than crashing the rebuild",
         ],
       },
     },
-    (dir) => {
-      const [txn] = normalizeMonth(dir);
+    async (dir) => {
+      const [txn] = await normalizeMonth(dir);
       assert.equal(txn!.bankCategory, "dagligvarer");
       assert.equal(txn!.bankSub, null);
       assert.equal(txn!.bankCategoryName, null);
@@ -381,8 +381,8 @@ test("a category with no sub reads as no sub, rather than crashing the rebuild",
   );
 });
 
-test("the country reads through the terminal number that SB1 strips", () => {
-  withMonthDir(
+test("the country reads through the terminal number that SB1 strips", async () => {
+  await withMonthDir(
     {
       "card.json": {
         transactions: [
@@ -433,8 +433,8 @@ test("the country reads through the terminal number that SB1 strips", () => {
         ],
       },
     },
-    (dir) => {
-      const [card, giro, abroad] = normalizeMonth(dir);
+    async (dir) => {
+      const [card, giro, abroad] = await normalizeMonth(dir);
       assert.equal(card!.country, "Norway");
       assert.equal(giro!.country, "Norway");
       assert.equal(abroad!.country, null);

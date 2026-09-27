@@ -1,0 +1,13 @@
+{
+  "id": "96d8d685",
+  "ts": "2026-09-27T19:22:02+00:00",
+  "text": "pnpm traffic fails in a fresh worktree: terraform output needs terraform init first",
+  "tags": [
+    "infra"
+  ],
+  "who": "agent",
+  "model": "opus-5.5",
+  "session": "0081b567",
+  "where": "infra/traffic.sh",
+  "branch": "t3code/0a503092"
+}
