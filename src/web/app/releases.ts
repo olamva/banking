@@ -6,6 +6,17 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "1.3.2",
+    date: "2026-09-27",
+    highlights: [
+      {
+        title: "Much faster start after a pause",
+        detail:
+          "The page loads while the server prepares your transactions. The transactions download about seven times smaller.",
+      },
+    ],
+  },
+  {
     version: "1.3.1",
     date: "2026-09-27",
     highlights: [
