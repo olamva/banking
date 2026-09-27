@@ -67,13 +67,26 @@ export const loadPayees = (path = `${RULES_DIR}/payees.json`) =>
 export const loadCountries = (path = `${RULES_DIR}/countries.json`) =>
   loadJson<RuleMap>(path, {});
 
-type Rule = { matches: Matcher; value: string };
+type Find = (haystack: string) => string | undefined;
 
-const compileMap = (map: RuleMap, file: string): Rule[] =>
-  Object.entries(map).map(([pattern, value]) => ({
+const finders = new WeakMap<RuleMap, Find>();
+
+const finder = (map: RuleMap, file: string): Find => {
+  const cached = finders.get(map);
+  if (cached) return cached;
+  const rules = Object.entries(map).map(([pattern, value]) => ({
     matches: compile(pattern, `rules/${file}.json`),
     value,
   }));
+  const seen = new Map<string, string | undefined>();
+  const find: Find = (haystack) => {
+    if (!seen.has(haystack))
+      seen.set(haystack, rules.find((r) => r.matches(haystack))?.value);
+    return seen.get(haystack);
+  };
+  finders.set(map, find);
+  return find;
+};
 
 // The rule wins over the country the shape heuristic reads off the card name.
 export function setCountries<
@@ -84,12 +97,10 @@ export function setCountries<
     country: string | null;
   },
 >(txns: T[], countries: RuleMap): T[] {
-  const rules = compileMap(countries, "countries");
-  if (rules.length === 0) return txns;
+  const find = finder(countries, "countries");
   return txns.map((t) => {
-    const haystack = haystackOf(t);
-    const hit = rules.find((r) => r.matches(haystack));
-    return hit ? { ...t, country: hit.value } : t;
+    const hit = find(haystackOf(t));
+    return hit === undefined ? t : { ...t, country: hit };
   });
 }
 
@@ -101,22 +112,21 @@ export function renamePayees<
     remoteAccountNumber: string | null;
   },
 >(txns: T[], payees: RuleMap): T[] {
-  const rules = compileMap(payees, "payees");
+  const find = finder(payees, "payees");
   const clean = makeCleaner(
     txns
       .map((t) => t.originalCounterparty ?? t.counterparty)
       .filter((n) => n !== null),
   );
   return txns.map((t) => {
-    const haystack = haystackOf(t);
-    const hit = rules.find((r) => r.matches(haystack));
+    const hit = find(haystackOf(t));
     // Use the name from the rule exactly as written. The shape heuristic would
     // change `IKEA` to `Ikea`.
     const original = t.originalCounterparty ?? t.counterparty ?? "";
     return {
       ...t,
       originalCounterparty: original,
-      counterparty: hit ? hit.value : original ? clean(original) : null,
+      counterparty: hit ?? (original ? clean(original) : null),
     };
   });
 }
@@ -132,8 +142,8 @@ export function categorize(
   preferences: RuleMap = {},
 ): Categorized[] {
   for (const key of Object.keys(preferences)) readPreference(key);
-  const rules = compileMap(categories, "categories");
-  const giroRules = compileMap(giro, "giro");
+  const rules = finder(categories, "categories");
+  const giroRules = finder(giro, "giro");
   const familyRules = family.map((pattern) =>
     compile(pattern, "rules/family.json"),
   );
@@ -202,8 +212,8 @@ export function bankPair(t: {
 
 function categoryFor(
   t: Classified,
-  rules: Rule[],
-  giroRules: Rule[],
+  rules: Find,
+  giroRules: Find,
   familyRules: Matcher[],
   haystack: string,
   cards: Set<string>,
@@ -214,11 +224,11 @@ function categoryFor(
   const remembered = key === null ? undefined : preferences[key];
   if (remembered)
     return assigned(splitCategory(remembered), "Remembered category");
-  const hit = rules.find((r) => r.matches(haystack));
-  if (hit) return assigned(splitCategory(hit.value), "Category rule");
+  const hit = rules(haystack);
+  if (hit !== undefined) return assigned(splitCategory(hit), "Category rule");
   if (LUMP_TYPE.test(t.typeText ?? "")) {
-    const named = giroRules.find((r) => r.matches(haystack));
-    if (named) return assigned(splitCategory(named.value), "Giro rule");
+    const named = giroRules(haystack);
+    if (named !== undefined) return assigned(splitCategory(named), "Giro rule");
   }
   if (familyRules.some((m) => m(haystack)))
     return assigned(
