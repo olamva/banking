@@ -1,0 +1,14 @@
+{
+  "id": "3db4a0e9",
+  "ts": "2026-09-27T20:41:52+00:00",
+  "text": "worktree build writes data.local/dist, so the deploy stage recipe (cp data/dist) fails locally",
+  "tags": [
+    "build",
+    "docs"
+  ],
+  "who": "agent",
+  "model": "opus-5.5",
+  "session": "e584f464",
+  "where": ".github/workflows/deploy.yml",
+  "branch": "t3code/cb44702b"
+}
