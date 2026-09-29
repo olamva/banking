@@ -45,15 +45,6 @@ export function remaining(path = LEDGER, now = Date.now()): number | null {
   return read(path, now)?.remaining ?? null;
 }
 
-export function canAfford(
-  cost: number,
-  path = LEDGER,
-  now = Date.now(),
-): boolean {
-  const left = remaining(path, now);
-  return left === null || left >= cost;
-}
-
 export class BudgetExhausted extends Error {
   constructor(waitMs: number) {
     super(

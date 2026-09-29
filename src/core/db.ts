@@ -94,15 +94,11 @@ ON CONFLICT (id) DO UPDATE SET
     .join(", ")}
 `;
 
-export function upsertMany(
-  db: DatabaseSync,
-  rows: Categorized[],
-  clear = false,
-): void {
+export function rebuild(db: DatabaseSync, rows: Categorized[]): void {
   const stmt = db.prepare(UPSERT);
   db.exec("BEGIN");
   try {
-    if (clear) db.exec("DELETE FROM transactions");
+    db.exec("DELETE FROM transactions");
     for (const row of rows)
       stmt.run(
         row.id,
@@ -164,8 +160,4 @@ export function queryRange(
     row.excluded = !!row.excluded;
   }
   return rows;
-}
-
-export function rebuild(db: DatabaseSync, rows: Categorized[]): void {
-  upsertMany(db, rows, true);
 }

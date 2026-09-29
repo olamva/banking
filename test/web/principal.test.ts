@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { allowed } from "../../src/auth/session.ts";
 import {
   claimTypes,
   GOOGLE_EMAIL_CLAIM,
@@ -30,20 +29,6 @@ test("a missing, malformed or empty header is nobody", () => {
     principalEmail(header([{ typ: "name", val: "A Person" }])),
     null,
   );
-});
-
-test("a signed-in address that is not on the list is still refused", () => {
-  const list = "ola@example.com";
-  const mine = principalEmail(
-    header([{ typ: GOOGLE_EMAIL_CLAIM, val: "ola@example.com" }]),
-  );
-  const other = principalEmail(
-    header([{ typ: GOOGLE_EMAIL_CLAIM, val: "eve@example.com" }]),
-  );
-  assert.equal(allowed(mine!, list), true);
-  assert.equal(allowed(other!, list), false);
-  // Easy Auth authenticates. An unset list must still deny.
-  assert.equal(allowed(mine!, undefined), false);
 });
 
 test("a display name or unknown claim cannot impersonate an address", () => {

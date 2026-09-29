@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { openDb, queryRange, rebuild, upsertMany } from "../../src/core/db.ts";
+import { openDb, queryRange, rebuild } from "../../src/core/db.ts";
 import type { Categorized } from "../../src/core/types.ts";
 
 function row(overrides: Partial<Categorized> = {}): Categorized {
@@ -35,40 +35,28 @@ function row(overrides: Partial<Categorized> = {}): Categorized {
   };
 }
 
-test("upsertMany inserts, then updates in place on re-import", () => {
-  const db = openDb(":memory:");
-  upsertMany(db, [row({ amount: -50 })]);
-  assert.deepEqual(queryRange(db, "2026-07", "2026-07"), [
-    row({ amount: -50 }),
-  ]);
-
-  upsertMany(db, [row({ amount: -55 })]);
-  const rows = queryRange(db, "2026-07", "2026-07");
-  assert.equal(rows.length, 1);
-  assert.equal(rows[0]?.amount, -55);
-  db.close();
-});
-
 test("the card account flag round-trips", () => {
   const db = openDb(":memory:");
-  upsertMany(db, [row({ card: true })]);
+  rebuild(db, [row({ card: true })]);
   assert.equal(queryRange(db, "2026-07", "2026-07")[0]?.card, true);
   db.close();
 });
 
-test('the "excluded" column survives an update despite colliding with the ON CONFLICT excluded.* alias', () => {
+test('a repeated id keeps its last row, "excluded" included despite the ON CONFLICT excluded.* alias', () => {
   const db = openDb(":memory:");
-  upsertMany(db, [row({ excluded: false, reason: null })]);
-  upsertMany(db, [row({ excluded: true, reason: "internal transfer" })]);
-  const [got] = queryRange(db, "2026-07", "2026-07");
-  assert.equal(got?.excluded, true);
-  assert.equal(got?.reason, "internal transfer");
+  rebuild(db, [
+    row({ amount: -50, excluded: false, reason: null }),
+    row({ amount: -55, excluded: true, reason: "internal transfer" }),
+  ]);
+  assert.deepEqual(queryRange(db, "2026-07", "2026-07"), [
+    row({ amount: -55, excluded: true, reason: "internal transfer" }),
+  ]);
   db.close();
 });
 
 test("queryRange over a single month filters strictly to it", () => {
   const db = openDb(":memory:");
-  upsertMany(db, [
+  rebuild(db, [
     row({ id: "jul", date: "2026-07-31" }),
     row({ id: "aug", date: "2026-08-01" }),
   ]);
@@ -81,7 +69,7 @@ test("queryRange over a single month filters strictly to it", () => {
 
 test("queryRange is inclusive on both ends", () => {
   const db = openDb(":memory:");
-  upsertMany(db, [
+  rebuild(db, [
     row({ id: "jun", date: "2026-06-30" }),
     row({ id: "jul", date: "2026-07-15" }),
     row({ id: "aug", date: "2026-08-01" }),
@@ -95,7 +83,7 @@ test("queryRange is inclusive on both ends", () => {
 
 test("rebuild drops rows the new import no longer produces", () => {
   const db = openDb(":memory:");
-  upsertMany(db, [row({ id: "stale" })]);
+  rebuild(db, [row({ id: "stale" })]);
   rebuild(db, [row({ id: "fresh" })]);
   assert.deepEqual(
     queryRange(db, "2026-07", "2026-07").map((r) => r.id),
@@ -109,7 +97,7 @@ test("openDb on an existing file is idempotent and keeps prior data", () => {
   const path = join(dir, "banking.db");
   try {
     const first = openDb(path);
-    upsertMany(first, [row()]);
+    rebuild(first, [row()]);
     first.close();
 
     const second = openDb(path); // schema already exists; must not throw or wipe rows
@@ -128,7 +116,7 @@ test("openDb adds the pending flag to an existing database", () => {
   const path = join(dir, "banking.db");
   try {
     const legacy = openDb(path);
-    upsertMany(legacy, [row()]);
+    rebuild(legacy, [row()]);
     legacy.exec("ALTER TABLE transactions DROP COLUMN isPending");
     legacy.close();
     const upgraded = openDb(path);
@@ -147,18 +135,16 @@ test("a failed database write preserves the previous rows", (t) => {
   const db = openDb(":memory:");
   t.after(() => db.close());
   const original = row();
-  upsertMany(db, [original]);
-  for (const write of [rebuild, upsertMany]) {
-    assert.throws(
-      () =>
-        write(db, [
-          row({ amount: -50 }),
-          row({ id: "invalid", amount: null as unknown as number }),
-        ]),
-      /NOT NULL/,
-    );
-    assert.deepEqual(queryRange(db, "2026-07", "2026-07"), [original]);
-  }
+  rebuild(db, [original]);
+  assert.throws(
+    () =>
+      rebuild(db, [
+        row({ amount: -50 }),
+        row({ id: "invalid", amount: null as unknown as number }),
+      ]),
+    /NOT NULL/,
+  );
+  assert.deepEqual(queryRange(db, "2026-07", "2026-07"), [original]);
   rebuild(db, []);
   assert.deepEqual(queryRange(db, "2026-07", "2026-07"), []);
 });
@@ -199,7 +185,7 @@ test("the bank pair, its names and its confidence round-trip, subcategory includ
     originalCounterparty: "",
     categorySource: "Remembered category",
   });
-  upsertMany(db, [populated]);
+  rebuild(db, [populated]);
   assert.deepEqual(queryRange(db, "2026-07", "2026-07"), [populated]);
   db.close();
 });
