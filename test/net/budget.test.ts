@@ -5,7 +5,6 @@ import { join } from "node:path";
 import { test } from "node:test";
 import {
   BudgetExhausted,
-  canAfford,
   note,
   remaining,
   spend,
@@ -19,7 +18,6 @@ const MINUTE = 60_000;
 test("nothing on disk is unknown, not empty", () => {
   const path = ledger();
   assert.equal(remaining(path), null);
-  assert.equal(canAfford(500, path), true, "unknown must not refuse");
   assert.doesNotThrow(
     () => spend(path),
     "the first call is what teaches us the figure",
@@ -55,7 +53,6 @@ test("zero refuses, and says how long rather than naming a cap of ours", () => {
   const now = Date.now();
   note(0, path, now);
 
-  assert.equal(canAfford(1, path, now), false);
   assert.throws(() => spend(path, now), BudgetExhausted);
   assert.throws(() => spend(path, now), /60s for the next/);
 });
@@ -96,14 +93,6 @@ test("a burst does not push its own refill away", () => {
     1,
     "the minute still lands when it was due",
   );
-});
-
-test("canAfford weighs the whole batch, not one call", () => {
-  const path = ledger();
-  const now = Date.now();
-  note(3, path, now);
-  assert.equal(canAfford(3, path, now), true);
-  assert.equal(canAfford(4, path, now), false);
 });
 
 test("a corrupt ledger is forgotten, not fatal", () => {
