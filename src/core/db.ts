@@ -34,6 +34,10 @@ CREATE TABLE IF NOT EXISTS transactions (
 );
 CREATE INDEX IF NOT EXISTS idx_transactions_month ON transactions(month);
 CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions(category, subcategory);
+CREATE TABLE IF NOT EXISTS receipts (
+  txnId TEXT NOT NULL PRIMARY KEY,
+  receipt TEXT NOT NULL
+);
 `;
 
 export function openDb(path = DB_FILE): DatabaseSync {
@@ -96,10 +100,13 @@ ON CONFLICT (id) DO UPDATE SET
 
 export function rebuild(db: DatabaseSync, rows: Categorized[]): void {
   const stmt = db.prepare(UPSERT);
+  const receipt = db.prepare("INSERT OR REPLACE INTO receipts VALUES (?, ?)");
   db.exec("BEGIN");
   try {
     db.exec("DELETE FROM transactions");
-    for (const row of rows)
+    db.exec("DELETE FROM receipts");
+    for (const row of rows) {
+      if (row.receipt) receipt.run(row.id, JSON.stringify(row.receipt));
       stmt.run(
         row.id,
         row.accountKey,
@@ -128,6 +135,7 @@ export function rebuild(db: DatabaseSync, rows: Categorized[]): void {
         row.subcategory,
         row.date.slice(0, 7),
       );
+    }
     db.exec("COMMIT");
   } catch (err) {
     db.exec("ROLLBACK");
@@ -145,7 +153,7 @@ export function queryRange(
 ): Categorized[] {
   const rows = db
     .prepare(
-      `SELECT ${COLUMNS.join(", ")} FROM transactions WHERE month >= ? AND month <= ? ${ORDER}`,
+      `SELECT ${COLUMNS.join(", ")}, receipt FROM transactions LEFT JOIN receipts ON txnId = id WHERE month >= ? AND month <= ? ${ORDER}`,
     )
     .all(fromMonth, toMonth) as unknown as Categorized[];
   for (const row of rows) {
@@ -153,6 +161,8 @@ export function queryRange(
     Object.setPrototypeOf(row, Object.prototype);
     if (row.originalCounterparty === null) delete row.originalCounterparty;
     if (row.categorySource === null) delete row.categorySource;
+    if (row.receipt) row.receipt = JSON.parse(row.receipt as unknown as string);
+    else delete row.receipt;
     row.isPending = !!row.isPending;
     row.card = !!row.card;
     row.isRecurring = !!row.isRecurring;

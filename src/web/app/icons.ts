@@ -32,6 +32,8 @@ export { Sun03Icon as LightThemeIcon } from "@hugeicons/core-free-icons";
 export { ChartColumnIcon as MonthlyIcon } from "@hugeicons/core-free-icons";
 export { ChartIncreaseIcon as ChangesIcon } from "@hugeicons/core-free-icons";
 export { Invoice01Icon as TransactionsIcon } from "@hugeicons/core-free-icons";
+export { ReceiptTextIcon as ReceiptIcon } from "@hugeicons/core-free-icons";
+export { LinkSquare02Icon as ExternalLinkIcon } from "@hugeicons/core-free-icons";
 export { PieChartIcon as CategoryIcon } from "@hugeicons/core-free-icons";
 export { RepeatIcon as RecurringIcon } from "@hugeicons/core-free-icons";
 export { Store01Icon as CounterpartyIcon } from "@hugeicons/core-free-icons";

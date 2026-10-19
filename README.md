@@ -53,6 +53,7 @@ pnpm receipts login gmail           # Google login in the browser. Refresh token
 pnpm receipts rema                  # new receipts to data/raw/receipts/rema/
 pnpm receipts trumf                 # needs TRUMF_COOKIE, the Cookie header of a logged-in trumf.no page
 pnpm receipts gmail                 # receipt mail to data/raw/receipts/gmail/ as .eml files
+                                    # a sync with new receipts rebuilds data/banking.db
 
 # offline
 pnpm sb1 rebuild                    # rebuild data/banking.db from data/raw/, after a rules edit

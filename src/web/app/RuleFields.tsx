@@ -24,7 +24,7 @@ import {
   InfoIcon,
   LoadingIcon,
 } from "./icons.ts";
-import { TxnDialog } from "./Transactions.tsx";
+import { TxnDialog } from "./TxnDialog.tsx";
 
 export const KEY_LABEL: Record<RuleFile, string> = {
   categories: "Pattern",

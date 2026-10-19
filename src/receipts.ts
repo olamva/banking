@@ -17,6 +17,7 @@ try {
     const dir = `${DATA_DIR}/raw/receipts/${cmd}`;
     const added = await (await sources[cmd]()).sync(dir);
     console.error(`${cmd}: ${added} new in ${dir}`);
+    if (added) await (await import("./core/pipeline.ts")).rebuildAll();
   } else {
     console.error("usage: pnpm receipts <rema | trumf | gmail>");
     console.error("                     login <rema | gmail>");
