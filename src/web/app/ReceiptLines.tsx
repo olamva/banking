@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { Receipt, ReceiptLine, Saving } from "../../core/receipts.ts";
+import type { Receipt, ReceiptLine, Entry } from "../../core/receipts.ts";
 import { fmtDateTime } from "./format.ts";
 import { ExternalLinkIcon, Icon, ReceiptIcon } from "./icons.ts";
 
@@ -13,7 +13,7 @@ const QTY = new Intl.NumberFormat("nb-NO", { maximumFractionDigits: 3 });
 const total = (items: { amount: number }[]) =>
   items.reduce((sum, i) => sum + i.amount, 0);
 
-const byLabel = (savings: Saving[]): Saving[] =>
+const byLabel = (savings: Entry[]): Entry[] =>
   [...Map.groupBy(savings, (s) => s.label)].map(([label, same]) => ({
     label,
     amount: total(same),

@@ -1,7 +1,7 @@
 import PostalMime from "postal-mime";
 import type { Txn } from "./types.ts";
 
-export type Saving = { label: string; amount: number };
+export type Entry = { label: string; amount: number };
 
 export type ReceiptLine = {
   name: string;
@@ -10,7 +10,7 @@ export type ReceiptLine = {
   unit?: "kg";
   price: number;
   amount: number;
-  discounts?: Saving[];
+  discounts?: Entry[];
   deposit?: number;
 };
 
@@ -22,7 +22,7 @@ export type Receipt = {
   title?: string;
   lines: ReceiptLine[];
   total?: number;
-  payments?: Saving[];
+  payments?: Entry[];
 };
 
 export type Found = { receipt: Receipt; amounts: number[]; names: string[] };
@@ -129,7 +129,7 @@ function remaLine(r: RemaRow): ReceiptLine {
   };
 }
 
-function remaPayments(head: RemaFile["head"]): Saving[] {
+function remaPayments(head: RemaFile["head"]): Entry[] {
   const paid = (desc: string) =>
     sum(head.transactionPayments.filter((p) => p.meansOfPaymentDesc === desc));
   const rounding = paid("Rounding");
