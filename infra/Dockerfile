@@ -8,7 +8,4 @@ COPY node_modules ./node_modules
 COPY src ./src
 COPY data/dist ./data/dist
 
-ENV PORT=80
-EXPOSE 80
-
 CMD ["src/web/server.ts"]
