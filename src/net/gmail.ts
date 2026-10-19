@@ -4,6 +4,7 @@ import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
+import { setTimeout as sleep } from "node:timers/promises";
 import { env, keychainGet, keychainSet } from "./token.ts";
 
 const API = "https://gmail.googleapis.com/gmail/v1/users/me";
@@ -88,14 +89,23 @@ export async function sync(dir: string): Promise<number> {
     refresh_token: refresh,
   });
   const get = async (path: string): Promise<unknown> => {
-    const res = await fetch(`${API}/${path}`, {
-      headers: { Authorization: `Bearer ${access_token}` },
-    });
-    if (!res.ok)
-      throw new Error(
-        `GET ${path} -> ${res.status}: ${(await res.text()).slice(0, 300)}`,
-      );
-    return res.json();
+    for (let retry = 0; ; retry++) {
+      const res = await fetch(`${API}/${path}`, {
+        headers: { Authorization: `Bearer ${access_token}` },
+      });
+      if (res.ok) return res.json();
+      const body = await res.text();
+      if (
+        retry < 3 &&
+        (res.status === 429 || /rateLimitExceeded|Quota exceeded/.test(body))
+      ) {
+        const wait = Number(res.headers.get("retry-after")) || 60;
+        console.error(`Gmail quota reached. Waiting ${wait} s.`);
+        await sleep(wait * 1000);
+        continue;
+      }
+      throw new Error(`GET ${path} -> ${res.status}: ${body.slice(0, 300)}`);
+    }
   };
 
   const ids: string[] = [];

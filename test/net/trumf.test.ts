@@ -55,6 +55,20 @@ test("a purchase split across flight chunks lands on disk with plain dates", asy
   assert.equal(await sync(dir), 0, "a stored purchase is not fetched again");
 });
 
+test("a receipt inlines repeated bonus rules and drops missing EANs", async (t) => {
+  const deduped = html(
+    '9:["$","x",null,{"purchaseDetails":{"varelinjer":[{"ean":"$undefined","bonusregler":[{"bonusregelId":"r1","bonus":1.5}]}],"bonusreglerSum":["$9:props:children:2:props:purchaseDetails:varelinjer:0:bonusregler:0"]}}]\n',
+  );
+  const dir = serve(t, { [PAGES]: list, [`${PAGES}/b-100`]: deduped });
+  await sync(dir);
+
+  const { receipt } = JSON.parse(readFileSync(`${dir}/b-100.json`, "utf8"));
+  assert.deepEqual(receipt.bonusreglerSum, [
+    { bonusregelId: "r1", bonus: 1.5 },
+  ]);
+  assert.ok(!("ean" in receipt.varelinjer[0]));
+});
+
 test("a logged-out page says the login expired instead of finding nothing", async (t) => {
   const dir = serve(t, {});
   await assert.rejects(sync(dir), /login expired/);

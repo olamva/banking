@@ -19,7 +19,35 @@ function find(node: unknown, key: string): unknown {
 }
 
 const revive = (_: string, v: unknown) =>
-  typeof v === "string" && v.startsWith("$D") ? v.slice(2) : v;
+  v === "$undefined"
+    ? undefined
+    : typeof v === "string" && v.startsWith("$D")
+      ? v.slice(2)
+      : v;
+
+function inline(v: unknown, root: unknown, key: string): unknown {
+  const path =
+    typeof v === "string" && v.startsWith("$")
+      ? v.split(`:${key}:`)[1]
+      : undefined;
+  if (path)
+    return inline(
+      path
+        .split(":")
+        .reduce(
+          (n, k) => (n as Record<string, unknown> | undefined)?.[k],
+          root,
+        ),
+      root,
+      key,
+    );
+  if (Array.isArray(v)) return v.map((x) => inline(x, root, key));
+  if (v && typeof v === "object")
+    return Object.fromEntries(
+      Object.entries(v).map(([k, x]) => [k, inline(x, root, key)]),
+    );
+  return v;
+}
 
 function flightValue(html: string, key: string): unknown {
   const flight = [
@@ -32,7 +60,7 @@ function flightValue(html: string, key: string): unknown {
     if (!json.includes(`"${key}"`) || !/^[[{]/.test(json)) continue;
     try {
       const hit = find(JSON.parse(json, revive), key);
-      if (hit !== undefined) return hit;
+      if (hit !== undefined) return inline(hit, hit, key);
     } catch {}
   }
   return undefined;
