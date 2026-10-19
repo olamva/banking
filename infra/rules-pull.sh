@@ -11,10 +11,7 @@ repo="$(dirname "$here")"
 
 . "$here/rules-lib.sh"
 
-storage="$(terraform -chdir="$here" output -raw storage_account)"
-key="$(storage_key "$storage")"
-
-remote="$(remote_history "$storage" "$key")"
+remote="$(remote_history)"
 local="$(local_history "$repo/rules")"
 
 if [ -z "$remote" ]; then
@@ -33,8 +30,7 @@ if [ -n "$ahead" ] && [ "${1:-}" != "--force" ]; then
 fi
 
 echo "==> download the rules"
-az storage file download-batch --account-name "$storage" --account-key "$key" \
-  --source "data/rules" --destination "$repo/rules" --only-show-errors >/dev/null
+site_rsync -rt "$HOST:$SITE/rules/" "$repo/rules/"
 
 # rules/ is a git repo on this machine with no remote. An edit there is only
 # durable once it is committed, and .history is ignored inside it.
