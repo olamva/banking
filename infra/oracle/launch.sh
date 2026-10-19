@@ -20,14 +20,13 @@ if [ -z "$instance" ]; then
     --availability-domain "UTTG:EU-STOCKHOLM-1-AD-1" --display-name banking --shape "$shape" \
     --image-id "$image" --boot-volume-size-in-gbs 50 --subnet-id "$subnet" --assign-public-ip true \
     --ssh-authorized-keys-file ~/.ssh/id_ed25519.pub --user-data-file "$here/cloud-init.yaml" \
-    --query 'data.id' --raw-output 2>"$err")"; do
+    --wait-for-state RUNNING --max-wait-seconds 1200 --query 'data.id' --raw-output 2>"$err")"; do
     grep -qE 'capacity|TooManyRequests|InternalError' "$err" || { cat "$err" >&2; exit 1; }
     echo "$(date '+%F %T') $(grep -m1 '"message"' "$err" | tr -s ' ')"
     sleep 60
   done
 fi
 
-oci compute instance get --instance-id "$instance" --wait-for-state RUNNING --max-wait-seconds 1200 >/dev/null
 ip="$(oci compute instance list-vnics --instance-id "$instance" --query 'data[0]."public-ip"' --raw-output)"
 for _ in $(seq 60); do
   ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 "ubuntu@$ip" true 2>/dev/null && break
