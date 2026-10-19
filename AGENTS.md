@@ -63,8 +63,8 @@ Format dates with `Europe/Oslo`. API dates use epoch milliseconds at Norwegian m
 UTC formatting can place a transaction in the previous month.
 
 Use only `pnpm rules:push` to send personal data off this machine.
-It uploads `rules/*.json`, `rules/.history/` and new `data/raw/receipts/` files to the Azure site.
-GitHub Actions builds and deploys the image from git. The image holds no personal data.
+It uploads `rules/*.json`, `rules/.history/` and new `data/raw/receipts/` files to the Oracle VM over `ssh` and `rsync`.
+GitHub Actions builds the image from git. The VM pulls each new image. The image holds no personal data.
 Keep the deployment gate. Get an explicit decision before adding another upload route.
 Use `pnpm rules:pull` to download these files without sending personal data.
 
