@@ -37,6 +37,17 @@ const bank = (
   categories: [],
 });
 
+const item = (prodtxt1: string, pieces: number, amount: number) => ({
+  prodtxt1,
+  pieces,
+  amount,
+  amountWithoutDeposit: amount,
+  unitPrice: amount,
+  discount: 0,
+  unit: "EA",
+  volume: 1,
+});
+
 const mail = (from: string, date: string, html: string) =>
   [
     `From: ${from}`,
@@ -74,19 +85,36 @@ before(async () => {
       storeName: "REMA 1000 MOHOLT",
       amount: 200,
       transactionPayments: [
+        { amount: 0, meansOfPaymentDesc: "Rounding" },
         { amount: 180, meansOfPaymentDesc: "CreditDebit" },
         { amount: 20, meansOfPaymentDesc: "Coupon" },
       ],
     },
     receipt: {
       rows: [
+        item("Tine Lettmelk 0.5% 1L", 2, 35),
+        item("Nudler M/kjøttsmak 85G Mr.lee", 1, 6),
+        item("Mack Isbjørn Lite 0,5LX6 BX", 1, 120),
+        item("Schous Pilsner 0.33", 1, 25),
+        item("Stange Gårdsegg 10 M/l/xl", 1, 4),
+        { ...item("", 1, 10), prodtxt1: undefined },
         {
-          prodtxt1: "Tine Lettmelk 1L",
-          productDescription: "TINE LETTMELK 1L",
-          pieces: 2,
-          amount: 50,
+          ...item("Oreo Rull Dobbel 157G", 2, 39.84),
+          unitPrice: 49.8,
+          discount: -9.96,
+          usedOffers: [{ offerDesc: "Oreo", discount: 9.96 }],
         },
-        { pieces: 1, amount: 150 },
+        {
+          ...item("Paprika Rød Løsvekt", 1, 10.39),
+          unit: "Kg",
+          volume: 0.17,
+          unitPrice: 67.9,
+          discount: -1.15,
+        },
+        {
+          ...item("Tuborg Lite 0.50L", 1, 37.4),
+          amountWithoutDeposit: 35.4,
+        },
       ],
     },
   });
@@ -108,7 +136,16 @@ before(async () => {
       transaksjonsTidspunkt: "2026-09-05T10:00:00.000Z",
     },
     receipt: {
-      varelinjer: [{ produktBeskrivelse: "Bananer", antall: 1, belop: 268.41 }],
+      varelinjer: [
+        { produktBeskrivelse: "Bananer", antall: 1, belop: 168.41 },
+        {
+          produktBeskrivelse: "KYLLING VINGEKLUBBER 700G",
+          antall: 2,
+          belop: 100,
+          enhetsType: "EA",
+          besparelser: [{ beskrivelse: "GODT TIL MIDDAG", belop: 20 }],
+        },
+      ],
     },
   });
   put(
@@ -154,9 +191,76 @@ test("a store receipt reaches its card row, not a same-priced row at another sho
   );
   assert.equal(receiptOf("coop"), undefined);
   assert.equal(receiptOf("kiwi"), "trumf/b-1");
-  assert.deepEqual(rows.find((t) => t.id === "rema")!.receipt!.lines, [
-    { name: "Tine Lettmelk 1L", qty: 2, amount: 50 },
-    { name: "Unnamed item", qty: 1, amount: 150 },
+});
+
+test("a receipt line keeps the pack size apart from the product name", () => {
+  assert.deepEqual(
+    rows
+      .find((t) => t.id === "rema")!
+      .receipt!.lines.map(({ name, size }) => [name, size]),
+    [
+      ["Tine Lettmelk 0.5%", "1 l"],
+      ["Nudler M/kjøttsmak Mr.lee", "85 g"],
+      ["Mack Isbjørn Lite", "0,5 l × 6"],
+      ["Schous Pilsner", "0,33 l"],
+      ["Stange Gårdsegg 10 M/l/xl", undefined],
+      ["Unnamed item", undefined],
+      ["Oreo Rull Dobbel", "157 g"],
+      ["Paprika Rød Løsvekt", undefined],
+      ["Tuborg Lite", "0,50 l"],
+    ],
+  );
+});
+
+test("a receipt keeps the unit prices, offers, deposits and payments the slip prints", () => {
+  const receipt = rows.find((t) => t.id === "rema")!.receipt!;
+  const line = (name: string) => {
+    const { qty, unit, price, amount, discounts, deposit } = receipt.lines.find(
+      (l) => l.name === name,
+    )!;
+    return { qty, unit, price, amount, discounts, deposit };
+  };
+  assert.deepEqual(line("Oreo Rull Dobbel"), {
+    qty: 2,
+    unit: undefined,
+    price: 24.9,
+    amount: 39.84,
+    discounts: [{ label: "Oreo", amount: 9.96 }],
+    deposit: undefined,
+  });
+  assert.deepEqual(line("Paprika Rød Løsvekt"), {
+    qty: 0.17,
+    unit: "kg",
+    price: 67.9,
+    amount: 10.39,
+    discounts: [{ label: "", amount: 1.15 }],
+    deposit: undefined,
+  });
+  assert.deepEqual(line("Tuborg Lite"), {
+    qty: 1,
+    unit: undefined,
+    price: 35.4,
+    amount: 37.4,
+    discounts: undefined,
+    deposit: 2,
+  });
+  assert.deepEqual(
+    rows
+      .find((t) => t.id === "kiwi")!
+      .receipt!.lines.find((l) => l.name === "KYLLING VINGEKLUBBER"),
+    {
+      name: "KYLLING VINGEKLUBBER",
+      size: "700 g",
+      qty: 2,
+      price: 60,
+      amount: 100,
+      discounts: [{ label: "GODT TIL MIDDAG", amount: 20 }],
+    },
+  );
+  assert.equal(receipt.total, 200);
+  assert.deepEqual(receipt.payments, [
+    { label: "Bankkort", amount: 180 },
+    { label: "Kupong", amount: 20 },
   ]);
 });
 

@@ -12,7 +12,7 @@ export const RELEASES: Release[] = [
       {
         title: "Receipts on transactions",
         detail:
-          "A transaction shows its receipt when one matches. Rema 1000 and Trumf receipts list each item. A receipt mail opens in Gmail. A small receipt mark shows which rows have one.",
+          "A transaction shows its receipt when one matches. Rema 1000 and Trumf receipts look like the till slip, with sizes, unit prices, offers, deposit and payment. A receipt mail opens in Gmail. A small receipt mark shows which rows have one.",
       },
     ],
   },

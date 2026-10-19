@@ -1,7 +1,18 @@
 import PostalMime from "postal-mime";
 import type { Txn } from "./types.ts";
 
-export type ReceiptLine = { name: string; qty: number; amount: number };
+export type Saving = { label: string; amount: number };
+
+export type ReceiptLine = {
+  name: string;
+  size?: string;
+  qty: number;
+  unit?: "kg";
+  price: number;
+  amount: number;
+  discounts?: Saving[];
+  deposit?: number;
+};
 
 export type Receipt = {
   source: "rema" | "trumf" | "gmail";
@@ -10,25 +21,34 @@ export type Receipt = {
   store: string;
   title?: string;
   lines: ReceiptLine[];
+  total?: number;
+  payments?: Saving[];
 };
 
 export type Found = { receipt: Receipt; amounts: number[]; names: string[] };
+
+type RemaRow = {
+  prodtxt1?: string;
+  productDescription?: string;
+  pieces: number;
+  amount: number;
+  amountWithoutDeposit: number;
+  unitPrice: number;
+  discount: number;
+  unit: string;
+  volume: number;
+  usedOffers?: { offerDesc?: string; discount: number }[];
+};
 
 type RemaFile = {
   head: {
     id: number;
     purchaseDate: number;
     storeName: string;
+    amount: number;
     transactionPayments: { amount: number; meansOfPaymentDesc: string }[];
   };
-  receipt: {
-    rows: {
-      prodtxt1?: string;
-      productDescription?: string;
-      pieces: number;
-      amount: number;
-    }[];
-  };
+  receipt: { rows: RemaRow[] };
 };
 
 type TrumfFile = {
@@ -39,9 +59,89 @@ type TrumfFile = {
     transaksjonsTidspunkt: string;
   };
   receipt: {
-    varelinjer: { produktBeskrivelse: string; antall: number; belop: number }[];
+    varelinjer: {
+      produktBeskrivelse: string;
+      antall: number;
+      belop: number;
+      enhetsType: string;
+      besparelser?: { beskrivelse?: string; belop: number }[];
+    }[];
   } | null;
 };
+
+const SIZE =
+  /(?<![\p{L}\d.,])(?:(ca)\.? ?)?((?:\d+ ?[x×] ?)?\d+(?:[.,]\d+)?) ?(kg|gr|g|mg|ltr|l|dl|cl|ml|cm|stk|pk|pakk|pak|tab|ark)\.?(?: ?[x×] ?(\d+) ?(?:stk|pk|fl|bx)?|(\d+)pk)?(?![\p{L}\d])|(?<![\p{L}\d.,])(0[.,]\d{1,3}) ?(?:bx|fl)?$/giu;
+
+const UNITS: Record<string, string> = {
+  gr: "g",
+  ltr: "l",
+  pak: "pk",
+  pakk: "pk",
+};
+
+const number = (s: string) => s.replace(".", ",").replace(/ ?[x×] ?/i, " × ");
+
+function splitSize(text: string): { name: string; size?: string } {
+  const sizes = new Set<string>();
+  const name = text
+    .replace(SIZE, (_, ca, amount, unit = "", times, pack, litres) => {
+      const count = times ?? pack;
+      sizes.add(
+        litres
+          ? `${number(litres)} l`
+          : `${ca ? "ca. " : ""}${number(amount)} ${UNITS[unit.toLowerCase()] ?? unit.toLowerCase()}${count ? ` × ${count}` : ""}`,
+      );
+      return " ";
+    })
+    .replace(/\s+/g, " ")
+    .trim();
+  return sizes.size && name
+    ? { name, size: [...sizes].join(" · ") }
+    : { name: text };
+}
+
+const ore = (n: number) => Math.round(n * 100) / 100;
+
+const sum = (items: { amount: number }[]) =>
+  ore(items.reduce((total, i) => total + i.amount, 0));
+
+function remaLine(r: RemaRow): ReceiptLine {
+  const kg = r.unit.toLowerCase() === "kg";
+  const deposit = ore(r.amount - r.amountWithoutDeposit);
+  const discounts = r.usedOffers?.length
+    ? r.usedOffers.map((o) => ({
+        label: o.offerDesc ?? "",
+        amount: o.discount,
+      }))
+    : r.discount
+      ? [{ label: "", amount: -r.discount }]
+      : [];
+  return {
+    ...splitSize(r.prodtxt1 ?? r.productDescription ?? "Unnamed item"),
+    qty: kg ? r.volume : r.pieces,
+    ...(kg ? { unit: "kg" as const } : {}),
+    price: kg
+      ? r.unitPrice
+      : ore((r.amountWithoutDeposit - r.discount) / r.pieces),
+    amount: r.amount,
+    ...(discounts.length ? { discounts } : {}),
+    ...(deposit ? { deposit } : {}),
+  };
+}
+
+function remaPayments(head: RemaFile["head"]): Saving[] {
+  const paid = (desc: string) =>
+    sum(head.transactionPayments.filter((p) => p.meansOfPaymentDesc === desc));
+  const rounding = paid("Rounding");
+  const card = paid("CreditDebit");
+  const coupon = paid("Coupon");
+  return [
+    { label: "Øreavrunding", amount: rounding },
+    { label: "Bankkort", amount: card },
+    { label: "Kupong", amount: coupon },
+    { label: "Kontant", amount: ore(head.amount + rounding - card - coupon) },
+  ].filter((p) => Math.abs(p.amount) >= 0.005);
+}
 
 const letters = (s: string) => s.toLowerCase().replace(/[^a-zæøå]/g, "");
 
@@ -53,11 +153,9 @@ export const remaReceipt = ({ head, receipt }: RemaFile): Found => ({
     id: String(head.id),
     at: head.purchaseDate,
     store: head.storeName,
-    lines: receipt.rows.map((r) => ({
-      name: r.prodtxt1 ?? r.productDescription ?? "Unnamed item",
-      qty: r.pieces,
-      amount: r.amount,
-    })),
+    lines: receipt.rows.map(remaLine),
+    total: head.amount,
+    payments: remaPayments(head),
   },
   amounts: [
     head.transactionPayments
@@ -74,11 +172,21 @@ export const trumfReceipt = ({ purchase, receipt }: TrumfFile): Found | null =>
       id: purchase.batchId,
       at: Date.parse(purchase.transaksjonsTidspunkt),
       store: purchase.beskrivelse,
-      lines: receipt.varelinjer.map((l) => ({
-        name: l.produktBeskrivelse,
-        qty: l.antall,
-        amount: l.belop,
-      })),
+      lines: receipt.varelinjer.map((l) => {
+        const discounts = (l.besparelser ?? []).map((b) => ({
+          label: b.beskrivelse ?? "",
+          amount: b.belop,
+        }));
+        return {
+          ...splitSize(l.produktBeskrivelse),
+          qty: l.antall,
+          ...(l.enhetsType === "KG" ? { unit: "kg" as const } : {}),
+          price: ore((l.belop + sum(discounts)) / (l.antall || 1)),
+          amount: l.belop,
+          ...(discounts.length ? { discounts } : {}),
+        };
+      }),
+      total: purchase.belop,
     },
     amounts: [purchase.belop],
     names: [firstWord(purchase.beskrivelse)],

@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import type { Receipt } from "../../core/receipts.ts";
 import type { RuleFile } from "../../core/ruleFiles.ts";
 import { merchantOf } from "../../core/select.ts";
 import type { Categorized } from "../../core/types.ts";
@@ -8,20 +7,13 @@ import {
   bankLabel,
   categoryColor,
   fmtDate,
-  fmtDateTime,
   fmtNOKExact,
   rowLabel,
   txnFields,
 } from "./format.ts";
-import {
-  CategoryIcon,
-  CloseIcon,
-  EditIcon,
-  ExternalLinkIcon,
-  Icon,
-  ReceiptIcon,
-} from "./icons.ts";
+import { CategoryIcon, CloseIcon, EditIcon, Icon } from "./icons.ts";
 import { Modal } from "./Modal.tsx";
+import { ReceiptLines } from "./ReceiptLines.tsx";
 
 interface TxnDialogProps {
   txn: Categorized;
@@ -86,54 +78,6 @@ const DOT = (
 
 const ROW =
   "flex items-baseline justify-between gap-4 border-b border-line py-1.5 last:border-0";
-
-const ReceiptLines = ({ receipt }: { receipt: Receipt }) => (
-  <section className="mb-4 text-xs">
-    <h3 className="flex flex-wrap items-baseline gap-x-1.5 border-b border-line pb-1.5 font-semibold">
-      <Icon
-        icon={ReceiptIcon}
-        size={14}
-        className="shrink-0 self-center text-ink-soft"
-      />
-      Receipt
-      <span className="font-normal text-ink-soft">
-        {receipt.store} · {fmtDateTime(receipt.at)}
-      </span>
-    </h3>
-    {receipt.source === "gmail" ? (
-      <a
-        href={`https://mail.google.com/mail/u/0/#all/${receipt.id}`}
-        target="_blank"
-        rel="noreferrer"
-        className={`${ROW} hover:underline`}
-      >
-        <span className="min-w-0 wrap-break-word">
-          {receipt.title || "(no subject)"}
-        </span>
-        <span className="flex shrink-0 items-center gap-1 text-ink-soft">
-          Open in Gmail
-          <Icon icon={ExternalLinkIcon} size={12} />
-        </span>
-      </a>
-    ) : (
-      <ul>
-        {receipt.lines.map((line, i) => (
-          <li key={i} className={ROW}>
-            <span className="min-w-0 wrap-break-word">
-              {line.qty > 1 && (
-                <span className="text-ink-soft">{line.qty} × </span>
-              )}
-              {line.name}
-            </span>
-            <span className="shrink-0 tabular-nums">
-              {fmtNOKExact(line.amount)}
-            </span>
-          </li>
-        ))}
-      </ul>
-    )}
-  </section>
-);
 
 export const TxnDialog = ({ txn, onClose, onFile }: TxnDialogProps) => {
   const bank = bankLabel(txn);
