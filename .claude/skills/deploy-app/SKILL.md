@@ -7,7 +7,7 @@ A merge to `main` deploys the app. The Deploy workflow builds the image and poin
 
 ```bash
 pnpm sb1 rebuild                # only when the rules changed
-pnpm rules:push                 # upload the rules
+pnpm rules:push                 # upload the rules and new receipts
 ```
 
 `terraform -chdir=infra apply` creates the resources. Run `infra/github-vars.sh` after an apply that changes its outputs. Run `pnpm rules:push` from the main checkout.

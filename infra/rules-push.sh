@@ -66,4 +66,28 @@ if [ -d "$repo/rules/.history" ]; then
   fi
 fi
 
+for dir in "$repo"/data/raw/receipts/*/; do
+  [ -d "$dir" ] || continue
+  path="raw/receipts/$(basename "$dir")"
+  for d in raw/receipts "$path"; do
+    az storage directory create --account-name "$storage" --account-key "$key" \
+      --share-name data --name "$d" --only-show-errors >/dev/null
+  done
+  missing="$(comm -23 <(ls "$dir" | sort) <(az storage file list \
+    --account-name "$storage" --account-key "$key" --share-name data \
+    --path "$path" --num-results "*" --query "[].name" -o tsv | sort))"
+  [ -n "$missing" ] || continue
+  receipt_stage="$(mktemp -d)"
+  trap 'rm -rf "$receipt_stage"' EXIT
+  while IFS= read -r name; do
+    cp "$dir$name" "$receipt_stage/"
+  done <<< "$missing"
+  az storage file upload-batch --account-name "$storage" --account-key "$key" \
+    --destination "data/$path" --source "$receipt_stage" --max-connections 8 \
+    --no-progress --only-show-errors >/dev/null
+  rm -rf "$receipt_stage"
+  trap - EXIT
+  echo "==> $(wc -l <<< "$missing" | tr -d ' ') new files in $path"
+done
+
 echo "==> done: $(terraform -chdir="$here" output -raw url)"
