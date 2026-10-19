@@ -1,0 +1,14 @@
+{
+  "id": "b52d1ee7",
+  "ts": "2026-10-19T14:45:56+00:00",
+  "text": "auto-mode classifier refuses awk on ~/.oci/config to read the tenancy OCID; read the compartment from the subnet instead",
+  "tags": [
+    "oci",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "opus-5.5",
+  "session": "4cf39556",
+  "where": "/Users/olavassbotn/.oci/config",
+  "branch": "t3/oracle-banking"
+}
