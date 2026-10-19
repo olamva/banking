@@ -14,7 +14,7 @@ const html = (...chunks: string[]) =>
 
 const list = html(
   '0:["$","html",null,{}]\n5:["$","div",null,{"transactionsData":[{"batchId":"b-100","belop":268.41,"beskrivelse":"KIWI Testbutikk","transaksjonsTidspunkt":"$D2026-09-05T17:58:14.000Z","harKv',
-  'ittering":true},{"batchId":"b-101","belop":99,"beskrivelse":"MENY Testby","transaksjonsTidspunkt":"$D2026-08-01T10:00:00.000Z","harKvittering":false}]}]\n',
+  'ittering":true},{"batchId":"20260801_10:00:00:000-1","belop":99,"beskrivelse":"MENY Testby","transaksjonsTidspunkt":"$D2026-08-01T10:00:00.000Z","harKvittering":false}]}]\n',
 );
 
 const receipt = html(
@@ -37,7 +37,7 @@ function serve(t: TestContext, pages: Record<string, string>): string {
   return dir;
 }
 
-test("a purchase split across flight chunks lands on disk with plain dates", async (t) => {
+test("a purchase split across flight chunks lands on disk with plain dates and no colon in its name", async (t) => {
   const dir = serve(t, { [PAGES]: list, [`${PAGES}/b-100`]: receipt });
   assert.equal(await sync(dir), 2);
 
@@ -48,7 +48,9 @@ test("a purchase split across flight chunks lands on disk with plain dates", asy
     'TINE "HELMELK" 1L',
   );
 
-  const meny = JSON.parse(readFileSync(`${dir}/b-101.json`, "utf8"));
+  const meny = JSON.parse(
+    readFileSync(`${dir}/20260801_10-00-00-000-1.json`, "utf8"),
+  );
   assert.equal(meny.purchase.belop, 99);
   assert.equal(meny.receipt, null, "no receipt page is asked for");
 
