@@ -42,7 +42,7 @@ banking transaction <id>
 banking totals --from 2026-01-01 --to 2026-08-31
 ```
 
-The CLI writes JSON. It reads this checkout, even when another directory is current. It never calls SB1 or Azure. Use `pnpm bank <command>` to skip the link.
+The CLI writes JSON. It reads this checkout, even when another directory is current. It never calls SB1 or the hosted site. Use `pnpm bank <command>` to skip the link.
 
 ```bash
 # online. These are the only commands that touch the network
@@ -62,7 +62,7 @@ pnpm sb1 match "<pattern>"          # which rows does a rule pattern claim?
 pnpm sb1 budget                     # what SB1 last reported as left of its limit
 
 pnpm build                          # vite build -> data/dist. The hosted page only
-pnpm rules:push                     # push the rules and new receipts to Azure
+pnpm rules:push                     # push the rules and new receipts to the hosted site
 pnpm rules:pull                     # bring the rules the hosted site holds back here
 
 pnpm dev                            # the dashboard on :4000
@@ -88,7 +88,7 @@ A month closes four days after it ends, which is the window a late card row book
 
 To make the bank restate a month, delete `data/raw/<month>/*.json` and press Refresh. There is no force flag. `pnpm sb1 reconcile` is what tells you a month is owed.
 
-Never share the dashboard. It holds every transaction you have, and so does a screenshot. It has two homes and no third one: `127.0.0.1` here, and the private Azure site below.
+Never share the dashboard. It holds every transaction you have, and so does a screenshot. It has two homes and no third one: `127.0.0.1` here, and the private hosted site below.
 
 ### Releases
 
@@ -103,29 +103,31 @@ Dependabot PRs need no label.
 
 ## The hosted dashboard
 
-The same page runs on Azure Container Apps, behind Google sign-in, so that a phone can read it away from this wifi. Only an address in `ALLOWED_EMAILS` gets in. The site scales to zero, so the first request after an idle period waits a few seconds.
+The same page runs on an Oracle Cloud Always Free VM, behind Google sign-in, so that a phone can read it away from this wifi. Only an address in `ALLOWED_EMAILS` gets in.
 
-Easy Auth runs the Google login exchange and passes the identity in `X-MS-CLIENT-PRINCIPAL`.
-It passes anonymous requests to the server so that traffic logs include them.
-The server redirects anonymous requests to Google login before it serves any route.
-`src/web/principal.ts` decodes the identity header.
-`allowed()` in `src/auth/session.ts` checks the address against `ALLOWED_EMAILS`.
+Caddy terminates TLS and passes each request to oauth2-proxy on `127.0.0.1:4180`.
+oauth2-proxy runs the Google login exchange and admits only the addresses in `/etc/banking/emails`.
+It removes an `X-Forwarded-Email` header that a client sends, and it sets the header from the session.
+The manifest and the install icons skip the sign-in, because a browser fetches the manifest without cookies.
+The server listens on `127.0.0.1:8080` only and reads the address from `X-Forwarded-Email`.
+`allowed()` in `src/auth/session.ts` checks the address against `ALLOWED_EMAILS` a second time.
 An empty list denies everybody. `test/web/` checks the access controls.
+The proxy test runs only where `oauth2-proxy` is on the `PATH`. CI installs it.
 
-`src/web/server.ts` serves `data/dist` and the same three endpoints, on `node:http` and no framework. An Azure Files share mounts at `/data`. It holds `data/raw`, the database, the rules and the request ledger. The image holds only the code and the built page, so a scale to zero loses nothing.
+`src/web/server.ts` serves `data/dist` and the same three endpoints, on `node:http` and no framework. `/srv/banking` on the VM mounts at `/data`. It holds `data/raw`, the database, the rules, the request ledger and the SB1 refresh token. The image holds only the code and the built page.
 
-Terraform owns the resources. The Deploy workflow owns the image, and `pnpm rules:push` owns the rules and the receipts.
+`infra/oracle/cloud-init.yaml` installs Podman, Caddy, a swap file and the firewall rules at the first boot.
+Podman runs the app and oauth2-proxy as the systemd quadlets in `infra/oracle/`. The app may use 600 MB of memory.
 The Deploy workflow runs when a commit on `main` changes the image inputs.
-It builds the image, pushes it to `ghcr.io`, and points the app at it, so this machine needs no container runtime.
-It signs in to Azure with a federated identity that may change only the container apps in the resource group.
-The app pulls the image with a classic GitHub token that has only the `read:packages` scope.
+It builds the image and pushes it to `ghcr.io`, so this machine needs no container runtime.
+`podman-auto-update.timer` on the VM looks for a new `latest` image every 5 minutes and restarts the app on it.
+`pnpm rules:push` owns the rules and the receipts.
+The scripts reach the VM through the host `banking` in `~/.ssh/config`. Set `BANKING_SSH` to use another host.
 
 ### Traffic
 
 Run `pnpm traffic` to group the last 30 days of requests by browser header and forwarded IP addresses.
-The command reads Azure logs. It needs an Azure CLI login and an initialized Terraform backend.
-Install the Azure CLI `log-analytics` extension if the command requests it.
-Open **banking-dashboard-traffic → Logs** in Azure Portal to run [the same query](infra/traffic.kql).
+The command reads the app journal on the VM over `ssh`, and it needs `jq`.
 
 The report separates allowed, denied, and anonymous requests.
 The report shows times in `Europe/Oslo`.
@@ -137,30 +139,27 @@ IP addresses can change or be shared. Headers can be forged. Neither proves who 
 
 The server records time, method, path, browser header, forwarded IP addresses, access result, status, and duration.
 It removes query strings and excludes cookies, authentication headers, email addresses, request bodies, and response bodies.
-Azure retains console logs for 30 days. Azure log ingestion charges apply.
-Requests that Azure handles before the server, including `/.auth/*`, do not appear in this report.
-Use the Azure **Requests** metric for total ingress counts.
-Native HTTP logs remain disabled because they store authentication query values without a supported ingestion transformation.
-
-Deploy the server before applying the Terraform changes when upgrading an existing site.
-Merge this change to `main` and wait for the Deploy workflow. Then run `terraform -chdir=infra apply` from the main checkout.
-Logging starts after activation. Earlier requests cannot be recovered.
+oauth2-proxy refuses a request without a session or from an address off the list before the server sees it.
+This report does not show those requests.
 
 ### Setting it up
 
 The SB1 values arrive last, because the developer portal wants a redirect before it issues a client.
 
-1. Create a Google **OAuth client ID** of type **Web application**.
-2. Copy `infra/terraform.tfvars.example` to `infra/terraform.tfvars`. Fill in the subscription, the GitHub token, the allowlist and the two Google values. Leave the four SB1 values empty.
-3. Run `infra/bootstrap.sh`, then `terraform -chdir=infra init`, then `terraform -chdir=infra apply`. It prints `google_redirect_uri`.
-4. Add that URI to the **Authorised redirect URIs** of the Google client. It must match exactly.
-5. Run `infra/github-vars.sh`, then run the Deploy workflow from the Actions tab. Run `pnpm rules:push`. The page now works, and it reads an empty database.
-6. Register a **second SpareBank 1 client** in the developer portal. The BankID login runs on this machine, so the redirect is a localhost URL. Use a port that the first client does not use.
-7. Put the four SB1 values in `infra/terraform.tfvars` and apply again.
-8. Run `pnpm seed:azure`. The token lands in Key Vault instead of the keychain. Do not use `pnpm sb1 login`, which reads `.env.local` and would put the token of this machine in the vault.
-9. Open the site and press Refresh.
+1. Create a Google **OAuth client ID** of type **Web application**. Add `https://<domain>/oauth2/callback` to its **Authorised redirect URIs**. It must match exactly.
+2. Copy `infra/terraform.tfvars.example` to `infra/terraform.tfvars`. Fill in the GitHub token, the allowlist, the domain and the two Google values. Leave the four SB1 values empty.
+3. Run `infra/oracle/launch.sh`. It retries while Oracle has no capacity, and it prints the public IP address.
+4. Add a host `banking` with that address and the user `ubuntu` to `~/.ssh/config`. Point an A record for the domain at the address.
+5. Run `infra/oracle/configure.sh`. It puts the settings and the secrets on the VM and starts the services. Run it again after a change in `infra/oracle/`. Each run replaces the cookie secret, so every device signs in again.
+6. Run `pnpm rules:push`. The page now works, and it reads an empty database.
+7. Register a **second SpareBank 1 client** in the developer portal. The BankID login runs on this machine, so the redirect is a localhost URL. Use a port that the first client does not use.
+8. Put the four SB1 values in `infra/terraform.tfvars` and run `infra/oracle/configure.sh` again.
+9. Run `pnpm seed:site`. The token goes to the VM instead of the keychain. Do not use `pnpm sb1 login`, which reads `.env.local` and would put the token of this machine on the site.
+10. Open the site and press Refresh.
 
-SB1 rotates the refresh token on every exchange, so two processes on one chain invalidate each other. The second client gives Azure an independent chain. The compute scales to zero, and only the file share bills whatever happens. It is small.
+SB1 rotates the refresh token on every exchange, so two processes on one chain invalidate each other. The second client gives the site an independent chain.
+
+Oracle can stop an idle Always Free VM. Start it again with `oci compute instance action --action START --instance-id <id>`.
 
 ### Staying inside the rate limit
 
@@ -232,7 +231,7 @@ src/web/server.ts  the hosted site: the page, /api/txns, /api/refresh, /api/rule
 src/auth/      allowed(), the whole access rule. Pure and tested
 src/cli.ts     command dispatch
 vite.config.ts pnpm dev: the app plus the same three endpoints
-infra/         terraform for Azure, the rules push and the rules pull
+infra/         the Oracle VM, the rules push and the rules pull
 test/          node --test, mirroring src/
 rules/         the rules as JSON, gitignored
 rules/.history/  one file for each version of a rule file. Undo reads it

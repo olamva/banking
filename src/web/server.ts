@@ -14,7 +14,6 @@ import {
 } from "node:zlib";
 import { allowed } from "../auth/session.ts";
 import { payload, refresh, rulesRoute } from "./api.ts";
-import { claimTypes, principalEmail } from "./principal.ts";
 
 const DIST = resolve(import.meta.dirname, "../../data/dist");
 
@@ -128,8 +127,7 @@ function file(req: IncomingMessage, res: ServerResponse, path: string): void {
 }
 
 export const server = createServer(async (req, res) => {
-  const principal = req.headers["x-ms-client-principal"] as string | undefined;
-  const email = principalEmail(principal);
+  const email = req.headers["x-forwarded-email"] as string | undefined;
   const permitted = !!email && allowed(email, process.env.ALLOWED_EMAILS);
   if (process.env.TRAFFIC_LOG === "1") {
     const start = performance.now();
@@ -145,7 +143,7 @@ export const server = createServer(async (req, res) => {
             0,
             512,
           ),
-          access: permitted ? "allowed" : principal ? "denied" : "anonymous",
+          access: permitted ? "allowed" : email ? "denied" : "anonymous",
           status: res.writableFinished ? res.statusCode : 0,
           durationMs: Math.round(performance.now() - start),
         }),
@@ -158,21 +156,16 @@ export const server = createServer(async (req, res) => {
     file(req, res, path);
     return;
   }
-  if (!principal) {
+  if (!email) {
     res.writeHead(302, {
       ...SECURITY,
       "Cache-Control": "no-store",
-      Location: "/.auth/login/google?post_login_redirect_uri=%2F",
+      Location: "/oauth2/start?rd=/",
     });
     res.end();
     return;
   }
   if (!permitted) {
-    if (process.env.DEBUG === "1")
-      console.error(
-        `refused: principal ${principal ? "present" : "absent"}, ` +
-          `claims [${claimTypes(principal).join(", ")}]`,
-      );
     send(res, 403, "text/plain; charset=utf-8", "Not your dashboard.\n");
     return;
   }
@@ -232,8 +225,6 @@ export const server = createServer(async (req, res) => {
 // A test imports this file. Only a direct run binds the port.
 if (process.argv[1] === import.meta.filename) {
   const port = Number(process.env.PORT ?? 8080);
-  // The database sits on the local disk, so a cold start begins without one.
-  // Build it again from the raw files on the volume before an API request.
   const { DB_FILE } = await import("../core/paths.ts");
   if (!existsSync(DB_FILE)) {
     const { rebuildAll } = await import("../core/pipeline.ts");
@@ -243,10 +234,7 @@ if (process.argv[1] === import.meta.filename) {
       ),
     );
   }
-  // A wildcard bind does not collide with a server that already holds
-  // 127.0.0.1, so a local run reports success while curl answers from the
-  // squatter. The image sets PORT. A local run does not.
-  server.listen(port, process.env.PORT ? undefined : "127.0.0.1", () =>
-    console.error(`listening on ${port}`),
-  );
+  // The server trusts X-Forwarded-Email, so only the proxy on this host may
+  // reach it.
+  server.listen(port, "127.0.0.1", () => console.error(`listening on ${port}`));
 }

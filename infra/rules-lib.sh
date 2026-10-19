@@ -11,42 +11,34 @@
 
 RULE_FILES="categories preferences giro payees labels countries family subscriptions not-subscriptions"
 
+HOST="${BANKING_SSH:-banking}"
+SITE=/srv/banking
+
+site_rsync() {
+  rsync --rsync-path="sudo -u banking rsync" "$@"
+}
+
 # Read names on stdin, print the newest stamp for one rule file, or nothing.
 newest_stamp() {
   sed -n "s/^\([0-9]\{1,\}\)-$1\.json\$/\1/p" | sort -n | tail -1
 }
 
-storage_key() {
-  az storage account keys list --account-name "$1" --query '[0].value' -o tsv
-}
-
-# The share may hold no history yet. That is a first deploy, not a fault.
+# The site may hold no history yet. That is a first deploy, not a fault.
 remote_history() {
-  az storage file list --account-name "$1" --account-key "$2" \
-    --share-name data --path "rules/.history" --query "[].name" -o tsv \
-    2>/dev/null || true
+  ssh "$HOST" "sudo -u banking ls $SITE/rules/.history 2>/dev/null || true"
 }
 
 local_history() {
   ls "$1/.history" 2>/dev/null || true
 }
 
-missing_history() {
-  comm -23 \
-    <(printf '%s\n' "$1" | sed -n '/^[0-9][0-9]*-.*\.json$/p' | sort -u) \
-    <(printf '%s\n' "$2" | sed -n '/^[0-9][0-9]*-.*\.json$/p' | sort -u)
-}
-
-# The live rule files as the share holds them, in a new temporary directory.
-# The caller removes it. A file the share lacks is skipped, not a fault.
+# The live rule files as the site holds them, in a new temporary directory.
+# The caller removes it. A file the site lacks is skipped, not a fault.
 remote_live() {
-  local dir f
+  local dir
   dir="$(mktemp -d)"
-  for f in $RULE_FILES; do
-    az storage file download --account-name "$1" --account-key "$2" \
-      --share-name data --path "rules/$f.json" --dest "$dir/$f.json" \
-      --only-show-errors >/dev/null 2>&1 || true
-  done
+  site_rsync -t --dirs --include='*.json' --exclude='*' \
+    "$HOST:$SITE/rules/" "$dir/" 2>/dev/null || true
   printf '%s\n' "$dir"
 }
 

@@ -31,6 +31,11 @@ jobs:
           node-version: 26
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: |
+          curl -fsSL -o "$RUNNER_TEMP/oauth2-proxy.tar.gz" https://github.com/oauth2-proxy/oauth2-proxy/releases/download/v7.15.5/oauth2-proxy-v7.15.5.linux-amd64.tar.gz
+          echo "f63f94bf72c5f46ab002a0a275aa8b3cf19b4d828aed08a13978cb9a62c3a1fd  $RUNNER_TEMP/oauth2-proxy.tar.gz" | sha256sum -c
+          tar -xzf "$RUNNER_TEMP/oauth2-proxy.tar.gz" -C "$RUNNER_TEMP" --strip-components=1
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
       - run: pnpm test
       - if: github.event_name == 'pull_request'
         env:

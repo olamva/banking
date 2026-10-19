@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { readFileSync, renameSync, writeFileSync } from "node:fs";
 
 const KEYCHAIN_SERVICE = "sb1-banking";
 const SECRET_NAME = "sb1-refresh-token";
@@ -59,9 +60,21 @@ function vault(name: string): Promise<Client> {
 }
 
 export const store = (): string =>
-  process.env.KEY_VAULT_NAME ? "Key Vault" : "keychain";
+  process.env.TOKEN_FILE
+    ? "token file"
+    : process.env.KEY_VAULT_NAME
+      ? "Key Vault"
+      : "keychain";
 
 export async function getToken(): Promise<string | null> {
+  const file = process.env.TOKEN_FILE;
+  if (file)
+    try {
+      return readFileSync(file, "utf8").trim() || null;
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === "ENOENT") return null;
+      throw e;
+    }
   const name = process.env.KEY_VAULT_NAME;
   if (!name) return keychainGet("refresh_token");
   try {
@@ -73,6 +86,11 @@ export async function getToken(): Promise<string | null> {
 }
 
 export async function setToken(token: string): Promise<void> {
+  const file = process.env.TOKEN_FILE;
+  if (file) {
+    writeFileSync(`${file}.tmp`, token, { mode: 0o600 });
+    return renameSync(`${file}.tmp`, file);
+  }
   const name = process.env.KEY_VAULT_NAME;
   if (!name) return keychainSet("refresh_token", token);
   await (await vault(name)).setSecret(SECRET_NAME, token);

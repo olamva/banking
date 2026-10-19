@@ -1,0 +1,35 @@
+#cloud-config
+package_update: true
+packages:
+  - podman
+  - caddy
+  - rsync
+  - iptables-persistent
+swap:
+  filename: /swapfile
+  size: 1G
+users:
+  - default
+  - name: banking
+    uid: 65532
+    system: true
+    homedir: /srv/banking
+    shell: /usr/sbin/nologin
+write_files:
+  - path: /etc/systemd/system/podman-auto-update.timer.d/banking.conf
+    content: |
+      [Timer]
+      OnCalendar=
+      OnCalendar=*:0/5
+      RandomizedDelaySec=0
+  - path: /etc/systemd/system/podman-auto-update.service.d/banking.conf
+    content: |
+      [Service]
+      ExecStartPost=/usr/bin/podman image prune -f
+runcmd:
+  - install -d -o banking -g banking -m 0700 /srv/banking
+  - install -d -m 0700 /etc/banking
+  - iptables -I INPUT -p tcp -m multiport --dports 80,443 -m state --state NEW -j ACCEPT
+  - netfilter-persistent save
+  - systemctl daemon-reload
+  - systemctl enable --now podman-auto-update.timer

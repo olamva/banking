@@ -1,0 +1,21 @@
+[Unit]
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+Image=ghcr.io/olamva/banking:latest
+AutoUpdate=registry
+Label=io.containers.autoupdate.authfile=/etc/banking/ghcr.json
+PodmanArgs=--authfile=/etc/banking/ghcr.json
+Network=host
+Volume=/srv/banking:/data
+EnvironmentFile=/etc/banking/env
+Environment=DATA_DIR=/data RULES_DIR=/data/rules TOKEN_FILE=/data/sb1-refresh-token TRAFFIC_LOG=1
+
+[Service]
+MemoryMax=600M
+Restart=always
+TimeoutStartSec=900
+
+[Install]
+WantedBy=multi-user.target
