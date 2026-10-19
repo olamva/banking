@@ -112,6 +112,16 @@ export const bankLabel = (
   ];
 };
 
+export const fmtDateTime = (ms: number): string =>
+  new Date(ms).toLocaleString("nb-NO", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Oslo",
+  });
+
 export const fmtDate = (date: string): string =>
   new Date(`${date}T00:00:00Z`).toLocaleDateString("nb-NO", {
     day: "numeric",

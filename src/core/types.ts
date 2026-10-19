@@ -1,3 +1,5 @@
+import type { Receipt } from "./receipts.ts";
+
 export type Txn = {
   // SB1 gives a new id when a reservation books. Do not rely on it across syncs.
   id: string;
@@ -34,4 +36,5 @@ export type Categorized = Classified & {
   category: string;
   subcategory: string | null;
   categorySource?: string;
+  receipt?: Receipt;
 };

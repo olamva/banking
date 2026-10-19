@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, rmSync } from "node:fs";
-import { mkdir, readFile } from "node:fs/promises";
-import { dirname } from "node:path";
+import { mkdir, readdir, readFile } from "node:fs/promises";
+import { basename, dirname } from "node:path";
 import {
   categorize,
   loadCategories,
@@ -19,6 +19,13 @@ import { exclude, type Accounts } from "./exclude.ts";
 import { narrowings } from "./narrowings.ts";
 import { DATA_DIR, DB_FILE, RULES_DIR } from "./paths.ts";
 import { normalizeMonth } from "./normalize.ts";
+import {
+  mailReceipt,
+  matchReceipts,
+  remaReceipt,
+  trumfReceipt,
+  type Found,
+} from "./receipts.ts";
 import type { Categorized } from "./types.ts";
 
 const debug = (...args: unknown[]): void => {
@@ -34,6 +41,39 @@ export function monthsOnDisk(): string[] {
     .filter((e) => e.isDirectory() && /^\d{4}-\d{2}$/.test(e.name))
     .map((e) => e.name)
     .sort();
+}
+
+const mails = new Map<string, Promise<Found>>();
+
+const READERS: Record<string, (file: string) => Promise<Found | null>> = {
+  rema: async (file) => remaReceipt(JSON.parse(await readFile(file, "utf8"))),
+  trumf: async (file) => trumfReceipt(JSON.parse(await readFile(file, "utf8"))),
+  gmail: (file) => {
+    if (!mails.has(file))
+      mails.set(
+        file,
+        readFile(file).then((raw) => mailReceipt(basename(file, ".eml"), raw)),
+      );
+    return mails.get(file)!;
+  },
+};
+
+export async function receiptsOnDisk(): Promise<Found[]> {
+  const found: Found[] = [];
+  for (const [source, read] of Object.entries(READERS)) {
+    const dir = `${RAW}/receipts/${source}`;
+    if (!existsSync(dir)) continue;
+    for (const name of (await readdir(dir)).sort()) {
+      const hit = await read(`${dir}/${name}`).catch((e: unknown) => {
+        console.error(
+          `skipped ${dir}/${name}: ${e instanceof Error ? e.message : e}`,
+        );
+        return null;
+      });
+      if (hit && Number.isFinite(hit.receipt.at)) found.push(hit);
+    }
+  }
+  return found;
 }
 
 export async function loadRules() {
@@ -158,7 +198,16 @@ export async function rebuildAll(): Promise<number> {
           `\nOne leg of a pair is being excluded while the other is counted.`,
       );
     }
-    rebuildDb(db, renamePayees(rows, rules.payees));
+    const receipts = matchReceipts(rows, await receiptsOnDisk());
+    rebuildDb(
+      db,
+      renamePayees(
+        rows.map((r) =>
+          receipts.has(r) ? { ...r, receipt: receipts.get(r)! } : r,
+        ),
+        rules.payees,
+      ),
+    );
     debug(
       `rebuilt ${DB_FILE} from ${months.length} months, ${rows.length} rows`,
     );

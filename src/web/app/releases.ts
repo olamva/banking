@@ -6,6 +6,17 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "1.4.0",
+    date: "2026-10-19",
+    highlights: [
+      {
+        title: "Receipts on transactions",
+        detail:
+          "A transaction shows its receipt when one matches. Rema 1000 and Trumf receipts list each item. A receipt mail opens in Gmail. A small receipt mark shows which rows have one.",
+      },
+    ],
+  },
+  {
     version: "1.3.2",
     date: "2026-09-27",
     highlights: [
