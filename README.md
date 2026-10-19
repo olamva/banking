@@ -62,7 +62,7 @@ pnpm sb1 match "<pattern>"          # which rows does a rule pattern claim?
 pnpm sb1 budget                     # what SB1 last reported as left of its limit
 
 pnpm build                          # vite build -> data/dist. The hosted page only
-pnpm rules:push                     # push the rules to Azure
+pnpm rules:push                     # push the rules and new receipts to Azure
 pnpm rules:pull                     # bring the rules the hosted site holds back here
 
 pnpm dev                            # the dashboard on :4000
@@ -114,7 +114,7 @@ An empty list denies everybody. `test/web/` checks the access controls.
 
 `src/web/server.ts` serves `data/dist` and the same three endpoints, on `node:http` and no framework. An Azure Files share mounts at `/data`. It holds `data/raw`, the database, the rules and the request ledger. The image holds only the code and the built page, so a scale to zero loses nothing.
 
-Terraform owns the resources. The Deploy workflow owns the image, and `pnpm rules:push` owns the rules.
+Terraform owns the resources. The Deploy workflow owns the image, and `pnpm rules:push` owns the rules and the receipts.
 The Deploy workflow runs when a commit on `main` changes the image inputs.
 It builds the image, pushes it to `ghcr.io`, and points the app at it, so this machine needs no container runtime.
 It signs in to Azure with a federated identity that may change only the container apps in the resource group.
