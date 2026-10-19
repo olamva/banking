@@ -19,7 +19,7 @@
     "rules:push": "bash infra/rules-push.sh",
     "traffic": "bash infra/traffic.sh",
     "rules:pull": "bash infra/rules-pull.sh",
-    "seed:azure": "bash infra/seed-token.sh",
+    "seed:site": "bash infra/seed-token.sh",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "worktree:cleanup": "node infra/worktree-cleanup.ts",
