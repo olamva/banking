@@ -5,36 +5,36 @@ const SECRET_NAME = "sb1-refresh-token";
 
 // ponytail: the refresh token goes through argv, so `ps` shows it for a short
 // time. Use a helper that reads stdin if this machine gets other local users.
-function keychainSet(token: string): void {
+export function keychainSet(account: string, secret: string): void {
   execFileSync("security", [
     "add-generic-password",
     "-U",
     "-s",
     KEYCHAIN_SERVICE,
     "-a",
-    "refresh_token",
+    account,
     "-w",
-    token,
+    secret,
   ]);
 }
 
-function keychainGet(): string | null {
+export function keychainGet(account: string): string | null {
   try {
     return execFileSync(
       "security",
-      [
-        "find-generic-password",
-        "-s",
-        KEYCHAIN_SERVICE,
-        "-a",
-        "refresh_token",
-        "-w",
-      ],
+      ["find-generic-password", "-s", KEYCHAIN_SERVICE, "-a", account, "-w"],
       { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
     ).trim();
   } catch {
     return null;
   }
+}
+
+export function env(key: string): string {
+  const v = process.env[key];
+  if (!v || v.startsWith("<"))
+    throw new Error(`Missing ${key} — fill it in .env.local`);
+  return v;
 }
 
 type Client = {
@@ -63,7 +63,7 @@ export const store = (): string =>
 
 export async function getToken(): Promise<string | null> {
   const name = process.env.KEY_VAULT_NAME;
-  if (!name) return keychainGet();
+  if (!name) return keychainGet("refresh_token");
   try {
     return (await (await vault(name)).getSecret(SECRET_NAME)).value ?? null;
   } catch (e) {
@@ -74,6 +74,6 @@ export async function getToken(): Promise<string | null> {
 
 export async function setToken(token: string): Promise<void> {
   const name = process.env.KEY_VAULT_NAME;
-  if (!name) return keychainSet(token);
+  if (!name) return keychainSet("refresh_token", token);
   await (await vault(name)).setSecret(SECRET_NAME, token);
 }

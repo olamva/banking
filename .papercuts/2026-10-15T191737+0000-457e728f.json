@@ -1,0 +1,14 @@
+{
+  "id": "457e728f",
+  "ts": "2026-10-15T19:17:37+00:00",
+  "text": "grep is ugrep here and rejects -oiE patterns with {0,60} bounds as too complex",
+  "tags": [
+    "shell",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "opus-5.5",
+  "session": "5f4a37ff",
+  "where": "grep",
+  "branch": "t3/research-purchase-receipts"
+}

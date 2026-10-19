@@ -48,6 +48,11 @@ The CLI writes JSON. It reads this checkout, even when another directory is curr
 # online. These are the only commands that touch the network
 pnpm sb1 login                      # BankID in the browser. Refresh token to the keychain
 pnpm sb1 accounts                   # writes data/raw/accounts.json and rules/accounts.json
+pnpm receipts login rema            # phone number and SMS code in a Chrome window. Login to the keychain
+pnpm receipts login gmail           # Google login in the browser. Refresh token to the keychain
+pnpm receipts rema                  # new receipts to data/raw/receipts/rema/
+pnpm receipts trumf                 # needs TRUMF_COOKIE, the Cookie header of a logged-in trumf.no page
+pnpm receipts gmail                 # receipt mail to data/raw/receipts/gmail/ as .eml files
 
 # offline
 pnpm sb1 rebuild                    # rebuild data/banking.db from data/raw/, after a rules edit

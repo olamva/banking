@@ -8,6 +8,7 @@
   "scripts": {
     "bank": "node src/bank.ts",
     "sb1": "node --env-file=.env.local src/cli.ts",
+    "receipts": "node --env-file=.env.local src/receipts.ts",
     "dev": "vite",
     "test": "oxlint && node --test 'test/**/*.test.ts'",
     "worktree:link": "node infra/worktree-link.ts",

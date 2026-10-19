@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { createServer } from "node:http";
 import { note, spend } from "./budget.ts";
-import { getToken, setToken, store } from "./token.ts";
+import { env, getToken, setToken, store } from "./token.ts";
 
 const API = "https://api.sparebank1.no";
 
@@ -40,12 +40,6 @@ export function noteLimits(
   if (left !== null && left !== "") note(Number(left), path, now);
   if (status === 401) throw new ReauthRequired("API returned 401");
   if (status === 429) throw new RateLimited(headers.get("retry-after"));
-}
-
-function env(key: string): string {
-  const v = process.env[key];
-  if (!v) throw new Error(`Missing ${key} — is .env.local present?`);
-  return v;
 }
 
 type TokenResponse = {
