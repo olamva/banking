@@ -88,7 +88,7 @@ export async function sync(dir: string): Promise<number> {
   await mkdir(dir, { recursive: true });
   let added = 0;
   for (const purchase of purchases) {
-    const file = `${dir}/${purchase.batchId}.json`;
+    const file = `${dir}/${purchase.batchId.replaceAll(":", "-")}.json`;
     if (existsSync(file)) continue;
     const receipt =
       purchase.harKvittering === false
