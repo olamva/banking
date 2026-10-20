@@ -131,10 +131,10 @@ export async function login(): Promise<void> {
   console.error(`Refresh token stored in the ${store()}.`);
 }
 
-let accessToken: string | undefined;
+let access: { token: string; until: number } | undefined;
 
 async function getAccessToken(): Promise<string> {
-  if (accessToken) return accessToken;
+  if (access && Date.now() < access.until) return access.token;
   const refresh = await getToken();
   if (!refresh) throw new ReauthRequired(`no refresh token in the ${store()}`);
   const t = await postToken({
@@ -142,8 +142,11 @@ async function getAccessToken(): Promise<string> {
     refresh_token: refresh,
   });
   await setToken(t.refresh_token); // rotates on every use
-  accessToken = t.access_token;
-  return accessToken;
+  access = {
+    token: t.access_token,
+    until: Date.now() + (t.expires_in - 60) * 1000,
+  };
+  return access.token;
 }
 
 export async function get(path: string): Promise<unknown> {
