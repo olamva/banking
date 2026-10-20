@@ -11,3 +11,5 @@ pnpm rules:push                 # upload the rules and new receipts
 ```
 
 `infra/oracle/launch.sh` creates the VM. `infra/oracle/configure.sh` puts the settings and the secrets on it. Run `pnpm rules:push` from the main checkout.
+
+A worktree build writes `data.local/dist`. Stage that directory as `data/dist` to build the image locally from a worktree.
