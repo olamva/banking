@@ -45,8 +45,6 @@ test("the database follows the data root by default", async () => {
   }
 });
 
-// SQLite needs locks that an SMB share does not carry, so the deployment puts
-// the database on the local disk while the raw files stay on the volume.
 test("the database moves off the data root on its own", async () => {
   process.env.DATA_DIR = "/data";
   process.env.DB_FILE = "/tmp/banking.db";
