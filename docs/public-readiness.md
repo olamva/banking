@@ -13,7 +13,7 @@ Historical `docs/PRIVACY.md` and `docs/TERMS.md` contain personal email addresse
 Current `test/core/categorize-rules.test.ts` contains account numbers and specific payment amounts.
 Their origin is unknown. Treat these fixtures as private until reviewed.
 The README contains a specific street address in a rule example.
-`infra/backend.tf` contains the deployment storage account name.
+The history of `infra/backend.tf` contains the deleted deployment storage account name.
 This name is an infrastructure identifier, not a credential.
 
 A limited scan covers 4,986 reachable local Git objects.
@@ -46,7 +46,7 @@ Public visibility alone does not grant an open-source license.
 See GitHub's [repository licensing guidance](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/licensing-a-repository).
 
 Replace deployment-specific backend names with documented local configuration before offering reusable deployment instructions.
-Add a synthetic offline example and document setup without the owner's data, keychain, or Azure account.
+Add a synthetic offline example and document setup without the owner's data, keychain, or Oracle account.
 Keep `package.json` private to prevent accidental package publication.
 Source visibility does not require changing the dashboard's authentication or network exposure.
 
@@ -54,7 +54,7 @@ Source visibility does not require changing the dashboard's authentication or ne
 
 CI runs lint, 322 tests, type checking, and the production build on PRs and pushes to `main`.
 It uses Node 26 and pnpm 11.12.0 with the frozen lockfile.
-It receives read-only repository access and no Azure credentials.
+It receives read-only repository access and no cloud credentials.
 It uploads no banking data or build artifacts.
 Dependabot proposes weekly package and action updates.
 The PR monitoring skill waits for successful checks on the current PR commit before an authorized merge.

@@ -43,8 +43,6 @@
     "vite": "^8.3.5"
   },
   "dependencies": {
-    "@azure/identity": "^4.14.0",
-    "@azure/keyvault-secrets": "^4.11.2",
     "postal-mime": "4.1.4"
   }
 }
