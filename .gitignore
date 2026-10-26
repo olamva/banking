@@ -29,12 +29,7 @@ data.local
 rules
 !.codex/rules
 
-# a tfvars file holds every secret in the clear, and so does a saved plan.
-# The state itself lives in Azure, not here.
-infra/.terraform
-infra/*.tfstate*
-infra/tfplan
-*.tfplan
+# a tfvars file holds every secret in the clear.
 *.tfvars
 !.agents/rules
 

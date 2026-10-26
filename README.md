@@ -237,6 +237,6 @@ rules/         the rules as JSON, gitignored
 rules/.history/  one file for each version of a rule file. Undo reads it
 ```
 
-React, Vite and Tailwind. The Azure SDK reads the refresh token out of Key Vault, and it loads only where a vault is named. Everything else uses the Node standard library, including SQLite, HTTP and TypeScript execution. There is no ORM, no chart library, no component library and no state manager. The charts are hand-written SVG. `data/raw/` is the source of truth, and the database is derived. Analysis never calls the API. Any code that sums money leaves a test behind.
+React, Vite and Tailwind. Everything else uses the Node standard library, including SQLite, HTTP and TypeScript execution. There is no ORM, no chart library, no component library and no state manager. The charts are hand-written SVG. `data/raw/` is the source of truth, and the database is derived. Analysis never calls the API. Any code that sums money leaves a test behind.
 
 `AGENTS.md` holds the rest, including the exclusion rules and the reasons for them.
