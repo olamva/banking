@@ -66,7 +66,7 @@ test("SB1 falls back to remoteAccountName when cleanedDescription is absent", as
               amount: -6100,
               date: Date.UTC(2026, 5, 30, 22, 0, 0),
               typeText: "Betaling med melding",
-              remoteAccountName: "Theo leie",
+              remoteAccountName: "Per leie",
             },
             categories: [{ main: "ukategorisert" }],
             recurring: false,
@@ -78,7 +78,7 @@ test("SB1 falls back to remoteAccountName when cleanedDescription is absent", as
     async (dir) => {
       const [txn] = await normalizeMonth(dir);
       assert.equal(txn.description, "Betaling med melding");
-      assert.equal(txn.counterparty, "Theo leie");
+      assert.equal(txn.counterparty, "Per leie");
     },
   );
 });
