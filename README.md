@@ -189,7 +189,7 @@ The bank labels its own transactions, and it is wrong often enough to matter. Th
 `rules/categories.json` maps a case-insensitive substring to a category. The code checks it against the description, the merchant and the account number of the payee.
 
 ```json
-{ "Munkegata 34": "faste_utgifter/boligutgifter" }
+{ "Storgata 1": "faste_utgifter/boligutgifter" }
 ```
 
 A pattern inside slashes is a **regex**. `"/\\bleie\\b/"` catches `Leie Juni`, and it does not catch `utleie`. Note the doubled backslash, because this is JSON. A bare street name catches every shop on that street.
