@@ -1,6 +1,6 @@
 # banking
 
-This private repository serves one user.
+This repository serves one user.
 
 ## Complete the work
 
