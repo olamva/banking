@@ -230,7 +230,7 @@ test("subscriptionGroups counts every row of a payee that is flagged anywhere", 
     txn({
       id: date,
       amount: -6100,
-      counterparty: "Theo leie",
+      counterparty: "Per leie",
       category: "husleie",
       date,
       isRecurring,
@@ -262,7 +262,7 @@ test("subscriptionGroups counts every row of a payee that is flagged anywhere", 
   ]);
   assert.deepEqual(
     groups.map((g) => g.name),
-    ["Theo leie"],
+    ["Per leie"],
   );
 });
 
