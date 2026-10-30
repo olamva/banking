@@ -7,7 +7,7 @@ This private repository serves one user.
 Create a PR into `main`. Put feedback requests in its description.
 Add a release to `src/web/app/releases.ts` for important features and major changes.
 Apply the `no release` label to every other PR. CI requires one of the two.
-Apply `.claude/skills/babysit-pr/SKILL.md` after creating or updating the PR.
+Use the `babysit-pr` skill after creating or updating the PR.
 Complete implementation, relevant tests, and a review of the final diff before merging.
 Fix failures and resolve review feedback within the requested scope.
 Wait for all checks to pass. Merge the PR yourself when the change is ready and any required visual approval is present.
