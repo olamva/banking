@@ -1,0 +1,14 @@
+{
+  "id": "d39589b4",
+  "ts": "2026-11-01T18:36:36+00:00",
+  "text": "Headless Chrome CDP Runtime.evaluate hung once after many page loads in one browser; batching jobs avoided it",
+  "tags": [
+    "browser",
+    "tools"
+  ],
+  "who": "delegate",
+  "model": "opus-5.5",
+  "session": "3870d6f1",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3-284e70c1",
+  "branch": "t3/shadcn-native-ios-app"
+}
