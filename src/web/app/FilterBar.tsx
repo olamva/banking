@@ -148,21 +148,23 @@ export const FilterBar = ({
           onPressedChange={(showExcluded) =>
             onFilters({ ...filters, showExcluded })
           }
-          className="font-normal max-sm:flex-1 data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+          className={cn(
+            PICKER,
+            "font-normal data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground",
+          )}
         >
           <Icon icon={ShowExcludedIcon} size={15} />
           Excluded rows
         </Toggle>
-        {dirty && (
-          <Button
-            variant="ghost"
-            onClick={() => onFilters(NO_FILTERS)}
-            className="text-muted-foreground max-sm:flex-1"
-          >
-            <Icon icon={ResetFiltersIcon} size={15} />
-            Reset
-          </Button>
-        )}
+        <Button
+          variant="ghost"
+          disabled={!dirty}
+          onClick={() => onFilters(NO_FILTERS)}
+          className={cn(PICKER, "text-muted-foreground", !dirty && "invisible")}
+        >
+          <Icon icon={ResetFiltersIcon} size={15} />
+          Reset
+        </Button>
       </div>
       {(chips.length > 0 || searchChip) && (
         <div className="flex flex-wrap items-center gap-1.5">
