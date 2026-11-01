@@ -8,9 +8,9 @@ import type { Categorized } from "../../core/types.ts";
 import {
   AMOUNT_SIZE,
   AMOUNT_SIZE_EXACT,
-  Card,
   DataTable,
   Empty,
+  Panel,
   PickCell,
   highlighting,
   type Column,
@@ -71,7 +71,7 @@ const TXN_SORTS = {
   amount: (a: Categorized, b: Categorized) => a.amount - b.amount,
 };
 
-export const useTxnSort = (txns: Categorized[]) =>
+const useTxnSort = (txns: Categorized[]) =>
   useSort(txns, TXN_SORTS, "date", ["merchant", "subcategory", "account"]);
 
 const GROUP_SORTS = {
@@ -120,15 +120,19 @@ export const SubscriptionsCard = ({
   if (groups.length === 0) return null;
 
   return (
-    <Card
-      title={`Subscriptions & recurring (${groups.length})`}
+    <Panel
+      title="Subscriptions & recurring"
+      description={`${groups.length} found in this period`}
       icon={RecurringIcon}
+      action={
+        <SearchBox
+          value={search}
+          onChange={setSearch}
+          placeholder="Search subscriptions…"
+          className="w-40 sm:w-56"
+        />
+      }
     >
-      <SearchBox
-        value={search}
-        onChange={setSearch}
-        placeholder="Search subscriptions…"
-      />
       {sorted.length === 0 ? (
         <Empty>No subscriptions match the search.</Empty>
       ) : (
@@ -165,7 +169,7 @@ export const SubscriptionsCard = ({
           ])}
         />
       )}
-    </Card>
+    </Panel>
   );
 };
 
@@ -202,31 +206,29 @@ export const TransactionsCard = ({
   );
 
   return (
-    <section className="min-w-0">
-      <div className="px-3 sm:px-0">
-        <h2 className="mb-2.5 flex items-center gap-1.5 text-sm font-semibold">
-          <Icon
-            icon={TransactionsIcon}
-            size={15}
-            className="shrink-0 text-ink-soft"
+    <Panel
+      title="Transactions"
+      description={`${txns.length} rows`}
+      icon={TransactionsIcon}
+      action={
+        onBulk &&
+        txns.length > 0 && (
+          <BulkToolbar
+            txns={txns}
+            picked={picked}
+            onBulk={onBulk}
+            onClear={() => setSelected(new Set())}
           />
-          Transactions ({txns.length})
-          {onBulk && txns.length > 0 && (
-            <BulkToolbar
-              txns={txns}
-              picked={picked}
-              onBulk={onBulk}
-              onClear={() => setSelected(new Set())}
-            />
-          )}
-        </h2>
-        <SearchBox
-          hotkey
-          value={search}
-          onChange={onSearch}
-          placeholder="Search merchant or description…"
-        />
-      </div>
+        )
+      }
+    >
+      <SearchBox
+        hotkey
+        value={search}
+        onChange={onSearch}
+        placeholder="Search merchant or description…"
+        className="mb-2"
+      />
       {sorted.length === 0 ? (
         <Empty>No transactions match the current filters.</Empty>
       ) : (
@@ -234,7 +236,7 @@ export const TransactionsCard = ({
           scroll
           onRow={(i) => setOpen(sorted[i] ?? null)}
           rowClassName={(i) =>
-            `${sorted[i]?.isPending ? "striped" : ""} ${selected.has(sorted[i]!) ? "bg-hover" : ""}`
+            `${sorted[i]?.isPending ? "striped" : ""} ${selected.has(sorted[i]!) ? "bg-muted" : ""}`
           }
           columns={[
             ...(onBulk
@@ -279,7 +281,7 @@ export const TransactionsCard = ({
             <button
               type="button"
               onClick={(e) => !highlighting(e) && setOpen(t)}
-              className="text-left hover:underline"
+              className="text-left text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
             >
               {t.date}
             </button>,
@@ -292,7 +294,7 @@ export const TransactionsCard = ({
                   aria-hidden={false}
                   aria-label="Has a receipt"
                   role="img"
-                  className="shrink-0 text-ink-muted"
+                  className="shrink-0 text-muted-foreground"
                 />
               )}
             </span>,
@@ -303,7 +305,9 @@ export const TransactionsCard = ({
               onPick={onCategory}
             />,
             <PickCell label={t.account} onPick={onAccount} />,
-            fmtNOKExact(t.amount),
+            <span className={t.amount > 0 ? "text-good" : undefined}>
+              {fmtNOKExact(t.amount)}
+            </span>,
           ])}
         />
       )}
@@ -319,6 +323,6 @@ export const TransactionsCard = ({
           })}
         />
       )}
-    </section>
+    </Panel>
   );
 };

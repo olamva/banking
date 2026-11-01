@@ -5,7 +5,7 @@ import { matchesFilters, type Filters } from "../../core/select.ts";
 import { totals } from "../../core/stats.ts";
 import type { Categorized } from "../../core/types.ts";
 import { StatTile } from "./Cards.tsx";
-import { CARD_GRID, ExcludedNote, pick } from "./Dashboard.tsx";
+import { ExcludedNote, pick } from "./Dashboard.tsx";
 import { fmtNOK } from "./format.ts";
 import { TransactionsCard } from "./Transactions.tsx";
 
@@ -32,25 +32,21 @@ export const TransactionsView = ({
 
   return (
     <>
-      <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(min(160px,100%),1fr))] gap-3 px-3 sm:px-0">
+      <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(min(150px,100%),1fr))] gap-3 max-sm:grid-cols-2 max-sm:[&>*:last-child:nth-child(odd)]:col-span-full">
         <StatTile label="Spent" value={fmtNOK(sums.totalOut)} />
         <StatTile label="Income" value={fmtNOK(sums.totalIn)} />
         <StatTile label="Net" value={fmtNOK(sums.net)} />
       </div>
-      <div className={CARD_GRID}>
-        <TransactionsCard
-          txns={shown}
-          search={filters.search}
-          onSearch={(search) =>
-            onFilters((current) => ({ ...current, search }))
-          }
-          onMerchant={pick(onFilters, "merchants")}
-          onCategory={pick(onFilters, "categories")}
-          onAccount={pick(onFilters, "accounts")}
-          onFile={onFile}
-          onBulk={onBulk}
-        />
-      </div>
+      <TransactionsCard
+        txns={shown}
+        search={filters.search}
+        onSearch={(search) => onFilters((current) => ({ ...current, search }))}
+        onMerchant={pick(onFilters, "merchants")}
+        onCategory={pick(onFilters, "categories")}
+        onAccount={pick(onFilters, "accounts")}
+        onFile={onFile}
+        onBulk={onBulk}
+      />
       <ExcludedNote excluded={totals(rows).excluded} where="in view" />
     </>
   );

@@ -5,66 +5,46 @@ import {
   CATEGORY_VALUED,
   isMapFile,
   type RuleFile,
-  type Rules,
   type RuleMap,
 } from "../../core/ruleFiles.ts";
 import type { Categorized } from "../../core/types.ts";
-import { Empty, Loading } from "./Cards.tsx";
+import { Empty, Loading, Panel } from "./Cards.tsx";
 import { SearchBox } from "./SearchBox.tsx";
 import type { RulesApi } from "./data.ts";
-import { AddedIcon, BackIcon, Icon } from "./icons.ts";
-import { Modal } from "./Modal.tsx";
-import { PreferencesView, RememberDialog } from "./Preferences.tsx";
-
-export const RULE_LABEL: Record<RuleFile, string> = {
-  categories: "Categories",
-  preferences: "Remembered categories",
-  giro: "Giro",
-  payees: "Payee names",
-  countries: "Countries",
-  labels: "Category names",
-  family: "Family",
-  subscriptions: "Subscriptions",
-  "not-subscriptions": "Not subscriptions",
-};
-
-const RULE_NOTE: Record<RuleFile, string> = {
-  categories:
-    "Patterns set categories unless an exclusion or a remembered category applies.",
-  preferences: "Save a category for an exact payee and payment context.",
-  giro: "Pattern to category, on a lump only. A giro or a plain Overførsel, never an instant payment.",
-  payees:
-    "Pattern to the name on the page. A rename can never move money, so this file is safe to edit.",
-  countries:
-    "Pattern to the country on the row. It beats the country the code reads off the card name.",
-  labels: "Slug to the name on the page. Write the slug as category/sub.",
-  family:
-    "A relative, by name or by account number. Money in is from family. Money out is a repayment.",
-  subscriptions: "A pattern that makes a subscription certain.",
-  "not-subscriptions": "A pattern that denies the guess the bank made.",
-};
-
-export const entriesOf = (rules: Rules): [string, string | null][] =>
-  Array.isArray(rules)
-    ? rules.map((key) => [key, null])
-    : Object.entries(rules);
-
+import { AddedIcon, ErrorIcon, Icon } from "./icons.ts";
+import { PreferencesView } from "./Preferences.tsx";
+import { RULE_GROUPS, RULE_LABEL, RULE_NOTE, entriesOf } from "./ruleMeta.ts";
+import { Badge } from "./ui/badge.tsx";
+import { Button } from "./ui/button.tsx";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "./ui/collapsible.tsx";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select.tsx";
 import {
   AddForm,
-  BUTTON,
   CELL,
   CategoryInput,
   Entry,
-  FIELD,
   KEY_LABEL,
-  MatchNote,
   PatternField,
   RemoveButton,
   VALUE_LABEL,
   rowsFor,
 } from "./RuleFields.tsx";
+import { History } from "./RuleHistory.tsx";
+
 const GROUP_FIELD =
-  "min-w-20 max-w-full flex-1 bg-transparent px-2 py-1 font-mono text-xs text-ink outline-none";
+  "min-w-20 max-w-full flex-1 bg-transparent px-2 py-1 font-mono text-xs outline-none";
 
 const GROUPED = new Set<RuleFile>([
   "categories",
@@ -101,7 +81,7 @@ const GroupEntry = ({ file, value, keys, pairs, rules }: GroupEntryProps) => {
   };
 
   return (
-    <li className="grid gap-2 border-b border-line py-2 last:border-0 sm:grid-cols-[1fr_1.4fr] sm:items-start">
+    <li className="grid gap-2 border-b py-2.5 last:border-0 sm:grid-cols-[1fr_1.4fr] sm:items-start">
       {CATEGORY_VALUED.has(file) ? (
         <CategoryInput
           value={next}
@@ -118,14 +98,14 @@ const GroupEntry = ({ file, value, keys, pairs, rules }: GroupEntryProps) => {
           onChange={(e) => setNext(e.target.value)}
           onBlur={(e) => commit(e.target.value.trim())}
           onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-          className={`${CELL} w-full text-ink-soft`}
+          className={`${CELL} w-full text-muted-foreground`}
         />
       )}
       <div className="flex min-w-0 flex-wrap gap-1.5">
         {keys.map((key) => (
           <span
             key={key}
-            className="flex min-w-0 max-w-full items-center rounded-md border border-line bg-page"
+            className="flex min-w-0 max-w-full items-center rounded-md border bg-muted/40"
           >
             <PatternField
               defaultValue={key}
@@ -147,7 +127,7 @@ const GroupEntry = ({ file, value, keys, pairs, rules }: GroupEntryProps) => {
         ))}
         {adding ? (
           <form
-            className="flex min-w-0 max-w-full rounded-md border border-series-1 bg-page"
+            className="flex min-w-0 max-w-full rounded-md border border-ring bg-background ring-3 ring-ring/30"
             onSubmit={(e) => {
               e.preventDefault();
               const key = pattern.trim();
@@ -175,7 +155,7 @@ const GroupEntry = ({ file, value, keys, pairs, rules }: GroupEntryProps) => {
               // form before the click lands.
               onMouseDown={(e) => e.preventDefault()}
               disabled={!pattern.trim() || rules.busy}
-              className="shrink-0 rounded px-2 text-xs text-ink-soft disabled:opacity-40"
+              className="shrink-0 rounded px-2 text-xs text-muted-foreground disabled:opacity-40"
             >
               Add
             </button>
@@ -187,7 +167,7 @@ const GroupEntry = ({ file, value, keys, pairs, rules }: GroupEntryProps) => {
             disabled={rules.busy}
             aria-label={`Add ${KEY_LABEL[file]}`}
             title={`Add ${KEY_LABEL[file]}`}
-            className="relative rounded-md border border-dashed border-line px-2 py-1.5 text-ink-muted before:absolute before:-inset-1 hover:border-series-1 hover:text-ink"
+            className="relative rounded-md border border-dashed px-2 py-1.5 text-muted-foreground before:absolute before:-inset-1 hover:border-ring hover:text-foreground"
           >
             <Icon icon={AddedIcon} size={12} />
           </button>
@@ -196,8 +176,6 @@ const GroupEntry = ({ file, value, keys, pairs, rules }: GroupEntryProps) => {
     </li>
   );
 };
-
-import { History } from "./RuleHistory.tsx";
 
 export interface RulesViewProps {
   rules: RulesApi;
@@ -261,72 +239,82 @@ export const RulesView = ({
 
   if (stale)
     return (
-      <section className="space-y-3 text-sm">
-        <p>
+      <Panel title="Rebuild needed" icon={ErrorIcon}>
+        <p className="mb-3 text-sm text-muted-foreground">
           Rebuild saved transactions to use the original payee text. This does
           not contact the bank.
         </p>
-        <button
-          type="button"
-          className={BUTTON}
+        <Button
+          variant="outline"
+          className="self-start"
           disabled={rules.busy}
           onClick={rules.rebuild}
         >
           Rebuild saved transactions
-        </button>
-      </section>
+        </Button>
+      </Panel>
     );
   if (file === "preferences")
     return <PreferencesView rules={rules} txns={txns} pairs={pairs} />;
 
   return (
-    <section className="flex min-w-0 flex-col">
-      <p className="mb-3 text-sm text-ink-muted">{RULE_NOTE[file]}</p>
+    <section className="flex min-w-0 flex-col gap-4">
+      <p className="text-sm text-muted-foreground">{RULE_NOTE[file]}</p>
       {conflicts.length > 0 && (
-        <details className="mb-4 min-w-0 rounded-md border border-line p-3 text-xs">
-          <summary className="cursor-pointer text-critical">
-            Conflicting rules ({conflicts.length})
-          </summary>
-          <p className="my-2">
-            These rules assign different values to the same transactions. The
-            first matching rule wins.
-          </p>
-          <ul className="space-y-3">
-            {conflicts.map((c) => (
-              <li
-                key={`${c.winner}|${c.loser}`}
-                className="break-words [overflow-wrap:anywhere]"
-              >
-                <p>
-                  <code>{c.winner}</code> → {c.winnerValue}
-                </p>
-                <p>
-                  Overrides <code>{c.loser}</code> → {c.loserValue}
-                </p>
-                <p>{c.rows} matching transaction(s).</p>
-              </li>
-            ))}
-          </ul>
-        </details>
+        <Collapsible className="min-w-0 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs">
+          <CollapsibleTrigger asChild>
+            <Button variant="link" className="h-7 px-0 text-destructive">
+              <Icon icon={ErrorIcon} size={14} />
+              Conflicting rules ({conflicts.length})
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <p className="my-2">
+              These rules assign different values to the same transactions. The
+              first matching rule wins.
+            </p>
+            <ul className="space-y-3 pb-1">
+              {conflicts.map((c) => (
+                <li
+                  key={`${c.winner}|${c.loser}`}
+                  className="break-words [overflow-wrap:anywhere]"
+                >
+                  <p>
+                    <code>{c.winner}</code> → {c.winnerValue}
+                  </p>
+                  <p>
+                    Overrides <code>{c.loser}</code> → {c.loserValue}
+                  </p>
+                  <p>{c.rows} matching transaction(s).</p>
+                </li>
+              ))}
+            </ul>
+          </CollapsibleContent>
+        </Collapsible>
       )}
 
       {data === null ? (
         <Loading />
       ) : (
-        <div className="lg:grid lg:grid-cols-[minmax(min(460px,100%),1fr)_20rem] lg:items-start lg:gap-6">
-          <div className="min-w-0">
+        <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+          <Panel
+            title={RULE_LABEL[file]}
+            description={`${entries.length} rule(s)`}
+            action={
+              <SearchBox
+                value={find}
+                onChange={setFind}
+                placeholder="Find a rule…"
+                className="w-36 sm:w-56"
+              />
+            }
+          >
             <AddForm
               file={file}
               rules={rules}
               txns={txns}
               haystacks={haystacks}
               pairs={pairs}
-            />
-
-            <SearchBox
-              value={find}
-              onChange={setFind}
-              placeholder="Find a rule…"
             />
 
             {!hasMatches ? (
@@ -338,7 +326,7 @@ export const RulesView = ({
             ) : (
               <>
                 <div
-                  className={`mt-3 hidden border-b border-line pb-1 text-[11px] text-ink-muted ${grouped ? "sm:grid sm:grid-cols-[1fr_1.4fr] sm:gap-2" : rowsFor(isMapFile(file))}`}
+                  className={`hidden border-b pb-1.5 text-xs font-medium text-muted-foreground ${grouped ? "sm:grid sm:grid-cols-[1fr_1.4fr] sm:gap-2" : rowsFor(isMapFile(file))}`}
                 >
                   {grouped ? (
                     <>
@@ -379,7 +367,7 @@ export const RulesView = ({
                 </ul>
               </>
             )}
-          </div>
+          </Panel>
 
           <History file={file} rules={rules} />
         </div>
@@ -388,112 +376,43 @@ export const RulesView = ({
   );
 };
 
-// The card row carries the city and the country after a comma. The first
-// segment is the merchant, and that is the pattern a reader wants.
-export const suggestPattern = (t: Categorized): string =>
-  (t.description.split(",")[0] ?? t.description).trim().toLowerCase();
-
-export interface FileDialogProps {
-  txn: Categorized;
+interface RuleFileSelectProps {
   file: RuleFile;
-  rules: RulesApi;
-  txns: Categorized[];
-  pairs: string[];
-  onClose: () => void;
+  onFile: (file: RuleFile) => void;
+  counts: Partial<Record<RuleFile, number>>;
 }
 
-const PatternDialog = ({
-  txn,
+export const RuleFileSelect = ({
   file,
-  rules,
-  txns,
-  pairs,
-  onClose,
-}: FileDialogProps) => {
-  const [pattern, setPattern] = useState(() => suggestPattern(txn));
-  const map = isMapFile(file);
-  const [value, setValue] = useState(() => {
-    if (CATEGORY_VALUED.has(file))
-      return txn.subcategory
-        ? `${txn.category}/${txn.subcategory}`
-        : txn.category;
-    if (file === "payees") return txn.counterparty ?? "";
-    if (file === "countries") return txn.country ?? "";
-    return "";
-  });
-  const haystacks = useMemo(() => txns.map(haystackOf), [txns]);
-  const ready = pattern.trim() !== "" && (!map || value.trim() !== "");
-
-  return (
-    <Modal onClose={onClose} className="w-[min(960px,92vw)]">
-      <form
-        method="dialog"
-        className="flex flex-col gap-3 p-5"
-        onSubmit={() => {
-          if (ready)
-            rules.save(file, pattern.trim(), map ? value.trim() : undefined);
-        }}
-      >
-        <h2 className="text-base font-semibold">{RULE_LABEL[file]}</h2>
-        <p className="text-[11px] text-ink-muted">{RULE_NOTE[file]}</p>
-
-        <label className="flex flex-col gap-1 text-xs text-ink-soft">
-          Pattern
-          <PatternField
-            value={pattern}
-            onChange={(e) => setPattern(e.target.value)}
-            className={`${FIELD} font-mono`}
-          />
-        </label>
-        <MatchNote pattern={pattern} txns={txns} haystacks={haystacks} />
-
-        {map && (
-          <label className="flex flex-col gap-1 text-xs text-ink-soft [&>div]:basis-auto">
-            {VALUE_LABEL[file]}
-            {CATEGORY_VALUED.has(file) ? (
-              <CategoryInput
-                value={value}
-                pairs={pairs}
-                label={VALUE_LABEL[file]}
-                onChange={setValue}
-                className={FIELD}
-                dropUp
-              />
-            ) : (
-              <input
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
-                className={FIELD}
-              />
-            )}
-          </label>
-        )}
-
-        <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className={`${BUTTON} flex items-center gap-1.5`}
-          >
-            <Icon icon={BackIcon} size={14} />
-            Back
-          </button>
-          <button
-            type="submit"
-            disabled={!ready}
-            className={`${BUTTON} bg-series-1 text-white`}
-          >
-            Save
-          </button>
-        </div>
-      </form>
-    </Modal>
-  );
-};
-
-export const FileDialog = (props: FileDialogProps) =>
-  props.file === "preferences" ? (
-    <RememberDialog {...props} />
-  ) : (
-    <PatternDialog {...props} />
-  );
+  onFile,
+  counts,
+}: RuleFileSelectProps) => (
+  <Select value={file} onValueChange={(f) => onFile(f as RuleFile)}>
+    <SelectTrigger
+      aria-label="Rule file"
+      className="min-w-0 flex-1 sm:w-64 sm:flex-none"
+    >
+      <SelectValue />
+    </SelectTrigger>
+    <SelectContent position="popper" align="start">
+      {RULE_GROUPS.map(([label, files]) => (
+        <SelectGroup key={label}>
+          <SelectLabel>{label}</SelectLabel>
+          {files.map((f) => (
+            <SelectItem key={f} value={f}>
+              {RULE_LABEL[f]}
+              {counts[f] !== undefined && (
+                <Badge
+                  variant="secondary"
+                  className="ml-auto h-4.5 px-1.5 tabular-nums"
+                >
+                  {counts[f]}
+                </Badge>
+              )}
+            </SelectItem>
+          ))}
+        </SelectGroup>
+      ))}
+    </SelectContent>
+  </Select>
+);

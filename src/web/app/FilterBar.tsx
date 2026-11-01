@@ -1,31 +1,27 @@
-import { useRef, useState, type ReactNode } from "react";
-import type { Axis, Filters, PeriodKind } from "../../core/select.ts";
-import { axisPairs, cycleFilter, NO_COUNTRY } from "../../core/select.ts";
-import { PILL } from "./Cards.tsx";
-import { CONTROL, Menu, PANEL, Picker } from "./FilterPicker.tsx";
-import { FilterSummary } from "./FilterSummary.tsx";
+import type { Axis, Filters } from "../../core/select.ts";
+import {
+  axisPairs,
+  cycleFilter,
+  NO_COUNTRY,
+  NO_FILTERS,
+} from "../../core/select.ts";
+import { Picker } from "./FilterPicker.tsx";
 import { pairLabel, treeLabel } from "./format.ts";
-import { rovingTab } from "./Shortcuts.tsx";
+import {
+  CloseIcon,
+  Icon,
+  ResetFiltersIcon,
+  ShowExcludedIcon,
+} from "./icons.ts";
+import { Badge } from "./ui/badge.tsx";
+import { Button } from "./ui/button.tsx";
+import { Toggle } from "./ui/toggle.tsx";
+import { cn } from "./ui/utils.ts";
 
 export type View = "dashboard" | "insights" | "transactions" | "rules";
 
-const VIEWS: View[] = ["dashboard", "transactions", "insights", "rules"];
-
 interface FilterBarProps {
   view: View;
-  onView: (view: View) => void;
-  // What the rules page puts where the filters go. This bar knows no rule, so
-  // App composes it and hands it over whole.
-  tabs: ReactNode;
-  months: string[];
-  years: string[];
-  period: string;
-  kind: PeriodKind;
-  from: string | null;
-  to: string | null;
-  earliest: string;
-  latest: string;
-  onPeriod: (period: string) => void;
   categories: string[];
   subcategories: string[];
   merchants: string[];
@@ -36,173 +32,41 @@ interface FilterBarProps {
   onFilters: (filters: Filters) => void;
 }
 
-// A phone gives each control of a group an equal share of one line, because
-// none of them needs the whole width. Above `sm` the group is only the gap
-// between its members, so the bar reads as one row of controls.
-const GROUP = "flex flex-wrap items-center gap-2 max-sm:w-full max-sm:*:flex-1";
-
-const MONTH_NAMES = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-];
-
-const realDate = (d: string): string => {
-  const [y, m, day] = d.split("-").map(Number) as [number, number, number];
-  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
-  return day > last ? `${d.slice(0, 8)}${last}` : d;
+const AXIS_NAME: Record<Axis, string> = {
+  categories: "Category",
+  merchants: "Merchant",
+  accounts: "Account",
+  countries: "Country",
 };
 
-interface PeriodMenuProps {
-  months: string[];
-  years: string[];
-  period: string;
-  kind: PeriodKind;
-  from: string | null;
-  to: string | null;
-  onPeriod: (period: string) => void;
+interface ChipProps {
+  axis: string;
+  text: string;
+  out?: boolean;
+  onRemove: () => void;
 }
 
-const PeriodMenu = ({
-  months,
-  years,
-  period,
-  kind,
-  from,
-  to,
-  onPeriod,
-}: PeriodMenuProps) => {
-  const menu = useRef<HTMLDetailsElement>(null);
-  const [looking, setLooking] = useState<string | null>(null);
-
-  const inView = kind === "month" || kind === "year" ? period.slice(0, 4) : "";
-  const latest = years[years.length - 1] ?? "";
-  const shown = looking ?? (inView || latest);
-  const has = (m: number) =>
-    months.includes(`${shown}-${String(m + 1).padStart(2, "0")}`);
-
-  const choose = (next: string) => {
-    onPeriod(next);
-    if (menu.current) menu.current.open = false;
-  };
-
-  const label =
-    kind === "all"
-      ? "All time"
-      : kind === "custom"
-        ? "Custom range"
-        : kind === "year"
-          ? period
-          : `${MONTH_NAMES[Number(period.slice(5)) - 1]} ${period.slice(0, 4)}`;
-
-  const ROW =
-    "rounded px-2 py-1 text-left text-[13px] hover:bg-hover disabled:cursor-default disabled:opacity-35 disabled:hover:bg-transparent";
-  const ON = "bg-series-1 text-white hover:bg-series-1";
-
-  return (
-    <Menu
-      ref={menu}
-      label={label}
-      onToggle={(e) => {
-        if (!e.currentTarget.open) setLooking(null);
-      }}
+const Chip = ({ axis, text, out, onRemove }: ChipProps) => (
+  <Badge
+    variant={out ? "destructive" : "secondary"}
+    className="h-6 max-w-full gap-1 pr-0.5 pl-2 font-normal"
+  >
+    <span className="opacity-70">{axis}:</span>
+    {out && <span className="font-medium">not</span>}
+    <span className={cn("truncate", out && "line-through")}>{text}</span>
+    <button
+      type="button"
+      onClick={onRemove}
+      aria-label={`Remove ${out ? "exclusion " : ""}${text}`}
+      className="flex size-5 shrink-0 items-center justify-center rounded-full opacity-70 hover:bg-foreground/10 hover:opacity-100"
     >
-      <div className={`absolute left-0 z-20 mt-1 w-72 ${PANEL}`}>
-        {/* The two periods that sit inside no year, above the ones that do. */}
-        <div className="mb-1.5 flex gap-1 border-b border-line pb-1.5">
-          <button
-            type="button"
-            onClick={() => choose("all")}
-            className={`flex-1 ${ROW} ${kind === "all" ? ON : ""}`}
-          >
-            All time
-          </button>
-          <button
-            type="button"
-            onClick={() => choose(`${from ?? ""}..${to ? realDate(to) : ""}`)}
-            className={`flex-1 ${ROW} ${kind === "custom" ? ON : ""}`}
-          >
-            Custom range
-          </button>
-        </div>
-
-        <div className="flex gap-1.5">
-          {/* Newest first: the year you want is nearly always one of the last
-              few, and 24 of them the other way round opens the menu two
-              decades from anything worth clicking. */}
-          <div className="flex max-h-56 w-16 shrink-0 flex-col overflow-y-auto">
-            {[...years].reverse().map((y) => (
-              <button
-                key={y}
-                type="button"
-                onPointerEnter={() => setLooking(y)}
-                onFocus={() => setLooking(y)}
-                onClick={() => setLooking(y)}
-                aria-expanded={y === shown}
-                className={`${ROW} shrink-0 ${y === shown ? "bg-hover font-medium text-ink" : "text-ink-soft"}`}
-              >
-                {y}
-              </button>
-            ))}
-          </div>
-
-          <div className="min-w-0 flex-1 border-l border-line pl-1.5">
-            <button
-              type="button"
-              onClick={() => choose(shown)}
-              className={`mb-1 w-full ${ROW} ${period === shown ? ON : ""}`}
-            >
-              Whole year
-            </button>
-            {/* All twelve, disabled where there is nothing — a grid with the
-                empty months missing loses the shape that makes it readable at
-                a glance. */}
-            <div className="grid grid-cols-3 gap-0.5">
-              {MONTH_NAMES.map((name, i) => {
-                const m = `${shown}-${String(i + 1).padStart(2, "0")}`;
-                return (
-                  <button
-                    key={name}
-                    type="button"
-                    disabled={!has(i)}
-                    onClick={() => choose(m)}
-                    aria-label={`${name} ${shown}`}
-                    className={`${ROW} text-center ${period === m ? ON : ""}`}
-                  >
-                    {name.slice(0, 3)}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </div>
-    </Menu>
-  );
-};
+      <Icon icon={CloseIcon} size={12} />
+    </button>
+  </Badge>
+);
 
 export const FilterBar = ({
   view,
-  onView,
-  tabs,
-  months,
-  years,
-  period,
-  kind,
-  from,
-  to,
-  earliest,
-  latest,
-  onPeriod,
   categories,
   subcategories,
   merchants,
@@ -214,15 +78,11 @@ export const FilterBar = ({
 }: FilterBarProps) => {
   const toggle = (key: Axis) => (value: string, exclude: boolean) =>
     onFilters(cycleFilter(filters, key, value, exclude));
-  const toggleCategory = toggle("categories");
 
   const subsOf = (category: string) =>
     subcategories.filter(
       (pair) => pair.slice(0, pair.indexOf("/")) === category,
     );
-  const toggleMerchant = toggle("merchants");
-  const toggleAccount = toggle("accounts");
-  const toggleCountry = toggle("countries");
 
   const labelOf = (axis: Axis, value: string) =>
     axis === "categories"
@@ -233,158 +93,100 @@ export const FilterBar = ({
         ? "No country"
         : value;
 
-  const picked = axisPairs().reduce(
-    (n, [key, outKey]) => n + filters[key].length + filters[outKey].length,
-    0,
-  );
-
-  const active =
-    picked + (filters.search !== "" && view !== "transactions" ? 1 : 0);
-  const dirty = picked > 0 || filters.search !== "" || filters.showExcluded;
-
-  const Views = () => (
-    <div
-      role="tablist"
-      aria-label="Page"
-      className="inline-flex overflow-hidden rounded-md border border-line"
-    >
-      {VIEWS.map((v, i) => (
-        <button
-          key={v}
-          type="button"
-          role="tab"
-          aria-selected={view === v}
-          tabIndex={view === v ? 0 : -1}
-          onClick={() => onView(v)}
-          onKeyDown={(e) => rovingTab(e, VIEWS, i, onView)}
-          className={`px-2 py-1.5 text-[13px] capitalize sm:px-3 ${PILL(view === v)}`}
-        >
-          {v}
-        </button>
-      ))}
-    </div>
-  );
-
-  // The rules are not a period and they take no filter. The rule files take
-  // the row instead, rather than a line of controls that change nothing on the
-  // page below.
-  if (view === "rules")
-    return (
-      <div className="flex flex-wrap items-center gap-2">
-        <Views />
-        {tabs}
-      </div>
-    );
+  const chips = axisPairs().flatMap(([key, outKey]) => [
+    ...filters[key].map((v) => ({ key, list: key, v, out: false })),
+    ...filters[outKey].map((v) => ({ key, list: outKey, v, out: true })),
+  ]);
+  const searchChip = filters.search !== "" && view !== "transactions";
+  const dirty =
+    chips.length > 0 || filters.search !== "" || filters.showExcluded;
+  const PICKER = "max-sm:flex-1 max-sm:basis-[calc(50%-0.25rem)]";
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <Views />
-
-      {/* One menu: the years, and the months of whichever one is pointed at. */}
-
-      <div className={GROUP}>
-        <PeriodMenu
-          months={months}
-          years={years}
-          period={period}
-          kind={kind}
-          from={from}
-          to={to}
-          onPeriod={onPeriod}
-        />
-
-        {kind === "custom" && (
-          <>
-            <input
-              type="date"
-              className={CONTROL}
-              value={from ?? ""}
-              min={earliest}
-              max={to ?? latest}
-              onChange={(e) => onPeriod(`${e.target.value}..${to ?? ""}`)}
-              aria-label="From"
-            />
-            <input
-              type="date"
-              className={CONTROL}
-              value={to ?? ""}
-              min={from ?? earliest}
-              max={latest}
-              onChange={(e) => onPeriod(`${from ?? ""}..${e.target.value}`)}
-              aria-label="To"
-            />
-          </>
-        )}
-
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Picker
           title="Categories"
           options={categories}
           picked={filters.categories}
           excluded={filters.categoriesOut}
-          onToggle={toggleCategory}
+          onToggle={toggle("categories")}
           label={(c) => treeLabel(c, subsOf(c))}
           subs={subsOf}
           subLabel={pairLabel}
+          className={PICKER}
         />
-
         <Picker
           title="Merchants"
           options={merchants}
           picked={filters.merchants}
           excluded={filters.merchantsOut}
-          onToggle={toggleMerchant}
+          onToggle={toggle("merchants")}
           people={people}
-          right
+          className={PICKER}
         />
-      </div>
-
-      <div className={GROUP}>
-        {/* A handful of accounts, so it needs no search box either. */}
         <Picker
           title="Accounts"
           options={accounts}
           picked={filters.accounts}
           excluded={filters.accountsOut}
-          onToggle={toggleAccount}
+          onToggle={toggle("accounts")}
+          className={PICKER}
         />
-
-        {/* The dash at the end of the list is a foreign booking that names no
-            place, not a row without data — see `NO_COUNTRY`. */}
         <Picker
           title="Countries"
           options={countries}
           picked={filters.countries}
           excluded={filters.countriesOut}
-          onToggle={toggleCountry}
+          onToggle={toggle("countries")}
           label={(c) => (c === NO_COUNTRY ? "No country" : c)}
-          right
+          className={PICKER}
         />
-
-        {/* Not a Picker: there is nothing to pick, only whether the flagged rows
-            are listed at all. No number moves either way — `stats.ts` has already
-            left them out of every sum — so this shows the audit trail, and never
-            re-counts a transfer as spending. */}
-        <button
-          type="button"
-          aria-pressed={filters.showExcluded}
-          onClick={() =>
-            onFilters({ ...filters, showExcluded: !filters.showExcluded })
+        <Toggle
+          variant="outline"
+          pressed={filters.showExcluded}
+          onPressedChange={(showExcluded) =>
+            onFilters({ ...filters, showExcluded })
           }
-          className={`${CONTROL} whitespace-nowrap ${filters.showExcluded ? "bg-series-1 text-white" : "text-ink-soft"}`}
+          className="font-normal max-sm:flex-1 data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
         >
-          <span className="sm:hidden">Excluded</span>
-          <span className="max-sm:hidden">Excluded rows</span>
-        </button>
+          <Icon icon={ShowExcludedIcon} size={15} />
+          Excluded rows
+        </Toggle>
+        {dirty && (
+          <Button
+            variant="ghost"
+            onClick={() => onFilters(NO_FILTERS)}
+            className="text-muted-foreground max-sm:flex-1"
+          >
+            <Icon icon={ResetFiltersIcon} size={15} />
+            Reset
+          </Button>
+        )}
       </div>
-
-      {dirty && (
-        <div className="ml-auto max-sm:flex-none">
-          <FilterSummary
-            filters={filters}
-            onFilters={onFilters}
-            labelOf={labelOf}
-            active={active}
-          />
+      {(chips.length > 0 || searchChip) && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {chips.map(({ key, list, v, out }) => (
+            <Chip
+              key={`${key}:${out}:${v}`}
+              axis={AXIS_NAME[key]}
+              text={labelOf(key, v)}
+              out={out}
+              onRemove={() =>
+                onFilters({
+                  ...filters,
+                  [list]: filters[list].filter((x) => x !== v),
+                })
+              }
+            />
+          ))}
+          {searchChip && (
+            <Chip
+              axis="Search"
+              text={filters.search}
+              onRemove={() => onFilters({ ...filters, search: "" })}
+            />
+          )}
         </div>
       )}
     </div>

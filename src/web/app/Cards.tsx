@@ -12,16 +12,21 @@ import {
   UpIcon,
   type IconSvgElement,
 } from "./icons.ts";
-
-export const BUTTON =
-  "shrink-0 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-ink-soft disabled:opacity-60";
-
-// The picked half of a segmented control, and the rest of it.
-export const PILL = (on: boolean): string =>
-  on ? "bg-series-1 text-white" : "bg-page text-ink-soft";
+import { Badge } from "./ui/badge.tsx";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "./ui/card.tsx";
+import { cn } from "./ui/utils.ts";
 
 export const Empty = ({ children }: { children: ReactNode }) => (
-  <div className="py-10 text-center text-ink-muted">{children}</div>
+  <div className="py-10 text-center text-sm text-muted-foreground">
+    {children}
+  </div>
 );
 
 interface NoteProps {
@@ -32,52 +37,70 @@ interface NoteProps {
 
 export const Note = ({ icon, className = "", children }: NoteProps) => (
   <p
-    className={`flex items-start gap-1.5 text-[11px] text-ink-muted ${className}`}
+    className={cn(
+      "flex items-start gap-1.5 text-xs text-muted-foreground",
+      className,
+    )}
   >
-    <Icon icon={icon} size={12} className="mt-px shrink-0" />
+    <Icon icon={icon} size={13} className="mt-px shrink-0" />
     <span>{children}</span>
   </p>
 );
 
-// Points right when shut and down when open.
 export const Caret = ({ open }: { open: boolean }) => (
   <Icon
     icon={ExpandIcon}
     size={12}
-    className={`transition-transform ${open ? "rotate-90" : ""}`}
+    className={cn("transition-transform", open && "rotate-90")}
   />
 );
 
 export const Loading = () => (
-  <div className="flex items-center justify-center gap-2 py-10 text-ink-muted">
+  <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
     <Icon icon={LoadingIcon} size={16} className="animate-spin" />
     Loading…
   </div>
 );
 
-interface CardProps {
-  title: string;
+interface PanelProps {
+  title: ReactNode;
   icon?: IconSvgElement;
+  description?: ReactNode;
   action?: ReactNode;
+  className?: string;
   children: ReactNode;
 }
 
-export const Card = ({ title, icon, action, children }: CardProps) => (
-  <section className="flex min-w-0 flex-col">
-    <h2 className="mb-2.5 flex items-center gap-1.5 text-sm font-semibold">
-      {icon && (
-        <Icon icon={icon} size={15} className="shrink-0 text-ink-soft" />
+export const Panel = ({
+  title,
+  icon,
+  description,
+  action,
+  className,
+  children,
+}: PanelProps) => (
+  <Card className={cn("min-w-0 gap-3", className)}>
+    <CardHeader>
+      <CardTitle className="flex items-center gap-2 text-sm font-medium">
+        {icon && (
+          <Icon icon={icon} size={16} className="text-muted-foreground" />
+        )}
+        {title}
+      </CardTitle>
+      {description && (
+        <CardDescription className="text-xs">{description}</CardDescription>
       )}
-      {title}
-      {action && <span className="ml-auto font-normal">{action}</span>}
-    </h2>
-    {children}
-  </section>
+      {action && <CardAction>{action}</CardAction>}
+    </CardHeader>
+    <CardContent className="flex min-w-0 flex-1 flex-col">
+      {children}
+    </CardContent>
+  </Card>
 );
 
 export interface Delta {
   raw: number;
-  pct: number;
+  pct: number | null;
   good: boolean;
 }
 
@@ -87,9 +110,27 @@ export const deltaInfo = (
   goodIfUp: boolean,
 ): Delta => {
   const raw = Math.round((current - previous) * 100) / 100;
-  const pct = previous !== 0 ? raw / Math.abs(previous) : raw === 0 ? 0 : 1;
+  const pct = previous > 0 && current >= 0 ? raw / previous : null;
   return { raw, pct, good: raw === 0 ? true : goodIfUp === raw > 0 };
 };
+
+const deltaTone = (delta: Delta) =>
+  Math.abs(delta.raw) < 0.5
+    ? "text-muted-foreground"
+    : delta.good
+      ? "text-good"
+      : "text-bad";
+
+const DeltaIcon = ({ delta }: { delta: Delta }) => (
+  <Icon
+    aria-hidden={false}
+    role="img"
+    aria-label={delta.raw > 0 ? "up" : delta.raw < 0 ? "down" : "unchanged"}
+    icon={delta.raw > 0 ? UpIcon : delta.raw < 0 ? DownIcon : FlatIcon}
+    size={13}
+    className="shrink-0"
+  />
+);
 
 interface StatTileProps {
   label: string;
@@ -100,56 +141,33 @@ interface StatTileProps {
 }
 
 export const StatTile = ({ label, value, delta, vs, sub }: StatTileProps) => (
-  <div className="rounded-[10px] border border-line px-4 py-3.5">
-    <div className="text-xs text-ink-soft">{label}</div>
-    {/* Smaller on a phone, where two tiles share a 375px row: `123 456 kr` at
-        26px is wider than the 128px a tile has left inside its own padding, and
-        a six-figure total is the ordinary case here rather than the outlier. */}
-    <div className="mt-1 min-w-0 break-words text-[22px] font-semibold sm:text-[26px]">
-      {value}
-    </div>
-    {sub && <div className="mt-1 text-xs text-ink-muted">{sub}</div>}
-    {delta && (
-      <div
-        className={`mt-1 flex items-center gap-1 text-xs ${Math.abs(delta.pct) < 0.005 ? "text-ink-muted" : delta.good ? "text-good" : "text-critical"}`}
-      >
-        {/* Labelled, not decorative: direction is otherwise only in the colour. */}
-        <Icon
-          aria-hidden={false}
-          role="img"
-          aria-label={
-            delta.raw > 0 ? "up" : delta.raw < 0 ? "down" : "unchanged"
-          }
-          icon={delta.raw > 0 ? UpIcon : delta.raw < 0 ? DownIcon : FlatIcon}
-          size={14}
-          className="shrink-0"
-        />
-        {fmtNOK(Math.abs(delta.raw))} vs {vs}
-      </div>
+  <Card className="min-w-0 gap-1.5 py-3.5 [--card-spacing:--spacing(3.5)] sm:[--card-spacing:--spacing(4)]">
+    <CardHeader>
+      <CardDescription className="flex min-h-5 items-center justify-between gap-2 text-xs">
+        <span className="truncate">{label}</span>
+        {delta?.pct != null && (
+          <Badge variant="outline" className={cn("gap-0.5", deltaTone(delta))}>
+            <DeltaIcon delta={delta} />
+            {fmtPct(Math.abs(delta.pct))}
+          </Badge>
+        )}
+      </CardDescription>
+      <CardTitle className="min-w-0 text-xl font-semibold tracking-tight break-words tabular-nums sm:text-[26px]">
+        {value}
+      </CardTitle>
+    </CardHeader>
+    {(sub || delta) && (
+      <CardContent className="space-y-0.5 text-xs text-muted-foreground">
+        {delta && (
+          <div className={deltaTone(delta)}>
+            {delta.raw > 0 ? "+" : delta.raw < 0 ? "−" : "±"}
+            {fmtNOK(Math.abs(delta.raw))} vs {vs}
+          </div>
+        )}
+        {sub && <div>{sub}</div>}
+      </CardContent>
     )}
-  </div>
-);
-
-interface MeterTileProps {
-  label: string;
-  share: number;
-  note?: string;
-}
-
-export const MeterTile = ({ label, share, note }: MeterTileProps) => (
-  <div className="rounded-[10px] border border-line px-4 py-3.5">
-    <div className="text-xs text-ink-soft">{label}</div>
-    <div className="mt-1 text-[22px] font-semibold sm:text-[26px]">
-      {fmtPct(share)}
-    </div>
-    <div className="mt-2 h-2.5 overflow-hidden rounded-md bg-series-1-track">
-      <div
-        className="h-full rounded-md bg-series-1"
-        style={{ width: `${Math.min(share * 100, 100)}%` }}
-      />
-    </div>
-    {note && <div className="mt-1.5 text-[11px] text-ink-muted">{note}</div>}
-  </div>
+  </Card>
 );
 
 const Sizer = ({ of }: { of: string[] }) => (
@@ -198,9 +216,30 @@ export const PickCell = ({
       if (!highlighting(e)) onPick(value, e.metaKey);
     }}
     style={color ? { color } : undefined}
-    className="text-left hover:underline"
+    className="text-left underline-offset-2 hover:underline"
   >
     {label}
+  </button>
+);
+
+const SortHeader = ({ c }: { c: Column }) => (
+  <button
+    type="button"
+    onClick={c.onClick}
+    className="inline-flex items-center gap-1 font-medium text-muted-foreground hover:text-foreground"
+  >
+    {c.label}
+    <Icon
+      icon={
+        c.sort === "asc"
+          ? SortAscIcon
+          : c.sort === "desc"
+            ? SortDescIcon
+            : SortableIcon
+      }
+      size={13}
+      className={cn("shrink-0", !c.sort && "opacity-40")}
+    />
   </button>
 );
 
@@ -213,9 +252,7 @@ interface DataTableProps {
 }
 
 const WINDOW_OVER = 80;
-
 const OVERSCAN = 12;
-
 const VIEWPORT = 460;
 
 export const DataTable = ({
@@ -226,7 +263,7 @@ export const DataTable = ({
   rowClassName,
 }: DataTableProps) => {
   const [scrollTop, setScrollTop] = useState(0);
-  const [rowH, setRowH] = useState(24);
+  const [rowH, setRowH] = useState(32);
   const probe = useRef<HTMLTableRowElement>(null);
   const box = useRef<HTMLDivElement>(null);
 
@@ -235,8 +272,6 @@ export const DataTable = ({
   useLayoutEffect(() => {
     const h = probe.current?.getBoundingClientRect().height;
     if (h && Math.abs(h - rowH) > 0.5) setRowH(h);
-    // The box owns the scroll position, not this state. A filter that changes
-    // the row count moves the box without a scroll event, so read it back.
     const t = box.current?.scrollTop ?? 0;
     if (t !== scrollTop) setScrollTop(t);
   });
@@ -254,30 +289,26 @@ export const DataTable = ({
       </tr>
     ) : null;
 
+  const align = (c: Column | undefined) =>
+    cn(
+      "px-2 first:pl-0 last:pr-0",
+      c?.num ? "text-right" : "text-left",
+      c?.min && "w-px whitespace-nowrap",
+    );
+
   return (
     <div
       ref={box}
       onScroll={
         windowed ? (e) => setScrollTop(e.currentTarget.scrollTop) : undefined
       }
-      className={`mt-2 overflow-x-auto ${scroll ? "max-h-115 overflow-y-auto" : ""}`}
+      className={cn(
+        "overflow-x-auto",
+        scroll && "max-h-115 overflow-y-auto pr-2",
+      )}
     >
-      {/* Tabular figures for the whole table, not just the money column: it is
-          what makes every date exactly as wide as every other one, so the date
-          column has a width the rows cannot argue with.
-
-          The borders stay separate. A collapsed border belongs to the table,
-          so a sticky header cell paints no bottom edge of its own, and the
-          rows then show through that strip. */}
-      <table className="w-full border-separate border-spacing-0 text-xs tabular-nums">
-        <thead
-          className={scroll ? "sticky top-0 z-10 bg-page" : ""}
-          style={
-            scroll
-              ? { boxShadow: "0 -32px 0 32px var(--color-page)" }
-              : undefined
-          }
-        >
+      <table className="w-full border-separate border-spacing-0 text-[13px] tabular-nums">
+        <thead className={cn(scroll && "sticky top-0 z-10")}>
           <tr>
             {columns.map((c) => (
               <th
@@ -289,33 +320,13 @@ export const DataTable = ({
                       : "descending"
                     : undefined
                 }
-                className={`border-b border-grid bg-page py-1 pr-2 font-semibold ${c.num ? "text-right" : "text-left"} ${c.min ? "w-px whitespace-nowrap" : ""}`}
+                className={cn(
+                  "h-8 border-b bg-card text-xs font-medium text-muted-foreground",
+                  align(c),
+                )}
               >
                 {c.sizer && <Sizer of={c.sizer} />}
-                {c.onClick ? (
-                  <button
-                    type="button"
-                    onClick={c.onClick}
-                    className="inline-flex items-center gap-1 font-semibold text-ink-soft hover:text-ink"
-                  >
-                    {c.label}
-                    {/* Always shown, so a sortable column looks sortable before anyone hovers it.
-                      Decorative — `aria-sort` on the `th` above says the same thing. */}
-                    <Icon
-                      icon={
-                        c.sort === "asc"
-                          ? SortAscIcon
-                          : c.sort === "desc"
-                            ? SortDescIcon
-                            : SortableIcon
-                      }
-                      size={13}
-                      className={`shrink-0 ${c.sort ? "" : "text-ink-muted opacity-50"}`}
-                    />
-                  </button>
-                ) : (
-                  (c.header ?? c.label)
-                )}
+                {c.onClick ? <SortHeader c={c} /> : (c.header ?? c.label)}
               </th>
             ))}
           </tr>
@@ -323,20 +334,23 @@ export const DataTable = ({
         <tbody>
           {spacer(first * rowH)}
           {rows.slice(first, last).map((row, i) => (
-            // Key on the position in the whole list, not in the slice. A slice key
-            // repeats for each row as the user scrolls.
             <tr
               key={first + i}
               ref={i === 0 ? probe : undefined}
               onClick={onRow && ((e) => !highlighting(e) && onRow(first + i))}
-              className={`hover:bg-hover ${onRow ? "cursor-pointer" : ""} ${rowClassName?.(first + i) ?? ""}`}
+              className={cn(
+                "transition-colors hover:bg-muted/60",
+                onRow && "cursor-pointer",
+                rowClassName?.(first + i),
+              )}
             >
               {row.map((cell, j) => (
-                // No cell wraps in a windowed table. One tall row moves every row below it
-                // out of position.
                 <td
                   key={j}
-                  className={`border-b border-grid py-1 pr-2 ${columns[j]?.num ? "text-right" : "text-left"} ${columns[j]?.min ? "w-px whitespace-nowrap" : ""} ${windowed ? "whitespace-nowrap" : ""}`}
+                  className={cn(
+                    "h-8 border-b border-border/70 py-1 whitespace-nowrap",
+                    align(columns[j]),
+                  )}
                 >
                   {cell}
                 </td>

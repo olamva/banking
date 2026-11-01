@@ -24,7 +24,7 @@ export const useTooltip = () => {
 
   const node = tip ? (
     <div
-      className="pointer-events-none fixed z-10 max-w-72 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-ink shadow-lg"
+      className="pointer-events-none fixed z-50 max-w-72 rounded-lg bg-popover px-2.5 py-1.5 text-xs text-popover-foreground shadow-md ring-1 ring-foreground/10"
       style={{
         left: Math.min(tip.x + 14, window.innerWidth - 300),
         top: Math.min(tip.y + 14, window.innerHeight - 100),
@@ -52,8 +52,8 @@ export interface BarItem {
 }
 
 const TONE = {
-  spend: ["bg-critical-strong", "bg-critical-strong/50"],
-  income: ["bg-good-strong", "bg-good-strong/50"],
+  spend: ["bg-spend", "bg-spend/55"],
+  income: ["bg-income", "bg-income/55"],
 } as const;
 
 interface HorizontalBarsProps {
@@ -92,26 +92,32 @@ export const HorizontalBars = ({
     const row = (
       <>
         <span
-          className="shrink-0 truncate text-right text-ink-soft"
-          style={{ width: `min(${122 - depth * 12}px, 34%)` }}
+          className="shrink-0 truncate text-left text-muted-foreground"
+          style={{ width: `min(${132 - depth * 12}px, 36%)` }}
         >
           {item.label}
         </span>
         <span className="flex min-w-0 flex-1 items-center gap-2">
-          {/* The bar area keeps 78px back for the value, as the SVG did — a
-              full-width bar would otherwise push the number off the edge.
-              `min-w-px` keeps the smallest total visible as a sliver. */}
-          <span
-            className={`h-4 min-w-px rounded ${TONE[tone][depth ? 1 : 0]}`}
-            style={{ width: `calc((100% - 78px) * ${item.total / maxVal})` }}
-          />
-          <span className="shrink-0 font-semibold">{fmtNOK(item.total)}</span>
+          <span className="flex h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-muted">
+            <span
+              className={`h-full min-w-0.5 rounded-full ${TONE[tone][depth ? 1 : 0]}`}
+              style={{ width: `${(item.total / maxVal) * 100}%` }}
+            />
+          </span>
+          {item.count ? (
+            <span className="w-8 shrink-0 text-right text-muted-foreground tabular-nums">
+              {item.count}×
+            </span>
+          ) : null}
+          <span className="w-20 shrink-0 text-right font-medium tabular-nums">
+            {fmtNOK(item.total)}
+          </span>
         </span>
       </>
     );
     const tip = bind(
       <>
-        <div className="text-ink-soft">{item.label}</div>
+        <div className="text-muted-foreground">{item.label}</div>
         <div className="font-semibold">
           {fmtNOK(item.total)}
           {item.count ? ` · ${item.count} txns` : ""}
@@ -119,12 +125,12 @@ export const HorizontalBars = ({
       </>,
     );
     const shared =
-      "flex h-6.5 min-w-0 flex-1 items-center gap-2 rounded-md text-[11px]";
+      "flex h-7 min-w-0 flex-1 items-center gap-3 rounded-md px-1.5 text-xs";
     return pick ? (
       <button
         type="button"
         onClick={(e) => pick(id, e.metaKey)}
-        className={`${shared} hover:bg-hover`}
+        className={`${shared} hover:bg-muted/70`}
         {...tip}
       >
         {row}
@@ -138,7 +144,7 @@ export const HorizontalBars = ({
 
   return (
     <>
-      <div className="flex flex-1 flex-col justify-evenly">
+      <div className="-mx-1.5 flex flex-col">
         {visible.map((item) => {
           const id = item.key ?? item.label;
           const subs = item.subs && item.subs.length > 1 ? item.subs : [];
@@ -152,19 +158,19 @@ export const HorizontalBars = ({
                     onClick={() => toggle(id)}
                     aria-expanded={expanded}
                     aria-label={`${expanded ? "Hide" : "Show"} ${item.label} breakdown`}
-                    className="relative mr-0.5 flex h-6.5 w-3 shrink-0 items-center justify-center text-ink-soft before:absolute before:-inset-2 before:content-[''] hover:text-ink"
+                    className="relative flex h-7 w-4 shrink-0 items-center justify-center text-muted-foreground before:absolute before:-inset-2 before:content-[''] hover:text-foreground"
                   >
                     <Caret open={expanded} />
                   </button>
                 ) : (
-                  <span className="mr-0.5 w-3 shrink-0" />
+                  <span className="w-4 shrink-0" />
                 )}
                 {bar(item, 0, onPick)}
               </div>
               {expanded &&
                 subs.map((sub) => (
                   <div key={sub.key ?? sub.label} className="flex items-center">
-                    <span className="mr-0.5 w-3 shrink-0" />
+                    <span className="w-4 shrink-0" />
                     <span className="w-3 shrink-0" />
                     {bar(sub, 1, onPickSub)}
                   </div>
@@ -182,7 +188,7 @@ export const HorizontalBars = ({
           type="button"
           onClick={() => setShowAll((s) => !s)}
           aria-expanded={showAll}
-          className="mt-1 flex h-6.5 w-full items-center justify-center gap-1 rounded-md text-[11px] text-ink-muted hover:bg-hover hover:text-ink"
+          className="mt-1 flex h-7 w-full items-center justify-center gap-1 rounded-md text-xs text-muted-foreground hover:bg-muted/70 hover:text-foreground"
         >
           <Icon
             icon={ExpandIcon}
@@ -230,7 +236,13 @@ export const DivergingBars = ({
               end, which answers that better than counting rules. This one stays:
               it is the zero the chart diverges from, and without it nothing says
               which side of it a bar is on. */}
-          <line x1={mid} x2={mid} y1={0} y2={height} className="stroke-axis" />
+          <line
+            x1={mid}
+            x2={mid}
+            y1={0}
+            y2={height}
+            className="stroke-border"
+          />
           {shown.map((d, i) => {
             const y = i * rowH + 4;
             const w = Math.max((Math.abs(d.delta) / maxAbs) * halfW, 1);
@@ -239,20 +251,20 @@ export const DivergingBars = ({
               <g key={d.category}>
                 <rect
                   x={positive ? mid : mid - w}
-                  y={y + 3}
+                  y={y + 4}
                   width={w}
-                  height={16}
-                  rx={4}
+                  height={14}
+                  rx={3}
                   onClick={onPick && ((e) => onPick(d.category, e.metaKey))}
-                  className={`hover:opacity-85 ${onPick ? "cursor-pointer" : "cursor-default"} ${positive ? "fill-critical-strong" : "fill-good-strong"}`}
+                  className={`hover:opacity-85 ${onPick ? "cursor-pointer" : "cursor-default"} ${positive ? "fill-spend" : "fill-income"}`}
                   {...bind(
                     <>
-                      <div className="text-ink-soft">{d.category}</div>
+                      <div className="text-muted-foreground">{d.category}</div>
                       <div className="font-semibold">
                         {positive ? "+" : ""}
                         {fmtNOK(d.delta)}
                       </div>
-                      <div className="text-ink-soft">
+                      <div className="text-muted-foreground">
                         was {fmtNOK(d.previous)}
                       </div>
                     </>,
@@ -262,7 +274,7 @@ export const DivergingBars = ({
                   x={positive ? mid - w - 8 : mid + w + 8}
                   y={y + 16}
                   textAnchor={positive ? "end" : "start"}
-                  className="fill-ink-soft text-[11px]"
+                  className="fill-muted-foreground text-[11px]"
                 >
                   <title>{d.category}</title>
                   {ellipsis(
@@ -275,7 +287,7 @@ export const DivergingBars = ({
                   x={positive ? mid + w + 6 : mid - w - 6}
                   y={y + 16}
                   textAnchor={positive ? "start" : "end"}
-                  className="fill-ink text-[11px] font-semibold"
+                  className="fill-foreground text-[11px] font-medium tabular-nums"
                 >
                   {positive ? "+" : ""}
                   {fmtNOK(d.delta)}

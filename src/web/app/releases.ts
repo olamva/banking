@@ -6,6 +6,22 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "2.0.0",
+    date: "2026-11-01",
+    highlights: [
+      {
+        title: "A new look",
+        detail:
+          "A sidebar holds the four views and collapses to icons. On a phone it opens from the menu button. Filters, the period, dialogs and tables use one consistent set of controls in light and dark.",
+      },
+      {
+        title: "An iPhone app",
+        detail:
+          "Spending is a native iPhone app with a summary of each month, trends, every transaction and search. It signs in with the same Google account and keeps the last data for use offline.",
+      },
+    ],
+  },
+  {
     version: "1.4.0",
     date: "2026-10-19",
     highlights: [
