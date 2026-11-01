@@ -34,3 +34,6 @@ rules
 !.agents/rules
 
 .notes/branch-cleanup.md
+
+# Xcode per-user state
+xcuserdata

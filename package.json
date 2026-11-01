@@ -17,6 +17,7 @@
     "build": "vite build",
     "start": "node src/web/server.ts",
     "rules:push": "bash infra/rules-push.sh",
+    "ios": "bash infra/ios.sh",
     "traffic": "bash infra/traffic.sh",
     "rules:pull": "bash infra/rules-pull.sh",
     "seed:site": "bash infra/seed-token.sh",
