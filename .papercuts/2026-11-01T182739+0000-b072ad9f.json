@@ -1,0 +1,14 @@
+{
+  "id": "b072ad9f",
+  "ts": "2026-11-01T18:27:39+00:00",
+  "text": "macOS has no timeout command, so 'timeout N cmd' silently prints nothing in a pipe",
+  "tags": [
+    "shell",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "opus-5.5",
+  "session": "5d146c4b",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3-284e70c1",
+  "branch": "t3/shadcn-native-ios-app"
+}

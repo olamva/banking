@@ -61,6 +61,8 @@ test("anonymous requests redirect before any page or API action", async () => {
   for (const path of [
     "/",
     "/api/txns",
+    "/api/app",
+    "/app/signed-in",
     "/api/refresh",
     "/api/rules",
     "/api/rules/save?file=categories&key=x&value=y",
@@ -307,4 +309,39 @@ test("the transactions arrive compressed only for a client that accepts it", asy
   });
   assert.equal(plain.headers.get("content-encoding"), null);
   assert.deepEqual(await packed.json(), await plain.json());
+});
+
+test("the app sign-in hands over only the proxy session cookies after a click on this site", async () => {
+  const cookie =
+    "_oauth2_proxy_0=a=b; theme=dark; _oauth2_proxy_1=c; _oauth2_proxy_csrf=x";
+  const open = (headers: Record<string, string>) =>
+    fetch(`${base}/app/signed-in?open=1`, {
+      redirect: "manual",
+      headers: { "x-forwarded-email": "ola@example.com", cookie, ...headers },
+    });
+  const page = await fetch(`${base}/app/signed-in`, {
+    headers: { "x-forwarded-email": "ola@example.com", cookie },
+  });
+  assert.equal(page.status, 200);
+  assert.match(await page.text(), /href="\/app\/signed-in\?open=1"/);
+
+  const clicked = { "sec-fetch-site": "same-origin", "sec-fetch-user": "?1" };
+  const res = await open(clicked);
+  assert.equal(res.status, 302);
+  const to = new URL(res.headers.get("location")!);
+  assert.equal(`${to.protocol}//${to.host}`, "spending://signed-in");
+  assert.equal(
+    to.searchParams.get("cookie"),
+    "_oauth2_proxy_0=a=b; _oauth2_proxy_1=c",
+  );
+
+  for (const headers of [
+    {} as Record<string, string>,
+    { "sec-fetch-site": "cross-site", "sec-fetch-user": "?1" },
+    { "sec-fetch-site": "same-origin" },
+  ]) {
+    const refused = await open(headers);
+    assert.equal(refused.status, 403);
+    assert.equal(refused.headers.get("location"), null);
+  }
 });
