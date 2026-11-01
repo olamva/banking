@@ -180,8 +180,10 @@ export const SpendLines = ({
       </span>
       {was ? (
         <>
-          <span className="text-right text-ink-muted">{p.at.slice(0, 4)}</span>
-          <span className="text-right text-ink-muted">
+          <span className="text-right text-muted-foreground">
+            {p.at.slice(0, 4)}
+          </span>
+          <span className="text-right text-muted-foreground">
             {was.at.slice(0, 4)}
           </span>
         </>
@@ -190,10 +192,10 @@ export const SpendLines = ({
       )}
       {hasSpend && (
         <>
-          <span className="text-ink-soft">Spent</span>
+          <span className="text-muted-foreground">Spent</span>
           <span className="text-right">{fmtNOK(p.totalOut)}</span>
           {was && (
-            <span className="text-right text-ink-muted">
+            <span className="text-right text-muted-foreground">
               {fmtNOK(was.totalOut)}
             </span>
           )}
@@ -201,10 +203,10 @@ export const SpendLines = ({
       )}
       {hasIncome && (
         <>
-          <span className="text-ink-soft">Income</span>
+          <span className="text-muted-foreground">Income</span>
           <span className="text-right">{fmtNOK(p.totalIn)}</span>
           {was && (
-            <span className="text-right text-ink-muted">
+            <span className="text-right text-muted-foreground">
               {fmtNOK(was.totalIn)}
             </span>
           )}
@@ -258,14 +260,16 @@ export const SpendLines = ({
                   y1={gy}
                   y2={gy}
                   className={
-                    v === 0 && gridMin < 0 ? "stroke-axis" : "stroke-grid"
+                    v === 0 && gridMin < 0
+                      ? "stroke-foreground/20"
+                      : "stroke-border"
                   }
                 />
                 <text
                   x={padL - 8}
                   y={gy + 3}
                   textAnchor="end"
-                  className="fill-ink-muted text-[11px]"
+                  className="fill-muted-foreground text-[11px]"
                 >
                   {fmtNOK(v).replace(" kr", "")}
                 </text>
@@ -285,7 +289,7 @@ export const SpendLines = ({
                 x2={px(i) - clusterW / 2}
                 y1={padT}
                 y2={padT + plotH}
-                className="stroke-grid"
+                className="stroke-border"
               />
             ) : null,
           )}
@@ -301,7 +305,7 @@ export const SpendLines = ({
                     points={pts(run, (p) => p.totalOut).join(" ")}
                     strokeWidth={1.5}
                     strokeDasharray="4 3"
-                    className="fill-none stroke-critical-strong"
+                    className="fill-none stroke-spend"
                   />
                 )}
                 {hasIncome && (
@@ -309,7 +313,7 @@ export const SpendLines = ({
                     points={pts(run, (p) => p.totalIn).join(" ")}
                     strokeWidth={1.5}
                     strokeDasharray="4 3"
-                    className="fill-none stroke-good-strong"
+                    className="fill-none stroke-income"
                   />
                 )}
               </g>
@@ -349,12 +353,12 @@ export const SpendLines = ({
                     <polygon
                       points={band}
                       clipPath={`url(#${clip}-over-${r})`}
-                      className="fill-critical-strong opacity-20"
+                      className="fill-spend opacity-20"
                     />
                     <polygon
                       points={band}
                       clipPath={`url(#${clip}-under-${r})`}
-                      className="fill-good-strong opacity-20"
+                      className="fill-income opacity-20"
                     />
                   </>
                 )}
@@ -362,14 +366,14 @@ export const SpendLines = ({
                   <polyline
                     points={pts(run, (p) => p.totalOut).join(" ")}
                     strokeWidth={2}
-                    className="fill-none stroke-critical-strong"
+                    className="fill-none stroke-spend"
                   />
                 )}
                 {hasIncome && shows("in") && (
                   <polyline
                     points={income.join(" ")}
                     strokeWidth={2}
-                    className="fill-none stroke-good-strong"
+                    className="fill-none stroke-income"
                   />
                 )}
               </g>
@@ -393,7 +397,7 @@ export const SpendLines = ({
                 strokeWidth={1.5}
                 strokeDasharray="7 5"
                 clipPath={`url(#${clip}-plot)`}
-                className="stroke-series-1"
+                className="stroke-chart-1"
               />
             </>
           )}
@@ -404,7 +408,7 @@ export const SpendLines = ({
               y1={padT}
               y2={padT + plotH}
               strokeDasharray="3 3"
-              className="stroke-ink-muted"
+              className="stroke-muted-foreground"
             />
           )}
           {/* A stretch of one point draws no polyline, so the dots are what
@@ -419,7 +423,7 @@ export const SpendLines = ({
                     cx={px(i)}
                     cy={py(p.totalOut)}
                     r={near === i ? (dots ? 5 : 4) : 3}
-                    className="fill-critical-strong"
+                    className="fill-spend"
                   />
                 )}
                 {hasIncome && shows("in") && (
@@ -427,7 +431,7 @@ export const SpendLines = ({
                     cx={px(i)}
                     cy={py(p.totalIn)}
                     r={near === i ? (dots ? 5 : 4) : 3}
-                    className="fill-good-strong"
+                    className="fill-income"
                   />
                 )}
               </g>
@@ -441,8 +445,8 @@ export const SpendLines = ({
               textAnchor="middle"
               className={
                 near === i
-                  ? "fill-ink text-[11px] font-semibold"
-                  : "fill-ink-muted text-[11px]"
+                  ? "fill-foreground text-[11px] font-semibold"
+                  : "fill-muted-foreground text-[11px]"
               }
             >
               {text}
@@ -454,7 +458,7 @@ export const SpendLines = ({
               x={x}
               y={height - 5}
               textAnchor="middle"
-              className="fill-ink-soft text-[11px] font-semibold"
+              className="fill-muted-foreground text-[11px] font-semibold"
             >
               {y}
             </text>
@@ -464,14 +468,14 @@ export const SpendLines = ({
             x2={padL}
             y1={padT}
             y2={padT + plotH}
-            className="stroke-axis"
+            className="stroke-foreground/20"
           />
           <line
             x1={padL}
             x2={width - 8}
             y1={padT + plotH}
             y2={padT + plotH}
-            className="stroke-axis"
+            className="stroke-foreground/20"
           />
           {/* Last, so it sits over everything it is meant to catch pointers for.
               `onPointerDown` as well as move, for touch: a tap on a phone is a

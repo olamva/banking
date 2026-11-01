@@ -3,10 +3,10 @@ import { spendingInsights, type MerchantHabit } from "../../core/insights.ts";
 import { matchesFilters, todayOslo, type Filters } from "../../core/select.ts";
 import type { Categorized } from "../../core/types.ts";
 import {
-  Card,
   DataTable,
   Empty,
   Note,
+  Panel,
   PickCell,
   StatTile,
   type Column,
@@ -39,36 +39,38 @@ interface RankingProps {
 const Ranking = ({ title, rows, metric, onMerchant }: RankingProps) => {
   const maximum = Math.max(...rows.map((row) => row[metric]), 1);
   return (
-    <Card title={title} icon={CounterpartyIcon}>
+    <Panel title={title} icon={CounterpartyIcon}>
       <ol className="space-y-1.5">
         {rows.map((row, index) => (
           <li
             key={row.merchant}
             className="flex min-w-0 items-center gap-2 text-xs"
           >
-            <span className="w-4 shrink-0 text-right tabular-nums text-ink-muted">
+            <span className="w-4 shrink-0 text-right tabular-nums text-muted-foreground">
               {index + 1}
             </span>
             <button
               type="button"
               onClick={(event) => onMerchant(row.merchant, event.metaKey)}
-              className="relative flex h-7 min-w-0 flex-1 items-center overflow-hidden rounded-md px-2 text-left hover:bg-hover"
+              className="relative flex h-7 min-w-0 flex-1 items-center overflow-hidden rounded-md px-2 text-left hover:bg-muted/70"
             >
               <span
-                className="absolute inset-y-0 left-0 rounded-md bg-series-1-track"
-                style={{ width: `${(row[metric] / maximum) * 100}%` }}
+                className="absolute bottom-0.5 left-2 h-0.75 max-w-[calc(100%-1rem)] rounded-full bg-chart-1/70"
+                style={{
+                  width: `calc((100% - 1rem) * ${row[metric] / maximum})`,
+                }}
               />
               <span className="relative min-w-0 flex-1 truncate">
                 {row.merchant}
               </span>
-              <span className="relative ml-2 shrink-0 font-semibold tabular-nums">
+              <span className="relative ml-2 shrink-0 font-medium tabular-nums">
                 {metric === "count" ? `${row.count} txns` : fmtNOK(row.total)}
               </span>
             </button>
           </li>
         ))}
       </ol>
-    </Card>
+    </Panel>
   );
 };
 
@@ -80,25 +82,25 @@ interface WeekdayCardProps {
 const WeekdayCard = ({ insights, onMerchant }: WeekdayCardProps) => {
   const maximum = Math.max(...insights.weekdays.map((day) => day.count), 1);
   return (
-    <Card title="Card visits by weekday" icon={MonthlyIcon}>
+    <Panel title="Card visits by weekday" icon={MonthlyIcon}>
       <div className="overflow-x-auto">
         <div className="min-w-115 space-y-1">
           {insights.weekdays.map((day) => (
             <div
               key={day.weekday}
-              className="grid grid-cols-[72px_1fr_82px_150px] items-center gap-2 text-[11px]"
+              className="grid grid-cols-[72px_1fr_82px_150px] items-center gap-2 text-xs"
             >
               <span>{day.weekday}</span>
               <span className="flex h-4 items-center">
                 <span
-                  className="h-4 min-w-px rounded bg-series-1"
+                  className="h-2 min-w-0.5 rounded-full bg-chart-1"
                   style={{ width: `${(day.count / maximum) * 100}%` }}
                 />
               </span>
-              <span className="text-right font-semibold tabular-nums">
+              <span className="text-right font-medium tabular-nums">
                 {day.count} · {fmtPct(day.share)}
               </span>
-              <span className="truncate text-ink-soft">
+              <span className="truncate text-muted-foreground">
                 {day.topMerchant ? (
                   <PickCell label={day.topMerchant} onPick={onMerchant} />
                 ) : (
@@ -109,7 +111,7 @@ const WeekdayCard = ({ insights, onMerchant }: WeekdayCardProps) => {
           ))}
         </div>
       </div>
-    </Card>
+    </Panel>
   );
 };
 
@@ -128,7 +130,7 @@ const Forecast = ({ merchants, onMerchant }: ForecastProps) => {
     )
     .slice(0, 10);
   return (
-    <Card title="Expected returns" icon={RecurringIcon}>
+    <Panel title="Expected returns" icon={RecurringIcon}>
       {forecast.length === 0 ? (
         <Empty>At least three recent card visit days are needed.</Empty>
       ) : (
@@ -138,7 +140,7 @@ const Forecast = ({ merchants, onMerchant }: ForecastProps) => {
               key={merchant.merchant}
               type="button"
               onClick={(event) => onMerchant(merchant.merchant, event.metaKey)}
-              className="flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-left text-xs hover:bg-hover"
+              className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-md px-2 py-1.5 text-left text-xs hover:bg-muted/70"
             >
               <span className="min-w-0 flex-1 truncate">
                 {merchant.merchant}
@@ -147,7 +149,7 @@ const Forecast = ({ merchants, onMerchant }: ForecastProps) => {
                 <span className="block font-semibold">
                   {fmtDate(merchant.returnPattern!.expectedNext)}
                 </span>
-                <span className="block text-[11px] text-ink-muted">
+                <span className="block text-[11px] text-muted-foreground">
                   every {merchant.returnPattern!.medianDays} days
                 </span>
               </span>
@@ -155,7 +157,7 @@ const Forecast = ({ merchants, onMerchant }: ForecastProps) => {
           ))}
         </div>
       )}
-    </Card>
+    </Panel>
   );
 };
 
@@ -255,7 +257,7 @@ export const Insights = ({
 
   return (
     <>
-      <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(min(160px,100%),1fr))] gap-3">
+      <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(min(150px,100%),1fr))] gap-3 max-sm:grid-cols-2 max-sm:[&>*:last-child:nth-child(odd)]:col-span-full">
         <StatTile
           label="Spending transactions"
           value={String(insights.transactionCount)}
@@ -297,14 +299,14 @@ export const Insights = ({
         <Forecast merchants={insights.merchants} onMerchant={onMerchant} />
       </div>
 
-      <div className="mt-5">
+      <div className="mt-4">
         <WeekdayCard insights={insights} onMerchant={onMerchant} />
       </div>
 
-      <div className="mt-5">
-        <Card title="Merchant habits" icon={CategoryIcon}>
+      <div className="mt-4">
+        <Panel title="Merchant habits" icon={CategoryIcon}>
           <DataTable columns={columns} rows={tableRows} scroll />
-        </Card>
+        </Panel>
       </div>
     </>
   );

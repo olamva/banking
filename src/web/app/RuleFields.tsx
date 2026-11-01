@@ -7,7 +7,7 @@ import {
 } from "../../core/ruleFiles.ts";
 import { merchantOf } from "../../core/select.ts";
 import type { Categorized } from "../../core/types.ts";
-import { AMOUNT_SIZE_EXACT, BUTTON, DataTable } from "./Cards.tsx";
+import { AMOUNT_SIZE_EXACT, DataTable } from "./Cards.tsx";
 import type { RulesApi } from "./data.ts";
 import {
   categoryColor,
@@ -25,6 +25,9 @@ import {
   LoadingIcon,
 } from "./icons.ts";
 import { TxnDialog } from "./TxnDialog.tsx";
+import { Button } from "./ui/button.tsx";
+import { Popover, PopoverAnchor, PopoverContent } from "./ui/popover.tsx";
+import { cn } from "./ui/utils.ts";
 
 export const KEY_LABEL: Record<RuleFile, string> = {
   categories: "Pattern",
@@ -51,12 +54,10 @@ export const VALUE_LABEL: Record<RuleFile, string> = {
 };
 
 export const FIELD =
-  "min-w-0 rounded-md border border-line bg-page px-2 py-1.5 text-[13px] text-ink";
+  "min-h-8 min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-sm leading-5 outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30";
 
 export const CELL =
-  "min-w-0 rounded-md border border-transparent bg-transparent px-2 py-1 text-[13px] text-ink hover:border-line focus:border-line focus:bg-page";
-
-export { BUTTON } from "./Cards.tsx";
+  "min-w-0 rounded-md border border-transparent bg-transparent px-2 py-1 text-[13px] leading-5 outline-none transition-colors hover:border-input focus-visible:border-ring focus-visible:bg-background focus-visible:ring-3 focus-visible:ring-ring/50";
 
 interface RemoveButtonProps {
   onClick: () => void;
@@ -71,15 +72,17 @@ export const RemoveButton = ({
   label,
   size,
 }: RemoveButtonProps) => (
-  <button
+  <Button
     type="button"
+    variant="ghost"
+    size={size < 14 ? "icon-xs" : "icon-sm"}
     onClick={onClick}
     disabled={disabled}
     aria-label={`Remove ${label}`}
-    className="relative shrink-0 rounded p-1 text-ink-muted before:absolute before:-inset-2 hover:bg-hover hover:text-ink disabled:opacity-60"
+    className="text-muted-foreground hover:text-destructive"
   >
     <Icon icon={CloseIcon} size={size} />
-  </button>
+  </Button>
 );
 
 // A pattern is longer than its box, and an input hides the rest of it behind a
@@ -129,7 +132,7 @@ export const MatchTable = ({ txns, loading }: MatchTableProps) => {
 
   return (
     <div
-      className={`mt-2 rounded-md border border-line bg-surface p-2 text-ink transition-opacity ${loading ? "pointer-events-none opacity-70" : ""}`}
+      className={`mt-2 rounded-lg border bg-card px-3 py-1 transition-opacity ${loading ? "pointer-events-none opacity-70" : ""}`}
     >
       <DataTable
         scroll
@@ -196,9 +199,9 @@ const PatternMatchNote = ({ pattern, txns, haystacks }: MatchNoteProps) => {
   return (
     <div
       aria-busy={loading}
-      className={result?.error ? "text-critical" : "text-ink-muted"}
+      className={result?.error ? "text-destructive" : "text-muted-foreground"}
     >
-      <div className="flex items-start gap-1.5 text-[11px]">
+      <div className="flex items-start gap-1.5 text-xs">
         <Icon
           icon={loading ? LoadingIcon : result?.error ? ErrorIcon : InfoIcon}
           size={12}
@@ -214,7 +217,7 @@ const PatternMatchNote = ({ pattern, txns, haystacks }: MatchNoteProps) => {
           type="button"
           onClick={() => setOpen(!open)}
           aria-expanded={open}
-          className="mt-1 ml-4.5 text-[11px] text-series-1 hover:underline"
+          className="mt-1 ml-4.5 text-xs font-medium text-foreground underline-offset-2 hover:underline"
         >
           {open ? "Hide" : "Show"} matching transactions
         </button>
@@ -226,7 +229,7 @@ const PatternMatchNote = ({ pattern, txns, haystacks }: MatchNoteProps) => {
 
 export const MatchNote = (props: MatchNoteProps) =>
   props.txns.some((t) => t.originalCounterparty === undefined) ? (
-    <p className="text-xs text-ink-muted">
+    <p className="text-xs text-muted-foreground">
       Rebuild saved transactions to preview matches.
     </p>
   ) : (
@@ -270,66 +273,82 @@ export const CategoryInput = ({
   };
 
   return (
-    <div className="relative min-w-0 flex-1 basis-40">
-      <input
-        value={value}
-        aria-label={label}
-        placeholder={label}
-        onFocus={() => setOpen(true)}
-        onChange={(e) => {
-          onChange(e.target.value);
-          setActive(0);
-          setOpen(true);
-        }}
-        onBlur={(e) => {
-          setOpen(false);
-          onCommit?.(e.target.value.trim());
-        }}
-        onKeyDown={(e) => {
-          if (
-            shown.length > 0 &&
-            (e.key === "ArrowDown" || e.key === "ArrowUp")
-          ) {
-            e.preventDefault();
-            const by = e.key === "ArrowDown" ? 1 : -1;
-            setActive((active + by + shown.length) % shown.length);
-          } else if (e.key === "Enter") {
-            e.preventDefault();
-            const selected = shown[active];
-            if (selected) choose(selected);
-            else e.currentTarget.blur();
-          } else if (e.key === "Escape") {
-            setOpen(false);
-          }
-        }}
-        className={`${className} w-full pr-7`}
-      />
-      <Icon
-        icon={DropdownIcon}
-        size={14}
-        className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 text-ink-muted"
-      />
-      {open && shown.length > 0 && (
-        <div
-          className={`absolute left-0 z-20 max-h-72 w-full overflow-y-auto rounded-md border border-line bg-surface p-1.5 shadow-lg ${dropUp ? "bottom-full mb-1" : "mt-1"}`}
-        >
-          {shown.map((pair, i) => (
-            <button
-              key={pair}
-              type="button"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => choose(pair)}
-              className={`block w-full rounded px-2 py-1.5 text-left text-xs ${i === active ? "bg-hover" : "hover:bg-hover"}`}
-            >
-              <span className="block truncate font-mono text-ink">{pair}</span>
-              <span className="block truncate text-ink-muted">
-                {pairLabel(pair)}
-              </span>
-            </button>
-          ))}
+    <Popover open={open && shown.length > 0}>
+      <PopoverAnchor asChild>
+        <div className="relative min-w-0 flex-1 basis-40">
+          <input
+            value={value}
+            aria-label={label}
+            placeholder={label}
+            role="combobox"
+            aria-expanded={open}
+            onFocus={() => setOpen(true)}
+            onChange={(e) => {
+              onChange(e.target.value);
+              setActive(0);
+              setOpen(true);
+            }}
+            onBlur={(e) => {
+              setOpen(false);
+              onCommit?.(e.target.value.trim());
+            }}
+            onKeyDown={(e) => {
+              if (
+                shown.length > 0 &&
+                (e.key === "ArrowDown" || e.key === "ArrowUp")
+              ) {
+                e.preventDefault();
+                const by = e.key === "ArrowDown" ? 1 : -1;
+                setActive((active + by + shown.length) % shown.length);
+              } else if (e.key === "Enter") {
+                e.preventDefault();
+                const selected = shown[active];
+                if (selected) choose(selected);
+                else e.currentTarget.blur();
+              } else if (e.key === "Escape") {
+                setOpen(false);
+              }
+            }}
+            className={cn(className, "w-full pr-7")}
+          />
+          <Icon
+            icon={DropdownIcon}
+            size={14}
+            className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground"
+          />
         </div>
-      )}
-    </div>
+      </PopoverAnchor>
+      <PopoverContent
+        side={dropUp ? "top" : "bottom"}
+        align="start"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        onCloseAutoFocus={(e) => e.preventDefault()}
+        className="max-h-72 w-(--radix-popover-trigger-width) min-w-56 gap-0 overflow-y-auto p-1"
+      >
+        {shown.map((pair, i) => (
+          <button
+            key={pair}
+            type="button"
+            ref={
+              i === active
+                ? (el) => el?.scrollIntoView({ block: "nearest" })
+                : undefined
+            }
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => choose(pair)}
+            className={cn(
+              "block w-full rounded-md px-2 py-1.5 text-left text-xs",
+              i === active ? "bg-muted" : "hover:bg-muted",
+            )}
+          >
+            <span className="block truncate font-mono">{pair}</span>
+            <span className="block truncate text-muted-foreground">
+              {pairLabel(pair)}
+            </span>
+          </button>
+        ))}
+      </PopoverContent>
+    </Popover>
   );
 };
 
@@ -347,7 +366,7 @@ export const rowsFor = (map: boolean): string =>
 
 export const Entry = ({ file, entryKey, value, rules }: EntryProps) => (
   <li
-    className={`flex flex-wrap items-center gap-2 border-b border-line py-1 last:border-0 ${rowsFor(value !== null)}`}
+    className={`flex flex-wrap items-center gap-2 border-b py-1 last:border-0 ${rowsFor(value !== null)}`}
   >
     <PatternField
       key={entryKey}
@@ -370,7 +389,7 @@ export const Entry = ({ file, entryKey, value, rules }: EntryProps) => (
           if (next && next !== value) rules.save(file, entryKey, next);
         }}
         onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-        className={`${CELL} flex-1 basis-40 text-ink-soft`}
+        className={`${CELL} flex-1 basis-40 text-muted-foreground`}
       />
     )}
     <RemoveButton
@@ -404,7 +423,7 @@ export const AddForm = ({
 
   return (
     <form
-      className="mb-4 flex flex-col gap-2 rounded-md border border-dashed border-line p-3"
+      className="mb-4 flex flex-col gap-2 rounded-xl border border-dashed bg-muted/30 p-3"
       onSubmit={(e) => {
         e.preventDefault();
         if (!ready) return;
@@ -413,7 +432,7 @@ export const AddForm = ({
         setValue("");
       }}
     >
-      <span className="text-[11px] font-medium tracking-wide text-ink-soft uppercase">
+      <span className="text-xs font-medium text-muted-foreground">
         New rule
       </span>
       <div className="flex flex-wrap items-center gap-2">
@@ -442,13 +461,9 @@ export const AddForm = ({
               className={`${FIELD} flex-1 basis-40`}
             />
           ))}
-        <button
-          type="submit"
-          disabled={!ready || rules.busy}
-          className={`${BUTTON} bg-series-1 text-white`}
-        >
+        <Button type="submit" disabled={!ready || rules.busy}>
           Add
-        </button>
+        </Button>
       </div>
       <MatchNote pattern={key} txns={txns} haystacks={haystacks} />
     </form>

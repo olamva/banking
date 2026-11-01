@@ -6,12 +6,10 @@ import {
 } from "../../core/preferences.ts";
 import type { RuleMap } from "../../core/ruleFiles.ts";
 import type { Categorized } from "../../core/types.ts";
-import { Empty } from "./Cards.tsx";
+import { Empty, Panel } from "./Cards.tsx";
 import type { RulesApi } from "./data.ts";
 import { rowLabel, splitPair } from "./format.ts";
-import { Modal } from "./Modal.tsx";
 import {
-  BUTTON,
   CategoryInput,
   FIELD,
   MatchTable,
@@ -19,6 +17,14 @@ import {
 } from "./RuleFields.tsx";
 import { History } from "./RuleHistory.tsx";
 import { SearchBox } from "./SearchBox.tsx";
+import { Badge } from "./ui/badge.tsx";
+import { Button } from "./ui/button.tsx";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "./ui/dialog.tsx";
 
 interface RememberDialogProps {
   txn: Categorized;
@@ -64,86 +70,87 @@ export const RememberDialog = ({
   ).length;
 
   return (
-    <Modal
-      onClose={onClose}
-      className="max-h-[85dvh] w-[min(960px,92vw)] overflow-y-auto"
-    >
-      <form
-        className="min-w-0 space-y-4 p-4"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!ready || key === null) return;
-          rules.save("preferences", key, value.trim());
-          onClose();
-        }}
-      >
-        <h2 className="text-base font-semibold">Remember category</h2>
-        {stale ? (
-          <div className="space-y-3 text-sm">
-            <p>Rebuild saved transactions to use the original payee text.</p>
-            <button
-              type="button"
-              className={BUTTON}
-              disabled={rules.busy}
-              onClick={rules.rebuild}
-            >
-              Rebuild saved transactions
-            </button>
-          </div>
-        ) : txn.excluded ? (
-          <p className="text-sm">Excluded transactions keep their exclusion.</p>
-        ) : key === null ? (
-          <p className="text-sm">
-            This transaction lacks a payee or payment type. Use a category
-            pattern instead.
-          </p>
-        ) : (
-          <>
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-h-[88dvh] overflow-y-auto pb-0 sm:max-w-3xl">
+        <form
+          className="min-w-0 space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!ready || key === null) return;
+            rules.save("preferences", key, value.trim());
+            onClose();
+          }}
+        >
+          <DialogTitle>Remember category</DialogTitle>
+          <DialogDescription className="sr-only">
+            Save a category for an exact payee and payment context.
+          </DialogDescription>
+          {stale ? (
+            <div className="space-y-3 text-sm">
+              <p>Rebuild saved transactions to use the original payee text.</p>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={rules.busy}
+                onClick={rules.rebuild}
+              >
+                Rebuild saved transactions
+              </Button>
+            </div>
+          ) : txn.excluded ? (
             <p className="text-sm">
-              Apply this category to matching past and future transactions.
+              Excluded transactions keep their exclusion.
             </p>
-            <p className="break-words text-xs text-ink-muted [overflow-wrap:anywhere]">
-              {preferenceLabel(key)}
+          ) : key === null ? (
+            <p className="text-sm">
+              This transaction lacks a payee or payment type. Use a category
+              pattern instead.
             </p>
-            <p className="text-xs text-ink-muted">
-              The imported payee, payment type, direction, and recipient account
-              must match exactly. Display names do not affect matching.
-            </p>
-            <label className="block space-y-1 text-sm">
-              <span>Category</span>
-              <CategoryInput
-                label="Category"
-                value={value}
-                pairs={pairs}
-                onChange={setValue}
-                className={FIELD}
-              />
-            </label>
-            <p className="text-xs">
-              {matches.length} matching transaction(s). {changed} category
-              change(s).
-            </p>
-            <p className="text-xs text-ink-muted">
-              This choice overrides category patterns. Exclusions still apply.
-              Undo is available under Remembered categories.
-            </p>
-            <MatchTable txns={matches} loading={false} />
-          </>
-        )}
-        <div className="sticky bottom-0 flex flex-wrap justify-end gap-2 bg-surface py-2">
-          <button type="button" className={BUTTON} onClick={onClose}>
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={!ready}
-            className={`${BUTTON} bg-series-1 text-white`}
-          >
-            Remember category
-          </button>
-        </div>
-      </form>
-    </Modal>
+          ) : (
+            <>
+              <p className="text-sm">
+                Apply this category to matching past and future transactions.
+              </p>
+              <p className="break-words text-xs text-muted-foreground [overflow-wrap:anywhere]">
+                {preferenceLabel(key)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                The imported payee, payment type, direction, and recipient
+                account must match exactly. Display names do not affect
+                matching.
+              </p>
+              <label className="block space-y-1.5 text-xs font-medium">
+                <span>Category</span>
+                <CategoryInput
+                  label="Category"
+                  value={value}
+                  pairs={pairs}
+                  onChange={setValue}
+                  className={`${FIELD} font-normal`}
+                />
+              </label>
+              <p className="text-xs">
+                {matches.length} matching transaction(s). {changed} category
+                change(s).
+              </p>
+              <p className="text-xs text-muted-foreground">
+                This choice overrides category patterns. Exclusions still apply.
+                Undo is available under Remembered categories.
+              </p>
+              <MatchTable txns={matches} loading={false} />
+            </>
+          )}
+          <div className="sticky bottom-0 -mx-4 flex flex-wrap justify-end gap-2 border-t bg-popover p-4">
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={!ready}>
+              Remember category
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 };
 
@@ -177,7 +184,7 @@ export const PreferencesView = ({
   );
   return (
     <section className="min-w-0 space-y-4">
-      <p className="text-sm text-ink-muted">
+      <p className="text-sm text-muted-foreground">
         Review matching transactions once and remember their category. No
         pattern is required.
       </p>
@@ -189,103 +196,106 @@ export const PreferencesView = ({
         }}
         placeholder="Find a payee…"
       />
-      <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+      <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="lg:order-2">
           <History file="preferences" rules={rules} />
         </div>
-        <div className="min-w-0 lg:order-1">
-          <h2 className="mb-2 text-sm font-semibold">
-            Remembered categories ({entries.length})
-          </h2>
-          {entries.length === 0 && (
-            <Empty>No matching remembered categories.</Empty>
-          )}
-          <ul className="mb-5">
-            {entries.map(([key, value]) => (
-              <li
-                key={key}
-                className="flex min-w-0 flex-wrap items-center gap-2 border-b border-line py-3"
-              >
-                <p className="min-w-0 flex-1 basis-60 break-words text-xs [overflow-wrap:anywhere]">
-                  {preferenceLabel(key)}
-                  <br />
-                  {rowLabel(...splitPair(value))}
-                </p>
-                <button
-                  type="button"
-                  className={BUTTON}
-                  disabled={
-                    rules.busy ||
-                    !txns.some((t) => !t.excluded && preferenceKey(t) === key)
-                  }
-                  onClick={() =>
-                    setSelected(
-                      txns.find(
-                        (t) => !t.excluded && preferenceKey(t) === key,
-                      ) ?? null,
-                    )
-                  }
-                >
-                  Review
-                </button>
-                <RemoveButton
-                  label={preferenceLabel(key)}
-                  size={14}
-                  disabled={rules.busy}
-                  onClick={() => rules.remove("preferences", key)}
-                />
-              </li>
-            ))}
-          </ul>
-          <h2 className="mb-2 text-sm font-semibold">
-            Bank categories and estimates ({shown.length} groups)
-          </h2>
-          <p className="mb-2 text-xs text-ink-muted">
-            These groups have no confirmed category rule. Review is optional.
-            The newest groups appear first.
-          </p>
-          {shown.length === 0 && <Empty>No matching groups need review.</Empty>}
-          <ul>
-            {shown.slice(0, limit).map((group) => {
-              const t = group[0]!;
-              return (
+        <div className="min-w-0 space-y-4 lg:order-1">
+          <Panel
+            title="Remembered categories"
+            description={`${entries.length} saved`}
+          >
+            {entries.length === 0 && (
+              <Empty>No matching remembered categories.</Empty>
+            )}
+            <ul>
+              {entries.map(([key, value]) => (
                 <li
-                  key={preferenceKey(t)}
-                  className="flex min-w-0 items-center gap-3 border-b border-line py-3"
+                  key={key}
+                  className="flex min-w-0 flex-wrap items-center gap-2 border-b py-2.5 last:border-0"
                 >
-                  <div className="min-w-0 flex-1 text-xs [overflow-wrap:anywhere]">
-                    <p className="font-medium">
-                      {t.counterparty ?? t.description}
-                    </p>
-                    <p className="text-ink-muted">
-                      {t.typeText} · {t.amount < 0 ? "Money out" : "Money in"}
-                    </p>
-                    <p>
-                      {rowLabel(t.category, t.subcategory)} · {group.length}{" "}
-                      transaction(s) · {t.date}
-                    </p>
+                  <div className="min-w-0 flex-1 basis-60 space-y-1 text-xs [overflow-wrap:anywhere]">
+                    <p>{preferenceLabel(key)}</p>
+                    <Badge variant="secondary">
+                      {rowLabel(...splitPair(value))}
+                    </Badge>
                   </div>
-                  <button
-                    type="button"
-                    className={BUTTON}
-                    disabled={rules.busy}
-                    onClick={() => setSelected(t)}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={
+                      rules.busy ||
+                      !txns.some((t) => !t.excluded && preferenceKey(t) === key)
+                    }
+                    onClick={() =>
+                      setSelected(
+                        txns.find(
+                          (t) => !t.excluded && preferenceKey(t) === key,
+                        ) ?? null,
+                      )
+                    }
                   >
                     Review
-                  </button>
+                  </Button>
+                  <RemoveButton
+                    label={preferenceLabel(key)}
+                    size={14}
+                    disabled={rules.busy}
+                    onClick={() => rules.remove("preferences", key)}
+                  />
                 </li>
-              );
-            })}
-          </ul>
-          {shown.length > limit && (
-            <button
-              type="button"
-              className={`${BUTTON} mt-3`}
-              onClick={() => setLimit(limit + 30)}
-            >
-              Show more groups
-            </button>
-          )}
+              ))}
+            </ul>
+          </Panel>
+          <Panel
+            title="Bank categories and estimates"
+            description={`${shown.length} groups have no confirmed category rule. Review is optional. The newest groups appear first.`}
+          >
+            {shown.length === 0 && (
+              <Empty>No matching groups need review.</Empty>
+            )}
+            <ul>
+              {shown.slice(0, limit).map((group) => {
+                const t = group[0]!;
+                return (
+                  <li
+                    key={preferenceKey(t)}
+                    className="flex min-w-0 items-center gap-3 border-b py-2.5 last:border-0"
+                  >
+                    <div className="min-w-0 flex-1 space-y-0.5 text-xs [overflow-wrap:anywhere]">
+                      <p className="text-sm font-medium">
+                        {t.counterparty ?? t.description}
+                      </p>
+                      <p className="text-muted-foreground">
+                        {t.typeText} · {t.amount < 0 ? "Money out" : "Money in"}
+                      </p>
+                      <p>
+                        {rowLabel(t.category, t.subcategory)} · {group.length}{" "}
+                        transaction(s) · {t.date}
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={rules.busy}
+                      onClick={() => setSelected(t)}
+                    >
+                      Review
+                    </Button>
+                  </li>
+                );
+              })}
+            </ul>
+            {shown.length > limit && (
+              <Button
+                variant="outline"
+                className="mt-3 self-center"
+                onClick={() => setLimit(limit + 30)}
+              >
+                Show more groups
+              </Button>
+            )}
+          </Panel>
         </div>
       </div>
       {selected && (

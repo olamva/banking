@@ -1,0 +1,14 @@
+{
+  "id": "3e362935",
+  "ts": "2026-11-01T11:53:02+00:00",
+  "text": "T3 preview_snapshot times out after 15s on a local Vite page, visible or hidden",
+  "tags": [
+    "preview",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "opus-5.5",
+  "session": "5d146c4b",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3-284e70c1",
+  "branch": "t3/shadcn-native-ios-app"
+}

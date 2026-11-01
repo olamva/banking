@@ -2,8 +2,9 @@ import type { BulkFile } from "../../core/bulkRules.ts";
 import { merchantOf } from "../../core/select.ts";
 import type { Categorized } from "../../core/types.ts";
 import { fmtNOKExact } from "./format.ts";
-
-const LINK = "hover:text-ink hover:underline";
+import { CategoryIcon, CloseIcon, EditIcon, Icon } from "./icons.ts";
+import { Button } from "./ui/button.tsx";
+import { Checkbox } from "./ui/checkbox.tsx";
 
 interface BulkToolbarProps {
   txns: Categorized[];
@@ -18,15 +19,12 @@ interface BulkSelectAllProps {
 }
 
 export const BulkSelectAll = ({ checked, onChange }: BulkSelectAllProps) => (
-  <label className="flex items-center">
-    <input
-      type="checkbox"
-      className="size-3.5 accent-series-1"
-      aria-label="Select all transactions"
-      checked={checked}
-      onChange={(e) => onChange(e.target.checked)}
-    />
-  </label>
+  <Checkbox
+    aria-label="Select all transactions"
+    checked={checked}
+    onCheckedChange={(c) => onChange(c === true)}
+    className="align-middle"
+  />
 );
 
 interface BulkCheckboxProps {
@@ -40,23 +38,18 @@ export const BulkCheckbox = ({
   selected,
   onSelect,
 }: BulkCheckboxProps) => (
-  <label
-    className="flex cursor-pointer items-center"
+  <Checkbox
+    aria-label={`Select ${merchantOf(txn)} on ${txn.date}, ${fmtNOKExact(txn.amount)}`}
+    checked={selected.has(txn)}
     onClick={(e) => e.stopPropagation()}
-  >
-    <input
-      type="checkbox"
-      className="size-3.5 accent-series-1"
-      aria-label={`Select ${merchantOf(txn)} on ${txn.date}, ${fmtNOKExact(txn.amount)}`}
-      checked={selected.has(txn)}
-      onChange={(e) => {
-        const next = new Set(selected);
-        if (e.target.checked) next.add(txn);
-        else next.delete(txn);
-        onSelect(next);
-      }}
-    />
-  </label>
+    onCheckedChange={(c) => {
+      const next = new Set(selected);
+      if (c === true) next.add(txn);
+      else next.delete(txn);
+      onSelect(next);
+    }}
+    className="align-middle"
+  />
 );
 
 export const BulkToolbar = ({
@@ -67,31 +60,34 @@ export const BulkToolbar = ({
 }: BulkToolbarProps) => {
   const targets = picked.length > 0 ? picked : txns;
   return (
-    <span className="ml-auto flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-xs font-normal text-ink-soft">
+    <div className="flex flex-wrap items-center justify-end gap-1">
       {picked.length > 0 && (
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="sm"
           aria-live="polite"
-          className={`text-ink-muted ${LINK}`}
           onClick={onClear}
         >
-          {picked.length} selected ×
-        </button>
+          {picked.length} selected
+          <Icon icon={CloseIcon} size={12} />
+        </Button>
       )}
-      <button
-        type="button"
-        className={LINK}
+      <Button
+        variant="ghost"
+        size="sm"
         onClick={() => onBulk(targets, "payees")}
       >
+        <Icon icon={EditIcon} size={14} />
         Rename payees
-      </button>
-      <button
-        type="button"
-        className={LINK}
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
         onClick={() => onBulk(targets, "preferences")}
       >
+        <Icon icon={CategoryIcon} size={14} />
         Change category
-      </button>
-    </span>
+      </Button>
+    </div>
   );
 };

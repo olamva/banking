@@ -2,7 +2,20 @@
   "ignorePatterns": ["data", "data.local", "dist", ".claude/worktrees"],
   "rules": {
     "complexity": "error",
-    "max-depth": ["error", { "max": 3 }],
+    "max-depth": [
+      "error",
+      {
+        "max": 3
+      }
+    ],
     "max-lines": ["error", 500]
-  }
+  },
+  "overrides": [
+    {
+      "files": ["src/web/app/ui/**"],
+      "rules": {
+        "max-lines": "off"
+      }
+    }
+  ]
 }

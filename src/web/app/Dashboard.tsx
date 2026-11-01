@@ -21,7 +21,7 @@ import {
   type SubscriptionGroup,
 } from "../../core/stats.ts";
 import type { Categorized } from "../../core/types.ts";
-import { Card, Empty, Note, StatTile, deltaInfo } from "./Cards.tsx";
+import { Empty, Note, Panel, StatTile, deltaInfo } from "./Cards.tsx";
 import {
   DivergingBars,
   HorizontalBars,
@@ -39,10 +39,11 @@ import {
   InfoIcon,
   MonthlyIcon,
 } from "./icons.ts";
+import { ToggleGroup, ToggleGroupItem } from "./ui/toggle-group.tsx";
 import type { Grain } from "./url.ts";
 
-export const CARD_GRID =
-  "grid grid-cols-[repeat(auto-fit,minmax(min(460px,100%),1fr))] gap-4 [&>*:last-child:nth-child(odd)]:col-span-full";
+const CARD_GRID =
+  "grid grid-cols-[repeat(auto-fit,minmax(min(420px,100%),1fr))] gap-4 [&>*:last-child:nth-child(odd)]:col-span-full";
 
 const CARD_GRID_3 =
   "grid grid-cols-[repeat(auto-fit,minmax(min(300px,100%),1fr))] gap-4 [&>*:last-child:nth-child(3n+1)]:col-span-full";
@@ -54,7 +55,7 @@ interface ExcludedNoteProps {
 
 export const ExcludedNote = ({ excluded, where }: ExcludedNoteProps) =>
   excluded.count === 0 ? null : (
-    <Note icon={InfoIcon} className="mt-3">
+    <Note icon={InfoIcon} className="mt-4">
       {excluded.count} transaction(s) totalling {fmtNOK(excluded.total)}{" "}
       excluded {where} (internal transfers, card bill payments).
     </Note>
@@ -98,19 +99,21 @@ interface GrainToggleProps {
 
 const GrainToggle = ({ grain, offered, onGrain }: GrainToggleProps) =>
   offered.length < 2 ? null : (
-    <span className="inline-flex overflow-hidden rounded-md border border-line">
+    <ToggleGroup
+      type="single"
+      variant="outline"
+      size="sm"
+      spacing={0}
+      value={grain}
+      onValueChange={(g) => g && onGrain(g as Grain)}
+      aria-label="Chart grain"
+    >
       {offered.map((g) => (
-        <button
-          key={g}
-          type="button"
-          aria-pressed={grain === g}
-          onClick={() => onGrain(g)}
-          className={`px-2 py-1 text-[11px] ${grain === g ? "bg-series-1 text-white" : "bg-page text-ink-soft"}`}
-        >
+        <ToggleGroupItem key={g} value={g} className="px-2 text-xs">
           {GRAIN_LABEL[g]}
-        </button>
+        </ToggleGroupItem>
       ))}
-    </span>
+    </ToggleGroup>
   );
 
 type Stats = ReturnType<typeof monthStats>;
@@ -131,7 +134,7 @@ const TILES = [
 ] as const;
 
 const Totals = ({ stats, prev, yearly, vsLabel }: TotalsProps) => (
-  <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(min(160px,100%),1fr))] gap-3">
+  <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(min(150px,100%),1fr))] gap-3 max-sm:grid-cols-2 max-sm:[&>*:last-child:nth-child(odd)]:col-span-full">
     {TILES.map(([key, label, goodIfUp]) =>
       (key === "net" ? stats.totalIn > 0 && stats.totalOut > 0 : stats[key] > 0)
         ? [
@@ -246,36 +249,36 @@ const Breakdowns = ({
           // A fragment adds no DOM child, so the grid still counts the cards.
           <Fragment key={tone}>
             {!single && cats.length > 0 && (
-              <Card title={`${side} by category`} icon={CategoryIcon}>
+              <Panel title={`${side} by category`} icon={CategoryIcon}>
                 <HorizontalBars
                   items={cats}
                   onPick={onCategory}
                   onPickSub={onSubcategory}
                   tone={tone}
                 />
-              </Card>
+              </Panel>
             )}
 
             {tone === "spend" && !single && deltas.length > 0 && (
-              <Card title={`Biggest changes vs ${vsLabel}`} icon={ChangesIcon}>
+              <Panel title={`Biggest changes vs ${vsLabel}`} icon={ChangesIcon}>
                 <DivergingBars deltas={deltas} onPick={onCategory} />
-              </Card>
+              </Panel>
             )}
 
             {cps.length > 0 && (
-              <Card title={`${side} by merchant`} icon={CounterpartyIcon}>
+              <Panel title={`${side} by merchant`} icon={CounterpartyIcon}>
                 <HorizontalBars items={cps} onPick={onMerchant} tone={tone} />
-              </Card>
+              </Panel>
             )}
 
             {accounts.length > 1 && (
-              <Card title={`${side} by account`} icon={AccountIcon}>
+              <Panel title={`${side} by account`} icon={AccountIcon}>
                 <HorizontalBars
                   items={accounts}
                   onPick={onAccount}
                   tone={tone}
                 />
-              </Card>
+              </Panel>
             )}
           </Fragment>
         ))}
@@ -376,7 +379,7 @@ export const Dashboard = ({
           rule below exists to prevent that. */}
       {series.length > 1 && (
         <div className="mb-4">
-          <Card
+          <Panel
             title={`${anyIncome ? (anySpend ? "Income & spend" : "Income") : "Spending"}${
               running
                 ? ", running total"
@@ -399,7 +402,7 @@ export const Dashboard = ({
               compare={compare}
               compareLabel={vs?.label}
             />
-          </Card>
+          </Panel>
         </div>
       )}
 

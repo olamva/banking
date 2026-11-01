@@ -48,7 +48,7 @@ const Row = ({
 );
 
 const Rule = () => (
-  <div className="my-2 border-t border-dashed border-ink-muted/60" />
+  <div className="my-2 border-t border-dashed border-muted-foreground/60" />
 );
 
 const Item = ({ line }: { line: ReceiptLine }) => (
@@ -58,7 +58,7 @@ const Item = ({ line }: { line: ReceiptLine }) => (
       amount={line.amount + total(line.discounts ?? []) - (line.deposit ?? 0)}
       className="pl-3"
     >
-      <span className="flex flex-wrap justify-between gap-x-3 text-ink-muted">
+      <span className="flex flex-wrap justify-between gap-x-3 text-muted-foreground">
         {line.size && <span>{line.size}</span>}
         {line.price > 0 && (
           <span className="ml-auto">
@@ -86,9 +86,9 @@ const Slip = ({ receipt }: { receipt: Receipt }) => {
   const lines = merged(receipt.lines);
   const saved = total(lines.flatMap((l) => l.discounts ?? []));
   return (
-    <div className="mx-auto max-w-[380px] rounded-md border border-line bg-page px-4 py-3 font-mono text-[11px] leading-relaxed tabular-nums">
+    <div className="mx-auto max-w-[380px] rounded-md border border-border bg-background px-4 py-3 font-mono text-[11px] leading-relaxed tabular-nums">
       <div className="text-center font-semibold uppercase">{receipt.store}</div>
-      <div className="text-center text-ink-muted">
+      <div className="text-center text-muted-foreground">
         {fmtDateTime(receipt.at)}
       </div>
       <Rule />
@@ -102,7 +102,7 @@ const Slip = ({ receipt }: { receipt: Receipt }) => {
       >
         SUM
       </Row>
-      <div className="flex justify-between gap-3 text-ink-muted">
+      <div className="flex justify-between gap-3 text-muted-foreground">
         <span>
           {total(
             lines
@@ -128,15 +128,15 @@ const Slip = ({ receipt }: { receipt: Receipt }) => {
 
 export const ReceiptLines = ({ receipt }: { receipt: Receipt }) => (
   <section className="mb-4 text-xs">
-    <h3 className="flex flex-wrap items-baseline gap-x-1.5 border-b border-line pb-1.5 font-semibold">
+    <h3 className="flex flex-wrap items-baseline gap-x-1.5 border-b border-border pb-1.5 font-semibold">
       <Icon
         icon={ReceiptIcon}
         size={14}
-        className="shrink-0 self-center text-ink-soft"
+        className="shrink-0 self-center text-muted-foreground"
       />
       Receipt
       {receipt.source === "gmail" && (
-        <span className="font-normal text-ink-soft">
+        <span className="font-normal text-muted-foreground">
           {receipt.store} · {fmtDateTime(receipt.at)}
         </span>
       )}
@@ -150,7 +150,7 @@ export const ReceiptLines = ({ receipt }: { receipt: Receipt }) => (
           href={`https://mail.google.com/mail/u/0/#all/${receipt.id}`}
           target="_blank"
           rel="noreferrer"
-          className="flex shrink-0 items-center gap-1.5 rounded-md border border-line bg-page px-2.5 py-1.5 text-ink-soft hover:bg-hover hover:text-ink hover:underline"
+          className="flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 text-muted-foreground hover:bg-muted hover:text-foreground hover:underline"
         >
           Open in Gmail
           <Icon icon={ExternalLinkIcon} size={12} />

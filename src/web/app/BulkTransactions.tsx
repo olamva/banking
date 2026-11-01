@@ -4,8 +4,14 @@ import { merchantOf } from "../../core/select.ts";
 import type { Categorized } from "../../core/types.ts";
 import type { RulesApi } from "./data.ts";
 import { rowLabel, splitPair } from "./format.ts";
-import { Modal } from "./Modal.tsx";
-import { BUTTON, FIELD, MatchTable, CategoryInput } from "./RuleFields.tsx";
+import { FIELD, MatchTable, CategoryInput } from "./RuleFields.tsx";
+import { Button } from "./ui/button.tsx";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "./ui/dialog.tsx";
 
 interface BulkTransactionsProps {
   selected: Categorized[];
@@ -61,106 +67,101 @@ export const BulkTransactions = ({
   };
 
   return (
-    <Modal
-      onClose={close}
-      className="max-h-[88dvh] w-[min(900px,94vw)] overflow-y-auto"
-    >
-      <form
-        className="min-w-0 space-y-4 p-4 sm:p-5"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          if (!ready || saved) return;
-          setSaving(true);
-          setFailed(false);
-          const ok = await rules.saveBulk(file, plan.keys, value.trim());
-          setSaving(false);
-          setSaved(ok);
-          setFailed(!ok);
-          if (ok) onSaved(file, value.trim());
-        }}
-      >
-        <div>
-          <p className="mb-1 text-xs font-medium text-ink-muted">
-            Bulk edit · {selected.length} selected
-          </p>
-          <h2 className="text-lg font-semibold">
-            {rename ? "Give them one name" : "Choose one category"}
-          </h2>
-        </div>
-        {saved ? (
-          <div
-            role="status"
-            className="rounded-lg border border-line bg-page p-4 text-sm"
-          >
-            <p className="font-semibold">
-              {rename ? "Payee names saved." : "Categories saved."}
-            </p>
-            <p className="mt-1 wrap-anywhere">
-              {changed} transaction(s) change to{" "}
-              {rename ? value.trim() : rowLabel(...splitPair(value.trim()))}.
-            </p>
-            <p className="mt-2 text-xs text-ink-muted">
-              Use rule history to undo this entire edit.
-            </p>
+    <Dialog open onOpenChange={(o) => !o && close()}>
+      <DialogContent className="max-h-[88dvh] overflow-y-auto pb-0 sm:max-w-3xl">
+        <form
+          className="min-w-0 space-y-4"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (!ready || saved) return;
+            setSaving(true);
+            setFailed(false);
+            const ok = await rules.saveBulk(file, plan.keys, value.trim());
+            setSaving(false);
+            setSaved(ok);
+            setFailed(!ok);
+            if (ok) onSaved(file, value.trim());
+          }}
+        >
+          <div className="space-y-1.5">
+            <DialogDescription className="text-xs font-medium">
+              Bulk edit · {selected.length} selected
+            </DialogDescription>
+            <DialogTitle className="text-lg font-semibold">
+              {rename ? "Give them one name" : "Choose one category"}
+            </DialogTitle>
           </div>
-        ) : (
-          <BulkPreview
-            selected={selected}
-            file={file}
-            pairs={pairs}
-            rules={rules}
-            value={value}
-            setValue={setValue}
-            saving={saving}
-            plan={plan}
-            changed={changed}
-            stale={stale}
-            tooLarge={tooLarge}
-            failed={failed}
-          />
-        )}
-        <div className="sticky bottom-0 flex flex-wrap justify-end gap-2 bg-surface py-2">
           {saved ? (
-            <>
-              <button
-                type="button"
-                className={BUTTON}
-                disabled={rules.busy}
-                onClick={() => {
-                  rules.undo(file);
-                  onClose();
-                }}
-              >
-                Undo this edit
-              </button>
-              <button type="button" className={BUTTON} onClick={onClose}>
-                Done
-              </button>
-            </>
+            <div
+              role="status"
+              className="rounded-lg border bg-muted/40 p-4 text-sm"
+            >
+              <p className="font-semibold">
+                {rename ? "Payee names saved." : "Categories saved."}
+              </p>
+              <p className="mt-1 wrap-anywhere">
+                {changed} transaction(s) change to{" "}
+                {rename ? value.trim() : rowLabel(...splitPair(value.trim()))}.
+              </p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Use rule history to undo this entire edit.
+              </p>
+            </div>
           ) : (
-            <>
-              <button
-                type="button"
-                className={BUTTON}
-                disabled={saving}
-                onClick={close}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={!ready}
-                className={`${BUTTON} bg-series-1 text-white`}
-              >
-                {saving
-                  ? "Saving…"
-                  : `Apply to ${plan.matches.length} transactions`}
-              </button>
-            </>
+            <BulkPreview
+              selected={selected}
+              file={file}
+              pairs={pairs}
+              rules={rules}
+              value={value}
+              setValue={setValue}
+              saving={saving}
+              plan={plan}
+              changed={changed}
+              stale={stale}
+              tooLarge={tooLarge}
+              failed={failed}
+            />
           )}
-        </div>
-      </form>
-    </Modal>
+          <div className="sticky bottom-0 -mx-4 flex flex-wrap justify-end gap-2 border-t bg-popover p-4">
+            {saved ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={rules.busy}
+                  onClick={() => {
+                    rules.undo(file);
+                    onClose();
+                  }}
+                >
+                  Undo this edit
+                </Button>
+                <Button type="button" onClick={onClose}>
+                  Done
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={saving}
+                  onClick={close}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={!ready}>
+                  {saving
+                    ? "Saving…"
+                    : `Apply to ${plan.matches.length} transactions`}
+                </Button>
+              </>
+            )}
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 };
 
@@ -196,15 +197,15 @@ const BulkPreview = ({
   const names = [...new Set(selected.map(merchantOf))];
   return (
     <>
-      <div className="rounded-lg border border-line bg-page p-3">
-        <p className="mb-2 text-xs text-ink-muted">
+      <div className="rounded-lg border bg-muted/40 p-3">
+        <p className="mb-2 text-xs text-muted-foreground">
           {names.length} payee name(s) → one {rename ? "name" : "category"}
         </p>
         <div className="flex max-h-24 flex-wrap gap-1.5 overflow-y-auto">
           {names.map((name) => (
             <span
               key={name}
-              className="max-w-full rounded border border-line px-2 py-1 text-xs wrap-anywhere"
+              className="max-w-full rounded-md border bg-background px-2 py-1 text-xs wrap-anywhere"
             >
               {name}
             </span>
@@ -244,7 +245,7 @@ const BulkPreview = ({
             ))}
         </datalist>
       )}
-      <div className="space-y-2 text-xs text-ink-muted">
+      <div className="space-y-2 text-xs text-muted-foreground">
         <p>
           {rename
             ? "Match the complete imported description, payee, and recipient account. New names take priority over existing payee patterns."
@@ -276,7 +277,7 @@ const BulkPreview = ({
         )}
       </div>
       <div
-        className="flex flex-wrap gap-x-5 gap-y-2 rounded-lg border border-line p-3 text-sm"
+        className="flex flex-wrap gap-x-5 gap-y-2 rounded-lg border p-3 text-sm tabular-nums"
         aria-live="polite"
       >
         <span>
