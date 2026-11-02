@@ -40,6 +40,7 @@ struct RootView: View {
                     SearchView()
                 }
             }
+            .tabViewSearchActivation(.searchTabSelection)
             .tabBarMinimizeBehavior(.onScrollDown)
         }
     }
