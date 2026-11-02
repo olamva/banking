@@ -63,6 +63,34 @@ test("rule history supports undo, redo, restore, and edits after undo", () => {
   assert.throws(() => rules.redo("categories"), /no redo left/);
 });
 
+test("undo reaches a version whose content a newer version repeats", () => {
+  put("payees", { shop: "X" });
+  rules.save({ file: "payees", key: "shop", value: "Y" });
+  rules.save({ file: "payees", key: "shop", value: "X" });
+  const [newest, middle, oldest] = rules.versions("payees");
+  rules.undo("payees");
+  assert.equal(rules.current("payees"), middle);
+  rules.undo("payees");
+  assert.equal(rules.current("payees"), oldest);
+  assert.throws(() => rules.undo("payees"), /no undo left/);
+  rules.redo("payees");
+  rules.redo("payees");
+  assert.equal(rules.current("payees"), newest);
+});
+
+test("a version dropped on one host stays dropped when a sync brings it back", () => {
+  put("payees", { shop: "A" });
+  rules.save({ file: "payees", key: "shop", value: "B" });
+  const dropped = rules.save({ file: "payees", key: "shop", value: "C" });
+  const copy = rules.readVersion("payees", dropped);
+  rules.undo("payees");
+  rules.save({ file: "payees", key: "shop", value: "D" });
+  put(`.history/${dropped}-payees`, copy);
+  assert.equal(rules.versions("payees").includes(dropped), false);
+  rules.undo("payees");
+  assert.deepEqual(asMap("payees"), { shop: "B" });
+});
+
 test("a remove drops the entry", () => {
   put("payees", { nsb: "Vy", tekna: "Tekna" });
   rules.save({ file: "payees", key: "nsb", remove: true });

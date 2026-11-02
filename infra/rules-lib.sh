@@ -5,9 +5,6 @@
 # moves forward. Comparing it on each side therefore says which side is ahead,
 # without reading a rule. The live file holds the version at the cursor, which
 # sits below the newest one while a reader steps back through the stack.
-#
-# ponytail: neither side deletes. An edit below the cursor drops the versions
-# above it, and the other side keeps its copies until somebody prunes by hand.
 
 RULE_FILES="categories preferences giro payees labels countries family subscriptions not-subscriptions"
 
