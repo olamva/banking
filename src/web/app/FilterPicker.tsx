@@ -130,7 +130,7 @@ export const Picker = ({
     const row = rowByKey(active);
     if (!row || row.sub || childrenOf(row.value).length < 2) return;
     e.preventDefault();
-    const isOpen = expanded.has(row.value);
+    const isOpen = rowsOf(row.value).length > 1;
     if ((e.key === "ArrowRight") !== isOpen)
       setExpanded((prev) => toggled(prev, row.value));
   };
