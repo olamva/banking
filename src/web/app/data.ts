@@ -354,12 +354,12 @@ export const readTheme = (): Theme => {
 };
 
 export const setTheme = (t: Theme): void => {
-  const html = document.documentElement;
-  if (t === "system") {
-    html.removeAttribute("data-theme");
-    localStorage.removeItem("dashboardTheme");
-  } else {
-    html.setAttribute("data-theme", t);
-    localStorage.setItem("dashboardTheme", t);
-  }
+  if (t === "system") localStorage.removeItem("dashboardTheme");
+  else localStorage.setItem("dashboardTheme", t);
+  document.documentElement.classList.toggle(
+    "dark",
+    t === "system"
+      ? matchMedia("(prefers-color-scheme: dark)").matches
+      : t === "dark",
+  );
 };

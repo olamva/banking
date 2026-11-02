@@ -1,0 +1,13 @@
+{
+  "id": "76b3e38f",
+  "ts": "2026-11-01T18:36:35+00:00",
+  "text": "Background dev server is killed at the default 30 min task limit mid-session; screenshots then fail silently",
+  "tags": [
+    "tools"
+  ],
+  "who": "delegate",
+  "model": "opus-5.5",
+  "session": "3870d6f1",
+  "where": "Bash run_in_background",
+  "branch": "t3/shadcn-native-ios-app"
+}

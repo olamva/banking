@@ -1,25 +1,29 @@
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { toast } from "sonner";
 import { bulkFilters, type BulkFile } from "../../core/bulkRules.ts";
-import { BulkTransactions } from "./BulkTransactions.tsx";
-import type { RuleFile } from "../../core/ruleFiles.ts";
+import { RULE_FILES, type RuleFile } from "../../core/ruleFiles.ts";
 import {
   NO_FILTERS,
   axisBounds,
-  distinctAccounts,
   distinctCategories,
-  distinctCountries,
-  distinctMerchants,
   distinctMonths,
   distinctSubcategories,
   distinctYears,
   inRange,
   period,
-  personMerchants,
   todayOslo,
   type Filters,
 } from "../../core/select.ts";
 import type { Categorized } from "../../core/types.ts";
-import { LoadNote, Toolbar } from "./AppToolbar.tsx";
+import { AppSidebar, VIEW_LABEL } from "./AppSidebar.tsx";
+import { BulkTransactions } from "./BulkTransactions.tsx";
 import { Dashboard, pick } from "./Dashboard.tsx";
 import {
   THEMES,
@@ -32,19 +36,28 @@ import {
   type Theme,
 } from "./data.ts";
 import { FilterBar, type View } from "./FilterBar.tsx";
-import { setCategoryHues, setLabels, subcategoryLabel } from "./format.ts";
-import { Notification, Notifications } from "./Modal.tsx";
+import { setCategoryHues, setLabels } from "./format.ts";
+import { Header, LoadNote, RefreshButton } from "./Header.tsx";
 import { Insights } from "./Insights.tsx";
-import { ReleaseFooter } from "./Releases.tsx";
-import { FileDialog, RulesView } from "./Rules.tsx";
-import { RULE_TAB_FILES, RuleTabs } from "./RuleTabs.tsx";
+import { useFilterOptions } from "./options.ts";
+import { PeriodPicker } from "./PeriodPicker.tsx";
+import { ReleaseNotesDialog } from "./Releases.tsx";
+import { RULE_TAB_FILES, entriesOf } from "./ruleMeta.ts";
+import { FileDialog } from "./RuleDialog.tsx";
+import { RuleFileSelect, RulesView } from "./Rules.tsx";
 import { ShortcutsDialog, useShortcuts, type Shortcut } from "./Shortcuts.tsx";
 import { TransactionsView } from "./TransactionsView.tsx";
+import { SidebarInset, SidebarProvider } from "./ui/sidebar.tsx";
+import { Toaster } from "./ui/sonner.tsx";
+import { TooltipProvider } from "./ui/tooltip.tsx";
 import { GRAINS, readUrl, writeUrl, type Grain } from "./url.ts";
 
-// A picked value stays on the list after a filter takes it out of the period.
-const withPicked = (offered: string[], picked: string[]): string[] =>
-  [...new Set([...offered, ...picked])].sort((a, b) => a.localeCompare(b));
+const useNoteToast = (note: string | null, bad: boolean) =>
+  useEffect(() => {
+    if (note === null) return;
+    if (bad) toast.error(note, { duration: Infinity, closeButton: true });
+    else toast.success(note);
+  }, [note, bad]);
 
 export const App = () => {
   const [load, reload] = useTransactions();
@@ -54,7 +67,6 @@ export const App = () => {
     file: BulkFile;
   } | null>(null);
   const refresh = useRefresh(reload);
-  // A rule edit rebuilds the database, so the page must read the rows again.
   const rules = useRules(reload);
   const [filing, setFiling] = useState<{
     txn: Categorized;
@@ -69,8 +81,11 @@ export const App = () => {
   const [chosenGrain, setChosenGrain] = useState<Grain>(initial.grain);
   const [theme, onTheme] = useState<Theme>(readTheme);
   const [help, setHelp] = useState(false);
+  const [releases, setReleases] = useState(false);
   const header = useRef<HTMLElement>(null);
   const hidden = useHideOnScroll(header, filters);
+  useNoteToast(refresh.note, refresh.bad);
+  useNoteToast(rules.note, rules.bad);
 
   if (load.status === "ready") {
     setLabels(load.labels);
@@ -81,11 +96,8 @@ export const App = () => {
   const ready = txns.length > 0;
   const months = useMemo(() => distinctMonths(txns), [txns]);
   const years = useMemo(() => distinctYears(txns), [txns]);
-
   const record = useMemo(() => axisBounds(txns, period("all")), [txns]);
 
-  // Over the record, not over the period. A rule claims every row it matches,
-  // whichever month is on screen.
   const pairs = useMemo(
     () =>
       [
@@ -95,6 +107,16 @@ export const App = () => {
         ]),
       ].sort(),
     [txns],
+  );
+
+  const counts = useMemo(
+    (): Partial<Record<RuleFile, number>> =>
+      rules.data
+        ? Object.fromEntries(
+            RULE_FILES.map((f) => [f, entriesOf(rules.data!.files[f]).length]),
+          )
+        : {},
+    [rules.data],
   );
 
   const offered = [...months, ...years, "all"];
@@ -119,13 +141,12 @@ export const App = () => {
   };
 
   const steps = p.kind === "month" ? months : p.kind === "year" ? years : [];
+  const nextStep = (by: number) => steps[steps.indexOf(active) + by];
   const step = (by: number) => {
-    const next = steps[steps.indexOf(active) + by];
+    const next = nextStep(by);
     if (next) setChosen(next);
   };
 
-  // The arrows move what the reader can see. The rules page carries no period,
-  // so there they step the rule file instead.
   const stepBy = (by: number) => {
     if (view !== "rules") return step(by);
     setRuleFile(
@@ -142,31 +163,20 @@ export const App = () => {
   const lastMonthOf = (y: string) =>
     months.filter((m) => m.startsWith(`${y}-`)).at(-1);
 
+  const changeTheme = (next: Theme) => {
+    onTheme(next);
+    setTheme(next);
+  };
+
   const shortcuts: Shortcut[] = [
-    {
-      keys: ["1"],
-      cap: "1",
-      what: "Dashboard",
-      run: () => changeView("dashboard"),
-    },
-    {
-      keys: ["2"],
-      cap: "2",
-      what: "Transactions",
-      run: () => changeView("transactions"),
-    },
-    {
-      keys: ["3"],
-      cap: "3",
-      what: "Insights",
-      run: () => changeView("insights"),
-    },
-    {
-      keys: ["4"],
-      cap: "4",
-      what: "Rules",
-      run: () => changeView("rules"),
-    },
+    ...(["dashboard", "transactions", "insights", "rules"] as const).map(
+      (v, i): Shortcut => ({
+        keys: [String(i + 1)],
+        cap: String(i + 1),
+        what: VIEW_LABEL[v],
+        run: () => changeView(v),
+      }),
+    ),
     {
       keys: ["ArrowLeft"],
       cap: "←",
@@ -192,12 +202,7 @@ export const App = () => {
         if (offered.includes(it)) setChosen(it);
       },
     },
-    {
-      keys: ["a"],
-      cap: "a",
-      what: "All time",
-      run: () => setChosen("all"),
-    },
+    { keys: ["a"], cap: "a", what: "All time", run: () => setChosen("all") },
     {
       keys: ["y"],
       cap: "y",
@@ -236,11 +241,8 @@ export const App = () => {
       keys: ["c"],
       cap: "c",
       what: "Next theme",
-      run: () => {
-        const next = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length]!;
-        onTheme(next);
-        setTheme(next);
-      },
+      run: () =>
+        changeTheme(THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length]!),
     },
     {
       keys: ["R"],
@@ -250,13 +252,9 @@ export const App = () => {
         if (!refresh.busy) refresh.run();
       },
     },
+    { cap: "⌘ B", what: "Show or hide the sidebar" },
     { cap: "/ ⌘F", what: "Search the transactions table" },
-    {
-      keys: ["?"],
-      cap: "?",
-      what: "This list",
-      run: () => setHelp(true),
-    },
+    { keys: ["?"], cap: "?", what: "This list", run: () => setHelp(true) },
   ];
   useShortcuts(shortcuts);
 
@@ -264,162 +262,116 @@ export const App = () => {
     () => txns.filter((t) => inRange(t, p.from, p.to)),
     [txns, p],
   );
-  const categories = useMemo(
-    () =>
-      [
-        ...new Set([
-          ...distinctCategories(inPeriod),
-          ...filters.categories.map((c) =>
-            c.includes("/") ? c.slice(0, c.indexOf("/")) : c,
-          ),
-        ]),
-      ].sort(),
-    [inPeriod, filters.categories],
-  );
-  const subcategories = useMemo(
-    () =>
-      [
-        ...new Set([
-          ...distinctSubcategories(inPeriod),
-          ...filters.categories.filter((c) => c.includes("/")),
-        ]),
-      ].sort(
-        (a, b) =>
-          a
-            .slice(0, a.indexOf("/"))
-            .localeCompare(b.slice(0, b.indexOf("/"))) ||
-          subcategoryLabel(
-            a.slice(0, a.indexOf("/")),
-            a.slice(a.indexOf("/") + 1) || null,
-          ).localeCompare(
-            subcategoryLabel(
-              b.slice(0, b.indexOf("/")),
-              b.slice(b.indexOf("/") + 1) || null,
-            ),
-          ),
-      ),
-    [inPeriod, filters.categories],
-  );
-  const merchants = useMemo(
-    () => withPicked(distinctMerchants(inPeriod), filters.merchants),
-    [inPeriod, filters.merchants],
-  );
-  const people = useMemo(() => personMerchants(inPeriod), [inPeriod]);
-  const accounts = useMemo(
-    () => withPicked(distinctAccounts(inPeriod), filters.accounts),
-    [inPeriod, filters.accounts],
-  );
-  const countries = useMemo(() => {
-    const inView = distinctCountries(inPeriod);
-    return inView.concat(filters.countries.filter((c) => !inView.includes(c)));
-  }, [inPeriod, filters.countries]);
+  const options = useFilterOptions(inPeriod, filters);
+
+  const views: Record<View, () => ReactNode> = {
+    rules: () => (
+      <RulesView rules={rules} txns={txns} pairs={pairs} file={ruleFile} />
+    ),
+    dashboard: () => (
+      <Dashboard
+        txns={txns}
+        all={inPeriod}
+        filters={filters}
+        onFilters={setFilters}
+        period={p}
+        grain={grain}
+        offered={grains}
+        onGrain={setChosenGrain}
+      />
+    ),
+    insights: () => (
+      <Insights
+        rows={inPeriod}
+        filters={filters}
+        onMerchant={pick(setFilters, "merchants")}
+        onCategory={pick(setFilters, "categories")}
+      />
+    ),
+    transactions: () => (
+      <TransactionsView
+        rows={inPeriod}
+        filters={filters}
+        onFilters={setFilters}
+        onFile={(txn, file) => setFiling({ txn, file })}
+        onBulk={(selected, file) => setBulk({ selected, all: txns, file })}
+      />
+    ),
+  };
+  const body =
+    ready || shownView === "rules" ? (
+      views[shownView]()
+    ) : (
+      <LoadNote load={load} count={txns.length} refresh={refresh} />
+    );
 
   return (
-    <>
-      {/* One bar holds the title, the three controls and every filter. It
-          leaves on a scroll down and returns on a scroll up, so a phone reads
-          the page at full height and reaches the filters without a scroll to
-          the top. An open picker holds it, because a long list scrolls the page
-          on at its end, and that would take the list off the screen. */}
-      <header
-        ref={header}
-        className={`sticky top-0 z-30 border-b border-line bg-page transition-transform duration-200 has-[details[open]]:translate-y-0 motion-reduce:transition-none ${hidden ? "-translate-y-full" : ""}`}
+    <TooltipProvider delayDuration={300}>
+      <SidebarProvider
+        defaultOpen={!document.cookie.includes("sidebar_state=false")}
       >
-        <div className="mx-auto max-w-295 space-y-2.5 px-3 py-2.5 sm:px-6 sm:py-3">
-          <Toolbar
-            refresh={refresh}
-            theme={theme}
-            onTheme={onTheme}
-            onHelp={() => setHelp(true)}
-          />
-
-          <FilterBar
-            view={view}
-            onView={changeView}
-            tabs={
-              <RuleTabs rules={rules} file={ruleFile} onFile={setRuleFile} />
+        <AppSidebar
+          view={view}
+          onView={changeView}
+          ruleFile={ruleFile}
+          onRuleFile={setRuleFile}
+          counts={counts}
+          theme={theme}
+          onTheme={onTheme}
+          onHelp={() => setHelp(true)}
+          onReleases={() => setReleases(true)}
+        />
+        <SidebarInset className="min-w-0">
+          <Header
+            ref={header}
+            hidden={hidden}
+            title={VIEW_LABEL[view]}
+            action={<RefreshButton refresh={refresh} />}
+            controls={
+              view === "rules" ? (
+                <RuleFileSelect
+                  file={ruleFile}
+                  onFile={setRuleFile}
+                  counts={counts}
+                />
+              ) : (
+                <PeriodPicker
+                  months={months}
+                  years={years}
+                  period={active}
+                  kind={p.kind}
+                  from={p.from}
+                  to={p.to}
+                  earliest={record.from}
+                  latest={record.to}
+                  onPeriod={setChosen}
+                  onStep={step}
+                  canStep={(by) => nextStep(by) !== undefined}
+                />
+              )
             }
-            months={months}
-            years={years}
-            period={active}
-            kind={p.kind}
-            from={p.from}
-            to={p.to}
-            earliest={record.from}
-            latest={record.to}
-            onPeriod={setChosen}
-            categories={categories}
-            subcategories={subcategories}
-            merchants={merchants}
-            people={people}
-            accounts={accounts}
-            countries={countries}
-            filters={filters}
-            onFilters={setFilters}
-          />
-        </div>
-      </header>
+          >
+            {view !== "rules" && (
+              <FilterBar
+                view={view}
+                {...options}
+                filters={filters}
+                onFilters={setFilters}
+              />
+            )}
+          </Header>
+          <div className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-6 sm:py-6">
+            {body}
+          </div>
+        </SidebarInset>
+      </SidebarProvider>
 
       <ShortcutsDialog
         shortcuts={shortcuts}
         open={help}
         onClose={() => setHelp(false)}
       />
-
-      <div className="mx-auto max-w-295 py-4 sm:px-6 sm:py-6">
-        {shownView === "rules" ? (
-          <div className="px-3 sm:px-0">
-            <RulesView
-              rules={rules}
-              txns={txns}
-              pairs={pairs}
-              file={ruleFile}
-            />
-          </div>
-        ) : (
-          <>
-            <div className="px-3 sm:px-0">
-              <LoadNote load={load} count={txns.length} refresh={refresh} />
-            </div>
-            {ready &&
-              (shownView === "dashboard" ? (
-                <div className="px-3 sm:px-0">
-                  <Dashboard
-                    txns={txns}
-                    all={inPeriod}
-                    filters={filters}
-                    onFilters={setFilters}
-                    period={p}
-                    grain={grain}
-                    offered={grains}
-                    onGrain={setChosenGrain}
-                  />
-                </div>
-              ) : shownView === "insights" ? (
-                <div className="px-3 sm:px-0">
-                  <Insights
-                    rows={inPeriod}
-                    filters={filters}
-                    onMerchant={pick(setFilters, "merchants")}
-                    onCategory={pick(setFilters, "categories")}
-                  />
-                </div>
-              ) : (
-                <TransactionsView
-                  rows={inPeriod}
-                  filters={filters}
-                  onFilters={setFilters}
-                  onFile={(txn, file) => setFiling({ txn, file })}
-                  onBulk={(selected, file) =>
-                    setBulk({ selected, all: txns, file })
-                  }
-                />
-              ))}
-          </>
-        )}
-      </div>
-      <ReleaseFooter />
-
+      <ReleaseNotesDialog open={releases} onClose={() => setReleases(false)} />
       {bulk && (
         <BulkTransactions
           {...bulk}
@@ -441,10 +393,7 @@ export const App = () => {
           onClose={() => setFiling(null)}
         />
       )}
-      <Notifications>
-        <Notification note={refresh.note} bad={refresh.bad} />
-        <Notification note={rules.note} bad={rules.bad} />
-      </Notifications>
-    </>
+      <Toaster theme={theme} position="bottom-right" />
+    </TooltipProvider>
   );
 };

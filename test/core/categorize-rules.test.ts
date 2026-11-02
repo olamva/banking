@@ -102,28 +102,28 @@ test("the bank's faste_boutgifter is renamed, and an override still wins over it
 });
 
 test("the payee account number is matchable, so one name can bill two things", () => {
-  const sit = (remoteAccountNumber: string, amount: number) =>
+  const rent = (remoteAccountNumber: string, amount: number) =>
     classified({
-      description: "Sit",
-      counterparty: "Sit",
+      description: "Bolig",
+      counterparty: "Bolig",
       bankCategory: null,
       remoteAccountNumber,
       amount,
     });
   const rules = {
-    "42121144527": "helse_og_velvaere",
-    "/\\bsit\\b/": "husleie",
+    "39910000011": "helse_og_velvaere",
+    "/\\bbolig\\b/": "husleie",
   };
 
   assert.equal(
-    categorize([sit("42121144527", -185)], rules)[0]!.category,
+    categorize([rent("39910000011", -200)], rules)[0]!.category,
     "helse_og_velvaere",
   );
   assert.equal(
-    categorize([sit("42004151326", -10416)], rules)[0]!.category,
+    categorize([rent("39910000012", -10000)], rules)[0]!.category,
     "husleie",
   );
-  assert.equal(categorize([sit("", -3819)], rules)[0]!.category, "husleie");
+  assert.equal(categorize([rent("", -4000)], rules)[0]!.category, "husleie");
 });
 
 test("renamePayees collapses a payee that writes the month into every payment", () => {
@@ -136,22 +136,22 @@ test("renamePayees collapses a payee that writes the month into every payment", 
     remoteAccountNumber,
   });
   const rows = [
-    row("SIMEN LEIE Februar Husleie"),
-    row("SIMEN LEIE Mars Husleie"),
-    row("Theo leie"),
-    row("Theo leie Husleie Juli"),
+    row("KARI LEIE Februar Husleie"),
+    row("KARI LEIE Mars Husleie"),
+    row("Per leie"),
+    row("Per leie Husleie Juli"),
     row("Rema 1000"),
   ];
   const renamed = renamePayees(rows, {
-    "simen leie": "Simen leie",
-    "theo leie": "Theo leie",
+    "kari leie": "Kari leie",
+    "per leie": "Per leie",
   });
 
   assert.deepEqual(
     renamed.map((r) => r.counterparty),
-    ["Simen leie", "Simen leie", "Theo leie", "Theo leie", "Rema 1000"],
+    ["Kari leie", "Kari leie", "Per leie", "Per leie", "Rema 1000"],
   );
-  assert.equal(renamed[0]!.description, "SIMEN LEIE Februar Husleie");
+  assert.equal(renamed[0]!.description, "KARI LEIE Februar Husleie");
   assert.deepEqual(
     renamePayees(rows, {}),
     rows.map((r) => ({ ...r, originalCounterparty: r.counterparty })),

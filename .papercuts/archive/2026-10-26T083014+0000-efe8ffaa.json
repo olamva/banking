@@ -1,0 +1,14 @@
+{
+  "id": "efe8ffaa",
+  "ts": "2026-10-26T08:30:14+00:00",
+  "text": "delete_scheduled_task and update_scheduled_task fail with runtime_mode_escalation_denied (child full-access broader than parent auto) from a scheduled-run thread, so the task cannot remove its own reminder",
+  "tags": [
+    "t3",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "opus-5.5",
+  "session": "aae7b93a",
+  "where": "mcp__t3-code__delete_scheduled_task",
+  "branch": "t3/remove-azure-resources"
+}

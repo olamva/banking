@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import type { RuleFile } from "../../core/ruleFiles.ts";
 import { merchantOf } from "../../core/select.ts";
 import type { Categorized } from "../../core/types.ts";
@@ -11,9 +10,17 @@ import {
   rowLabel,
   txnFields,
 } from "./format.ts";
-import { CategoryIcon, CloseIcon, EditIcon, Icon } from "./icons.ts";
-import { Modal } from "./Modal.tsx";
+import { CategoryIcon, EditIcon, Icon } from "./icons.ts";
 import { ReceiptLines } from "./ReceiptLines.tsx";
+import { Badge } from "./ui/badge.tsx";
+import { Button } from "./ui/button.tsx";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "./ui/sheet.tsx";
 
 interface TxnDialogProps {
   txn: Categorized;
@@ -27,27 +34,6 @@ const TXN_RULE_ACTIONS: [RuleFile, string][] = [
   ["payees", "Rename payee…"],
   ["family", "Mark as family…"],
 ];
-
-const Chip = ({
-  children,
-  onClick,
-  dashed,
-}: {
-  children: ReactNode;
-  onClick?: () => void;
-  dashed?: boolean;
-}) => {
-  const Element = onClick ? "button" : "span";
-  return (
-    <Element
-      type={onClick ? "button" : undefined}
-      onClick={onClick}
-      className={`inline-flex items-center gap-1 flex-row rounded-full border px-2 py-0.5 text-[11px] text-ink-soft ${dashed ? "border-dashed border-ink-muted" : "border-line"} ${onClick ? "hover:bg-hover hover:text-ink" : ""}`}
-    >
-      {children}
-    </Element>
-  );
-};
 
 const SHOWN_ABOVE = [
   "date",
@@ -70,126 +56,130 @@ const SHOWN_ABOVE = [
   "receipt",
 ];
 
-const DOT = (
-  <span aria-hidden className="text-ink-muted">
-    ·
-  </span>
-);
-
-const ROW =
-  "flex items-baseline justify-between gap-4 border-b border-line py-1.5 last:border-0";
+const ROW = "flex items-baseline justify-between gap-4 py-2";
 
 export const TxnDialog = ({ txn, onClose, onFile }: TxnDialogProps) => {
   const bank = bankLabel(txn);
 
   return (
-    <Modal
-      onClose={onClose}
-      className="max-h-[80vh] w-[min(560px,92vw)] overflow-y-auto"
-    >
-      <div className="sticky top-0 z-10 flex items-start gap-3 border-b border-line bg-surface px-5 py-4">
-        <div className="min-w-0 flex-1">
-          <h2 className="truncate text-base font-semibold">
-            {merchantOf(txn)}
-          </h2>
-          <div className="mt-1 flex flex-wrap items-center gap-x-1.5 text-xs text-ink-soft">
-            <span
-              className="font-medium"
-              style={{ color: categoryColor(txn.category) }}
-            >
-              {rowLabel(txn.category, txn.subcategory)}
-            </span>
-            {DOT}
-            <span>{txn.account}</span>
-            {DOT}
-            <span>{fmtDate(txn.date)}</span>
-          </div>
-        </div>
-        <div
-          className={`text-xl font-semibold tabular-nums whitespace-nowrap ${txn.amount > 0 ? "text-good" : ""}`}
-        >
-          {fmtNOKExact(txn.amount)}
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          className="-m-1 shrink-0 rounded p-1 text-ink-muted hover:bg-hover hover:text-ink"
-        >
-          <Icon icon={CloseIcon} size={16} />
-        </button>
-      </div>
-      <div className="px-5 py-4">
-        {onFile && (
-          <div className="mb-3 flex flex-wrap gap-1.5">
-            {[
-              ...TXN_RULE_ACTIONS,
-              txn.isSubscription
-                ? (["not-subscriptions", "Not a subscription…"] as const)
-                : (["subscriptions", "Mark as subscription…"] as const),
-            ].map(([file, label]) => (
-              <button
-                key={file}
-                type="button"
-                onClick={() => onFile(file)}
-                className="flex items-center gap-1.5 rounded-md border border-line bg-page px-2.5 py-1.5 text-xs text-ink-soft"
+    <Sheet open onOpenChange={(o) => !o && onClose()}>
+      <SheetContent className="gap-0 overflow-y-auto data-[side=right]:w-full data-[side=right]:sm:max-w-md">
+        <SheetHeader className="gap-3 border-b pr-12">
+          <div className="min-w-0">
+            <SheetTitle className="truncate text-lg font-semibold">
+              {merchantOf(txn)}
+            </SheetTitle>
+            <SheetDescription className="mt-1 flex flex-wrap items-center gap-x-1.5 text-xs">
+              <span
+                className="font-medium"
+                style={{ color: categoryColor(txn.category) }}
               >
-                <Icon icon={CategoryIcon} size={14} />
-                {label}
-              </button>
-            ))}
+                {rowLabel(txn.category, txn.subcategory)}
+              </span>
+              <span aria-hidden>·</span>
+              <span>{txn.account}</span>
+              <span aria-hidden>·</span>
+              <span>{fmtDate(txn.date)}</span>
+            </SheetDescription>
           </div>
-        )}
-        {(txn.excluded ||
-          txn.isSubscription ||
-          txn.isRecurring ||
-          txn.isPending ||
-          txn.country) && (
-          <div className="mb-3 flex flex-wrap gap-1.5">
-            {txn.country && (
-              <Chip onClick={onFile ? () => onFile("countries") : undefined}>
-                {txn.country}
-                {onFile && <Icon icon={EditIcon} size={11} />}
-              </Chip>
+          <div
+            className={`text-3xl font-semibold tracking-tight tabular-nums ${txn.amount > 0 ? "text-good" : ""}`}
+          >
+            {fmtNOKExact(txn.amount)}
+          </div>
+          {(txn.excluded ||
+            txn.isSubscription ||
+            txn.isRecurring ||
+            txn.isPending ||
+            txn.country) && (
+            <div className="flex flex-wrap gap-1.5">
+              {txn.country &&
+                (onFile ? (
+                  <Badge variant="outline" asChild>
+                    <button type="button" onClick={() => onFile("countries")}>
+                      {txn.country}
+                      <Icon icon={EditIcon} size={11} />
+                    </button>
+                  </Badge>
+                ) : (
+                  <Badge variant="outline">{txn.country}</Badge>
+                ))}
+              {txn.excluded && <Badge variant="secondary">Excluded</Badge>}
+              {txn.isSubscription && (
+                <Badge variant="secondary">Subscription</Badge>
+              )}
+              {txn.isRecurring && <Badge variant="secondary">Recurring</Badge>}
+              {txn.isPending && (
+                <Badge variant="outline" className="border-dashed">
+                  Pending
+                </Badge>
+              )}
+            </div>
+          )}
+        </SheetHeader>
+        <div className="space-y-5 p-4">
+          {onFile && (
+            <section>
+              <h3 className="mb-2 text-xs font-medium text-muted-foreground">
+                Rules
+              </h3>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  ...TXN_RULE_ACTIONS,
+                  txn.isSubscription
+                    ? (["not-subscriptions", "Not a subscription…"] as const)
+                    : (["subscriptions", "Mark as subscription…"] as const),
+                ].map(([file, label]) => (
+                  <Button
+                    key={file}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onFile(file)}
+                  >
+                    <Icon icon={CategoryIcon} size={14} />
+                    {label}
+                  </Button>
+                ))}
+              </div>
+            </section>
+          )}
+          {txn.receipt && <ReceiptLines receipt={txn.receipt} />}
+          <dl className="divide-y text-xs">
+            {txn.categorySource && (
+              <div className={ROW}>
+                <dt className="shrink-0 text-muted-foreground">
+                  Classification
+                </dt>
+                <dd className="min-w-0 text-right">{txn.categorySource}</dd>
+              </div>
             )}
-            {txn.excluded && <Chip>Excluded</Chip>}
-            {txn.isSubscription && <Chip>Subscription</Chip>}
-            {txn.isRecurring && <Chip>Recurring</Chip>}
-            {txn.isPending && <Chip dashed>Pending</Chip>}
-          </div>
-        )}
-        {txn.receipt && <ReceiptLines receipt={txn.receipt} />}
-        <dl className="text-xs">
-          {txn.categorySource && (
-            <div className={ROW}>
-              <dt className="shrink-0 text-ink-soft">Classification</dt>
-              <dd className="min-w-0 text-right">{txn.categorySource}</dd>
-            </div>
-          )}
-          {bank && (
-            <div className={ROW}>
-              <dt className="shrink-0 text-ink-soft">Bank category</dt>
-              <dd className="min-w-0 text-right">
-                <div className="text-sm wrap-break-word">{bank[0]}</div>
-                <div className="font-mono text-[11px] break-all text-ink-muted">
-                  {bank[1]}
-                </div>
-              </dd>
-            </div>
-          )}
-          {txnFields(txn, SHOWN_ABOVE).map(([name, value]) => (
-            <div key={name} className={ROW}>
-              <dt className="shrink-0 text-ink-soft">{name}</dt>
-              <dd
-                className={`min-w-0 text-right ${name === ID_FIELD ? "truncate" : "wrap-break-word"}`}
-                title={name === ID_FIELD ? value : undefined}
-              >
-                {value}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </div>
-    </Modal>
+            {bank && (
+              <div className={ROW}>
+                <dt className="shrink-0 text-muted-foreground">
+                  Bank category
+                </dt>
+                <dd className="min-w-0 text-right">
+                  <div className="text-sm wrap-break-word">{bank[0]}</div>
+                  <div className="font-mono text-[11px] break-all text-muted-foreground">
+                    {bank[1]}
+                  </div>
+                </dd>
+              </div>
+            )}
+            {txnFields(txn, SHOWN_ABOVE).map(([name, value]) => (
+              <div key={name} className={ROW}>
+                <dt className="shrink-0 text-muted-foreground">{name}</dt>
+                <dd
+                  className={`min-w-0 text-right ${name === ID_FIELD ? "truncate" : "wrap-break-word"}`}
+                  title={name === ID_FIELD ? value : undefined}
+                >
+                  {value}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 };

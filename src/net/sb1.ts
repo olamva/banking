@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { createServer } from "node:http";
 import { note, spend } from "./budget.ts";
-import { env, getToken, setToken, store } from "./token.ts";
+import { env, getToken, setToken, store, withTokenLock } from "./token.ts";
 
 const API = "https://api.sparebank1.no";
 
@@ -131,20 +131,25 @@ export async function login(): Promise<void> {
   console.error(`Refresh token stored in the ${store()}.`);
 }
 
-let accessToken: string | undefined;
+let access: { token: string; until: number } | undefined;
 
-async function getAccessToken(): Promise<string> {
-  if (accessToken) return accessToken;
-  const refresh = await getToken();
-  if (!refresh) throw new ReauthRequired(`no refresh token in the ${store()}`);
-  const t = await postToken({
-    grant_type: "refresh_token",
-    refresh_token: refresh,
+const getAccessToken = (): Promise<string> =>
+  withTokenLock(async () => {
+    if (access && Date.now() < access.until) return access.token;
+    const refresh = await getToken();
+    if (!refresh)
+      throw new ReauthRequired(`no refresh token in the ${store()}`);
+    const t = await postToken({
+      grant_type: "refresh_token",
+      refresh_token: refresh,
+    });
+    await setToken(t.refresh_token); // rotates on every use
+    access = {
+      token: t.access_token,
+      until: Date.now() + (t.expires_in - 60) * 1000,
+    };
+    return access.token;
   });
-  await setToken(t.refresh_token); // rotates on every use
-  accessToken = t.access_token;
-  return accessToken;
-}
 
 export async function get(path: string): Promise<unknown> {
   spend();

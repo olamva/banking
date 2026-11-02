@@ -1,0 +1,14 @@
+{
+  "id": "4c533109",
+  "ts": "2026-11-01T18:36:36+00:00",
+  "text": "pnpm test fails on oxlint complexity in src/web/server.ts from the concurrent iOS agent, so web-only changes cannot get a green pnpm test",
+  "tags": [
+    "ci",
+    "lint"
+  ],
+  "who": "delegate",
+  "model": "opus-5.5",
+  "session": "3870d6f1",
+  "where": "src/web/server.ts",
+  "branch": "t3/shadcn-native-ios-app"
+}

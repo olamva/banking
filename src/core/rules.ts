@@ -57,27 +57,44 @@ export function versions(file: RuleFile): number[] {
   return readdirSync(HISTORY)
     .filter((n) => n.endsWith(suffix))
     .map((n) => Number(n.slice(0, -suffix.length)))
-    .filter((n) => Number.isFinite(n))
+    .filter((n) => Number.isFinite(n) && !existsSync(droppedPath(file, n)))
     .sort((a, b) => b - a);
 }
 
 const versionPath = (file: RuleFile, at: number) =>
   `${HISTORY}/${at}-${file}.json`;
 
+const droppedPath = (file: RuleFile, at: number) =>
+  `${HISTORY}/${at}-${file}.dropped`;
+
+const cursorPath = (file: RuleFile) => `${HISTORY}/${file}.cursor`;
+
 export const readVersion = (file: RuleFile, at: number): Rules =>
   read(versionPath(file, at)) as Rules;
 
-// The version the live file holds, and the whole cursor. Nothing records it,
-// because the content says it. That keeps the cursor right on both hosts after
-// a deploy, which no extra file in the share would.
+// The version the live file holds. The cursor file names it, because two
+// versions can hold the same content. The content still decides: when a hand
+// edit or a deploy moves the live file away from the named version, the newest
+// version with the same content wins.
 //
 // It reads null when the live file matches no version. A hand edit does that,
 // and the next commit records that state rather than losing it.
 export function current(file: RuleFile): number | null {
   const now = JSON.stringify(load(file));
-  for (const at of versions(file))
-    if (JSON.stringify(readVersion(file, at)) === now) return at;
-  return null;
+  const same = (at: number) => JSON.stringify(readVersion(file, at)) === now;
+  const list = versions(file);
+  const named = Number(
+    existsSync(cursorPath(file)) && readFileSync(cursorPath(file), "utf8"),
+  );
+  return list.includes(named) && same(named)
+    ? named
+    : (list.find(same) ?? null);
+}
+
+function place(file: RuleFile, at: number, value: Rules): number {
+  write(live(file), value);
+  writeFileSync(cursorPath(file), String(at));
+  return at;
 }
 
 export type Version = { at: number; changes: RuleChange[] };
@@ -100,7 +117,8 @@ export function history(file: RuleFile, limit: number): Version[] {
 // disappear. Step forward until the name is free.
 function stamp(file: RuleFile): number {
   let at = Date.now();
-  while (existsSync(versionPath(file, at))) at += 1;
+  while (existsSync(versionPath(file, at)) || existsSync(droppedPath(file, at)))
+    at += 1;
   return at;
 }
 
@@ -128,10 +146,11 @@ function commit(file: RuleFile, next: Rules): number {
   if (cursor === null) snapshot(file, load(file));
   else
     for (const above of versions(file))
-      if (above > cursor) rmSync(versionPath(file, above));
-  const at = snapshot(file, next);
-  write(live(file), next);
-  return at;
+      if (above > cursor) {
+        writeFileSync(droppedPath(file, above), "");
+        rmSync(versionPath(file, above));
+      }
+  return place(file, snapshot(file, next), next);
 }
 
 export type Edit = {
@@ -205,9 +224,9 @@ export function saveValues(
 // stays as the redo side of the stack.
 export function restore(file: RuleFile, at: number): number {
   const value = readVersion(file, at);
-  if (value === null) throw new Error(`${file}.json has no version ${at}`);
-  write(live(file), value);
-  return at;
+  if (value === null || existsSync(droppedPath(file, at)))
+    throw new Error(`${file}.json has no version ${at}`);
+  return place(file, at, value);
 }
 
 // One step down the stack, or one step up it. The list runs newest first, so

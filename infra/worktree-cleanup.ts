@@ -94,7 +94,7 @@ function inspectIgnoredFiles(target: string, main: string) {
     const relative = name.replace(/\/$/, "");
     const file = join(target, relative);
     if (
-      [".env.local", "data", "rules"].includes(relative) &&
+      [".env", "data", "rules"].includes(relative) &&
       lstatSync(file).isSymbolicLink() &&
       resolve(target, readlinkSync(file)) === join(main, relative)
     )

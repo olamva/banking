@@ -29,6 +29,18 @@ if [ -n "$ahead" ] && [ "${1:-}" != "--force" ]; then
   exit 1
 fi
 
+if [ -z "$(behind_files "$remote" "$local")" ] && [ "${1:-}" != "--force" ]; then
+  live="$(remote_live)"
+  moved="$(live_diff "$live" "$repo/rules")"
+  rm -rf "$live"
+  if [ -n "$moved" ]; then
+    echo "this machine stands at another point in the rule history:" >&2
+    echo "$moved" >&2
+    echo "pass --force to take the site copy, or run \`pnpm rules:push --force\` to keep this one" >&2
+    exit 1
+  fi
+fi
+
 echo "==> download the rules"
 site_rsync -rt "$HOST:$SITE/rules/" "$repo/rules/"
 

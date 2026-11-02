@@ -17,7 +17,7 @@ test("the country comes off the card's own tail, and only there", () => {
 
   assert.equal(countryOf("GINA TRICOT STORMOA, LAN ÅLESUND"), null);
   assert.equal(countryOf("SMART STORE, S L P"), null);
-  assert.equal(countryOf("Vipps, Ola Munthe Vassbotn :"), null);
+  assert.equal(countryOf("Vipps, Ola Nordmann :"), null);
   assert.equal(countryOf("REMA VOLDA INDUSTRIGATA VOLDA"), null);
   assert.equal(countryOf(""), null);
   assert.equal(countryOf("SOMETHING, ELSE, JP.HOTELS.COM"), null);

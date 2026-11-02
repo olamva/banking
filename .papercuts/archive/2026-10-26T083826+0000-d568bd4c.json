@@ -1,0 +1,14 @@
+{
+  "id": "d568bd4c",
+  "ts": "2026-10-26T08:38:26+00:00",
+  "text": "terraform destroy fails: managed certificate is deleted before the container app custom domain, Azure returns CertificateInUse; unbind with az containerapp hostname delete first",
+  "tags": [
+    "azure",
+    "terraform"
+  ],
+  "who": "agent",
+  "model": "opus-5.5",
+  "session": "aae7b93a",
+  "where": "infra/main.tf",
+  "branch": "t3/remove-azure-resources"
+}

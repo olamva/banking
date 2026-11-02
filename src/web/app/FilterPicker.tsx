@@ -1,74 +1,19 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Caret, PILL } from "./Cards.tsx";
+import { useRef, useState } from "react";
 import { toggled } from "./format.ts";
-import { DropdownIcon, Icon, SearchIcon } from "./icons.ts";
-
-export const CONTROL =
-  "rounded-md border border-line bg-page px-2 py-1.5 text-[13px] text-ink";
-
-export const PANEL = "rounded-md border border-line bg-surface p-1.5 shadow-lg";
-
-const useDismiss = (menu: React.RefObject<HTMLDetailsElement | null>) => {
-  useEffect(() => {
-    const close = (e: Event) => {
-      const el = menu.current;
-      if (!el?.open) return;
-      if (e instanceof KeyboardEvent && e.key !== "Escape") return;
-      if (e.type === "pointerdown" && el.contains(e.target as Node)) return;
-      el.open = false;
-    };
-    document.addEventListener("keydown", close);
-    document.addEventListener("pointerdown", close);
-    return () => {
-      document.removeEventListener("keydown", close);
-      document.removeEventListener("pointerdown", close);
-    };
-  }, [menu]);
-};
-
-interface MenuProps {
-  label: ReactNode;
-  ref?: React.RefObject<HTMLDetailsElement | null>;
-  className?: string;
-  summaryClassName?: string;
-  onToggle?: (e: React.SyntheticEvent<HTMLDetailsElement>) => void;
-  children: ReactNode;
-}
-
-// Every dropdown on the bar: the trigger, the caret and the dismiss handler.
-export const Menu = ({
-  label,
-  ref,
-  className = "",
-  summaryClassName = "",
-  onToggle,
-  children,
-}: MenuProps) => {
-  const own = useRef<HTMLDetailsElement>(null);
-  const menu = ref ?? own;
-  useDismiss(menu);
-
-  return (
-    <details
-      ref={menu}
-      className={`group relative ${className}`}
-      onToggle={onToggle}
-    >
-      {/* The caret is the only thing saying this opens rather than toggles. */}
-      <summary
-        className={`${CONTROL} flex list-none items-center gap-1.5 marker:content-none ${summaryClassName}`}
-      >
-        {label}
-        <Icon
-          icon={DropdownIcon}
-          size={14}
-          className="shrink-0 text-ink-muted transition-transform group-open:rotate-180"
-        />
-      </summary>
-      {children}
-    </details>
-  );
-};
+import { DropdownIcon, Icon, RemovedIcon, TickIcon } from "./icons.ts";
+import { Badge } from "./ui/badge.tsx";
+import { Button } from "./ui/button.tsx";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "./ui/command.tsx";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover.tsx";
+import { ToggleGroup, ToggleGroupItem } from "./ui/toggle-group.tsx";
+import { cn } from "./ui/utils.ts";
 
 interface PickerProps {
   title: string;
@@ -80,15 +25,29 @@ interface PickerProps {
   subs?: (option: string) => string[];
   subLabel?: (value: string) => string;
   people?: ReadonlySet<string>;
-  right?: boolean;
+  className?: string;
 }
 
 type Kind = "all" | "people" | "business";
+type Row = { value: string; sub: boolean };
 
-// The panel shows about ten rows. Merchants offers 816, so it renders a page at
-// a time and grows on scroll. Do not raise this to cover the list: the cost is
-// the React element, not the pixel.
 const PAGE = 80;
+
+const State = ({ on, out }: { on: boolean; out: boolean }) => (
+  <span
+    aria-hidden
+    className={cn(
+      "flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input",
+      on && "border-primary bg-primary text-primary-foreground",
+      out && "border-destructive bg-destructive text-white",
+    )}
+  >
+    {on && <Icon icon={TickIcon} size={12} strokeWidth={2.5} />}
+    {out && <Icon icon={RemovedIcon} size={12} strokeWidth={2.5} />}
+  </span>
+);
+
+const keyOf = (row: Row) => `${row.sub ? "sub:" : ""}${row.value}`;
 
 export const Picker = ({
   title,
@@ -100,19 +59,17 @@ export const Picker = ({
   subs,
   subLabel = (v) => v,
   people,
-  right = false,
+  className,
 }: PickerProps) => {
+  const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState<Kind>("all");
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
-  const [active, setActive] = useState<number | null>(null);
   const [limit, setLimit] = useState(PAGE);
-  const on = (v: string) => picked.includes(v) || excluded.includes(v);
-
-  const reset = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const [open, setOpen] = useState(false);
   const [pinned, setPinned] = useState<readonly string[]>([]);
-  useEffect(() => () => clearTimeout(reset.current), []);
+  const [active, setActive] = useState("");
+  const meta = useRef(false);
+  const on = (v: string) => picked.includes(v) || excluded.includes(v);
 
   const q = query.trim().toLowerCase();
   const listed =
@@ -120,260 +77,201 @@ export const Picker = ({
       ? options
       : options.filter((o) => people.has(o) === (kind === "people") || on(o));
   const childrenOf = (o: string) => subs?.(o) ?? [];
-  const hitsQuery = (name: string) => name.toLowerCase().includes(q);
+  const hits = (name: string) => name.toLowerCase().includes(q);
 
   const shown = q
     ? listed.filter(
         (o) =>
-          hitsQuery(label(o)) ||
+          hits(label(o)) ||
           on(o) ||
-          childrenOf(o).some((c) => hitsQuery(subLabel(c)) || on(c)),
+          childrenOf(o).some((c) => hits(subLabel(c)) || on(c)),
       )
     : listed;
 
   const isPinned = (o: string) =>
     pinned.includes(o) || childrenOf(o).some((c) => pinned.includes(c));
 
-  const rowsOf = (o: string) => {
+  const rowsOf = (o: string): Row[] => {
     const all = childrenOf(o);
-    const kids =
-      q === "" ? all : all.filter((c) => hitsQuery(subLabel(c)) || on(c));
+    const kids = q === "" ? all : all.filter((c) => hits(subLabel(c)) || on(c));
     const openByDefault =
       kids.length < all.length ||
       (all.length > 1 && kids.some((c) => pinned.includes(c)));
     const openHere = openByDefault !== expanded.has(o);
     const lone = all.length === 1 && !all[0]!.endsWith("/") ? all[0]! : null;
     const parent = { value: lone ?? o, sub: false };
-    return kids.length > 1 && openHere
+    return kids.length > 0 && openHere && !lone
       ? [parent, ...kids.map((c) => ({ value: c, sub: true }))]
-      : kids.length === 1 && openHere
-        ? [parent, { value: kids[0]!, sub: true }]
-        : [parent];
+      : [parent];
   };
 
-  const pinnedRows = shown.filter(isPinned).flatMap(rowsOf);
-  const rows = [
-    ...pinnedRows,
-    ...shown.filter((o) => !isPinned(o)).flatMap(rowsOf),
-  ];
-  const isOpenAt = (i: number) => rows[i + 1]?.sub === true;
+  const top = shown.filter(isPinned).flatMap(rowsOf);
+  const rest = shown.filter((o) => !isPinned(o)).flatMap(rowsOf);
+  const restShown = rest.slice(0, Math.max(limit - top.length, 0));
+  const count = picked.length + excluded.length;
 
-  const divideAt =
-    pinnedRows.length > 0 && rows.length > pinnedRows.length
-      ? pinnedRows.length
-      : -1;
-
-  const at = active === null ? -1 : Math.min(active, rows.length - 1);
-
-  const toggleOpen = (o: string) => setExpanded((prev) => toggled(prev, o));
-
-  const onOpenChange = (e: React.SyntheticEvent<HTMLDetailsElement>) => {
-    clearTimeout(reset.current);
-    setOpen(e.currentTarget.open);
-    if (e.currentTarget.open) {
+  const onOpenChange = (next: boolean) => {
+    setOpen(next);
+    if (next) {
       setPinned([...picked, ...excluded]);
       return;
     }
-    reset.current = setTimeout(() => {
-      setQuery("");
-      setActive(null);
-      setExpanded(new Set());
-      setLimit(PAGE);
-    }, 3000);
+    setQuery("");
+    setExpanded(new Set());
+    setLimit(PAGE);
   };
 
-  // Space toggles. An arrow acts only in the direction that it names.
-  const expand = (e: React.KeyboardEvent) => {
-    const row = at < 0 ? undefined : rows[at];
-    if (!row || row.sub || childrenOf(row.value).length < 2) return false;
-    const openHere = isOpenAt(at);
-    const want =
-      e.key === " "
-        ? !openHere
-        : e.key === "ArrowRight"
-          ? true
-          : e.key === "ArrowLeft"
-            ? false
-            : null;
-    if (want === null) return false;
+  const rowByKey = (key: string) =>
+    [...top, ...restShown].find((row) => keyOf(row) === key);
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") meta.current = e.metaKey || e.ctrlKey;
+    if (q || (e.key !== "ArrowRight" && e.key !== "ArrowLeft")) return;
+    const row = rowByKey(active);
+    if (!row || row.sub || childrenOf(row.value).length < 2) return;
     e.preventDefault();
-    if (want !== openHere) toggleOpen(row.value);
-    return true;
+    const isOpen = rowsOf(row.value).length > 1;
+    if ((e.key === "ArrowRight") !== isOpen)
+      setExpanded((prev) => toggled(prev, row.value));
   };
 
-  const navigate = (e: React.KeyboardEvent) => {
-    if (expand(e)) return;
-    const step = e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0;
-    if (step) {
-      e.preventDefault();
-      const next =
-        at < 0 ? 0 : Math.max(0, Math.min(at + step, rows.length - 1));
-      setActive(next);
-      // The arrow keys reach past the rendered page. Render up to the row that
-      // is now active, or it cannot be scrolled to.
-      if (next >= limit) setLimit(next + PAGE);
-    } else if (e.key === "Enter") {
-      if (e.target instanceof HTMLButtonElement) return;
-      const i = at < 0 && q && rows[1]?.sub ? 1 : Math.max(at, 0);
-      const row = rows[i];
-      if (!row) return;
-      e.preventDefault();
-      setActive(i);
-      onToggle(row.value, e.metaKey || e.ctrlKey);
-    }
+  const item = (row: Row) => {
+    const kids = row.sub ? [] : childrenOf(row.value);
+    const out = excluded.includes(row.value);
+    const isOn = picked.includes(row.value);
+    const text =
+      row.sub || row.value.includes("/")
+        ? subLabel(row.value)
+        : label(row.value);
+    const openHere = kids.length > 1 && rowsOf(row.value).length > 1;
+    return (
+      <CommandItem
+        key={keyOf(row)}
+        value={keyOf(row)}
+        onSelect={() => onToggle(row.value, meta.current)}
+        className={cn("gap-2 py-1", row.sub && "pl-8 text-muted-foreground")}
+      >
+        <State on={isOn} out={out} />
+        <span
+          className={cn(
+            "min-w-0 flex-1 truncate",
+            out && "text-destructive line-through",
+          )}
+        >
+          {out && <span className="sr-only">Except </span>}
+          {text}
+        </span>
+        {kids.length > 1 && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            aria-expanded={openHere}
+            aria-label={`${openHere ? "Hide" : "Show"} ${label(row.value)} subcategories`}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpanded((prev) => toggled(prev, row.value));
+            }}
+            className="-my-1 text-muted-foreground"
+          >
+            <Icon
+              icon={DropdownIcon}
+              size={14}
+              className={cn("transition-transform", openHere && "rotate-180")}
+            />
+          </Button>
+        )}
+      </CommandItem>
+    );
   };
 
   return (
-    <Menu
-      className="select-none"
-      summaryClassName="whitespace-nowrap"
-      onToggle={onOpenChange}
-      label={
-        <>
-          {title}
-          {/* Both lists in one count: two ticks is two filters, whichever way
-              round they read. */}
-          {picked.length + excluded.length > 0 &&
-            ` (${picked.length + excluded.length})`}
-        </>
-      }
-    >
-      {open && (
-        <div
-          onKeyDown={navigate}
-          /* Do not add `max-w-full`. The containing block is the `details`, which is
-             only as wide as its summary, so `max-w-full` would clamp a 256px panel to
-             a 130px button. The right-hand picker of a pair hangs from its right edge
-             instead, because 256px from its left edge is past the screen. */
-          className={`absolute ${right ? "right-0" : "left-0"} z-20 mt-1 flex max-h-72 w-64 flex-col ${PANEL}`}
+    <Popover open={open} onOpenChange={onOpenChange}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          className={cn("justify-between font-normal", className)}
         >
-          {/* Only where the caller says the list splits, which is merchants
-              alone. Three plain buttons rather than a select: the whole control
-              is one tap on a phone, and no option is hidden behind opening it. */}
-          {people && (
-            <div className="mb-1.5 flex w-full shrink-0 overflow-hidden rounded-md border border-line text-xs">
-              {(
-                [
-                  ["all", "All"],
-                  ["people", "People"],
-                  ["business", "Businesses"],
-                ] as const
-              ).map(([value, text]) => (
-                <button
-                  key={value}
-                  type="button"
-                  aria-pressed={kind === value}
-                  onClick={() => {
-                    setKind(value);
-                    setActive(null);
-                    setLimit(PAGE);
-                  }}
-                  className={`flex-1 px-2 py-1 ${PILL(kind === value)}`}
-                >
-                  {text}
-                </button>
-              ))}
-            </div>
+          {title}
+          {count > 0 && (
+            <Badge variant="secondary" className="h-4.5 px-1.5 tabular-nums">
+              {count}
+            </Badge>
           )}
-          {/* Always, not just for the long lists. It is also what gives the
-              panel focus on open, and the arrow keys only reach the list from
-              inside the panel — without it the categories menu opened with focus
-              still on the summary and the arrows scrolled the page instead. */}
-          <div className="relative mb-1.5 shrink-0">
-            <Icon
-              icon={SearchIcon}
-              size={14}
-              className="pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-ink-muted"
-            />
-            <input
-              autoFocus
-              type="search"
-              className="w-full rounded-md border border-line bg-page py-1 pr-2 pl-7 text-xs text-ink"
-              placeholder={`Search ${title.toLowerCase()}…`}
-              value={query}
-              onChange={(e) => {
-                setQuery(e.target.value);
-                setActive(null);
+          <Icon
+            icon={DropdownIcon}
+            size={14}
+            className="text-muted-foreground"
+          />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className="w-[min(18rem,calc(100vw-1.5rem))] gap-0 p-0"
+      >
+        <Command
+          shouldFilter={false}
+          loop
+          value={active}
+          onValueChange={setActive}
+          onKeyDown={onKeyDown}
+          onPointerDownCapture={(e) => {
+            meta.current = e.metaKey || e.ctrlKey;
+          }}
+        >
+          {people && (
+            <ToggleGroup
+              type="single"
+              variant="outline"
+              size="sm"
+              spacing={0}
+              value={kind}
+              onValueChange={(v) => {
+                if (!v) return;
+                setKind(v as Kind);
                 setLimit(PAGE);
               }}
-              aria-label={`Search ${title.toLowerCase()}`}
-            />
-          </div>
-          {/* Only the list scrolls: the mode toggle and the search box stay put
-            rather than sliding away as you scroll past them. */}
-          <div
-            className="min-h-0 overflow-y-auto"
+              className="w-full p-1 pb-0 *:flex-1"
+            >
+              <ToggleGroupItem value="all">All</ToggleGroupItem>
+              <ToggleGroupItem value="people">People</ToggleGroupItem>
+              <ToggleGroupItem value="business">Businesses</ToggleGroupItem>
+            </ToggleGroup>
+          )}
+          <CommandInput
+            placeholder={`Search ${title.toLowerCase()}…`}
+            value={query}
+            onValueChange={(v) => {
+              setQuery(v);
+              setLimit(PAGE);
+            }}
+            aria-label={`Search ${title.toLowerCase()}`}
+          />
+          <CommandList
             onScroll={(e) => {
               const el = e.currentTarget;
               if (el.scrollHeight - el.scrollTop - el.clientHeight < 120)
                 setLimit((n) => n + PAGE);
             }}
           >
-            {rows.length === 0 ? (
-              <div className="px-1.5 py-1 text-xs text-ink-muted">
-                {options.length === 0 ? "Nothing in this period." : "No match."}
-              </div>
-            ) : (
-              rows.slice(0, limit).map((row, i) => {
-                const kids = row.sub ? [] : childrenOf(row.value);
-                const openHere = isOpenAt(i);
-                const out = excluded.includes(row.value);
-                const text =
-                  row.sub || row.value.includes("/")
-                    ? subLabel(row.value)
-                    : label(row.value);
-                return (
-                  <div
-                    key={`${row.sub ? "sub:" : ""}${row.value}`}
-                    className={`flex items-center ${i === divideAt ? "mt-1 border-t border-line pt-1" : ""}`}
-                  >
-                    {row.sub ? (
-                      <span className="w-6.5 shrink-0" />
-                    ) : kids.length > 1 ? (
-                      <button
-                        type="button"
-                        onClick={() => toggleOpen(row.value)}
-                        aria-expanded={openHere}
-                        aria-label={`${openHere ? "Hide" : "Show"} ${label(row.value)} subcategories`}
-                        className="relative flex h-6 w-3.25 shrink-0 items-center justify-center text-ink-muted before:absolute before:-inset-2 before:content-[''] hover:text-ink"
-                      >
-                        <Caret open={openHere} />
-                      </button>
-                    ) : (
-                      <span className="w-3.25 shrink-0" />
-                    )}
-                    <label
-                      ref={
-                        i === at
-                          ? (el) => el?.scrollIntoView({ block: "nearest" })
-                          : undefined
-                      }
-                      className={`flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-[13px] hover:bg-hover ${i === at ? "bg-hover" : ""} ${row.sub ? "text-ink-soft" : ""}`}
-                    >
-                      <input
-                        type="checkbox"
-                        className={`shrink-0 ${out ? "accent-critical-strong" : ""}`}
-                        checked={on(row.value)}
-                        onChange={() => {}}
-                        onClick={(e) =>
-                          onToggle(row.value, e.metaKey || e.ctrlKey)
-                        }
-                        onFocus={() => setActive(i)}
-                        aria-label={out ? `Except ${text}` : undefined}
-                      />
-                      <span
-                        className={`truncate ${out ? "text-critical-strong line-through" : ""}`}
-                      >
-                        {text}
-                      </span>
-                    </label>
-                  </div>
-                );
-              })
+            <CommandEmpty className="py-4 text-xs text-muted-foreground">
+              {options.length === 0 ? "Nothing in this period." : "No match."}
+            </CommandEmpty>
+            {top.length > 0 && (
+              <CommandGroup heading="Selected">{top.map(item)}</CommandGroup>
             )}
-          </div>
-        </div>
-      )}
-    </Menu>
+            {restShown.length > 0 && (
+              <CommandGroup heading={top.length > 0 ? "All" : undefined}>
+                {restShown.map(item)}
+              </CommandGroup>
+            )}
+          </CommandList>
+          <p className="border-t px-3 py-2 text-[11px] leading-snug text-muted-foreground">
+            Tap to include, again to exclude, again to clear.
+          </p>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 };

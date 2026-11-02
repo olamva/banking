@@ -1,211 +1,252 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
-/**
- * The palette is Tailwind theme variables, so `bg-surface` compiles to
- * `var(--color-surface)`. Dark mode then redefines the *variables* rather than
- * doubling every class with a `dark:` twin — one place to change a colour, and
- * the SVG charts (which cannot use utility classes for fills) read the same
- * variables the utilities do.
- *
- * Three states, deliberately: an explicit choice wins in both directions, and
- * with no choice stored the system decides.
- */
-@theme {
-  --color-page: #f9f9f7;
-  --color-surface: #fcfcfb;
-  --color-ink: #0b0b0b;
-  --color-ink-soft: #52514e;
-  --color-ink-muted: #898781;
-  --color-grid: #e1e0d9;
-  --color-axis: #c3c2b7;
-  --color-line: rgb(11 11 11 / 0.1);
-  --color-series-1: #2a78d6;
-  --color-series-1-track: #cde2fb;
-  --color-critical-strong: #ec5a58;
-  --color-good-strong: #22a34a;
-  --color-hover: #f0efec;
-  --color-good: #3f8f4a;
-  --color-critical: #b4534f;
+@custom-variant dark (&:is(.dark *));
+
+@custom-variant data-open {
+  &:where([data-state="open"]),
+  &:where([data-open]:not([data-open="false"])) {
+    @slot;
+  }
+}
+
+@custom-variant data-closed {
+  &:where([data-state="closed"]),
+  &:where([data-closed]:not([data-closed="false"])) {
+    @slot;
+  }
+}
+
+@custom-variant data-checked {
+  &:where([data-state="checked"]),
+  &:where([data-checked]:not([data-checked="false"])) {
+    @slot;
+  }
+}
+
+@custom-variant data-unchecked {
+  &:where([data-state="unchecked"]),
+  &:where([data-unchecked]:not([data-unchecked="false"])) {
+    @slot;
+  }
+}
+
+@custom-variant data-selected {
+  &:where([data-selected="true"]) {
+    @slot;
+  }
+}
+
+@custom-variant data-disabled {
+  &:where([data-disabled="true"]),
+  &:where([data-disabled]:not([data-disabled="false"])) {
+    @slot;
+  }
+}
+
+@custom-variant data-active {
+  &:where([data-state="active"]),
+  &:where([data-active]:not([data-active="false"])) {
+    @slot;
+  }
+}
+
+@custom-variant data-horizontal {
+  &:where([data-orientation="horizontal"]) {
+    @slot;
+  }
+}
+
+@custom-variant data-vertical {
+  &:where([data-orientation="vertical"]) {
+    @slot;
+  }
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@theme inline {
+  --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-heading: var(--font-sans);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-spend: var(--spend);
+  --color-income: var(--income);
+  --color-good: var(--good);
+  --color-bad: var(--bad);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  color-scheme: light;
+  --radius: 0.625rem;
+  --background: oklch(0.985 0.002 95);
+  --foreground: oklch(0.17 0.004 95);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.17 0.004 95);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.17 0.004 95);
+  --primary: oklch(0.22 0.004 95);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.955 0.003 95);
+  --secondary-foreground: oklch(0.22 0.004 95);
+  --muted: oklch(0.955 0.003 95);
+  --muted-foreground: oklch(0.52 0.008 95);
+  --accent: oklch(0.955 0.003 95);
+  --accent-foreground: oklch(0.22 0.004 95);
+  --destructive: oklch(0.577 0.215 27);
+  --border: oklch(0.91 0.004 95);
+  --input: oklch(0.9 0.004 95);
+  --ring: oklch(0.7 0.01 95);
+  --chart-1: oklch(0.58 0.16 255);
+  --chart-2: oklch(0.72 0.15 70);
+  --chart-3: oklch(0.58 0.17 300);
+  --chart-4: oklch(0.62 0.1 190);
+  --chart-5: oklch(0.64 0.17 350);
+  --spend: oklch(0.64 0.18 25);
+  --income: oklch(0.64 0.14 155);
+  --good: oklch(0.5 0.12 155);
+  --bad: oklch(0.54 0.17 25);
+  --cat-l: 0.52;
+  --sidebar: oklch(0.97 0.003 95);
+  --sidebar-foreground: oklch(0.17 0.004 95);
+  --sidebar-primary: oklch(0.22 0.004 95);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.925 0.004 95);
+  --sidebar-accent-foreground: oklch(0.17 0.004 95);
+  --sidebar-border: oklch(0.91 0.004 95);
+  --sidebar-ring: oklch(0.7 0.01 95);
+}
+
+.dark {
+  color-scheme: dark;
+  --background: oklch(0.155 0.002 95);
+  --foreground: oklch(0.96 0.002 95);
+  --card: oklch(0.195 0.003 95);
+  --card-foreground: oklch(0.96 0.002 95);
+  --popover: oklch(0.215 0.003 95);
+  --popover-foreground: oklch(0.96 0.002 95);
+  --primary: oklch(0.93 0.003 95);
+  --primary-foreground: oklch(0.2 0.003 95);
+  --secondary: oklch(0.26 0.003 95);
+  --secondary-foreground: oklch(0.96 0.002 95);
+  --muted: oklch(0.26 0.003 95);
+  --muted-foreground: oklch(0.72 0.006 95);
+  --accent: oklch(0.27 0.003 95);
+  --accent-foreground: oklch(0.96 0.002 95);
+  --destructive: oklch(0.7 0.18 22);
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.55 0.006 95);
+  --chart-1: oklch(0.7 0.14 255);
+  --chart-2: oklch(0.8 0.14 75);
+  --chart-3: oklch(0.7 0.15 300);
+  --chart-4: oklch(0.74 0.1 190);
+  --chart-5: oklch(0.72 0.15 350);
+  --spend: oklch(0.68 0.17 25);
+  --income: oklch(0.7 0.15 155);
+  --good: oklch(0.76 0.13 155);
+  --bad: oklch(0.74 0.14 25);
+  --cat-l: 0.8;
+  --sidebar: oklch(0.175 0.002 95);
+  --sidebar-foreground: oklch(0.96 0.002 95);
+  --sidebar-primary: oklch(0.93 0.003 95);
+  --sidebar-primary-foreground: oklch(0.2 0.003 95);
+  --sidebar-accent: oklch(0.25 0.003 95);
+  --sidebar-accent-foreground: oklch(0.96 0.002 95);
+  --sidebar-border: oklch(1 0 0 / 8%);
+  --sidebar-ring: oklch(0.55 0.006 95);
 }
 
 @layer base {
-  :root {
-    color-scheme: light;
-    /*
-     * The lightness half of a category colour; the hue comes off the row, one
-     * per main category. Not a `@theme` colour because it is a component of
-     * many colours rather than one of them — and it is the only half that
-     * changes between the themes.
-     */
-    --cat-l: 0.5;
+  * {
+    @apply border-border outline-ring/50;
   }
 
-  /*
-   * Views differ in height, so the scrollbar appears and disappears as you move
-   * between them, and every column shifts sideways with it. Reserving the gutter
-   * costs nothing under macOS overlay scrollbars, where the gutter is zero width.
-   */
   html {
+    @apply font-sans;
     scrollbar-gutter: stable;
   }
 
-  @media (prefers-color-scheme: dark) {
-    html:not([data-theme="light"]) {
-      color-scheme: dark;
-      --color-page: #0d0d0d;
-      --color-surface: #1a1a19;
-      --color-ink: #f2f2ef;
-      --color-ink-soft: #d0cfca;
-      --color-ink-muted: #aaa9a4;
-      --color-grid: #2c2c2a;
-      --color-axis: #383835;
-      --color-line: rgb(255 255 255 / 0.1);
-      --color-series-1: #3987e5;
-      --color-series-1-track: #184f95;
-      --color-critical-strong: #e66767;
-      --color-good-strong: #2fa653;
-      --color-hover: #262624;
-      --color-good: #5faa68;
-      --color-critical: #d1706c;
-      --cat-l: 0.8;
-    }
-  }
-
-  html[data-theme="dark"] {
-    color-scheme: dark;
-    --color-page: #0d0d0d;
-    --color-surface: #1a1a19;
-    --color-ink: #f2f2ef;
-    --color-ink-soft: #d0cfca;
-    --color-ink-muted: #aaa9a4;
-    --color-grid: #2c2c2a;
-    --color-axis: #383835;
-    --color-line: rgb(255 255 255 / 0.1);
-    --color-series-1: #3987e5;
-    --color-series-1-track: #184f95;
-    --color-critical-strong: #e66767;
-    --color-good-strong: #2fa653;
-    --color-hover: #262624;
-    --color-good: #5faa68;
-    --color-critical: #d1706c;
-    --cat-l: 0.8;
-  }
-
   body {
-    background-color: var(--color-page);
-    color: var(--color-ink);
-    font-family:
-      system-ui,
-      -apple-system,
-      "Segoe UI",
-      sans-serif;
+    @apply bg-background text-foreground antialiased;
   }
 
-  /*
-   * Tailwind's reset leaves a button on the browser default, which is an arrow.
-   * Once here rather than a cursor-pointer on every control we ever add.
-   */
   button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
   summary,
-  select,
   label:has(input[type="checkbox"]) {
     cursor: pointer;
   }
 
-  /*
-   * The details dialog fades in rather than appearing. Opening only: React
-   * unmounts the element on close, so there is nothing left on screen to
-   * animate out and no reason to keep it mounted for 150 ms to try.
-   */
-  dialog[open],
-  dialog[open]::backdrop {
-    transition:
-      opacity 0.15s ease,
-      transform 0.15s ease;
-  }
-
-  @starting-style {
-    dialog[open] {
-      opacity: 0;
-      transform: scale(0.98);
-    }
-    dialog[open]::backdrop {
-      opacity: 0;
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    dialog[open],
-    dialog[open]::backdrop {
-      transition: none;
-    }
-  }
-
-  /* The clear "x" of a search box lives in the shadow tree, out of reach of a class. */
   input[type="search"]::-webkit-search-cancel-button {
     cursor: pointer;
   }
 }
 
 @layer components {
-  /* An image, not a colour, so the `hover:bg-hover` of the row still paints under it. */
   .striped {
     background-image: repeating-linear-gradient(
       -45deg,
       transparent 0 8px,
-      color-mix(in oklab, var(--color-ink) 4%, transparent) 8px 16px
+      color-mix(in oklab, var(--foreground) 4%, transparent) 8px 16px
     );
-    animation: stripe-sweep 1.5s linear infinite paused;
   }
 
-  @keyframes stripe-sweep {
-    from {
-      background-position: 0 0;
-    }
-    to {
-      background-position: 22.627417px 0;
-    }
-  }
-
-  .striped:hover {
-    animation-play-state: running;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .striped {
-      animation: none;
-    }
-  }
-
-  /*
-   * The refresh label, while the refresh runs. The highlight is a gradient
-   * tile twice the width of the text, clipped to the glyphs. The tile slides
-   * right, so the bright band crosses the word left to right. The band is half
-   * a tile wide, so the next band enters the left as the last one leaves the
-   * right. A narrower band leaves a wait between the passes.
-   */
   .glow {
     background: linear-gradient(
       90deg,
-      var(--color-ink-soft) 0%,
-      var(--color-ink-soft) 25%,
-      var(--color-ink) 50%,
-      var(--color-ink-soft) 75%,
-      var(--color-ink-soft) 100%
+      var(--muted-foreground) 0% 25%,
+      var(--foreground) 50%,
+      var(--muted-foreground) 75% 100%
     );
     background-size: 200% 100%;
-    -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
     animation: glow-sweep 2.5s linear infinite;
   }
 
-  /*
-   * 100% to -100% is a shift of one whole tile, and the gradient ends on the
-   * same colour it starts on. The loop therefore has no seam. Half a tile ends
-   * with the band on the far side of the word and restarts it on the near
-   * side, which reads as a jump.
-   */
   @keyframes glow-sweep {
     from {
       background-position: 100% 0;
@@ -218,7 +259,7 @@
   @media (prefers-reduced-motion: reduce) {
     .glow {
       background: none;
-      color: var(--color-ink-soft);
+      color: var(--muted-foreground);
       animation: none;
     }
   }

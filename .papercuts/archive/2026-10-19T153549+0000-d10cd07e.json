@@ -1,0 +1,14 @@
+{
+  "id": "d10cd07e",
+  "ts": "2026-10-19T15:35:49+00:00",
+  "text": "add-subdomain delegate (codex gpt-6-luna Computer Use) fails twice: no Arc window, then cgWindowNotFound after open -a Arc opens one",
+  "tags": [
+    "dns",
+    "tools"
+  ],
+  "who": "agent",
+  "model": "opus-5.5",
+  "session": "4cf39556",
+  "where": "add-subdomain",
+  "branch": ""
+}

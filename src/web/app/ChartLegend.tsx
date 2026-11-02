@@ -44,7 +44,7 @@ const LegendKey = ({ on, onToggle, name, children }: LegendKeyProps) => (
     onClick={onToggle}
     aria-pressed={on}
     title={`${on ? "Hide" : "Show"} ${name}`}
-    className={`inline-flex items-center gap-1.5 rounded-sm hover:text-ink ${on ? "" : "opacity-40"}`}
+    className={`inline-flex items-center gap-1.5 rounded-sm hover:text-foreground ${on ? "" : "opacity-40"}`}
   >
     {children}
   </button>
@@ -63,16 +63,16 @@ export const ChartLegend = ({
     onToggle: () => onToggle(mark),
   });
   return (
-    <div className="mb-2 flex flex-wrap gap-3.5 text-xs text-ink-soft">
+    <div className="mb-2 flex flex-wrap gap-3.5 text-xs text-muted-foreground">
       {spend && (
         <LegendKey {...key("out")} name="the spending line">
-          <span className="inline-block h-0.75 w-3 rounded-sm bg-critical-strong" />
+          <span className="inline-block h-0.75 w-3 rounded-sm bg-spend" />
           Spent
         </LegendKey>
       )}
       {income && (
         <LegendKey {...key("in")} name="the income line">
-          <span className="inline-block h-0.75 w-3 rounded-sm bg-good-strong" />
+          <span className="inline-block h-0.75 w-3 rounded-sm bg-income" />
           Income
         </LegendKey>
       )}
@@ -86,7 +86,7 @@ export const ChartLegend = ({
       {trend && (
         <LegendKey {...key("trend")} name="the fitted trend">
           <svg aria-hidden width={16} height={3} className="shrink-0">
-            <Dash y={1.5} dashes="7 5" className="stroke-series-1" />
+            <Dash y={1.5} dashes="7 5" className="stroke-chart-1" />
           </svg>
           Trend
         </LegendKey>
@@ -106,14 +106,12 @@ export const ChartLegend = ({
             height={income && spend ? 9 : 3}
             className="shrink-0 opacity-40"
           >
-            {spend && (
-              <Dash y={1.5} dashes="4 3" className="stroke-critical-strong" />
-            )}
+            {spend && <Dash y={1.5} dashes="4 3" className="stroke-spend" />}
             {income && (
               <Dash
                 y={spend ? 7.5 : 1.5}
                 dashes="4 3"
-                className="stroke-good-strong"
+                className="stroke-income"
               />
             )}
           </svg>

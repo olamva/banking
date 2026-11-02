@@ -19,10 +19,10 @@ pnpm install
 pnpm dev                            # http://localhost:4000
 ```
 
-`.env.local` holds the SB1 credentials, and only the online commands read it. It is not in git, and `data/` and `rules/` are not either, so a fresh clone or worktree starts empty:
+`.env` holds the SB1 credentials, and only the online commands read it. It is not in git, and `data/` and `rules/` are not either, so a fresh clone or worktree starts empty:
 
 ```bash
-pnpm worktree:link                  # symlink .env.local, data and rules back
+pnpm worktree:link                  # symlink .env, data and rules back
 pnpm dev                            # its own port in 4010-4089, and its own database
 ```
 
@@ -154,7 +154,7 @@ The SB1 values arrive last, because the developer portal wants a redirect before
 6. Run `pnpm rules:push`. The page now works, and it reads an empty database.
 7. Register a **second SpareBank 1 client** in the developer portal. The BankID login runs on this machine, so the redirect is a localhost URL. Use a port that the first client does not use.
 8. Put the four SB1 values in `infra/terraform.tfvars` and run `infra/oracle/configure.sh` again.
-9. Run `pnpm seed:site`. The token goes to the VM instead of the keychain. Do not use `pnpm sb1 login`, which reads `.env.local` and would put the token of this machine on the site.
+9. Run `pnpm seed:site`. The token goes to the VM instead of the keychain. Do not use `pnpm sb1 login`, which reads `.env` and would put the token of this machine on the site.
 10. Open the site and press Refresh.
 
 SB1 rotates the refresh token on every exchange, so two processes on one chain invalidate each other. The second client gives the site an independent chain.
@@ -166,6 +166,39 @@ Oracle can stop an idle Always Free VM. Start it again with `oci compute instanc
 The SB1 quota is 60 requests each hour for each API. Every response publishes `x-ratelimit-remaining`. `data/api-budget.json` keeps the last figure and its timestamp, and `sb1.get` refuses when the bank reports zero.
 
 A refresh prices the whole sweep first, and the pricing costs nothing. It stops rather than fails, and a second press resumes it. `accountKey` is repeatable and a date range may be five years wide, so one request covers up to five years and every account.
+
+## The iPhone app
+
+`ios/` holds a native SwiftUI app named Spending. It uses SwiftUI, Swift Charts and the system controls only. It has no packages.
+It reads the hosted site, so it works away from this wifi. It never calls the bank, except through **Fetch from the bank** in Settings, which calls `/api/refresh`.
+
+`GET /api/app` sends one payload that `src/core/app.ts` composes: the totals of each month and year, the categories, the top merchants, the subscriptions, the day series for the charts and every row.
+The app sums no money. It shows the figures that `src/core/stats.ts` calculates, so the phone and the dashboard agree to the øre.
+The app keeps the last payload on the phone and shows it at once. Pull down on a list to download it again.
+
+The app signs in through oauth2-proxy, with the same Google account as the page:
+
+1. The app opens `/oauth2/start?rd=/app/signed-in` in a system sign-in sheet.
+2. After the Google sign-in, `/app/signed-in` sends the `_oauth2_proxy` session cookies to `spending://signed-in`. Only the sign-in sheet receives this address.
+3. The app keeps the cookies in the keychain and sends them with each request. oauth2-proxy checks them as it checks the page.
+
+The session ends after the oauth2-proxy cookie lifetime, 7 days by default. The app then shows the last data and a **Sign in** button.
+`pnpm ios install` writes the `custom_domain` of `infra/terraform.tfvars` to the ignored `ios/Spending/server.txt`, so the app knows the site.
+Without that file, the first screen asks for the address. In the simulator, `http://127.0.0.1:<port>` of `pnpm dev` needs no sign-in.
+The handoff sends the cookies only for `Sec-Fetch-Site: same-origin`, after a tap on the `/app/signed-in` page. Safari sends no `Sec-Fetch-User`, so the server does not check it.
+
+A free Apple developer account signs an app for 7 days only. `pnpm ios schedule` keeps the app on the phone:
+
+```bash
+pnpm ios install --force   # build and install now
+pnpm ios schedule          # a LaunchAgent runs `pnpm ios install` every 3 hours
+pnpm ios unschedule
+```
+
+`install` removes a provisioning profile that expires within 36 hours, so that Xcode makes a new one. It installs only when the profile or the commit changed.
+It installs over the network, so the phone must be on the same wifi as this Mac, and paired in Xcode once.
+Sign in to an Apple account in **Xcode > Settings > Accounts** before the first build.
+Run `schedule` from the main checkout. The LaunchAgent builds the checkout it was scheduled from. The log is `~/Library/Logs/banking-ios.log`.
 
 ## Categories
 
@@ -189,7 +222,7 @@ The bank labels its own transactions, and it is wrong often enough to matter. Th
 `rules/categories.json` maps a case-insensitive substring to a category. The code checks it against the description, the merchant and the account number of the payee.
 
 ```json
-{ "Munkegata 34": "faste_utgifter/boligutgifter" }
+{ "Storgata 1": "faste_utgifter/boligutgifter" }
 ```
 
 A pattern inside slashes is a **regex**. `"/\\bleie\\b/"` catches `Leie Juni`, and it does not catch `utleie`. Note the doubled backslash, because this is JSON. A bare street name catches every shop on that street.
@@ -227,16 +260,17 @@ A person-to-person Vipps payment needs **no rule**. A bare `Vipps*` marker is no
 src/net/       may make requests
 src/core/      may not. Both Node and the browser import it
 src/web/app/   the React app
-src/web/server.ts  the hosted site: the page, /api/txns, /api/refresh, /api/rules
+src/web/server.ts  the hosted site: the page, /api/txns, /api/app, /api/refresh, /api/rules, /app/signed-in
 src/auth/      allowed(), the whole access rule. Pure and tested
 src/cli.ts     command dispatch
 vite.config.ts pnpm dev: the app plus the same three endpoints
-infra/         the Oracle VM, the rules push and the rules pull
+infra/         the Oracle VM, the rules push, the rules pull and the iPhone install
+ios/           the native iPhone app
 test/          node --test, mirroring src/
 rules/         the rules as JSON, gitignored
 rules/.history/  one file for each version of a rule file. Undo reads it
 ```
 
-React, Vite and Tailwind. The Azure SDK reads the refresh token out of Key Vault, and it loads only where a vault is named. Everything else uses the Node standard library, including SQLite, HTTP and TypeScript execution. There is no ORM, no chart library, no component library and no state manager. The charts are hand-written SVG. `data/raw/` is the source of truth, and the database is derived. Analysis never calls the API. Any code that sums money leaves a test behind.
+React, Vite, Tailwind and shadcn/ui. The shadcn components live in `src/web/app/ui/`. Copy a new one from the shadcn registry, and change its imports to relative paths with extensions. Everything else uses the Node standard library, including SQLite, HTTP and TypeScript execution. There is no ORM, no chart library and no state manager. The charts are hand-written SVG. `data/raw/` is the source of truth, and the database is derived. Analysis never calls the API. Any code that sums money leaves a test behind.
 
 `AGENTS.md` holds the rest, including the exclusion rules and the reasons for them.

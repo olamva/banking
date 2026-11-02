@@ -12,9 +12,8 @@ import {
   RemovedIcon,
   UndoIcon,
 } from "./icons.ts";
-
-const ICON_BUTTON =
-  "relative shrink-0 rounded-md border border-line bg-surface p-2 text-ink-soft before:absolute before:-inset-1 disabled:opacity-60";
+import { Button } from "./ui/button.tsx";
+import { cn } from "./ui/utils.ts";
 
 const fmtStamp = (at: number): string =>
   new Date(at).toLocaleString("nb-NO", {
@@ -36,13 +35,13 @@ const Change = ({ change: { key, from, to }, file }: ChangeProps) => {
       <Icon
         icon={gone ? RemovedIcon : from === undefined ? AddedIcon : ChangedIcon}
         size={11}
-        className={`shrink-0 self-center ${gone ? "text-critical" : "text-series-1"}`}
+        className={`shrink-0 self-center ${gone ? "text-destructive" : "text-chart-1"}`}
       />
-      <span className="min-w-0 break-words text-ink [overflow-wrap:anywhere]">
+      <span className="min-w-0 break-words text-foreground [overflow-wrap:anywhere]">
         {file === "preferences" ? preferenceLabel(key) : key}
       </span>
       {value && (
-        <span className="min-w-0 truncate text-ink-muted">{value}</span>
+        <span className="min-w-0 truncate text-muted-foreground">{value}</span>
       )}
     </li>
   );
@@ -72,35 +71,40 @@ export const History = ({ file, rules }: HistoryProps) => {
   const ahead = Math.max(here, 0);
 
   return (
-    <section className="mt-4 flex max-h-115 flex-col border-t border-line pt-3 lg:sticky lg:top-(--header-bottom) lg:mt-0 lg:max-h-[calc(100dvh-var(--header-bottom)-1.5rem)] lg:border-t-0 lg:pt-0">
+    <section className="flex max-h-115 min-w-0 flex-col rounded-xl bg-card p-4 ring-1 ring-foreground/10 lg:sticky lg:top-(--header-bottom) lg:max-h-[calc(100dvh-var(--header-bottom)-1.5rem)]">
       <div className="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2">
-        <h3 className="text-[11px] font-medium tracking-wide text-ink-soft uppercase">
+        <h3 className="flex items-center gap-2 text-sm font-medium">
+          <Icon
+            icon={GoToVersionIcon}
+            size={16}
+            className="text-muted-foreground"
+          />
           History
-          <span className="ml-1.5 text-ink-muted normal-case">
+          <span className="text-xs font-normal text-muted-foreground tabular-nums">
             {versions.length}
           </span>
         </h3>
-        <div className="flex gap-2">
-          <button
-            type="button"
+        <div className="flex gap-1">
+          <Button
+            variant="outline"
+            size="icon-sm"
             onClick={() => rules.undo(file)}
             disabled={rules.busy || versions[here + 1] === undefined}
             aria-label="Undo"
             title="Undo"
-            className={ICON_BUTTON}
           >
             <Icon icon={UndoIcon} size={14} />
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="outline"
+            size="icon-sm"
             onClick={() => rules.redo(file)}
             disabled={rules.busy || ahead === 0}
             aria-label="Redo"
             title="Redo"
-            className={ICON_BUTTON}
           >
             <Icon icon={RedoIcon} size={14} />
-          </button>
+          </Button>
         </div>
       </div>
       {ahead > 0 && (
@@ -112,24 +116,36 @@ export const History = ({ file, rules }: HistoryProps) => {
         {versions.map(({ at: version, changes }, i) => (
           <li
             key={version}
-            className={`flex flex-wrap items-start justify-between gap-x-3 gap-y-1 border-b border-line py-1.5 last:border-0 ${i < ahead ? "opacity-50" : ""}`}
+            className={cn(
+              "flex flex-wrap items-start justify-between gap-x-3 gap-y-1 border-b py-2 last:border-0",
+              i < ahead && "opacity-50",
+            )}
           >
             <div className="min-w-0 flex-1 basis-40">
               <p
-                className={`text-[11px] ${version === at ? "text-ink" : "text-ink-muted"}`}
+                className={cn(
+                  "flex items-center gap-1.5 text-xs",
+                  version === at ? "font-medium" : "text-muted-foreground",
+                )}
               >
                 {fmtStamp(version)}
-                {version === at && " — now"}
+                {version === at && (
+                  <span className="rounded-full bg-primary px-1.5 text-[10px] font-medium text-primary-foreground">
+                    Now
+                  </span>
+                )}
               </p>
               {changes.length === 0 ? (
-                <p className="text-[11px] text-ink-muted">First version.</p>
+                <p className="text-[11px] text-muted-foreground">
+                  First version.
+                </p>
               ) : (
                 <ul className="mt-0.5">
                   {changes.slice(0, CHANGES_SHOWN).map((change) => (
                     <Change key={change.key} change={change} file={file} />
                   ))}
                   {changes.length > CHANGES_SHOWN && (
-                    <li className="text-[11px] text-ink-muted">
+                    <li className="text-[11px] text-muted-foreground">
                       and {changes.length - CHANGES_SHOWN} more line(s).
                     </li>
                   )}
@@ -137,16 +153,16 @@ export const History = ({ file, rules }: HistoryProps) => {
               )}
             </div>
             {version !== at && (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 onClick={() => rules.restore(file, version)}
                 disabled={rules.busy}
                 aria-label={`Go to the version from ${fmtStamp(version)}`}
                 title="Go to this version"
-                className={ICON_BUTTON}
               >
                 <Icon icon={GoToVersionIcon} size={14} />
-              </button>
+              </Button>
             )}
           </li>
         ))}

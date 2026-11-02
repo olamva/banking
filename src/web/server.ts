@@ -13,7 +13,14 @@ import {
   gzipSync,
 } from "node:zlib";
 import { allowed } from "../auth/session.ts";
-import { payload, refresh, rulesRoute } from "./api.ts";
+import {
+  HANDOFF_PAGE,
+  appPayload,
+  payload,
+  refresh,
+  rulesRoute,
+  signedIn,
+} from "./api.ts";
 
 const DIST = resolve(import.meta.dirname, "../../data/dist");
 
@@ -126,6 +133,37 @@ function file(req: IncomingMessage, res: ServerResponse, path: string): void {
       .pipe(res);
 }
 
+const PAYLOADS = new Map([
+  ["/api/txns", payload],
+  ["/api/app", appPayload],
+]);
+
+function handoff(req: IncomingMessage, res: ServerResponse, url: URL): void {
+  if (url.searchParams.get("open") !== "1") {
+    send(res, 200, "text/html; charset=utf-8", HANDOFF_PAGE);
+    return;
+  }
+  const to = signedIn(
+    req.headers.cookie,
+    req.headers["sec-fetch-site"] as string | undefined,
+  );
+  if (!to) {
+    send(
+      res,
+      403,
+      "text/plain; charset=utf-8",
+      "Open the app from the sign-in page.\n",
+    );
+    return;
+  }
+  res.writeHead(302, {
+    ...SECURITY,
+    "Cache-Control": "no-store",
+    Location: to,
+  });
+  res.end();
+}
+
 export const server = createServer(async (req, res) => {
   const email = req.headers["x-forwarded-email"] as string | undefined;
   const permitted = !!email && allowed(email, process.env.ALLOWED_EMAILS);
@@ -183,9 +221,15 @@ export const server = createServer(async (req, res) => {
     return;
   }
 
-  if (path === "/api/txns") {
+  if (path === "/app/signed-in") {
+    handoff(req, res, url);
+    return;
+  }
+
+  const data = PAYLOADS.get(path);
+  if (data) {
     try {
-      send(res, 200, JSON_TYPE, payload(), coding(req, JSON_TYPE));
+      send(res, 200, JSON_TYPE, data(), coding(req, JSON_TYPE));
     } catch (e) {
       send(
         res,

@@ -19,7 +19,8 @@ const api = (): Plugin => ({
   // the shared database before the worktree can redirect it. `api.ts` and
   // `server.ts` defer their own imports for the same reason.
   async configureServer(server) {
-    const { payload, refresh, rulesRoute } = await import("./src/web/api.ts");
+    const { appPayload, payload, refresh, rulesRoute } =
+      await import("./src/web/api.ts");
     // Mounted on no prefix, because connect strips a prefix off req.url and
     // the router needs the whole path.
     server.middlewares.use((req, res, next) => {
@@ -41,9 +42,11 @@ const api = (): Plugin => ({
       });
     });
 
-    server.middlewares.use("/api/txns", (_req, res) => {
+    server.middlewares.use("/api/", (req, res, next) => {
+      const route = req.url?.split("?")[0];
+      if (route !== "/txns" && route !== "/app") return next();
       try {
-        const body = payload();
+        const body = route === "/app" ? appPayload() : payload();
         res.writeHead(200, {
           "Content-Type": "application/json; charset=utf-8",
           "Cache-Control": "no-store",
@@ -127,7 +130,7 @@ const isolate = (): number => {
 
 export default defineConfig(({ mode }) => {
   // The dashboard is offline, but the refresh endpoint is not. `pnpm dev` runs
-  // vite, not `node --env-file`, so load .env.local here.
+  // vite, not `node --env-file`, so load .env here.
   Object.assign(process.env, loadEnv(mode, import.meta.dirname, ""));
   // Before the return: this sets DB_FILE, and the api plugin reads it when the
   // server starts.

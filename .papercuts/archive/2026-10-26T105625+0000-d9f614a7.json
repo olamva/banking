@@ -1,0 +1,14 @@
+{
+  "id": "d9f614a7",
+  "ts": "2026-10-26T10:56:25+00:00",
+  "text": "banking-tfstate also held f1.tfstate, and the step 7 cleanup deleted the account after listing resources only, not blobs; f1 lost its Terraform state",
+  "tags": [
+    "azure",
+    "terraform"
+  ],
+  "who": "agent",
+  "model": "opus-5.5",
+  "session": "364d3c7e",
+  "where": "/Users/olavassbotn/Developer/Plans/oracle-banking.md",
+  "branch": "t3/finalize-azure-migration"
+}
