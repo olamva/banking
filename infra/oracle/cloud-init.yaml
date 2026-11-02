@@ -15,6 +15,8 @@ users:
     system: true
     homedir: /srv/banking
     shell: /usr/sbin/nologin
+bootcmd:
+  - sysctl -w net.mptcp.enabled=0
 write_files:
   - path: /etc/systemd/system/podman-auto-update.timer.d/banking.conf
     content: |
