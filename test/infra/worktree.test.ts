@@ -38,12 +38,12 @@ function fixture(t: { after: (fn: () => void) => void }) {
   git(main, "config", "user.email", "test@example.com");
   writeFileSync(
     join(main, ".gitignore"),
-    ".env.local\ndata\nrules\nnode_modules\ndata.local\n*.key\n",
+    ".env\ndata\nrules\nnode_modules\ndata.local\n*.key\n",
   );
   writeFileSync(join(main, "tracked"), "initial");
   mkdirSync(join(main, "data"));
   mkdirSync(join(main, "rules"));
-  writeFileSync(join(main, ".env.local"), "");
+  writeFileSync(join(main, ".env"), "");
   git(main, "add", ".");
   git(main, "commit", "-qm", "initial");
   git(main, "worktree", "add", "-qb", "task", target);
@@ -71,7 +71,7 @@ test("setup links ignored files and remains safe on repeated runs", (t) => {
   const { main, target } = fixture(t);
   linkWorktree(target);
   linkWorktree(target);
-  for (const name of [".env.local", "data", "rules"])
+  for (const name of [".env", "data", "rules"])
     assert.equal(readlinkSync(join(target, name)), join(main, name));
   assert.throws(() => linkWorktree(main), /linked worktree/);
 });
@@ -81,7 +81,7 @@ test("setup preserves local data and creates no partial links", (t) => {
   mkdirSync(join(target, "data"));
   assert.throws(() => linkWorktree(target), /Preserve/);
   assert.equal(lstatSync(join(target, "data")).isDirectory(), true);
-  assert.equal(existsSync(join(target, ".env.local")), false);
+  assert.equal(existsSync(join(target, ".env")), false);
 });
 
 test("setup preserves an incorrect symlink", (t) => {

@@ -48,7 +48,7 @@ apply_patch)
 Edit | Write | NotebookEdit | MultiEdit)
   path=$(field '.tool_input.file_path')
   [ -n "$path" ] || exit 0
-  # Every path the repo permits here is gitignored: rules/, data/, .env.local.
+  # Every path the repo permits here is gitignored: rules/, data/, .env.
   git -C "$cwd" check-ignore -q "$path" 2>/dev/null && exit 0
   git -C "$cwd" ls-files --error-unmatch "$path" >/dev/null 2>&1 || exit 0
   deny "$path is a tracked path in the main checkout."

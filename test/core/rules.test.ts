@@ -161,7 +161,7 @@ test("a category value must name a subcategory or none at all", () => {
 test("only the named rule files are rule files", () => {
   assert.equal(isRuleFile("categories"), true);
   assert.equal(isRuleFile("accounts"), false);
-  assert.equal(isRuleFile("../../.env.local"), false);
+  assert.equal(isRuleFile("../../.env"), false);
   assert.equal(isRuleFile(null), false);
 });
 

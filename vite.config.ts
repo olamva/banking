@@ -130,7 +130,7 @@ const isolate = (): number => {
 
 export default defineConfig(({ mode }) => {
   // The dashboard is offline, but the refresh endpoint is not. `pnpm dev` runs
-  // vite, not `node --env-file`, so load .env.local here.
+  // vite, not `node --env-file`, so load .env here.
   Object.assign(process.env, loadEnv(mode, import.meta.dirname, ""));
   // Before the return: this sets DB_FILE, and the api plugin reads it when the
   // server starts.

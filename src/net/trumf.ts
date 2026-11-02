@@ -78,7 +78,7 @@ async function page(path: string, key: string): Promise<unknown> {
   const value = flightValue(await res.text(), key);
   if (value === undefined)
     throw new Error(
-      "Trumf login expired. Copy the Cookie header of a logged-in www.trumf.no page into TRUMF_COOKIE in .env.local",
+      "Trumf login expired. Copy the Cookie header of a logged-in www.trumf.no page into TRUMF_COOKIE in .env",
     );
   return value;
 }
