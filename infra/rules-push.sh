@@ -45,6 +45,8 @@ site_rsync -t "$repo"/rules/*.json "$HOST:$SITE/rules/"
 # left behind, and undo there restores the state before this deploy.
 if [ -d "$repo/rules/.history" ]; then
   site_rsync -rt --ignore-existing "$repo/rules/.history/" "$HOST:$SITE/rules/.history/"
+  site_rsync -t --dirs --include='*.cursor' --exclude='*' \
+    "$repo/rules/.history/" "$HOST:$SITE/rules/.history/"
 fi
 
 if [ -d "$repo/data/raw/receipts" ]; then

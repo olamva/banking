@@ -54,7 +54,7 @@ struct Refreshed: Decodable {
 
     func start() async {
         if data == nil, let cached = try? Data(contentsOf: Self.cacheFile) {
-            await use(cached)
+            await use(cached, in: session)
         }
         if signedIn { await reload() }
     }
@@ -72,7 +72,10 @@ struct Refreshed: Decodable {
         await reload()
     }
 
+    private var session = 0
+
     func signOut() {
+        session += 1
         Keychain.write(nil)
         cookie = nil
         data = nil
@@ -97,15 +100,15 @@ struct Refreshed: Decodable {
 
     private func download() async {
         guard let base else { return }
+        let mine = session
         do {
             let body = try await Self.get(base.appending(path: "api/app"), cookie: cookie)
-            await use(body)
+            guard await use(body, in: mine) else { return }
             try? body.write(to: Self.cacheFile, options: .atomic)
             problem = nil
-        } catch let error as Problem {
-            problem = error
         } catch {
-            problem = .server(error.localizedDescription)
+            guard mine == session else { return }
+            problem = error as? Problem ?? .server(error.localizedDescription)
         }
     }
 
@@ -119,19 +122,21 @@ struct Refreshed: Decodable {
             if let error = answer.error { return error }
             await reload()
             let fetched = answer.fetched ?? 0
-            let note = fetched == 1 ? "1 request to the bank." : "\(fetched) requests to the bank."
+            let note = fetched == 1 ? "1 file from the bank." : "\(fetched) files from the bank."
             return answer.stopped.map { "\(note) Stopped: \($0)" } ?? note
         } catch {
             return error.localizedDescription
         }
     }
 
-    private func use(_ body: Data) async {
-        guard let decoded = try? await Self.decode(body) else { return }
+    @discardableResult
+    private func use(_ body: Data, in mine: Int) async -> Bool {
+        guard let decoded = try? await Self.decode(body), mine == session else { return false }
         data = decoded
         if !decoded.months.contains(where: { $0.month == month }) {
             month = decoded.months.last?.month ?? ""
         }
+        return true
     }
 
     private nonisolated static func decode(_ body: Data) async throws -> AppData {

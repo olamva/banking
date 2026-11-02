@@ -118,8 +118,6 @@ export type Edited = { rows: number; at: number };
 // A rule change moves rows between categories, and the database holds the
 // result rather than the rule. Rebuild before the answer, or the page reloads
 // the categories it already had.
-// ponytail: no queue. One replica, one reader, and a rebuild is about a
-// second. Serialise this with the refresh when two writers become real.
 const applied = async (at: number): Promise<Edited> => ({
   rows: await rebuildAll(),
   at,

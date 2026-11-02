@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, readdirSync, renameSync, rmSync } from "node:fs";
 import { mkdir, readdir, readFile } from "node:fs/promises";
 import { basename, dirname } from "node:path";
 import {
@@ -160,45 +160,46 @@ export function netByReason(rows: Categorized[]): Map<string, number> {
   return net;
 }
 
-export async function rebuildAll(): Promise<number> {
-  rmSync(DB_FILE, { force: true });
+async function build(): Promise<number> {
+  const months = monthsOnDisk();
+  const rules = await loadRules();
+  const rows = (
+    await Promise.all(
+      months.map((month) =>
+        pipeline(month, { rename: false }, rules).catch((e: unknown) => {
+          throw new Error(
+            `${RAW}/${month}: ${e instanceof Error ? e.message : e}`,
+            { cause: e },
+          );
+        }),
+      ),
+    )
+  ).flat();
+  const loose = narrowings(rows, rules.categories);
+  for (const l of loose) {
+    console.error(
+      `\nwarning: ${JSON.stringify(l.pattern)} only works where it sits, losing rows to ` +
+        l.beaten.map((b) => JSON.stringify(b.pattern)).join(", ") +
+        (l.suggest
+          ? `\n  narrow it to ${JSON.stringify(l.suggest)}`
+          : `\n  narrow it by hand — a winner is anchored and cannot be inlined`),
+    );
+  }
+  // A reason that does not net to zero has one excluded leg and one counted leg.
+  // This removes real money from both totals.
+  for (const [, net] of netByReason(rows)) {
+    if (Math.abs(net) < 0.005) continue;
+    console.error(
+      `\nwarning: excluded reason nets to a non-zero value.` +
+        `\nOne leg of a pair is being excluded while the other is counted.`,
+    );
+  }
+  const receipts = matchReceipts(rows, await receiptsOnDisk());
   await mkdir(dirname(DB_FILE), { recursive: true });
-  const db = openDb(DB_FILE);
+  const next = `${DB_FILE}.${process.pid}.tmp`;
+  rmSync(next, { force: true });
+  const db = openDb(next);
   try {
-    const months = monthsOnDisk();
-    const rules = await loadRules();
-    const rows = (
-      await Promise.all(
-        months.map((month) =>
-          pipeline(month, { rename: false }, rules).catch((e: unknown) => {
-            throw new Error(
-              `${RAW}/${month}: ${e instanceof Error ? e.message : e}`,
-              { cause: e },
-            );
-          }),
-        ),
-      )
-    ).flat();
-    const loose = narrowings(rows, rules.categories);
-    for (const l of loose) {
-      console.error(
-        `\nwarning: ${JSON.stringify(l.pattern)} only works where it sits, losing rows to ` +
-          l.beaten.map((b) => JSON.stringify(b.pattern)).join(", ") +
-          (l.suggest
-            ? `\n  narrow it to ${JSON.stringify(l.suggest)}`
-            : `\n  narrow it by hand — a winner is anchored and cannot be inlined`),
-      );
-    }
-    // A reason that does not net to zero has one excluded leg and one counted leg.
-    // This removes real money from both totals.
-    for (const [, net] of netByReason(rows)) {
-      if (Math.abs(net) < 0.005) continue;
-      console.error(
-        `\nwarning: excluded reason nets to a non-zero value.` +
-          `\nOne leg of a pair is being excluded while the other is counted.`,
-      );
-    }
-    const receipts = matchReceipts(rows, await receiptsOnDisk());
     rebuildDb(
       db,
       renamePayees(
@@ -208,11 +209,18 @@ export async function rebuildAll(): Promise<number> {
         rules.payees,
       ),
     );
-    debug(
-      `rebuilt ${DB_FILE} from ${months.length} months, ${rows.length} rows`,
-    );
-    return rows.length;
   } finally {
     db.close();
   }
+  renameSync(next, DB_FILE);
+  debug(`rebuilt ${DB_FILE} from ${months.length} months, ${rows.length} rows`);
+  return rows.length;
+}
+
+let rebuilding: Promise<unknown> = Promise.resolve();
+
+export function rebuildAll(): Promise<number> {
+  const run = rebuilding.then(build);
+  rebuilding = run.catch(() => undefined);
+  return run;
 }

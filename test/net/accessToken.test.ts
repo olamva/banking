@@ -48,3 +48,29 @@ test("a long-running server exchanges the refresh token again once the access to
   assert.deepEqual(bearers, ["Bearer a1", "Bearer a1", "Bearer a2"]);
   assert.equal(readFileSync(file, "utf8"), "r2");
 });
+
+test("concurrent requests never send a refresh token the bank already rotated", async (t) => {
+  const used = new Set<string>();
+  t.mock.method(
+    globalThis,
+    "fetch",
+    async (url: string | URL | Request, init?: RequestInit) => {
+      if (!String(url).endsWith("/oauth/token")) return Response.json({});
+      const sent = new URLSearchParams(String(init?.body)).get(
+        "refresh_token",
+      )!;
+      if (used.has(sent)) return new Response("invalid_grant", { status: 400 });
+      used.add(sent);
+      return Response.json({
+        access_token: `access-${sent}`,
+        refresh_token: `${sent}+`,
+        expires_in: 600,
+      });
+    },
+  );
+  await setToken("c");
+
+  await Promise.all([get("/accounts"), get("/accounts")]);
+
+  assert.equal(readFileSync(file, "utf8"), "c+");
+});

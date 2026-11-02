@@ -201,6 +201,15 @@ test("rule saves and history changes rebuild the payload before they return", as
   assert.equal(category(), "food");
 });
 
+test("a read during a rebuild returns the previous rows", async () => {
+  await rebuildAll();
+  const before = readRows().length;
+  const running = rebuildAll();
+  const during = readRows().length;
+  await running;
+  assert.equal(during, before);
+});
+
 test("invalid rule requests preserve the file and history", async () => {
   const before = (
     await rulesRoute("/api/rules", new URLSearchParams(), undefined)!
