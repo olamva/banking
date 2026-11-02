@@ -1,5 +1,36 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync, renameSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
+import { setTimeout as sleep } from "node:timers/promises";
+import { DATA_DIR } from "../core/paths.ts";
+
+export async function withTokenLock<T>(work: () => Promise<T>): Promise<T> {
+  const lock = `${DATA_DIR}/token.lock`;
+  mkdirSync(DATA_DIR, { recursive: true });
+  for (;;) {
+    try {
+      mkdirSync(lock);
+      break;
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
+      const made = statSync(lock, { throwIfNoEntry: false })?.mtimeMs;
+      if (made !== undefined && Date.now() - made > 30_000)
+        rmSync(lock, { recursive: true, force: true });
+      else await sleep(50);
+    }
+  }
+  try {
+    return await work();
+  } finally {
+    rmSync(lock, { recursive: true, force: true });
+  }
+}
 
 const KEYCHAIN_SERVICE = "sb1-banking";
 
