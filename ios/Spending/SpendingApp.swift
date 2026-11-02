@@ -99,22 +99,24 @@ struct WelcomeView: View {
             VStack(spacing: 8) {
                 Text("Spending")
                     .font(.largeTitle.bold())
-                Text("Your accounts and card, sorted and summed. Sign in to the same site that hosts the dashboard.")
+                Text("Your accounts and card, sorted and summed. Sign in with the Google account that you use for the dashboard.")
                     .font(.body)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
-            TextField("Server address", text: $store.server, prompt: Text(verbatim: "https://example.com"))
-                .textContentType(.URL)
-                .keyboardType(.URL)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .padding(14)
-                .background(.fill.tertiary, in: .rect(cornerRadius: 14, style: .continuous))
-            if !store.server.isEmpty && store.base == nil {
-                Text("Use an https address.")
-                    .font(.footnote)
-                    .foregroundStyle(.red)
+            if Store.bundled.isEmpty {
+                TextField("Server address", text: $store.server, prompt: Text(verbatim: "https://example.com"))
+                    .textContentType(.URL)
+                    .keyboardType(.URL)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .padding(14)
+                    .background(.fill.tertiary, in: .rect(cornerRadius: 14, style: .continuous))
+                if !store.server.isEmpty && store.base == nil {
+                    Text("Use an https address.")
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                }
             }
             Spacer()
             SignInButton()

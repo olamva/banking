@@ -29,7 +29,11 @@ struct Refreshed: Decodable {
     var loading = false
     var fetchingBank = false
     var problem: Problem?
-    var server: String = UserDefaults.standard.string(forKey: "server") ?? "" {
+    static let bundled = Bundle.main.url(forResource: "server", withExtension: "txt")
+        .flatMap { try? String(contentsOf: $0, encoding: .utf8) }?
+        .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+    var server: String = UserDefaults.standard.string(forKey: "server").flatMap { $0.isEmpty ? nil : $0 } ?? Store.bundled {
         didSet { UserDefaults.standard.set(server, forKey: "server") }
     }
     private(set) var cookie: String? = Keychain.read()
