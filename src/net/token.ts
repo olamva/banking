@@ -64,7 +64,7 @@ export function keychainGet(account: string): string | null {
 export function env(key: string): string {
   const v = process.env[key];
   if (!v || v.startsWith("<"))
-    throw new Error(`Missing ${key} — fill it in .env.local`);
+    throw new Error(`Missing ${key} — fill it in .env`);
   return v;
 }
 

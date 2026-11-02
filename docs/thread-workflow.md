@@ -3,7 +3,7 @@
 ## Setup
 
 T3 reads `t3.json` and runs setup after worktree creation.
-Setup installs locked dependencies and links `.env.local`, `data`, and `rules` from the main checkout.
+Setup installs locked dependencies and links `.env`, `data`, and `rules` from the main checkout.
 Setup preserves existing files and refuses incorrect links.
 Keep the source paths available in the main checkout.
 

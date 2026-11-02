@@ -259,7 +259,7 @@ test("a rule write without the custom header is refused", async () => {
 
 // The file name is the one value in the query string that could name a path.
 test("a rule write may not name a file outside the rules", async () => {
-  for (const file of ["accounts", "../../.env.local", ""]) {
+  for (const file of ["accounts", "../../.env", ""]) {
     const res = await fetch(
       `${base}/api/rules/save?file=${encodeURIComponent(file)}&key=x&value=y`,
       {

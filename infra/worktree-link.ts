@@ -11,7 +11,7 @@ export function linkWorktree(cwd = process.cwd()) {
   if (git("rev-parse", "--absolute-git-dir") === common)
     throw new Error("Run setup from a linked worktree.");
   const main = dirname(common);
-  const links = [".env.local", "data", "rules"].map((name) => ({
+  const links = [".env", "data", "rules"].map((name) => ({
     source: join(main, name),
     target: join(root, name),
   }));

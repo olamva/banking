@@ -19,10 +19,10 @@ pnpm install
 pnpm dev                            # http://localhost:4000
 ```
 
-`.env.local` holds the SB1 credentials, and only the online commands read it. It is not in git, and `data/` and `rules/` are not either, so a fresh clone or worktree starts empty:
+`.env` holds the SB1 credentials, and only the online commands read it. It is not in git, and `data/` and `rules/` are not either, so a fresh clone or worktree starts empty:
 
 ```bash
-pnpm worktree:link                  # symlink .env.local, data and rules back
+pnpm worktree:link                  # symlink .env, data and rules back
 pnpm dev                            # its own port in 4010-4089, and its own database
 ```
 
@@ -154,7 +154,7 @@ The SB1 values arrive last, because the developer portal wants a redirect before
 6. Run `pnpm rules:push`. The page now works, and it reads an empty database.
 7. Register a **second SpareBank 1 client** in the developer portal. The BankID login runs on this machine, so the redirect is a localhost URL. Use a port that the first client does not use.
 8. Put the four SB1 values in `infra/terraform.tfvars` and run `infra/oracle/configure.sh` again.
-9. Run `pnpm seed:site`. The token goes to the VM instead of the keychain. Do not use `pnpm sb1 login`, which reads `.env.local` and would put the token of this machine on the site.
+9. Run `pnpm seed:site`. The token goes to the VM instead of the keychain. Do not use `pnpm sb1 login`, which reads `.env` and would put the token of this machine on the site.
 10. Open the site and press Refresh.
 
 SB1 rotates the refresh token on every exchange, so two processes on one chain invalidate each other. The second client gives the site an independent chain.
