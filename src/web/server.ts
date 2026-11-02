@@ -146,7 +146,6 @@ function handoff(req: IncomingMessage, res: ServerResponse, url: URL): void {
   const to = signedIn(
     req.headers.cookie,
     req.headers["sec-fetch-site"] as string | undefined,
-    req.headers["sec-fetch-user"] as string | undefined,
   );
   if (!to) {
     send(

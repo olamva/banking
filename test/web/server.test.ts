@@ -325,8 +325,7 @@ test("the app sign-in hands over only the proxy session cookies after a click on
   assert.equal(page.status, 200);
   assert.match(await page.text(), /href="\/app\/signed-in\?open=1"/);
 
-  const clicked = { "sec-fetch-site": "same-origin", "sec-fetch-user": "?1" };
-  const res = await open(clicked);
+  const res = await open({ "sec-fetch-site": "same-origin" });
   assert.equal(res.status, 302);
   const to = new URL(res.headers.get("location")!);
   assert.equal(`${to.protocol}//${to.host}`, "spending://signed-in");
@@ -338,7 +337,7 @@ test("the app sign-in hands over only the proxy session cookies after a click on
   for (const headers of [
     {} as Record<string, string>,
     { "sec-fetch-site": "cross-site", "sec-fetch-user": "?1" },
-    { "sec-fetch-site": "same-origin" },
+    { "sec-fetch-site": "same-site" },
   ]) {
     const refused = await open(headers);
     assert.equal(refused.status, 403);
