@@ -183,7 +183,9 @@ The app signs in through oauth2-proxy, with the same Google account as the page:
 3. The app keeps the cookies in the keychain and sends them with each request. oauth2-proxy checks them as it checks the page.
 
 The session ends after the oauth2-proxy cookie lifetime, 7 days by default. The app then shows the last data and a **Sign in** button.
-The first screen asks for the address of the hosted site. In the simulator, `http://127.0.0.1:<port>` of `pnpm dev` needs no sign-in.
+`pnpm ios install` writes the `custom_domain` of `infra/terraform.tfvars` to the ignored `ios/Spending/server.txt`, so the app knows the site.
+Without that file, the first screen asks for the address. In the simulator, `http://127.0.0.1:<port>` of `pnpm dev` needs no sign-in.
+The handoff sends the cookies only for `Sec-Fetch-Site: same-origin`, after a tap on the `/app/signed-in` page. Safari sends no `Sec-Fetch-User`, so the server does not check it.
 
 A free Apple developer account signs an app for 7 days only. `pnpm ios schedule` keeps the app on the phone:
 

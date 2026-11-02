@@ -37,3 +37,4 @@ rules
 
 # Xcode per-user state
 xcuserdata
+ios/Spending/server.txt

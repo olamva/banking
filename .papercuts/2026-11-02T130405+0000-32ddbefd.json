@@ -1,0 +1,13 @@
+{
+  "id": "32ddbefd",
+  "ts": "2026-11-02T13:04:05+00:00",
+  "text": "pnpm 11 rejects -s (silent) flag: 'unexpected argument -s'",
+  "tags": [
+    "tools"
+  ],
+  "who": "agent",
+  "model": "opus-5.5",
+  "session": "5d146c4b",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3-284e70c1",
+  "branch": "t3/ios-sign-in-fix"
+}

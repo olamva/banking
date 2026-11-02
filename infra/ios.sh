@@ -43,6 +43,7 @@ iphone() {
 
 install() {
   expire_soon_profiles
+  sed -n 's/^ *custom_domain *= *"\(.*\)"/https:\/\/\1/p' "$repo/infra/terraform.tfvars" 2>/dev/null > "$repo/ios/Spending/server.txt" || true
   say "building $(git -C "$repo" rev-parse --short HEAD)"
   xcodebuild -quiet -project "$repo/ios/Spending.xcodeproj" -scheme Spending -configuration Release \
     -destination generic/platform=iOS -derivedDataPath "$state/build" -allowProvisioningUpdates build

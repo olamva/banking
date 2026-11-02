@@ -62,9 +62,8 @@ export const HANDOFF_PAGE = `<!doctype html>
 export function signedIn(
   cookie: string | undefined,
   site: string | undefined,
-  user: string | undefined,
 ): string | null {
-  if (site !== "same-origin" || user !== "?1") return null;
+  if (site !== "same-origin") return null;
   const session = (cookie ?? "")
     .split(";")
     .map((c) => c.trim())
