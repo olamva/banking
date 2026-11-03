@@ -10,9 +10,9 @@ export const RELEASES: Release[] = [
     date: "2026-11-03",
     highlights: [
       {
-        title: "Insights and receipts on iPhone",
+        title: "Periods, insights and receipts on iPhone",
         detail:
-          "The iPhone app has an Insights tab for each year or all time. A transaction shows its receipt and can remember a new category. Summary shows the biggest changes, spending by account and income by payer. Activity filters by account and category.",
+          "The iPhone app shows a month, a whole year, all time or a custom range. Summary, Insights and Activity follow the period that you choose. A transaction shows its receipt and can remember a new category. Summary shows the biggest changes, spending by account and income by payer. Activity filters by account and category.",
       },
     ],
   },

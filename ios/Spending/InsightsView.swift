@@ -2,13 +2,11 @@ import SwiftUI
 
 struct InsightsView: View {
     @Environment(Store.self) private var store
-    @State private var year = ""
 
     var body: some View {
         NavigationStack {
             Group {
-                if let data = store.data {
-                    let insights = data.years.first { $0.year == year }?.insights ?? data.insights
+                if let insights = store.selected?.insights {
                     List {
                         SessionBanner()
                         if insights.transactionCount == 0 {
@@ -25,17 +23,11 @@ struct InsightsView: View {
                     .refreshable { await store.reload() }
                     .navigationDestination(for: MerchantRoute.self) { MerchantView(name: $0.name) }
                     .navigationDestination(for: Txn.self) { TxnView(txn: $0) }
-                    .toolbarTitleMenu {
-                        Picker("Period", selection: $year) {
-                            Text("All time").tag("")
-                            ForEach(data.years.reversed()) { Text($0.year).tag($0.year) }
-                        }
-                    }
                 } else {
                     Loading()
                 }
             }
-            .navigationTitle(year.isEmpty ? "All time" : year)
+            .periodPicker()
         }
     }
 }

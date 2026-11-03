@@ -1,39 +1,98 @@
 import SwiftUI
 
-struct MonthPicker: ViewModifier {
+struct PeriodPicker: ViewModifier {
     @Environment(Store.self) private var store
+    @State private var choosing = false
 
     func body(content: Content) -> some View {
-        let months = store.data?.months.map(\.month) ?? []
-        let index = months.firstIndex(of: store.selected?.month ?? "")
+        let selected = store.selected
+        let steps = (selected?.kind == "year" ? store.data?.years : store.data?.months)?.map(\.key) ?? []
+        let index = steps.firstIndex(of: selected?.key ?? "")
         content
-            .navigationTitle(store.selected?.date.monthTitle ?? "Spending")
+            .navigationTitle(selected?.title ?? "Spending")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbarTitleMenu {
-                ForEach(Dictionary(grouping: months) { $0.prefix(4) }.keys.sorted(by: >), id: \.self) { year in
-                    Menu(String(year)) {
-                        ForEach(months.filter { $0.hasPrefix(year) }.reversed(), id: \.self) { month in
-                            Button(Day.month(month).monthName) { store.month = month }
+                Button("All time", systemImage: "infinity") { store.period = "all" }
+                Button("Custom range", systemImage: "calendar.badge.clock") { choosing = true }
+                Divider()
+                ForEach(store.data?.years.reversed() ?? []) { year in
+                    Menu(year.key) {
+                        Button("Whole year", systemImage: "calendar") { store.period = year.key }
+                        Divider()
+                        ForEach(store.data?.months.filter { $0.key.hasPrefix(year.key) }.reversed() ?? []) { month in
+                            Button(month.date.monthName) { store.period = month.key }
                         }
                     }
                 }
             }
             .toolbar {
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    Button("Previous month", systemImage: "chevron.left") {
-                        if let index, index > 0 { store.month = months[index - 1] }
+                if let index {
+                    ToolbarItemGroup(placement: .topBarTrailing) {
+                        Button("Previous", systemImage: "chevron.left") { store.period = steps[index - 1] }
+                            .disabled(index == 0)
+                        Button("Next", systemImage: "chevron.right") { store.period = steps[index + 1] }
+                            .disabled(index + 1 >= steps.count)
                     }
-                    .disabled((index ?? 0) == 0)
-                    Button("Next month", systemImage: "chevron.right") {
-                        if let index, index + 1 < months.count { store.month = months[index + 1] }
-                    }
-                    .disabled(index.map { $0 + 1 >= months.count } ?? true)
                 }
             }
+            .sheet(isPresented: $choosing) { RangeView() }
     }
 }
 
 extension View {
-    func monthPicker() -> some View { modifier(MonthPicker()) }
+    func periodPicker() -> some View { modifier(PeriodPicker()) }
+}
+
+struct RangeView: View {
+    @Environment(Store.self) private var store
+    @Environment(\.dismiss) private var dismiss
+    @State private var from = Date.now
+    @State private var to = Date.now
+    @State private var loading = false
+    @State private var failure: String?
+
+    var body: some View {
+        let first = store.data?.txns.last.map(\.day) ?? .distantPast
+        NavigationStack {
+            Form {
+                Section {
+                    DatePicker("From", selection: $from, in: first...max(first, to), displayedComponents: .date)
+                    DatePicker("To", selection: $to, in: from...max(from, .now), displayedComponents: .date)
+                } footer: {
+                    Text(failure ?? "The server sums a custom range. This needs a connection.")
+                        .foregroundStyle(failure == nil ? Color.secondary : Color.red)
+                }
+            }
+            .environment(\.timeZone, Day.calendar.timeZone)
+            .navigationTitle("Custom range")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel", systemImage: "xmark") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    if loading {
+                        ProgressView()
+                    } else {
+                        Button("Show", systemImage: "checkmark") {
+                            Task {
+                                loading = true
+                                failure = await store.show("\(Day.key(from))..\(Day.key(to))")
+                                loading = false
+                                if failure == nil { dismiss() }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .presentationDetents([.medium])
+        .onAppear {
+            guard let selected = store.selected else { return }
+            from = max(Day.date(selected.from), first)
+            to = min(Day.date(selected.to), .now)
+        }
+    }
 }
 
 struct Loading: View {

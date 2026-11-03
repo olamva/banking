@@ -8,19 +8,19 @@ struct SummaryView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if let data = store.data, let month = store.selected {
+                if let period = store.selected {
                     List {
                         SessionBanner()
-                        Section { Hero(month: month, lastYear: lastYear(data, month)) }
-                        CategoriesSection(month: month)
-                        ChangesSection(month: month)
-                        MerchantsSection(month: month)
-                        AccountsSection(month: month)
-                        IncomeSection(month: month)
-                        SubscriptionsSection(month: month)
+                        Section { Hero(period: period, compare: period.lastYear.flatMap(store.lookup)) }
+                        CategoriesSection(period: period)
+                        ChangesSection(period: period)
+                        MerchantsSection(period: period)
+                        AccountsSection(period: period)
+                        IncomeSection(period: period)
+                        SubscriptionsSection(period: period)
                     }
                     .contentTransition(.opacity)
-                    .animation(.snappy, value: month)
+                    .animation(.snappy, value: period.key)
                     .refreshable { await store.reload() }
                     .navigationDestination(for: CategoryRoute.self) { CategoryView(route: $0) }
                     .navigationDestination(for: MerchantRoute.self) { MerchantView(name: $0.name) }
@@ -29,7 +29,7 @@ struct SummaryView: View {
                     Loading()
                 }
             }
-            .monthPicker()
+            .periodPicker()
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Settings", systemImage: "gearshape") { settings = true }
@@ -38,15 +38,10 @@ struct SummaryView: View {
             .sheet(isPresented: $settings) { SettingsView() }
         }
     }
-
-    private func lastYear(_ data: AppData, _ month: Month) -> Month? {
-        let back = "\(Int(month.month.prefix(4))! - 1)\(month.month.dropFirst(4))"
-        return data.months.first { $0.month == back }
-    }
 }
 
 struct CategoryRoute: Hashable {
-    let month: String
+    let period: String
     let category: String
 }
 
@@ -55,8 +50,8 @@ struct MerchantRoute: Hashable {
 }
 
 private struct Hero: View {
-    let month: Month
-    let lastYear: Month?
+    let period: Period
+    let compare: Period?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -64,19 +59,25 @@ private struct Hero: View {
                 Text("Spent")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.secondary)
-                Text(Money.kr(month.totalOut))
+                Text(Money.kr(period.totalOut))
                     .font(.system(size: 40, weight: .bold, design: .rounded))
                     .monospacedDigit()
-                    .contentTransition(.numericText(value: month.totalOut))
-                if let delta = month.delta, let compared = month.compared {
+                    .contentTransition(.numericText(value: period.totalOut))
+                if let average = period.averageOut {
+                    Text("\(Money.kr(average)) a month on average")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+                if let delta = period.delta, let compared = period.compared {
                     DeltaLabel(delta: delta.totalOut, compared: compared)
                 }
             }
-            DayChart(month: month, lastYear: lastYear)
+            SeriesChart(period: period, compare: compare)
                 .frame(height: 170)
             HStack(spacing: 12) {
-                Figure(title: "Income", value: month.totalIn, tint: .green)
-                Figure(title: "Net", value: month.net, tint: month.net >= 0 ? .green : .red)
+                Figure(title: "Income", value: period.totalIn, tint: .green)
+                Figure(title: "Net", value: period.net, tint: period.net >= 0 ? .green : .red)
             }
         }
         .padding(.vertical, 6)
@@ -106,37 +107,45 @@ private struct Figure: View {
     }
 }
 
-private struct DayChart: View {
-    let month: Month
-    let lastYear: Month?
-    @State private var day: Int?
+private struct SeriesChart: View {
+    let period: Period
+    let compare: Period?
+    @State private var picked: Date?
 
     var body: some View {
+        let series = period.series
+        let running = series.bucket == "day"
+        let index = picked.map(series.index)
         Chart {
-            if let lastYear {
-                ForEach(Array(lastYear.spentByDay.enumerated()), id: \.offset) { index, value in
-                    LineMark(x: .value("Day", index + 1), y: .value("Spent", value), series: .value("Series", "Last year"))
+            if let compare, running {
+                ForEach(Array(compare.series.spent.enumerated()), id: \.offset) { offset, value in
+                    LineMark(x: .value("Date", series.date(offset)), y: .value("Spent", value), series: .value("Series", "Last year"))
                         .foregroundStyle(Color.gray.opacity(0.6))
                         .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [3, 3]))
                 }
             }
-            ForEach(Array(month.spentByDay.enumerated()), id: \.offset) { index, value in
-                AreaMark(x: .value("Day", index + 1), y: .value("Spent", value))
-                    .foregroundStyle(.linearGradient(colors: [.accentColor.opacity(0.3), .accentColor.opacity(0)], startPoint: .top, endPoint: .bottom))
-                    .interpolationMethod(.monotone)
-                LineMark(x: .value("Day", index + 1), y: .value("Spent", value), series: .value("Series", "This month"))
-                    .foregroundStyle(Color.accentColor)
-                    .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
-                    .interpolationMethod(.monotone)
+            ForEach(Array(series.spent.enumerated()), id: \.offset) { offset, value in
+                if running {
+                    AreaMark(x: .value("Date", series.date(offset)), y: .value("Spent", value))
+                        .foregroundStyle(.linearGradient(colors: [.accentColor.opacity(0.3), .accentColor.opacity(0)], startPoint: .top, endPoint: .bottom))
+                        .interpolationMethod(.monotone)
+                    LineMark(x: .value("Date", series.date(offset)), y: .value("Spent", value), series: .value("Series", "This period"))
+                        .foregroundStyle(Color.accentColor)
+                        .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                        .interpolationMethod(.monotone)
+                } else {
+                    BarMark(x: .value("Date", series.date(offset), unit: .month), y: .value("Spent", value))
+                        .foregroundStyle(Color.accentColor.opacity(index == nil || index == offset ? 1 : 0.4))
+                }
             }
-            if let day, let value = month.spentByDay[safe: day - 1] {
-                RuleMark(x: .value("Day", day))
-                    .foregroundStyle(.secondary.opacity(0.4))
+            if let index, let value = series.spent[safe: index] {
+                RuleMark(x: .value("Date", series.date(index)))
+                    .foregroundStyle(running ? Color.secondary.opacity(0.4) : .clear)
                     .annotation(position: .top, overflowResolution: .init(x: .fit(to: .chart), y: .disabled)) {
                         VStack(spacing: 2) {
-                            Text("Day \(day)").font(.caption2).foregroundStyle(.secondary)
+                            Text(running ? series.date(index).shortDay : series.date(index).monthTitle).font(.caption2).foregroundStyle(.secondary)
                             Text(Money.kr(value)).font(.caption.weight(.semibold)).monospacedDigit()
-                            if let before = lastYear?.spentByDay[safe: day - 1] {
+                            if running, let before = compare?.series.spent[safe: index] {
                                 Text("Last year \(Money.kr(before))").font(.caption2).foregroundStyle(.secondary)
                             }
                         }
@@ -145,30 +154,26 @@ private struct DayChart: View {
                     }
             }
         }
-        .chartXScale(domain: 1...max(month.spentByDay.count, lastYear?.spentByDay.count ?? 0, 28))
-        .chartXSelection(value: $day)
+        .chartXSelection(value: $picked)
         .chartYAxis {
             AxisMarks(position: .trailing) { value in
                 AxisGridLine()
-                AxisValueLabel { Text(Money.short(value.as(Double.self) ?? 0)) }
+                AxisValueLabel { Text(Money.short(value.as(Double.self) ?? 0)).fixedSize() }
             }
         }
-        .chartXAxis {
-            AxisMarks(values: [1, 8, 15, 22, 29]) { AxisValueLabel() }
-        }
-        .accessibilityLabel("Spending through the month")
+        .accessibilityLabel(running ? "Running total of spending" : "Spending by month")
     }
 }
 
 private struct CategoriesSection: View {
     @Environment(Store.self) private var store
-    let month: Month
+    let period: Period
     @State private var picked: Double?
 
     var body: some View {
-        if !month.categories.isEmpty {
+        if !period.categories.isEmpty {
             Section("Categories") {
-                Chart(month.categories, id: \.category) { share in
+                Chart(period.categories, id: \.category) { share in
                     SectorMark(angle: .value("Spent", share.total), innerRadius: .ratio(0.64), angularInset: 1.5)
                         .cornerRadius(4)
                         .foregroundStyle(CategoryStyle.of(share.category).color)
@@ -177,15 +182,15 @@ private struct CategoriesSection: View {
                 .chartAngleSelection(value: $picked)
                 .chartBackground { _ in
                     VStack(spacing: 2) {
-                        let share = month.categories.first { $0.category == selected }
+                        let share = period.categories.first { $0.category == selected }
                         Text(share.map { store.data?.label($0.category) ?? $0.category } ?? "Total")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
-                        Text(Money.kr(share?.total ?? month.totalOut))
+                        Text(Money.kr(share?.total ?? period.totalOut))
                             .font(.title3.bold())
                             .monospacedDigit()
                         if let share {
-                            Text(share.share.formatted(.percent.precision(.fractionLength(0))))
+                            Text(Percent.of(share.share))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -194,8 +199,8 @@ private struct CategoriesSection: View {
                 .frame(height: 220)
                 .padding(.vertical, 8)
 
-                ForEach(month.categories, id: \.category) { share in
-                    NavigationLink(value: CategoryRoute(month: month.month, category: share.category)) {
+                ForEach(period.categories, id: \.category) { share in
+                    NavigationLink(value: CategoryRoute(period: period.key, category: share.category)) {
                         ShareRow(category: share.category, title: store.data?.label(share.category) ?? share.category, total: share.total, share: share.share)
                     }
                 }
@@ -206,7 +211,7 @@ private struct CategoriesSection: View {
     private var selected: String? {
         guard let picked else { return nil }
         var running = 0.0
-        return month.categories.first { share in
+        return period.categories.first { share in
             running += share.total
             return picked <= running
         }?.category
@@ -214,19 +219,18 @@ private struct CategoriesSection: View {
 }
 
 private struct MerchantsSection: View {
-    let month: Month
+    let period: Period
 
     var body: some View {
-        if !month.merchants.isEmpty {
+        if !period.merchants.isEmpty {
             Section("Top merchants") {
-                ForEach(month.merchants.prefix(8), id: \.counterparty) { merchant in
+                ForEach(period.merchants.prefix(8), id: \.counterparty) { merchant in
                     NavigationLink(value: MerchantRoute(name: merchant.counterparty)) {
-                        LabeledContent {
-                            Text(Money.kr(merchant.total)).monospacedDigit()
-                        } label: {
-                            Text(merchant.counterparty).lineLimit(1)
-                            Text(merchant.count == 1 ? "1 payment" : "\(merchant.count) payments")
-                        }
+                        ValueRow(
+                            title: merchant.counterparty,
+                            detail: merchant.count == 1 ? "1 payment" : "\(merchant.count) payments",
+                            value: Money.kr(merchant.total)
+                        )
                     }
                 }
             }
@@ -236,13 +240,13 @@ private struct MerchantsSection: View {
 
 private struct ChangesSection: View {
     @Environment(Store.self) private var store
-    let month: Month
+    let period: Period
 
     var body: some View {
-        if let compared = month.compared, !month.changes.isEmpty {
+        if let compared = period.compared, !period.changes.isEmpty {
             Section("Biggest changes vs \(compared)") {
-                ForEach(month.changes, id: \.category) { change in
-                    NavigationLink(value: CategoryRoute(month: month.month, category: change.category)) {
+                ForEach(period.changes, id: \.category) { change in
+                    NavigationLink(value: CategoryRoute(period: period.key, category: change.category)) {
                         HStack(spacing: 12) {
                             CategoryIcon(category: change.category)
                             ValueRow(
@@ -260,18 +264,13 @@ private struct ChangesSection: View {
 }
 
 private struct AccountsSection: View {
-    let month: Month
+    let period: Period
 
     var body: some View {
-        if month.accounts.count > 1 {
+        if period.accounts.count > 1 {
             Section("Spending by account") {
-                ForEach(month.accounts, id: \.account) { account in
-                    LabeledContent {
-                        Text(Money.kr(account.total)).monospacedDigit()
-                    } label: {
-                        Text(account.account).lineLimit(1)
-                        Text(Percent.of(account.share))
-                    }
+                ForEach(period.accounts, id: \.account) { account in
+                    ValueRow(title: account.account, detail: Percent.of(account.share), value: Money.kr(account.total))
                 }
             }
         }
@@ -280,19 +279,19 @@ private struct AccountsSection: View {
 
 private struct IncomeSection: View {
     @Environment(Store.self) private var store
-    let month: Month
+    let period: Period
 
     var body: some View {
-        if !month.incomeCategories.isEmpty {
+        if !period.incomeCategories.isEmpty {
             Section("Income") {
-                ForEach(month.incomeCategories, id: \.category) { share in
+                ForEach(period.incomeCategories, id: \.category) { share in
                     ShareRow(category: share.category, title: store.data?.label(share.category) ?? share.category, total: share.total, share: nil)
                 }
             }
         }
-        if !month.incomeMerchants.isEmpty {
+        if !period.incomeMerchants.isEmpty {
             Section("Income by payer") {
-                ForEach(month.incomeMerchants, id: \.counterparty) { merchant in
+                ForEach(period.incomeMerchants, id: \.counterparty) { merchant in
                     NavigationLink(value: MerchantRoute(name: merchant.counterparty)) {
                         ValueRow(
                             title: merchant.counterparty,
@@ -308,28 +307,23 @@ private struct IncomeSection: View {
 }
 
 private struct SubscriptionsSection: View {
-    let month: Month
+    let period: Period
 
     var body: some View {
         Section {
-            ForEach(month.subscriptions, id: \.name) { sub in
+            ForEach(period.subscriptions, id: \.name) { sub in
                 NavigationLink(value: MerchantRoute(name: sub.name)) {
                     HStack(spacing: 12) {
                         CategoryIcon(category: sub.category)
-                        LabeledContent {
-                            Text(Money.kr(sub.latest)).monospacedDigit()
-                        } label: {
-                            Text(sub.name).lineLimit(1)
-                            Text("Last \(Day.date(sub.last).shortDay)")
-                        }
+                        ValueRow(title: sub.name, detail: "Last \(Day.date(sub.last).shortDay)", value: Money.kr(sub.latest))
                     }
                 }
             }
         } header: {
-            if !month.subscriptions.isEmpty { Text("Subscriptions") }
+            if !period.subscriptions.isEmpty { Text("Subscriptions") }
         } footer: {
-            if month.excluded.count > 0 {
-                Text("\(month.excluded.count) internal transfers and card bill payments for \(Money.kr(month.excluded.total)) are not counted.")
+            if period.excluded.count > 0 {
+                Text("\(period.excluded.count) internal transfers and card bill payments for \(Money.kr(period.excluded.total)) are not counted.")
             }
         }
     }

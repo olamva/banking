@@ -10,9 +10,9 @@ struct ActivityView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if let data = store.data, let month = store.selected {
+                if let data = store.data, let period = store.selected {
                     let rows = data.txns.filter {
-                        $0.month == month.month && (showExcluded || $0.excluded == nil) && (!incomeOnly || $0.amount > 0)
+                        period.contains($0) && (showExcluded || $0.excluded == nil) && (!incomeOnly || $0.amount > 0)
                             && (account == nil || $0.account == account) && (category == nil || $0.category == category)
                     }
                     let days = Dictionary(grouping: rows, by: \.date).sorted { $0.key > $1.key }
@@ -36,7 +36,7 @@ struct ActivityView: View {
                     Loading()
                 }
             }
-            .monthPicker()
+            .periodPicker()
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Menu("Filter", systemImage: filtered ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle") {
@@ -73,8 +73,8 @@ struct ActivityView: View {
     private var filtered: Bool { showExcluded || incomeOnly || account != nil || category != nil }
     private var accounts: [String] { Set(store.data?.txns.map(\.account) ?? []).sorted() }
     private var categories: [String] {
-        let month = store.selected?.month
-        return Set(store.data?.txns.filter { $0.month == month }.map(\.category) ?? []).sorted { (store.data?.label($0) ?? $0) < (store.data?.label($1) ?? $1) }
+        guard let period = store.selected else { return [] }
+        return Set(store.data?.txns.filter(period.contains).map(\.category) ?? []).sorted { (store.data?.label($0) ?? $0) < (store.data?.label($1) ?? $1) }
     }
 }
 
@@ -87,7 +87,7 @@ struct SearchView: View {
             let found = results
             List {
                 if query.isEmpty, let data = store.data {
-                    Section("Top merchants this month") {
+                    Section("Top merchants in \(store.selected?.title ?? "this period")") {
                         ForEach(store.selected?.merchants.prefix(6) ?? [], id: \.counterparty) { merchant in
                             Button(merchant.counterparty) { query = merchant.counterparty }
                                 .tint(.primary)

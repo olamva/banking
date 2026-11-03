@@ -6,15 +6,25 @@ import {
 import { buildLabels, type Names } from "./labels.ts";
 import { preferenceKey } from "./preferences.ts";
 import type { Receipt } from "./receipts.ts";
-import { inRange, merchantOf, period, todayOslo } from "./select.ts";
+import {
+  axisBounds,
+  distinctMonths,
+  distinctYears,
+  inRange,
+  merchantOf,
+  period,
+  todayOslo,
+  type PeriodKind,
+} from "./select.ts";
 import {
   byMonth,
   cumulative,
   dailySeries,
   monthStats,
+  monthlySeries,
   subscriptionGroups,
-  totals,
   visibleDeltas,
+  withGaps,
   yearStats,
   type AccountTotal,
   type CategoryDelta,
@@ -54,11 +64,23 @@ export type AppInsights = {
   merchants: MerchantHabit[];
 };
 
-export type AppMonth = {
-  month: string;
+export type AppSeries = {
+  bucket: "day" | "month";
+  start: string;
+  spent: number[];
+  income: number[];
+};
+
+export type AppPeriod = {
+  key: string;
+  kind: PeriodKind;
+  label: string;
+  from: string;
+  to: string;
   totalIn: number;
   totalOut: number;
   net: number;
+  averageOut: number | null;
   delta: MonthDelta | null;
   compared: string | null;
   categories: CategoryTotal[];
@@ -70,17 +92,7 @@ export type AppMonth = {
   changes: CategoryDelta[];
   subscriptions: SubscriptionGroup[];
   excluded: Totals["excluded"];
-  spentByDay: number[];
-  incomeByDay: number[];
-};
-
-export type AppYear = {
-  year: string;
-  totalIn: number;
-  totalOut: number;
-  net: number;
-  averageOut: number;
-  categories: CategoryTotal[];
+  series: AppSeries;
   insights: AppInsights;
 };
 
@@ -88,9 +100,7 @@ export type AppData = {
   generated: string;
   today: string;
   labels: Record<string, string>;
-  months: AppMonth[];
-  years: AppYear[];
-  insights: AppInsights;
+  periods: AppPeriod[];
   txns: AppTxn[];
 };
 
@@ -118,32 +128,54 @@ const appInsights = (rows: Categorized[], today: string): AppInsights => {
   };
 };
 
-const lastDay = (month: string, today: string): string =>
-  today.startsWith(month)
-    ? today
-    : new Date(Date.UTC(+month.slice(0, 4), +month.slice(5), 0))
-        .toISOString()
-        .slice(0, 10);
-
-function appMonth(
-  month: string,
+const appSeries = (
   rows: Categorized[],
-  all: Categorized[],
-  today: string,
-): AppMonth {
-  const prev = period(month, today).prev!;
-  const before = all.filter((t) => inRange(t, prev.from, prev.to));
-  const stats = monthStats(month, rows, before.length ? before : undefined);
-  const days = cumulative(
-    dailySeries(rows, `${month}-01`, lastDay(month, today)),
-  );
+  kind: PeriodKind,
+  from: string,
+  to: string,
+): AppSeries => {
+  const points =
+    kind === "all"
+      ? withGaps(monthlySeries(rows)).map(
+          (p) => p ?? { at: "", totalIn: 0, totalOut: 0 },
+        )
+      : cumulative(dailySeries(rows, from, to));
   return {
-    month,
+    bucket: kind === "all" ? "month" : "day",
+    start: kind === "all" ? from.slice(0, 7) : from,
+    spent: points.map((p) => p.totalOut),
+    income: points.map((p) => p.totalIn),
+  };
+};
+
+export function appPeriod(
+  key: string,
+  txns: Categorized[],
+  today = todayOslo(),
+): AppPeriod {
+  const p = period(key, today);
+  const rows = txns.filter((t) => inRange(t, p.from, p.to));
+  const before = p.prev
+    ? txns.filter((t) => inRange(t, p.prev!.from, p.prev!.to))
+    : [];
+  const stats = monthStats(p.label, rows, before.length ? before : undefined);
+  const months = byMonth(rows);
+  const { from, to } = axisBounds(rows, p, today);
+  return {
+    key,
+    kind: p.kind,
+    label: p.label,
+    from,
+    to,
     totalIn: stats.totalIn,
     totalOut: stats.totalOut,
     net: stats.net,
+    averageOut:
+      months.length > 1
+        ? yearStats(p.label, months).averageMonth.totalOut
+        : null,
     delta: stats.delta,
-    compared: before.length ? prev.label : null,
+    compared: before.length ? p.prev!.label : null,
     categories: stats.categories,
     subcategories: stats.subcategories,
     incomeCategories: stats.incomeCategories,
@@ -155,26 +187,7 @@ function appMonth(
       rows.filter((t) => t.isSubscription || t.isRecurring),
     ),
     excluded: stats.excluded,
-    spentByDay: days.map((p) => p.totalOut),
-    incomeByDay: days.map((p) => p.totalIn),
-  };
-}
-
-function appYear(
-  year: string,
-  months: { month: string; txns: Categorized[] }[],
-  today: string,
-): AppYear {
-  const stats = yearStats(year, months);
-  const rows = months.flatMap((m) => m.txns);
-  const sum = totals(rows);
-  return {
-    year,
-    totalIn: sum.totalIn,
-    totalOut: sum.totalOut,
-    net: sum.net,
-    averageOut: stats.averageMonth.totalOut,
-    categories: stats.categories,
+    series: appSeries(rows, p.kind, from, to),
     insights: appInsights(rows, today),
   };
 }
@@ -202,7 +215,6 @@ export function appData(
   today = todayOslo(),
   generated = new Date().toISOString(),
 ): AppData {
-  const months = byMonth(txns);
   const labelOf = buildLabels(txns, names);
   const labels: Record<string, string> = {};
   for (const t of txns) {
@@ -217,13 +229,9 @@ export function appData(
     generated,
     today,
     labels,
-    months: months.map(({ month, txns: rows }) =>
-      appMonth(month, rows, txns, today),
+    periods: [...distinctMonths(txns), ...distinctYears(txns), "all"].map(
+      (key) => appPeriod(key, txns, today),
     ),
-    years: [...Map.groupBy(months, (m) => m.month.slice(0, 4))].map(
-      ([year, ms]) => appYear(year, ms, today),
-    ),
-    insights: appInsights(txns, today),
     txns: txns.toSorted((a, b) => b.date.localeCompare(a.date)).map(appTxn),
   };
 }

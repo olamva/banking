@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { appData } from "../../src/core/app.ts";
+import { appData, appPeriod } from "../../src/core/app.ts";
 import { totals } from "../../src/core/stats.ts";
 import type { Categorized } from "../../src/core/types.ts";
 
@@ -48,7 +48,8 @@ const rows = [
 ];
 
 const data = appData(rows, { dagligvarer: "Food" }, "2026-10-12", "now");
-const october = data.months.find((m) => m.month === "2026-10")!;
+const at = (key: string) => data.periods.find((p) => p.key === key)!;
+const october = at("2026-10");
 
 test("a month reconciles with the totals of its rows to the øre", () => {
   const sum = totals(rows.filter((t) => t.date.startsWith("2026-10")));
@@ -64,13 +65,27 @@ test("the current month compares with the same days last year", () => {
 });
 
 test("the day series runs to today and ends on the month totals", () => {
-  assert.equal(october.spentByDay.length, 12);
-  assert.equal(october.spentByDay.at(-1), october.totalOut);
-  assert.equal(october.incomeByDay.at(-1), october.totalIn);
-  assert.equal(
-    data.months.find((m) => m.month === "2025-10")!.spentByDay.length,
-    31,
-  );
+  assert.equal(october.series.spent.length, 12);
+  assert.equal(october.series.spent.at(-1), october.totalOut);
+  assert.equal(october.series.income.at(-1), october.totalIn);
+  assert.equal(at("2025-10").series.spent.length, 31);
+});
+
+test("all time sums each month, and an empty month counts as zero", () => {
+  const all = at("all");
+  assert.equal(all.series.bucket, "month");
+  assert.equal(all.series.start, "2025-10");
+  assert.equal(all.series.spent.length, 13);
+  assert.equal(all.series.spent[1], 0);
+  assert.equal(all.totalOut, at("2025").totalOut + at("2026").totalOut);
+});
+
+test("a custom range keeps only its own days", () => {
+  const range = appPeriod("2026-10-01..2026-10-05", rows, "2026-10-12");
+  assert.equal(range.kind, "custom");
+  assert.equal(range.totalOut, 250.45);
+  assert.equal(range.totalIn, 40.2);
+  assert.equal(range.compared, null);
 });
 
 test("excluded rows stay in the list with their reason", () => {
@@ -115,9 +130,8 @@ test("the month compares categories with the period before it", () => {
   );
 });
 
-test("each year keeps the insights of its own spending", () => {
-  const year = (y: string) => data.years.find((d) => d.year === y)!.insights;
-  assert.equal(year("2025").transactionCount, 2);
-  assert.equal(year("2026").transactionCount, 2);
-  assert.equal(data.insights.transactionCount, 4);
+test("each period keeps the insights of its own spending", () => {
+  assert.equal(at("2025").insights.transactionCount, 2);
+  assert.equal(at("2026").insights.transactionCount, 2);
+  assert.equal(at("all").insights.transactionCount, 4);
 });

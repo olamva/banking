@@ -42,6 +42,7 @@ extension Date {
         style.timeZone = Day.calendar.timeZone
         return formatted(style)
     }
+    var dayMonth: String { formatted(.dateTime.day().month(.abbreviated).locale(Locale(identifier: "en_GB"))) }
     var shortDay: String { formatted(.dateTime.day().month(.abbreviated).year().locale(Locale(identifier: "en_GB"))) }
 }
 

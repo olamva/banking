@@ -25,7 +25,8 @@ struct Answer: Decodable {
     static let scheme = "spending"
 
     var data: AppData?
-    var month = ""
+    var period = ""
+    private(set) var custom: Period?
     var loading = false
     var fetchingBank = false
     var problem: Problem?
@@ -48,7 +49,9 @@ struct Answer: Decodable {
 
     var isLocal: Bool { Self.loopback.contains(base?.host() ?? "") }
     var signedIn: Bool { isLocal || cookie != nil }
-    var selected: Month? { data?.months.first { $0.month == month } ?? data?.months.last }
+    var selected: Period? { lookup(period) ?? data?.months.last }
+
+    func lookup(_ key: String) -> Period? { custom?.key == key ? custom : data?.periods.first { $0.key == key } }
 
     var signInURL: URL? {
         guard let base, var parts = URLComponents(url: base.appending(path: "oauth2/start"), resolvingAgainstBaseURL: false) else { return nil }
@@ -83,6 +86,7 @@ struct Answer: Decodable {
         Keychain.write(nil)
         cookie = nil
         data = nil
+        custom = nil
         try? FileManager.default.removeItem(at: Self.cacheFile)
     }
 
@@ -100,6 +104,22 @@ struct Answer: Decodable {
             again = false
             await download()
         } while again
+        if let custom, period == custom.key { _ = await show(custom.key) }
+    }
+
+    func show(_ key: String) async -> String? {
+        guard let base, var parts = URLComponents(url: base.appending(path: "api/app/period"), resolvingAgainstBaseURL: false) else { return "No server." }
+        parts.queryItems = [URLQueryItem(name: "p", value: key)]
+        let mine = session
+        do {
+            let found = try JSONDecoder().decode(Period.self, from: try await Self.get(parts.url!, cookie: cookie))
+            guard mine == session else { return nil }
+            custom = found
+            period = key
+            return nil
+        } catch {
+            return error.localizedDescription
+        }
     }
 
     private func download() async {
@@ -154,8 +174,8 @@ struct Answer: Decodable {
     private func use(_ body: Data, in mine: Int) async -> Bool {
         guard let decoded = try? await Self.decode(body), mine == session else { return false }
         data = decoded
-        if !decoded.months.contains(where: { $0.month == month }) {
-            month = decoded.months.last?.month ?? ""
+        if custom?.key != period, !decoded.periods.contains(where: { $0.key == period }) {
+            period = decoded.months.last?.key ?? ""
         }
         return true
     }

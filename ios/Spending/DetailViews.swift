@@ -7,29 +7,31 @@ struct CategoryView: View {
 
     var body: some View {
         let data = store.data
-        let month = data?.months.first { $0.month == route.month }
-        let history = (data?.months ?? []).filter { $0.month <= route.month }.suffix(12)
-        let txns = (data?.txns ?? []).filter { $0.month == route.month && $0.category == route.category && $0.excluded == nil }
+        let period = store.lookup(route.period)
+        let end = String(period?.to.prefix(7) ?? "")
+        let start = String(period?.from.prefix(7) ?? "")
+        let history = (data?.months ?? []).filter { $0.key <= end }.suffix(12)
+        let txns = (data?.txns ?? []).filter { period?.contains($0) == true && $0.category == route.category && $0.excluded == nil }
         List {
             Section {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(spacing: 12) {
                         CategoryIcon(category: route.category, size: 44)
                         VStack(alignment: .leading) {
-                            Text(month.map { Money.kr($0.categories.first { $0.category == route.category }?.total ?? 0) } ?? "")
+                            Text(period.map { Money.kr($0.categories.first { $0.category == route.category }?.total ?? 0) } ?? "")
                                 .font(.title2.bold())
                                 .monospacedDigit()
-                            Text("in \(Day.month(route.month).monthTitle)")
+                            Text("in \(period?.title ?? "")")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
                     }
-                    Chart(Array(history), id: \.month) { m in
+                    Chart(Array(history), id: \.key) { m in
                         BarMark(
                             x: .value("Month", m.date, unit: .month),
                             y: .value("Spent", m.categories.first { $0.category == route.category }?.total ?? 0)
                         )
-                        .foregroundStyle(m.month == route.month ? CategoryStyle.of(route.category).color : CategoryStyle.of(route.category).color.opacity(0.35))
+                        .foregroundStyle(m.key >= start && m.key <= end ? CategoryStyle.of(route.category).color : CategoryStyle.of(route.category).color.opacity(0.35))
                         .cornerRadius(3)
                     }
                     .chartXAxis {
@@ -47,7 +49,7 @@ struct CategoryView: View {
                 }
                 .padding(.vertical, 6)
             }
-            let subs = month?.subcategories.filter { $0.category == route.category } ?? []
+            let subs = period?.subcategories.filter { $0.category == route.category } ?? []
             if subs.count > 1 {
                 Section("Subcategories") {
                     ForEach(subs, id: \.subcategory) { sub in
