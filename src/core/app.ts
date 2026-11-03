@@ -1,13 +1,33 @@
+import {
+  spendingInsights,
+  type MerchantHabit,
+  type WeekdayHabit,
+} from "./insights.ts";
 import { buildLabels, type Names } from "./labels.ts";
-import { inRange, merchantOf, period, todayOslo } from "./select.ts";
+import { preferenceKey } from "./preferences.ts";
+import type { Receipt } from "./receipts.ts";
+import {
+  axisBounds,
+  distinctMonths,
+  distinctYears,
+  inRange,
+  merchantOf,
+  period,
+  todayOslo,
+  type PeriodKind,
+} from "./select.ts";
 import {
   byMonth,
   cumulative,
   dailySeries,
   monthStats,
+  monthlySeries,
   subscriptionGroups,
-  totals,
+  visibleDeltas,
+  withGaps,
   yearStats,
+  type AccountTotal,
+  type CategoryDelta,
   type CategoryTotal,
   type CounterpartyTotal,
   type MonthDelta,
@@ -30,97 +50,145 @@ export type AppTxn = {
   recurring: boolean;
   pending: boolean;
   excluded: string | null;
+  remember: string | null;
+  receipt: Receipt | null;
 };
 
-export type AppMonth = {
-  month: string;
+export type AppInsights = {
+  transactionCount: number;
+  merchantCount: number;
+  weekdays: WeekdayHabit[];
+  topByTransactions: MerchantHabit[];
+  topBySpend: MerchantHabit[];
+  expected: MerchantHabit[];
+  merchants: MerchantHabit[];
+};
+
+export type AppSeries = {
+  bucket: "day" | "month";
+  start: string;
+  spent: number[];
+  income: number[];
+};
+
+export type AppPeriod = {
+  key: string;
+  kind: PeriodKind;
+  label: string;
+  from: string;
+  to: string;
   totalIn: number;
   totalOut: number;
   net: number;
+  averageOut: number | null;
   delta: MonthDelta | null;
   compared: string | null;
   categories: CategoryTotal[];
   subcategories: SubcategoryTotal[];
   incomeCategories: CategoryTotal[];
   merchants: CounterpartyTotal[];
+  incomeMerchants: CounterpartyTotal[];
+  accounts: AccountTotal[];
+  changes: CategoryDelta[];
   subscriptions: SubscriptionGroup[];
   excluded: Totals["excluded"];
-  spentByDay: number[];
-  incomeByDay: number[];
-};
-
-export type AppYear = {
-  year: string;
-  totalIn: number;
-  totalOut: number;
-  net: number;
-  averageOut: number;
-  categories: CategoryTotal[];
+  series: AppSeries;
+  insights: AppInsights;
 };
 
 export type AppData = {
   generated: string;
   today: string;
   labels: Record<string, string>;
-  months: AppMonth[];
-  years: AppYear[];
+  periods: AppPeriod[];
   txns: AppTxn[];
 };
 
 const MERCHANTS = 12;
+const EXPECTED = 10;
+const HABITS = 40;
 
-const lastDay = (month: string, today: string): string =>
-  today.startsWith(month)
-    ? today
-    : new Date(Date.UTC(+month.slice(0, 4), +month.slice(5), 0))
-        .toISOString()
-        .slice(0, 10);
-
-function appMonth(
-  month: string,
-  rows: Categorized[],
-  all: Categorized[],
-  today: string,
-): AppMonth {
-  const prev = period(month, today).prev!;
-  const before = all.filter((t) => inRange(t, prev.from, prev.to));
-  const stats = monthStats(month, rows, before.length ? before : undefined);
-  const days = cumulative(
-    dailySeries(rows, `${month}-01`, lastDay(month, today)),
-  );
+const appInsights = (rows: Categorized[], today: string): AppInsights => {
+  const all = spendingInsights(rows, today);
   return {
-    month,
+    transactionCount: all.transactionCount,
+    merchantCount: all.merchantCount,
+    weekdays: all.weekdays,
+    topByTransactions: all.topByTransactions,
+    topBySpend: all.topBySpend,
+    expected: all.merchants
+      .filter((m) => m.returnPattern?.active)
+      .sort((a, b) =>
+        a.returnPattern!.expectedNext.localeCompare(
+          b.returnPattern!.expectedNext,
+        ),
+      )
+      .slice(0, EXPECTED),
+    merchants: all.merchants.slice(0, HABITS),
+  };
+};
+
+const appSeries = (
+  rows: Categorized[],
+  kind: PeriodKind,
+  from: string,
+  to: string,
+): AppSeries => {
+  const points =
+    kind === "all"
+      ? withGaps(monthlySeries(rows)).map(
+          (p) => p ?? { at: "", totalIn: 0, totalOut: 0 },
+        )
+      : cumulative(dailySeries(rows, from, to));
+  return {
+    bucket: kind === "all" ? "month" : "day",
+    start: kind === "all" ? from.slice(0, 7) : from,
+    spent: points.map((p) => p.totalOut),
+    income: points.map((p) => p.totalIn),
+  };
+};
+
+export function appPeriod(
+  key: string,
+  txns: Categorized[],
+  today = todayOslo(),
+): AppPeriod {
+  const p = period(key, today);
+  const rows = txns.filter((t) => inRange(t, p.from, p.to));
+  const before = p.prev
+    ? txns.filter((t) => inRange(t, p.prev!.from, p.prev!.to))
+    : [];
+  const stats = monthStats(p.label, rows, before.length ? before : undefined);
+  const months = byMonth(rows);
+  const { from, to } = axisBounds(rows, p, today);
+  return {
+    key,
+    kind: p.kind,
+    label: p.label,
+    from,
+    to,
     totalIn: stats.totalIn,
     totalOut: stats.totalOut,
     net: stats.net,
+    averageOut:
+      months.length > 1
+        ? yearStats(p.label, months).averageMonth.totalOut
+        : null,
     delta: stats.delta,
-    compared: before.length ? prev.label : null,
+    compared: before.length ? p.prev!.label : null,
     categories: stats.categories,
     subcategories: stats.subcategories,
     incomeCategories: stats.incomeCategories,
     merchants: stats.topCounterparties.slice(0, MERCHANTS),
+    incomeMerchants: stats.topIncomeCounterparties.slice(0, MERCHANTS),
+    accounts: stats.accounts,
+    changes: visibleDeltas(stats.categoryDeltas),
     subscriptions: subscriptionGroups(
       rows.filter((t) => t.isSubscription || t.isRecurring),
     ),
     excluded: stats.excluded,
-    spentByDay: days.map((p) => p.totalOut),
-    incomeByDay: days.map((p) => p.totalIn),
-  };
-}
-
-function appYear(
-  year: string,
-  months: { month: string; txns: Categorized[] }[],
-): AppYear {
-  const stats = yearStats(year, months);
-  const sum = totals(months.flatMap((m) => m.txns));
-  return {
-    year,
-    totalIn: sum.totalIn,
-    totalOut: sum.totalOut,
-    net: sum.net,
-    averageOut: stats.averageMonth.totalOut,
-    categories: stats.categories,
+    series: appSeries(rows, p.kind, from, to),
+    insights: appInsights(rows, today),
   };
 }
 
@@ -137,6 +205,8 @@ const appTxn = (t: Categorized): AppTxn => ({
   recurring: t.isSubscription || t.isRecurring,
   pending: t.isPending,
   excluded: t.excluded ? (t.reason ?? "Excluded") : null,
+  remember: t.excluded ? null : preferenceKey(t),
+  receipt: t.receipt ?? null,
 });
 
 export function appData(
@@ -145,7 +215,6 @@ export function appData(
   today = todayOslo(),
   generated = new Date().toISOString(),
 ): AppData {
-  const months = byMonth(txns);
   const labelOf = buildLabels(txns, names);
   const labels: Record<string, string> = {};
   for (const t of txns) {
@@ -160,11 +229,8 @@ export function appData(
     generated,
     today,
     labels,
-    months: months.map(({ month, txns: rows }) =>
-      appMonth(month, rows, txns, today),
-    ),
-    years: [...Map.groupBy(months, (m) => m.month.slice(0, 4))].map(
-      ([year, ms]) => appYear(year, ms),
+    periods: [...distinctMonths(txns), ...distinctYears(txns), "all"].map(
+      (key) => appPeriod(key, txns, today),
     ),
     txns: txns.toSorted((a, b) => b.date.localeCompare(a.date)).map(appTxn),
   };

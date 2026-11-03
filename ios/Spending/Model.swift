@@ -4,13 +4,20 @@ struct AppData: Codable, Sendable {
     let generated: String
     let today: String
     let labels: [String: String]
-    let months: [Month]
-    let years: [Year]
+    let periods: [Period]
     var txns: [Txn]
+
+    var months: [Period] { periods.filter { $0.kind == "month" } }
+    var years: [Period] { periods.filter { $0.kind == "year" } }
 
     func label(_ category: String, _ sub: String? = nil) -> String {
         if let sub, let name = labels["\(category)/\(sub)"] { return name }
         return labels[category] ?? category.replacingOccurrences(of: "_", with: " ").capitalized
+    }
+
+    func pairLabel(_ pair: String) -> String {
+        let parts = pair.split(separator: "/", maxSplits: 1).map(String.init)
+        return parts.count == 2 ? "\(label(parts[0])) › \(label(parts[0], parts[1]))" : label(pair)
     }
 }
 
@@ -33,6 +40,86 @@ struct Merchant: Codable, Sendable, Hashable {
     let count: Int
 }
 
+struct AccountTotal: Codable, Sendable, Hashable {
+    let account: String
+    let total: Double
+    let share: Double
+}
+
+struct CategoryDelta: Codable, Sendable, Hashable {
+    let category: String
+    let current: Double
+    let previous: Double
+    let delta: Double
+}
+
+struct ReturnPattern: Codable, Sendable, Hashable {
+    let medianDays: Int
+    let lowDays: Int
+    let highDays: Int
+    let expectedNext: String
+    let active: Bool
+}
+
+struct Habit: Codable, Sendable, Hashable {
+    let merchant: String
+    let count: Int
+    let activeDays: Int
+    let total: Double
+    let average: Double
+    let last: String?
+    let favoriteWeekday: String?
+    let favoriteWeekdayCount: Int
+    let weekendVisitCount: Int
+    let topCategory: String
+    let returnPattern: ReturnPattern?
+}
+
+struct Weekday: Codable, Sendable, Hashable {
+    let weekday: String
+    let count: Int
+    let total: Double
+    let share: Double
+    let topMerchant: String?
+}
+
+struct Insights: Codable, Sendable, Hashable {
+    let transactionCount: Int
+    let merchantCount: Int
+    let weekdays: [Weekday]
+    let topByTransactions: [Habit]
+    let topBySpend: [Habit]
+    let expected: [Habit]
+    let merchants: [Habit]
+}
+
+struct Entry: Codable, Sendable, Hashable {
+    let label: String
+    let amount: Double
+}
+
+struct ReceiptLine: Codable, Sendable, Hashable {
+    let name: String
+    let size: String?
+    let qty: Double
+    let unit: String?
+    let price: Double
+    let amount: Double
+    let discounts: [Entry]?
+    let deposit: Double?
+}
+
+struct Receipt: Codable, Sendable, Hashable {
+    let source: String
+    let id: String
+    let at: Double
+    let store: String
+    let title: String?
+    let lines: [ReceiptLine]
+    let total: Double?
+    let payments: [Entry]?
+}
+
 struct Subscription: Codable, Sendable, Hashable {
     let name: String
     let category: String
@@ -53,35 +140,66 @@ struct Excluded: Codable, Sendable, Hashable {
     let total: Double
 }
 
-struct Month: Codable, Sendable, Identifiable, Hashable {
-    let month: String
+struct Series: Codable, Sendable, Hashable {
+    let bucket: String
+    let start: String
+    let spent: [Double]
+    let income: [Double]
+
+    func date(_ index: Int) -> Date {
+        bucket == "month"
+            ? Day.calendar.date(byAdding: .month, value: index, to: Day.month(start)) ?? .distantPast
+            : Day.calendar.date(byAdding: .day, value: index, to: Day.date(start)) ?? .distantPast
+    }
+
+    func index(_ date: Date) -> Int {
+        let parts = Day.calendar.dateComponents([.day, .month], from: self.date(0), to: date)
+        return (bucket == "month" ? parts.month : parts.day) ?? 0
+    }
+}
+
+struct Period: Codable, Sendable, Identifiable, Hashable {
+    let key: String
+    let kind: String
+    let label: String
+    let from: String
+    let to: String
     let totalIn: Double
     let totalOut: Double
     let net: Double
+    let averageOut: Double?
     let delta: Delta?
     let compared: String?
     let categories: [Share]
     let subcategories: [SubShare]
     let incomeCategories: [Share]
     let merchants: [Merchant]
+    let incomeMerchants: [Merchant]
+    let accounts: [AccountTotal]
+    let changes: [CategoryDelta]
     let subscriptions: [Subscription]
     let excluded: Excluded
-    let spentByDay: [Double]
-    let incomeByDay: [Double]
+    let series: Series
+    let insights: Insights
 
-    var id: String { month }
-    var date: Date { Day.month(month) }
-}
+    var id: String { key }
+    var date: Date { Day.date(from) }
 
-struct Year: Codable, Sendable, Identifiable, Hashable {
-    let year: String
-    let totalIn: Double
-    let totalOut: Double
-    let net: Double
-    let averageOut: Double
-    let categories: [Share]
+    var title: String {
+        switch kind {
+        case "month": date.monthTitle
+        case "year": key
+        case "custom": from.prefix(4) == to.prefix(4) ? "\(Day.date(from).dayMonth) – \(Day.date(to).shortDay)" : "\(Day.date(from).shortDay) – \(Day.date(to).shortDay)"
+        default: "All time"
+        }
+    }
 
-    var id: String { year }
+    var lastYear: String? {
+        guard kind == "month" || kind == "year", let year = Int(key.prefix(4)) else { return nil }
+        return "\(year - 1)\(key.dropFirst(4))"
+    }
+
+    func contains(_ txn: Txn) -> Bool { txn.date >= from && txn.date <= to }
 }
 
 struct Txn: Codable, Sendable, Identifiable, Hashable {
@@ -99,12 +217,15 @@ struct Txn: Codable, Sendable, Identifiable, Hashable {
     let recurring: Bool
     let pending: Bool
     let excluded: String?
+    let remember: String?
+    let receipt: Receipt?
 
     var day: Date { Day.date(date) }
     var month: String { String(date.prefix(7)) }
+    var pair: String { subcategory.map { "\(category)/\($0)" } ?? category }
 
     enum CodingKeys: String, CodingKey {
-        case date, amount, merchant, description, category, subcategory, account, country, type, recurring, pending, excluded
+        case date, amount, merchant, description, category, subcategory, account, country, type, recurring, pending, excluded, remember, receipt
     }
 }
 
@@ -127,4 +248,9 @@ enum Day {
     }
 
     static func month(_ text: String) -> Date { date(text + "-01") }
+
+    static func key(_ date: Date) -> String {
+        let parts = calendar.dateComponents([.year, .month, .day], from: date)
+        return String(format: "%04d-%02d-%02d", parts.year ?? 0, parts.month ?? 1, parts.day ?? 1)
+    }
 }

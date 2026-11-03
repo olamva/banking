@@ -7,29 +7,31 @@ struct CategoryView: View {
 
     var body: some View {
         let data = store.data
-        let month = data?.months.first { $0.month == route.month }
-        let history = (data?.months ?? []).filter { $0.month <= route.month }.suffix(12)
-        let txns = (data?.txns ?? []).filter { $0.month == route.month && $0.category == route.category && $0.excluded == nil }
+        let period = store.lookup(route.period)
+        let end = String(period?.to.prefix(7) ?? "")
+        let start = String(period?.from.prefix(7) ?? "")
+        let history = (data?.months ?? []).filter { $0.key <= end }.suffix(12)
+        let txns = (data?.txns ?? []).filter { period?.contains($0) == true && $0.category == route.category && $0.excluded == nil }
         List {
             Section {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(spacing: 12) {
                         CategoryIcon(category: route.category, size: 44)
                         VStack(alignment: .leading) {
-                            Text(month.map { Money.kr($0.categories.first { $0.category == route.category }?.total ?? 0) } ?? "")
+                            Text(period.map { Money.kr($0.categories.first { $0.category == route.category }?.total ?? 0) } ?? "")
                                 .font(.title2.bold())
                                 .monospacedDigit()
-                            Text("in \(Day.month(route.month).monthTitle)")
+                            Text("in \(period?.title ?? "")")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
                     }
-                    Chart(Array(history), id: \.month) { m in
+                    Chart(Array(history), id: \.key) { m in
                         BarMark(
                             x: .value("Month", m.date, unit: .month),
                             y: .value("Spent", m.categories.first { $0.category == route.category }?.total ?? 0)
                         )
-                        .foregroundStyle(m.month == route.month ? CategoryStyle.of(route.category).color : CategoryStyle.of(route.category).color.opacity(0.35))
+                        .foregroundStyle(m.key >= start && m.key <= end ? CategoryStyle.of(route.category).color : CategoryStyle.of(route.category).color.opacity(0.35))
                         .cornerRadius(3)
                     }
                     .chartXAxis {
@@ -47,7 +49,7 @@ struct CategoryView: View {
                 }
                 .padding(.vertical, 6)
             }
-            let subs = month?.subcategories.filter { $0.category == route.category } ?? []
+            let subs = period?.subcategories.filter { $0.category == route.category } ?? []
             if subs.count > 1 {
                 Section("Subcategories") {
                     ForEach(subs, id: \.subcategory) { sub in
@@ -125,6 +127,8 @@ struct MerchantView: View {
 struct TxnView: View {
     @Environment(Store.self) private var store
     let txn: Txn
+    @State private var choosing = false
+    @State private var saved: String?
 
     var body: some View {
         List {
@@ -159,6 +163,18 @@ struct TxnView: View {
                     }
                 }
             }
+            if txn.remember != nil {
+                Section {
+                    Button("Change category", systemImage: "tag") { choosing = true }
+                    if let saved {
+                        Label("Saved as \(saved).", systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                    }
+                } footer: {
+                    Text("Applies to matching past and future transactions.")
+                }
+            }
+            if let receipt = txn.receipt { ReceiptSection(receipt: receipt) }
             Section("Details") {
                 LabeledContent("Category", value: store.data?.label(txn.category) ?? txn.category)
                 if let sub = txn.subcategory {
@@ -182,5 +198,104 @@ struct TxnView: View {
             }
         }
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $choosing) {
+            if let key = txn.remember {
+                RememberView(key: key, current: txn.pair) { saved = $0 }
+            }
+        }
+    }
+}
+
+struct RememberView: View {
+    @Environment(Store.self) private var store
+    @Environment(\.dismiss) private var dismiss
+    let key: String
+    let current: String
+    let onSaved: (String) -> Void
+    @State private var value = ""
+    @State private var query = ""
+    @State private var saving = false
+    @State private var failure: String?
+
+    var body: some View {
+        let matches = store.data?.txns.filter { $0.remember == key } ?? []
+        NavigationStack {
+            List {
+                Section {
+                    Text(conditions).font(.subheadline)
+                    Text("\(matches.count) matching transactions. \(matches.filter { $0.pair != value }.count) category changes.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                } footer: {
+                    Text("The imported payee, payment type, direction and recipient account must match exactly. This choice overrides category patterns. Exclusions still apply.")
+                }
+                Section("Category") {
+                    ForEach(choices, id: \.pair) { choice in
+                        Button {
+                            value = choice.pair
+                        } label: {
+                            HStack(spacing: 12) {
+                                CategoryIcon(category: String(choice.pair.split(separator: "/").first ?? ""), size: 26)
+                                Text(choice.title)
+                                Spacer()
+                                if value == choice.pair { Image(systemName: "checkmark").foregroundStyle(.green) }
+                            }
+                        }
+                        .tint(.primary)
+                    }
+                }
+            }
+            .searchable(text: $query, prompt: "Categories")
+            .navigationTitle("Remember category")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel", systemImage: "xmark") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    if saving {
+                        ProgressView()
+                    } else {
+                        Button("Save", systemImage: "checkmark") { Task { await save() } }
+                            .disabled(value.isEmpty || value == current)
+                    }
+                }
+            }
+            .alert("Save failed", isPresented: .constant(failure != nil)) {
+                Button("OK") { failure = nil }
+            } message: {
+                Text(failure ?? "")
+            }
+        }
+        .onAppear { if value.isEmpty { value = current } }
+        .interactiveDismissDisabled(saving)
+    }
+
+    private var choices: [(pair: String, title: String)] {
+        guard let data = store.data else { return [] }
+        let words = query.lowercased().split(separator: " ")
+        return data.labels.keys
+            .map { (pair: $0, title: data.pairLabel($0)) }
+            .filter { choice in words.allSatisfy { choice.title.lowercased().contains($0) } }
+            .sorted { $0.title < $1.title }
+    }
+
+    private var conditions: String {
+        guard let parts = try? JSONSerialization.jsonObject(with: Data(key.utf8)) as? [Any], parts.count == 4 else { return key }
+        let account = parts[3] as? String ?? ""
+        return ["\(parts[0])", "\(parts[1])", (parts[2] as? Int ?? 0) < 0 ? "Money out" : "Money in", account.isEmpty ? nil : "Recipient \(account)"]
+            .compactMap { $0 }
+            .joined(separator: " · ")
+    }
+
+    private func save() async {
+        saving = true
+        defer { saving = false }
+        if let error = await store.remember(key, as: value) {
+            failure = error
+            return
+        }
+        onSaved(store.data?.pairLabel(value) ?? value)
+        dismiss()
     }
 }

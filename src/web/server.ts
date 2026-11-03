@@ -17,6 +17,7 @@ import {
   HANDOFF_PAGE,
   appPayload,
   payload,
+  periodPayload,
   refresh,
   rulesRoute,
   signedIn,
@@ -218,6 +219,12 @@ export const server = createServer(async (req, res) => {
     rules.then((a) =>
       send(res, a.status, JSON_TYPE, a.body, coding(req, JSON_TYPE)),
     );
+    return;
+  }
+
+  if (path === "/api/app/period") {
+    const a = periodPayload(url.searchParams.get("p"));
+    send(res, a.status, JSON_TYPE, a.body, coding(req, JSON_TYPE));
     return;
   }
 

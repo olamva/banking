@@ -31,13 +31,15 @@ struct TrendsView: View {
                                     LabeledContent {
                                         VStack(alignment: .trailing, spacing: 2) {
                                             Text(Money.kr(year.totalOut)).monospacedDigit()
-                                            Text("\(Money.kr(year.averageOut)) a month")
-                                                .font(.caption)
-                                                .foregroundStyle(.secondary)
-                                                .monospacedDigit()
+                                            if let average = year.averageOut {
+                                                Text("\(Money.kr(average)) a month")
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
+                                                    .monospacedDigit()
+                                            }
                                         }
                                     } label: {
-                                        Text(year.year).font(.headline)
+                                        Text(year.key).font(.headline)
                                         Text("Income \(Money.kr(year.totalIn))").monospacedDigit()
                                     }
                                 }
@@ -45,7 +47,7 @@ struct TrendsView: View {
                         }
                     }
                     .refreshable { await store.reload() }
-                    .navigationDestination(for: Year.self) { YearView(year: $0) }
+                    .navigationDestination(for: Period.self) { YearView(year: $0) }
                     .navigationDestination(for: CategoryRoute.self) { CategoryView(route: $0) }
                     .navigationDestination(for: MerchantRoute.self) { MerchantView(name: $0.name) }
                     .navigationDestination(for: Txn.self) { TxnView(txn: $0) }
@@ -59,12 +61,12 @@ struct TrendsView: View {
 }
 
 private struct MonthsChart: View {
-    let months: [Month]
+    let months: [Period]
     let showIncome: Bool
     @Binding var picked: Date?
 
     var body: some View {
-        let value: (Month) -> Double = { showIncome ? $0.totalIn : $0.totalOut }
+        let value: (Period) -> Double = { showIncome ? $0.totalIn : $0.totalOut }
         let tint: Color = showIncome ? .green : .accentColor
         let chosen = picked.flatMap { date in months.first { Day.calendar.isDate($0.date, equalTo: date, toGranularity: .month) } }
         Chart {
@@ -112,10 +114,10 @@ private struct MonthsChart: View {
 
 struct YearView: View {
     @Environment(Store.self) private var store
-    let year: Year
+    let year: Period
 
     var body: some View {
-        let months = (store.data?.months ?? []).filter { $0.month.hasPrefix(year.year) }
+        let months = (store.data?.months ?? []).filter { $0.key.hasPrefix(year.key) }
         List {
             Section {
                 VStack(alignment: .leading, spacing: 6) {
@@ -123,13 +125,17 @@ struct YearView: View {
                     Text(Money.kr(year.totalOut))
                         .font(.system(size: 36, weight: .bold, design: .rounded))
                         .monospacedDigit()
-                    Text("\(Money.kr(year.averageOut)) a month on average")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                    if let average = year.averageOut {
+                        Text("\(Money.kr(average)) a month on average")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 .padding(.vertical, 6)
                 LabeledContent("Income") { Text(Money.kr(year.totalIn)).monospacedDigit().foregroundStyle(.green) }
                 LabeledContent("Net") { Text(Money.kr(year.net, signed: true)).monospacedDigit().foregroundStyle(year.net >= 0 ? .green : .red) }
+                Button(store.period == year.key ? "Shown in Summary" : "Show the whole year", systemImage: "calendar") { store.period = year.key }
+                    .disabled(store.period == year.key)
             }
             Section("Categories") {
                 ForEach(year.categories, id: \.category) { share in
@@ -139,12 +145,12 @@ struct YearView: View {
             Section {
                 ForEach(months.reversed()) { month in
                     Button {
-                        store.month = month.month
+                        store.period = month.key
                     } label: {
                         LabeledContent(month.date.monthName) {
                             HStack {
                                 Text(Money.kr(month.totalOut)).monospacedDigit()
-                                if store.month == month.month { Image(systemName: "checkmark").foregroundStyle(.tint) }
+                                if store.period == month.key { Image(systemName: "checkmark").foregroundStyle(.green) }
                             }
                         }
                     }
@@ -153,10 +159,10 @@ struct YearView: View {
             } header: {
                 Text("Months")
             } footer: {
-                Text("Choose a month to show it in Summary and Activity.")
+                Text("Choose a month to show it in Summary, Insights and Activity.")
             }
         }
-        .navigationTitle(year.year)
+        .navigationTitle(year.key)
         .navigationBarTitleDisplayMode(.inline)
     }
 }

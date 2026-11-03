@@ -4,13 +4,16 @@ struct ActivityView: View {
     @Environment(Store.self) private var store
     @State private var showExcluded = false
     @State private var incomeOnly = false
+    @State private var account: String?
+    @State private var category: String?
 
     var body: some View {
         NavigationStack {
             Group {
-                if let data = store.data, let month = store.selected {
+                if let data = store.data, let period = store.selected {
                     let rows = data.txns.filter {
-                        $0.month == month.month && (showExcluded || $0.excluded == nil) && (!incomeOnly || $0.amount > 0)
+                        period.contains($0) && (showExcluded || $0.excluded == nil) && (!incomeOnly || $0.amount > 0)
+                            && (account == nil || $0.account == account) && (category == nil || $0.category == category)
                     }
                     let days = Dictionary(grouping: rows, by: \.date).sorted { $0.key > $1.key }
                     List {
@@ -33,16 +36,45 @@ struct ActivityView: View {
                     Loading()
                 }
             }
-            .monthPicker()
+            .periodPicker()
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Menu("Filter", systemImage: showExcluded || incomeOnly ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle") {
+                    Menu("Filter", systemImage: filtered ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle") {
                         Toggle("Income only", systemImage: "arrow.down.circle", isOn: $incomeOnly)
                         Toggle("Show transfers", systemImage: "arrow.left.arrow.right", isOn: $showExcluded)
+                        Picker(selection: $account) {
+                            Text("All accounts").tag(String?.none)
+                            ForEach(accounts, id: \.self) { Text($0).tag(String?.some($0)) }
+                        } label: {
+                            Label(account ?? "Account", systemImage: "creditcard")
+                        }
+                        .pickerStyle(.menu)
+                        Picker(selection: $category) {
+                            Text("All categories").tag(String?.none)
+                            ForEach(categories, id: \.self) { Text(store.data?.label($0) ?? $0).tag(String?.some($0)) }
+                        } label: {
+                            Label(category.map { store.data?.label($0) ?? $0 } ?? "Category", systemImage: "square.grid.2x2")
+                        }
+                        .pickerStyle(.menu)
+                        if filtered {
+                            Button("Reset filters", systemImage: "xmark.circle", role: .destructive) {
+                                showExcluded = false
+                                incomeOnly = false
+                                account = nil
+                                category = nil
+                            }
+                        }
                     }
                 }
             }
         }
+    }
+
+    private var filtered: Bool { showExcluded || incomeOnly || account != nil || category != nil }
+    private var accounts: [String] { Set(store.data?.txns.map(\.account) ?? []).sorted() }
+    private var categories: [String] {
+        guard let period = store.selected else { return [] }
+        return Set(store.data?.txns.filter(period.contains).map(\.category) ?? []).sorted { (store.data?.label($0) ?? $0) < (store.data?.label($1) ?? $1) }
     }
 }
 
@@ -55,7 +87,7 @@ struct SearchView: View {
             let found = results
             List {
                 if query.isEmpty, let data = store.data {
-                    Section("Top merchants this month") {
+                    Section("Top merchants in \(store.selected?.title ?? "this period")") {
                         ForEach(store.selected?.merchants.prefix(6) ?? [], id: \.counterparty) { merchant in
                             Button(merchant.counterparty) { query = merchant.counterparty }
                                 .tint(.primary)

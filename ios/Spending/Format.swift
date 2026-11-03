@@ -14,6 +14,14 @@ enum Money {
         return "\(text) kr"
     }
 
+    static func ore(_ value: Double) -> String {
+        value.formatted(.number.locale(norwegian).precision(.fractionLength(2)))
+    }
+
+    static func quantity(_ value: Double) -> String {
+        value.formatted(.number.locale(norwegian).precision(.fractionLength(0...3)))
+    }
+
     static func short(_ value: Double) -> String {
         abs(value) >= 10_000
             ? "\((value / 1000).formatted(.number.locale(norwegian).precision(.fractionLength(0)))) k"
@@ -21,10 +29,20 @@ enum Money {
     }
 }
 
+enum Percent {
+    static func of(_ share: Double) -> String { share.formatted(.percent.precision(.fractionLength(0))) }
+}
+
 extension Date {
     var monthTitle: String { formatted(.dateTime.month(.wide).year().locale(Locale(identifier: "en_GB"))) }
     var monthName: String { formatted(.dateTime.month(.wide).locale(Locale(identifier: "en_GB"))) }
     var dayTitle: String { formatted(.dateTime.weekday(.wide).day().month(.wide).locale(Locale(identifier: "en_GB"))) }
+    var receiptTime: String {
+        var style = Date.FormatStyle.dateTime.day().month(.wide).year().hour(.twoDigits(amPM: .omitted)).minute(.twoDigits).locale(Locale(identifier: "nb_NO"))
+        style.timeZone = Day.calendar.timeZone
+        return formatted(style)
+    }
+    var dayMonth: String { formatted(.dateTime.day().month(.abbreviated).locale(Locale(identifier: "en_GB"))) }
     var shortDay: String { formatted(.dateTime.day().month(.abbreviated).year().locale(Locale(identifier: "en_GB"))) }
 }
 

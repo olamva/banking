@@ -19,17 +19,20 @@ const api = (): Plugin => ({
   // the shared database before the worktree can redirect it. `api.ts` and
   // `server.ts` defer their own imports for the same reason.
   async configureServer(server) {
-    const { appPayload, payload, refresh, rulesRoute } =
+    const { appPayload, payload, periodPayload, refresh, rulesRoute } =
       await import("./src/web/api.ts");
     // Mounted on no prefix, because connect strips a prefix off req.url and
     // the router needs the whole path.
     server.middlewares.use((req, res, next) => {
       const url = new URL(req.url ?? "/", "http://localhost");
-      const answer = rulesRoute(
-        url.pathname,
-        url.searchParams,
-        req.headers["x-banking-rules"] as string | undefined,
-      );
+      const answer =
+        url.pathname === "/api/app/period"
+          ? Promise.resolve(periodPayload(url.searchParams.get("p")))
+          : rulesRoute(
+              url.pathname,
+              url.searchParams,
+              req.headers["x-banking-rules"] as string | undefined,
+            );
       if (!answer) return next();
       answer.then((a) => {
         res.writeHead(a.status, {

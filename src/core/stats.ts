@@ -25,6 +25,9 @@ export type CategoryDelta = {
   delta: number;
 };
 
+export const visibleDeltas = (deltas: CategoryDelta[]): CategoryDelta[] =>
+  deltas.filter((d) => Math.abs(d.delta) > 0.5).slice(0, 8);
+
 export type ExcludedSummary = {
   count: number;
   total: number;

@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
-import { appData } from "../core/app.ts";
+import { appData, appPeriod } from "../core/app.ts";
+import { period } from "../core/select.ts";
 import { openDb, queryRange } from "../core/db.ts";
 import { RULES_DIR } from "../core/paths.ts";
 import { DB_FILE, rebuildAll } from "../core/pipeline.ts";
@@ -36,6 +37,16 @@ export const payload = (): string =>
 
 export const appPayload = (): string =>
   JSON.stringify(appData(rows(), names()));
+
+export function periodPayload(key: string | null): Answer {
+  if (period(key ?? "").kind !== "custom")
+    return bad(400, new Error("needs p=YYYY-MM-DD..YYYY-MM-DD"));
+  try {
+    return ok(appPeriod(key!, rows()));
+  } catch (e) {
+    return bad(500, e);
+  }
+}
 
 const SESSION = /^_oauth2_proxy(_\d+)?$/;
 
