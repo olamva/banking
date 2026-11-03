@@ -16,18 +16,14 @@ import {
   monthlySeries,
   subscriptionGroups,
   totals,
+  visibleDeltas,
   yearStats,
   type ExcludedSummary,
   type SubscriptionGroup,
 } from "../../core/stats.ts";
 import type { Categorized } from "../../core/types.ts";
 import { Empty, Note, Panel, StatTile, deltaInfo } from "./Cards.tsx";
-import {
-  DivergingBars,
-  HorizontalBars,
-  visibleDeltas,
-  type BarItem,
-} from "./Charts.tsx";
+import { DivergingBars, HorizontalBars, type BarItem } from "./Charts.tsx";
 import { SpendLines, type Bucket } from "./SpendLines.tsx";
 import { SubscriptionsCard } from "./Transactions.tsx";
 import { categoryLabel, fmtNOK, subcategoryLabel } from "./format.ts";

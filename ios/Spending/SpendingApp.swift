@@ -33,6 +33,9 @@ struct RootView: View {
                 Tab("Trends", systemImage: "chart.bar.xaxis", value: "trends") {
                     TrendsView()
                 }
+                Tab("Insights", systemImage: "lightbulb", value: "insights") {
+                    InsightsView()
+                }
                 Tab("Activity", systemImage: "list.bullet", value: "activity") {
                     ActivityView()
                 }

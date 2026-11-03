@@ -13,7 +13,9 @@ struct SummaryView: View {
                         SessionBanner()
                         Section { Hero(month: month, lastYear: lastYear(data, month)) }
                         CategoriesSection(month: month)
+                        ChangesSection(month: month)
                         MerchantsSection(month: month)
+                        AccountsSection(month: month)
                         IncomeSection(month: month)
                         SubscriptionsSection(month: month)
                     }
@@ -232,6 +234,50 @@ private struct MerchantsSection: View {
     }
 }
 
+private struct ChangesSection: View {
+    @Environment(Store.self) private var store
+    let month: Month
+
+    var body: some View {
+        if let compared = month.compared, !month.changes.isEmpty {
+            Section("Biggest changes vs \(compared)") {
+                ForEach(month.changes, id: \.category) { change in
+                    NavigationLink(value: CategoryRoute(month: month.month, category: change.category)) {
+                        HStack(spacing: 12) {
+                            CategoryIcon(category: change.category)
+                            ValueRow(
+                                title: store.data?.label(change.category) ?? change.category,
+                                detail: "\(Money.kr(change.current)) now, \(Money.kr(change.previous)) before",
+                                value: Money.kr(change.delta, signed: true),
+                                tint: change.delta <= 0 ? .green : .red
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct AccountsSection: View {
+    let month: Month
+
+    var body: some View {
+        if month.accounts.count > 1 {
+            Section("Spending by account") {
+                ForEach(month.accounts, id: \.account) { account in
+                    LabeledContent {
+                        Text(Money.kr(account.total)).monospacedDigit()
+                    } label: {
+                        Text(account.account).lineLimit(1)
+                        Text(Percent.of(account.share))
+                    }
+                }
+            }
+        }
+    }
+}
+
 private struct IncomeSection: View {
     @Environment(Store.self) private var store
     let month: Month
@@ -241,6 +287,20 @@ private struct IncomeSection: View {
             Section("Income") {
                 ForEach(month.incomeCategories, id: \.category) { share in
                     ShareRow(category: share.category, title: store.data?.label(share.category) ?? share.category, total: share.total, share: nil)
+                }
+            }
+        }
+        if !month.incomeMerchants.isEmpty {
+            Section("Income by payer") {
+                ForEach(month.incomeMerchants, id: \.counterparty) { merchant in
+                    NavigationLink(value: MerchantRoute(name: merchant.counterparty)) {
+                        ValueRow(
+                            title: merchant.counterparty,
+                            detail: merchant.count == 1 ? "1 payment" : "\(merchant.count) payments",
+                            value: Money.kr(merchant.total),
+                            tint: .green
+                        )
+                    }
                 }
             }
         }

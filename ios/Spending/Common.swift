@@ -112,6 +112,25 @@ struct TxnRow: View {
     }
 }
 
+struct ValueRow: View {
+    let title: String
+    let detail: String
+    let value: String
+    var tint: Color = .secondary
+
+    var body: some View {
+        HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).lineLimit(1)
+                Text(detail).font(.subheadline).foregroundStyle(.secondary).lineLimit(1).monospacedDigit()
+            }
+            Spacer(minLength: 8)
+            Text(value).monospacedDigit().foregroundStyle(tint).layoutPriority(1)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
 struct ShareRow: View {
     let category: String
     let title: String

@@ -1,4 +1,11 @@
+import {
+  spendingInsights,
+  type MerchantHabit,
+  type WeekdayHabit,
+} from "./insights.ts";
 import { buildLabels, type Names } from "./labels.ts";
+import { preferenceKey } from "./preferences.ts";
+import type { Receipt } from "./receipts.ts";
 import { inRange, merchantOf, period, todayOslo } from "./select.ts";
 import {
   byMonth,
@@ -7,7 +14,10 @@ import {
   monthStats,
   subscriptionGroups,
   totals,
+  visibleDeltas,
   yearStats,
+  type AccountTotal,
+  type CategoryDelta,
   type CategoryTotal,
   type CounterpartyTotal,
   type MonthDelta,
@@ -30,6 +40,18 @@ export type AppTxn = {
   recurring: boolean;
   pending: boolean;
   excluded: string | null;
+  remember: string | null;
+  receipt: Receipt | null;
+};
+
+export type AppInsights = {
+  transactionCount: number;
+  merchantCount: number;
+  weekdays: WeekdayHabit[];
+  topByTransactions: MerchantHabit[];
+  topBySpend: MerchantHabit[];
+  expected: MerchantHabit[];
+  merchants: MerchantHabit[];
 };
 
 export type AppMonth = {
@@ -43,6 +65,9 @@ export type AppMonth = {
   subcategories: SubcategoryTotal[];
   incomeCategories: CategoryTotal[];
   merchants: CounterpartyTotal[];
+  incomeMerchants: CounterpartyTotal[];
+  accounts: AccountTotal[];
+  changes: CategoryDelta[];
   subscriptions: SubscriptionGroup[];
   excluded: Totals["excluded"];
   spentByDay: number[];
@@ -56,6 +81,7 @@ export type AppYear = {
   net: number;
   averageOut: number;
   categories: CategoryTotal[];
+  insights: AppInsights;
 };
 
 export type AppData = {
@@ -64,10 +90,33 @@ export type AppData = {
   labels: Record<string, string>;
   months: AppMonth[];
   years: AppYear[];
+  insights: AppInsights;
   txns: AppTxn[];
 };
 
 const MERCHANTS = 12;
+const EXPECTED = 10;
+const HABITS = 40;
+
+const appInsights = (rows: Categorized[], today: string): AppInsights => {
+  const all = spendingInsights(rows, today);
+  return {
+    transactionCount: all.transactionCount,
+    merchantCount: all.merchantCount,
+    weekdays: all.weekdays,
+    topByTransactions: all.topByTransactions,
+    topBySpend: all.topBySpend,
+    expected: all.merchants
+      .filter((m) => m.returnPattern?.active)
+      .sort((a, b) =>
+        a.returnPattern!.expectedNext.localeCompare(
+          b.returnPattern!.expectedNext,
+        ),
+      )
+      .slice(0, EXPECTED),
+    merchants: all.merchants.slice(0, HABITS),
+  };
+};
 
 const lastDay = (month: string, today: string): string =>
   today.startsWith(month)
@@ -99,6 +148,9 @@ function appMonth(
     subcategories: stats.subcategories,
     incomeCategories: stats.incomeCategories,
     merchants: stats.topCounterparties.slice(0, MERCHANTS),
+    incomeMerchants: stats.topIncomeCounterparties.slice(0, MERCHANTS),
+    accounts: stats.accounts,
+    changes: visibleDeltas(stats.categoryDeltas),
     subscriptions: subscriptionGroups(
       rows.filter((t) => t.isSubscription || t.isRecurring),
     ),
@@ -111,9 +163,11 @@ function appMonth(
 function appYear(
   year: string,
   months: { month: string; txns: Categorized[] }[],
+  today: string,
 ): AppYear {
   const stats = yearStats(year, months);
-  const sum = totals(months.flatMap((m) => m.txns));
+  const rows = months.flatMap((m) => m.txns);
+  const sum = totals(rows);
   return {
     year,
     totalIn: sum.totalIn,
@@ -121,6 +175,7 @@ function appYear(
     net: sum.net,
     averageOut: stats.averageMonth.totalOut,
     categories: stats.categories,
+    insights: appInsights(rows, today),
   };
 }
 
@@ -137,6 +192,8 @@ const appTxn = (t: Categorized): AppTxn => ({
   recurring: t.isSubscription || t.isRecurring,
   pending: t.isPending,
   excluded: t.excluded ? (t.reason ?? "Excluded") : null,
+  remember: t.excluded ? null : preferenceKey(t),
+  receipt: t.receipt ?? null,
 });
 
 export function appData(
@@ -164,8 +221,9 @@ export function appData(
       appMonth(month, rows, txns, today),
     ),
     years: [...Map.groupBy(months, (m) => m.month.slice(0, 4))].map(
-      ([year, ms]) => appYear(year, ms),
+      ([year, ms]) => appYear(year, ms, today),
     ),
+    insights: appInsights(txns, today),
     txns: txns.toSorted((a, b) => b.date.localeCompare(a.date)).map(appTxn),
   };
 }

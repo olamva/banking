@@ -86,3 +86,38 @@ test("excluded rows stay in the list with their reason", () => {
   );
   assert.equal(data.labels.dagligvarer, "Food");
 });
+
+test("only counted rows with a payee and payment type offer a remembered category", () => {
+  const typed = appData(
+    [
+      txn("2026-10-02", -10, { typeText: "Varekjøp" }),
+      txn("2026-10-03", -20, { typeText: "Varekjøp", excluded: true }),
+      txn("2026-10-04", -30),
+    ],
+    {},
+    "2026-10-12",
+    "now",
+  );
+  assert.deepEqual(
+    typed.txns.map((t) => t.remember !== null),
+    [false, false, true],
+  );
+});
+
+test("the month compares categories with the period before it", () => {
+  assert.deepEqual(
+    october.changes.map((d) => [d.category, d.current, d.previous]),
+    [["dagligvarer", 349.45, 100.1]],
+  );
+  assert.deepEqual(
+    october.accounts.map((a) => a.account),
+    ["Brukskonto"],
+  );
+});
+
+test("each year keeps the insights of its own spending", () => {
+  const year = (y: string) => data.years.find((d) => d.year === y)!.insights;
+  assert.equal(year("2025").transactionCount, 2);
+  assert.equal(year("2026").transactionCount, 2);
+  assert.equal(data.insights.transactionCount, 4);
+});

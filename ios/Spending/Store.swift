@@ -14,7 +14,7 @@ enum Problem: LocalizedError {
     }
 }
 
-struct Refreshed: Decodable {
+struct Answer: Decodable {
     let rows: Int?
     let fetched: Int?
     let stopped: String?
@@ -121,13 +121,30 @@ struct Refreshed: Decodable {
         fetchingBank = true
         defer { fetchingBank = false }
         do {
-            let body = try await Self.get(base.appending(path: "api/refresh"), cookie: cookie, bank: true)
-            let answer = try JSONDecoder().decode(Refreshed.self, from: body)
+            let body = try await Self.get(base.appending(path: "api/refresh"), cookie: cookie, guarded: "X-Banking-Refresh")
+            let answer = try JSONDecoder().decode(Answer.self, from: body)
             if let error = answer.error { return error }
             await reload()
             let fetched = answer.fetched ?? 0
             let note = fetched == 1 ? "1 file from the bank." : "\(fetched) files from the bank."
             return answer.stopped.map { "\(note) Stopped: \($0)" } ?? note
+        } catch {
+            return error.localizedDescription
+        }
+    }
+
+    private static let plain = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~")
+
+    func remember(_ key: String, as value: String) async -> String? {
+        guard let base, var parts = URLComponents(url: base.appending(path: "api/rules/save"), resolvingAgainstBaseURL: false) else { return "No server." }
+        parts.percentEncodedQuery = ["file": "preferences", "key": key, "value": value]
+            .map { "\($0.key)=\($0.value.addingPercentEncoding(withAllowedCharacters: Self.plain) ?? "")" }
+            .joined(separator: "&")
+        do {
+            let body = try await Self.get(parts.url!, cookie: cookie, guarded: "X-Banking-Rules")
+            if let error = try JSONDecoder().decode(Answer.self, from: body).error { return error }
+            await reload()
+            return nil
         } catch {
             return error.localizedDescription
         }
@@ -166,15 +183,15 @@ struct Refreshed: Decodable {
         return URLSession(configuration: config, delegate: NoRedirects(), delegateQueue: nil)
     }()
 
-    private nonisolated static func get(_ url: URL, cookie: String?, bank: Bool = false) async throws -> Data {
+    private nonisolated static func get(_ url: URL, cookie: String?, guarded: String? = nil) async throws -> Data {
         var request = URLRequest(url: url)
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         if let cookie { request.setValue(cookie, forHTTPHeaderField: "Cookie") }
-        if bank { request.setValue("1", forHTTPHeaderField: "X-Banking-Refresh") }
+        if let guarded { request.setValue("1", forHTTPHeaderField: guarded) }
         let (body, response) = try await session.data(for: request)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         if status == 401 || status == 403 || (300..<400).contains(status) { throw Problem.signIn }
-        if status != 200, !bank {
+        if status != 200, guarded == nil {
             throw Problem.server(String(data: body, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "HTTP \(status)")
         }
         return body

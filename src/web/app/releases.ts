@@ -6,6 +6,17 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "2.1.0",
+    date: "2026-11-03",
+    highlights: [
+      {
+        title: "Insights and receipts on iPhone",
+        detail:
+          "The iPhone app has an Insights tab for each year or all time. A transaction shows its receipt and can remember a new category. Summary shows the biggest changes, spending by account and income by payer. Activity filters by account and category.",
+      },
+    ],
+  },
+  {
     version: "2.0.0",
     date: "2026-11-01",
     highlights: [

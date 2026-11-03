@@ -203,9 +203,6 @@ export const HorizontalBars = ({
   );
 };
 
-export const visibleDeltas = (deltas: CategoryDelta[]): CategoryDelta[] =>
-  deltas.filter((d) => Math.abs(d.delta) > 0.5).slice(0, 8);
-
 interface DivergingBarsProps {
   deltas: CategoryDelta[];
   onPick?: (category: string, meta: boolean) => void;
