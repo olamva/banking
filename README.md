@@ -187,19 +187,20 @@ The session ends after the oauth2-proxy cookie lifetime, 7 days by default. The 
 Without that file, the first screen asks for the address. In the simulator, `http://127.0.0.1:<port>` of `pnpm dev` needs no sign-in.
 The handoff sends the cookies only for `Sec-Fetch-Site: same-origin`, after a tap on the `/app/signed-in` page. Safari sends no `Sec-Fetch-User`, so the server does not check it.
 
-A free Apple developer account signs an app for 7 days only. `pnpm ios schedule` keeps the app on the phone:
+A free Apple developer account signs an app for 7 days only. `pnpm ios schedule` keeps the app on the phone. Connect the phone over USB at least once every 5 days:
 
 ```bash
 pnpm ios install --force   # build and install now
-pnpm ios schedule          # a LaunchAgent builds and installs origin/main every 3 hours
+pnpm ios schedule          # a LaunchAgent builds and installs origin/main each time the iPhone connects over USB
 pnpm ios unschedule
 ```
 
-`install` removes a provisioning profile that expires within 36 hours, so that Xcode makes a new one. It installs only when the profile or the commit changed.
+`install` removes a provisioning profile that expires within 5 days, so that Xcode makes a new one. It installs only when the profile or the commit changed.
 It installs over USB or wifi. Pair the phone in Xcode once.
 A wifi with client isolation, such as eduroam, blocks the install. Use USB on such a network.
 Sign in to an Apple account in **Xcode > Settings > Accounts** before the first build.
 macOS blocks `~/Documents` for LaunchAgents. `schedule` clones the repository to `~/Library/Application Support/banking-ios/src` and writes `server.txt` there.
+`schedule` also compiles `infra/ios-usb.swift`. launchd starts it when an iPhone connects over USB. It accepts the USB event, so launchd does not start it again, and then runs the script.
 Each run fetches `origin/main` into that clone and installs it. A failed run shows a notification. The log is `~/Library/Logs/banking-ios.log`.
 
 ## Categories
