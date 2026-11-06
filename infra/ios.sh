@@ -20,8 +20,8 @@ expire_soon_profiles() {
     [[ -e "$f" ]] || continue
     [[ "$(profile_field "$f" Entitlements.application-identifier)" == *".$bundle" ]] || continue
     exp="$(date -j -u -f '%Y-%m-%dT%H:%M:%SZ' "$(profile_field "$f" ExpirationDate)" +%s)"
-    if (( exp - $(date +%s) < 36 * 3600 )); then
-      say "profile $(basename "$f") expires within 36 hours. Removing it so Xcode makes a new one"
+    if (( exp - $(date +%s) < 5 * 86400 )); then
+      say "profile $(basename "$f") expires within 5 days. Removing it so Xcode makes a new one"
       rm "$f"
     fi
   done
@@ -76,6 +76,7 @@ schedule() {
   git -C "$src" fetch -q origin main
   git -C "$src" checkout -q --detach FETCH_HEAD
   server_txt "$src"
+  swiftc -O -o "$state/usb" "$src/infra/ios-usb.swift"
   mkdir -p "$(dirname "$agent")"
   cat > "$agent" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -84,9 +85,20 @@ schedule() {
 <dict>
   <key>Label</key><string>$bundle.renew</string>
   <key>ProgramArguments</key>
-  <array><string>/bin/bash</string><string>$src/infra/ios.sh</string><string>renew</string></array>
-  <key>StartInterval</key><integer>10800</integer>
-  <key>RunAtLoad</key><true/>
+  <array><string>$state/usb</string><string>$src/infra/ios.sh</string><string>renew</string></array>
+  <key>LaunchEvents</key>
+  <dict>
+    <key>com.apple.iokit.matching</key>
+    <dict>
+      <key>$bundle.usb</key>
+      <dict>
+        <key>IOProviderClass</key><string>IOUSBHostDevice</string>
+        <key>idVendor</key><integer>1452</integer>
+        <key>idProduct</key><integer>4776</integer>
+        <key>IOMatchLaunchStream</key><true/>
+      </dict>
+    </dict>
+  </dict>
   <key>StandardOutPath</key><string>$HOME/Library/Logs/banking-ios.log</string>
   <key>StandardErrorPath</key><string>$HOME/Library/Logs/banking-ios.log</string>
 </dict>
@@ -94,7 +106,7 @@ schedule() {
 EOF
   launchctl bootout "gui/$(id -u)" "$agent" 2>/dev/null || true
   launchctl bootstrap "gui/$(id -u)" "$agent"
-  say "scheduled a build of origin/main in $src every 3 hours. Log: ~/Library/Logs/banking-ios.log"
+  say "scheduled a build of origin/main in $src each time the iPhone connects over USB. Log: ~/Library/Logs/banking-ios.log"
 }
 
 case "${1:-}" in
