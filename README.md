@@ -191,14 +191,16 @@ A free Apple developer account signs an app for 7 days only. `pnpm ios schedule`
 
 ```bash
 pnpm ios install --force   # build and install now
-pnpm ios schedule          # a LaunchAgent runs `pnpm ios install` every 3 hours
+pnpm ios schedule          # a LaunchAgent builds and installs origin/main every 3 hours
 pnpm ios unschedule
 ```
 
 `install` removes a provisioning profile that expires within 36 hours, so that Xcode makes a new one. It installs only when the profile or the commit changed.
-It installs over the network, so the phone must be on the same wifi as this Mac, and paired in Xcode once.
+It installs over USB or wifi. Pair the phone in Xcode once.
+A wifi with client isolation, such as eduroam, blocks the install. Use USB on such a network.
 Sign in to an Apple account in **Xcode > Settings > Accounts** before the first build.
-Run `schedule` from the main checkout. The LaunchAgent builds the checkout it was scheduled from. The log is `~/Library/Logs/banking-ios.log`.
+macOS blocks `~/Documents` for LaunchAgents. `schedule` clones the repository to `~/Library/Application Support/banking-ios/src` and writes `server.txt` there.
+Each run fetches `origin/main` into that clone and installs it. A failed run shows a notification. The log is `~/Library/Logs/banking-ios.log`.
 
 ## Categories
 
