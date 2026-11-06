@@ -6,6 +6,7 @@ bundle="com.olavassbotn.Spending"
 state="$HOME/Library/Application Support/banking-ios"
 profiles="$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
 agent="$HOME/Library/LaunchAgents/$bundle.renew.plist"
+src="$state/src"
 app="$state/build/Build/Products/Release-iphoneos/Spending.app"
 mkdir -p "$state"
 
@@ -33,7 +34,8 @@ iphone() {
   xcrun devicectl list devices --json-output "$json" >/dev/null 2>&1
   for ((i = 0; ; i++)); do
     type="$(plutil -extract "result.devices.$i.hardwareProperties.deviceType" raw -o - "$json" 2>/dev/null)" || break
-    if [[ "$type" == iPhone && "$(plutil -extract "result.devices.$i.hardwareProperties.reality" raw -o - "$json")" == physical ]]; then
+    if [[ "$type" == iPhone && "$(plutil -extract "result.devices.$i.hardwareProperties.reality" raw -o - "$json")" == physical \
+      && "$(plutil -extract "result.devices.$i.connectionProperties.tunnelState" raw -o - "$json")" != unavailable ]]; then
       plutil -extract "result.devices.$i.hardwareProperties.udid" raw -o - "$json"
       break
     fi
@@ -41,9 +43,13 @@ iphone() {
   rm -f "$json"
 }
 
+server_txt() {
+  [[ ! -f "$repo/infra/terraform.tfvars" ]] || sed -n 's/^ *custom_domain *= *"\(.*\)"/https:\/\/\1/p' "$repo/infra/terraform.tfvars" > "$1/ios/Spending/server.txt"
+}
+
 install() {
   expire_soon_profiles
-  sed -n 's/^ *custom_domain *= *"\(.*\)"/https:\/\/\1/p' "$repo/infra/terraform.tfvars" 2>/dev/null > "$repo/ios/Spending/server.txt" || true
+  server_txt "$repo"
   say "building $(git -C "$repo" rev-parse --short HEAD)"
   xcodebuild -quiet -project "$repo/ios/Spending.xcodeproj" -scheme Spending -configuration Release \
     -destination generic/platform=iOS -derivedDataPath "$state/build" -allowProvisioningUpdates build
@@ -54,14 +60,22 @@ install() {
     return
   fi
   device="$(iphone)"
-  [[ -n "$device" ]] || { say "no paired iPhone. Pair it in Xcode > Devices and Simulators"; exit 1; }
+  [[ -n "$device" ]] || { say "no reachable iPhone. Connect it with USB, or use a wifi without client isolation. eduroam isolates clients. Pair it once in Xcode > Devices and Simulators"; exit 1; }
   say "installing on $device. Profile expires $(profile_field "$app/embedded.mobileprovision" ExpirationDate)"
   xcrun devicectl device install app --device "$device" "$app"
   echo "$key" > "$state/installed"
   say "installed"
 }
 
+renew() {
+  git -C "$src" fetch -q origin main && git -C "$src" checkout -q --detach FETCH_HEAD && bash "$src/infra/ios.sh" install
+}
+
 schedule() {
+  [[ -d "$src/.git" ]] || git clone -q "$(git -C "$repo" remote get-url origin)" "$src"
+  git -C "$src" fetch -q origin main
+  git -C "$src" checkout -q --detach FETCH_HEAD
+  server_txt "$src"
   mkdir -p "$(dirname "$agent")"
   cat > "$agent" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -70,7 +84,7 @@ schedule() {
 <dict>
   <key>Label</key><string>$bundle.renew</string>
   <key>ProgramArguments</key>
-  <array><string>/bin/bash</string><string>$repo/infra/ios.sh</string><string>install</string></array>
+  <array><string>/bin/bash</string><string>$src/infra/ios.sh</string><string>renew</string></array>
   <key>StartInterval</key><integer>10800</integer>
   <key>RunAtLoad</key><true/>
   <key>StandardOutPath</key><string>$HOME/Library/Logs/banking-ios.log</string>
@@ -80,11 +94,12 @@ schedule() {
 EOF
   launchctl bootout "gui/$(id -u)" "$agent" 2>/dev/null || true
   launchctl bootstrap "gui/$(id -u)" "$agent"
-  say "scheduled $repo/infra/ios.sh install every 3 hours. Log: ~/Library/Logs/banking-ios.log"
+  say "scheduled a build of origin/main in $src every 3 hours. Log: ~/Library/Logs/banking-ios.log"
 }
 
 case "${1:-}" in
   install) install "${2:-}" ;;
+  renew) renew || { osascript -e 'display notification "See ~/Library/Logs/banking-ios.log" with title "Spending install failed"'; exit 1; } ;;
   schedule) schedule ;;
   unschedule) launchctl bootout "gui/$(id -u)" "$agent" 2>/dev/null || true; rm -f "$agent"; say "unscheduled" ;;
   *) echo "usage: pnpm ios install [--force] | schedule | unschedule" >&2; exit 2 ;;
