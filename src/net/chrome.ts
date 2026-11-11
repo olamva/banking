@@ -58,6 +58,6 @@ export async function chromeLogin<T>(
   } finally {
     timeout.abort();
     chrome.kill();
-    await rm(profile, { recursive: true, force: true });
+    await rm(profile, { recursive: true, force: true, maxRetries: 10 });
   }
 }
