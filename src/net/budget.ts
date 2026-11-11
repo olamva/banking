@@ -1,8 +1,6 @@
 // This is the bank's own count, not a local cap. The bucket refills with time,
 // so a `0` from an hour ago is now a full bucket. The figure from the bank wins
 // over the estimate. The file keeps the count across a restart.
-// ponytail: one bucket for all of SB1, but the quota is per API. Split it if an
-// endpoint other than `/transactions` becomes busy.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { DATA_DIR } from "../core/paths.ts";

@@ -201,8 +201,6 @@ const PEER = new Set([
 
 // One peer row makes the name a person. A flatmate pays rent in one category
 // and uses Vipps in another.
-// ponytail: this is a signal, not a register of people. It narrows a picker.
-// It never changes a total.
 export function personMerchants(txns: Categorized[]): Set<string> {
   const people = new Set<string>();
   for (const t of txns)

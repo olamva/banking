@@ -195,8 +195,6 @@ export const RulesView = ({
   // The largest rule file draws two fields for each entry. A held arrow steps
   // through the eight tabs faster than that draws. The deferred value lets the
   // tabs answer at once and the body follow one step behind.
-  // ponytail: no windowing. One file still draws whole. Window the list like
-  // DataTable when one of these files reaches a few thousand lines.
   const file = useDeferredValue(chosen);
   const [find, setFind] = useState("");
   const haystacks = useMemo(() => txns.map(haystackOf), [txns]);
