@@ -1,0 +1,11 @@
+{
+  "id": "e444eecb",
+  "ts": "2026-11-11T17:54:09+00:00",
+  "text": "gh pr merge --match-head-commit rejects a short SHA; pass the full 40-char hash",
+  "tags": [],
+  "who": "agent",
+  "model": "claude-opus-5-5",
+  "session": "a204a058",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3-0673f904-45ab78f308e8c50b",
+  "branch": "t3/thread-pain-points-review"
+}
