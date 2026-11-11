@@ -1,4 +1,5 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { setTimeout as sleep } from "node:timers/promises";
 import { appData, appPeriod } from "../core/app.ts";
 import { period } from "../core/select.ts";
 import { openDb, queryRange } from "../core/db.ts";
@@ -117,6 +118,7 @@ export function refresh(): Promise<Refreshed> {
 
 const today = () => osloDate(Date.now());
 const VISITED = `${DATA_DIR}/visited`;
+const FIRST_VISIT_WAIT = 20_000;
 let auto = false;
 
 const quietly = (r: Promise<unknown>) =>
@@ -141,7 +143,10 @@ export async function visit(): Promise<void> {
   )
     return;
   writeFileSync(VISITED, today());
-  await quietly(refresh());
+  await Promise.race([
+    quietly(refresh()),
+    sleep(FIRST_VISIT_WAIT, undefined, { ref: false }),
+  ]);
 }
 
 // The newest versions only. The whole record is on disk, and a page of two
