@@ -352,6 +352,21 @@ export function monthlySeries(txns: Categorized[]): SeriesPoint[] {
   return byMonth(txns).map(({ month, txns }) => point(month, txns));
 }
 
+export function topSpendGroups(
+  txns: Categorized[],
+  key: (t: Categorized) => string | null,
+  limit = 5,
+): { name: string; txns: Categorized[] }[] {
+  const spend = txns.filter((t) => !t.excluded && t.amount < 0);
+  return [...Map.groupBy(spend, key)]
+    .flatMap(([name, txns]) =>
+      name === null ? [] : [{ name, txns, total: totals(txns).totalOut }],
+    )
+    .sort((a, b) => b.total - a.total)
+    .slice(0, limit)
+    .map(({ name, txns }) => ({ name, txns }));
+}
+
 export function cumulative(series: SeriesPoint[]): SeriesPoint[] {
   let inCents = 0;
   let outCents = 0;
