@@ -4,6 +4,7 @@ interface ChartLegendProps {
   income: boolean;
   spend: boolean;
   trend: boolean;
+  groups: { name: string; color: string }[];
   compareLabel?: string;
   hidden: ReadonlySet<Mark>;
   onToggle: (mark: Mark) => void;
@@ -54,6 +55,7 @@ export const ChartLegend = ({
   income,
   spend,
   trend,
+  groups,
   compareLabel,
   hidden,
   onToggle,
@@ -76,6 +78,15 @@ export const ChartLegend = ({
           Income
         </LegendKey>
       )}
+      {groups.map(({ name, color }) => (
+        <LegendKey key={name} {...key(`g:${name}`)} name={name}>
+          <span
+            className="inline-block h-0.75 w-3 rounded-sm"
+            style={{ background: color }}
+          />
+          {name}
+        </LegendKey>
+      ))}
       {/* Blue, because red would put two claims about spending in one colour,
           with the compared period already dashed and red.
 
@@ -86,9 +97,15 @@ export const ChartLegend = ({
       {trend && (
         <LegendKey {...key("trend")} name="the fitted trend">
           <svg aria-hidden width={16} height={3} className="shrink-0">
-            <Dash y={1.5} dashes="7 5" className="stroke-chart-1" />
+            <Dash
+              y={1.5}
+              dashes="7 5"
+              className={
+                groups.length > 0 ? "stroke-muted-foreground" : "stroke-chart-1"
+              }
+            />
           </svg>
-          Trend
+          {groups.length > 0 ? "Trends" : "Trend"}
         </LegendKey>
       )}
       {/* One key for both dashed lines — the dashes are what mark the period, and

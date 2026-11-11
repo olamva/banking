@@ -6,6 +6,17 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "2.2.0",
+    date: "2026-11-11",
+    highlights: [
+      {
+        title: "Trends for each merchant and category",
+        detail:
+          "The spending chart groups by merchant or by category. It draws one line and one trend line for each of the top five. Select a name in the legend to hide or show its line.",
+      },
+    ],
+  },
+  {
     version: "2.1.0",
     date: "2026-11-03",
     highlights: [

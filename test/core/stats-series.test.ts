@@ -7,6 +7,7 @@ import {
   monthStats,
   monthlySeries,
   spendTrend,
+  topSpendGroups,
   withGaps,
   yearStats,
 } from "../../src/core/stats.ts";
@@ -403,4 +404,27 @@ test("the income breakdowns are the spending ones over the other sign, and the t
   );
   assert.equal(s.totalIn, 6000);
   assert.equal(s.totalOut, 100);
+});
+
+test("topSpendGroups ranks spending only and keeps the top groups", () => {
+  const groups = topSpendGroups(
+    [
+      txn({ id: "1", amount: -50, counterparty: "Kiwi" }),
+      txn({ id: "2", amount: -80, counterparty: "Rema" }),
+      txn({ id: "3", amount: -40, counterparty: "Kiwi" }),
+      txn({ id: "4", amount: 500, counterparty: "Rema" }),
+      txn({ id: "5", amount: -900, counterparty: "Coop", excluded: true }),
+      txn({ id: "6", amount: -10, counterparty: "Bunnpris" }),
+      txn({ id: "7", amount: -999, counterparty: null }),
+    ],
+    (t) => t.counterparty,
+    2,
+  );
+  assert.deepEqual(
+    groups.map((g) => [g.name, g.txns.map((t) => t.id)]),
+    [
+      ["Kiwi", ["1", "3"]],
+      ["Rema", ["2"]],
+    ],
+  );
 });

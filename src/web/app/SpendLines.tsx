@@ -1,70 +1,20 @@
 import { useId, useState } from "react";
 import { spendTrend, withGaps, type SeriesPoint } from "../../core/stats.ts";
-import {
-  fmtNOK,
-  monthLabel,
-  niceStep,
-  pointLabel,
-  toggled,
-  useWidth,
-} from "./format.ts";
+import { fmtNOK, niceStep, pointLabel, toggled, useWidth } from "./format.ts";
+import { axisLabels, type Bucket } from "./axis.ts";
 import { Empty } from "./Cards.tsx";
 import { ChartLegend } from "./ChartLegend.tsx";
 import { useTooltip } from "./Charts.tsx";
-const runsOf = <T,>(dense: (T | null)[]): { m: T; i: number }[][] => {
-  const runs: { m: T; i: number }[][] = [];
-  dense.forEach((m, i) => {
-    if (m === null) return;
-    const open = runs.at(-1);
-    if (open && open.at(-1)!.i === i - 1) open.push({ m, i });
-    else runs.push([{ m, i }]);
-  });
-  return runs;
-};
+import {
+  GroupLayer,
+  GroupTipRows,
+  groupLines,
+  runsOf,
+  type Fit,
+  type GroupSeries,
+} from "./GroupLines.tsx";
 
-export type Bucket = "day" | "month";
-
-// The stride comes from the measured cluster width, never from a fixed count.
-const axisLabels = (
-  bucket: Bucket,
-  series: SeriesPoint[],
-  dense: (SeriesPoint | null)[],
-  clusterW: number,
-): { i: number; text: string }[] => {
-  const stride = (steps: number[], room: number, per = 1) =>
-    steps.find((n) => n * clusterW * per >= room) ?? steps.at(-1)!;
-
-  if (bucket === "month") {
-    const every = stride([1, 2, 3, 4, 6, 12], 30);
-    return dense.flatMap((p, i) =>
-      p && (Number(p.at.slice(5)) - 1) % every === 0
-        ? [{ i, text: monthLabel(p.at) }]
-        : [],
-    );
-  }
-  if (new Set(series.map((p) => p.at.slice(0, 7))).size === 1) {
-    const every = stride([1, 2, 5, 10], 26);
-    return series.flatMap((p, i) =>
-      (Number(p.at.slice(8)) - 1) % every === 0
-        ? [{ i, text: String(Number(p.at.slice(8))) }]
-        : [],
-    );
-  }
-  const starts = series.flatMap((p, i) =>
-    i === 0 || p.at.slice(0, 7) !== series[i - 1]!.at.slice(0, 7)
-      ? [{ i, at: p.at }]
-      : [],
-  );
-  // 30 days to a cluster, because a day bucket puts each month that far apart.
-  const every = stride([1, 2, 3, 4, 6, 12], 34, 30);
-  return starts.flatMap(({ i, at }) =>
-    (Number(at.slice(5, 7)) - 1) % every === 0
-      ? [{ i, text: monthLabel(at) }]
-      : [],
-  );
-};
-
-export type Mark = "out" | "in" | "compare" | "trend";
+export type Mark = "out" | "in" | "compare" | "trend" | `g:${string}`;
 
 interface SpendLinesProps {
   series: SeriesPoint[];
@@ -75,6 +25,7 @@ interface SpendLinesProps {
   trend: boolean;
   compare?: SeriesPoint[];
   compareLabel?: string;
+  groups: GroupSeries[];
 }
 
 export const SpendLines = ({
@@ -86,6 +37,7 @@ export const SpendLines = ({
   trend: offersTrend,
   compare = [],
   compareLabel,
+  groups,
 }: SpendLinesProps) => {
   const [ref, width] = useWidth();
   const { show, hide, node } = useTooltip();
@@ -95,6 +47,14 @@ export const SpendLines = ({
   const shows = (m: Mark) => !hidden.has(m);
   const toggle = (m: Mark) => setHidden((prev) => toggled(prev, m));
 
+  const dense = bucket === "month" ? withGaps(series) : series;
+
+  const lines = groupLines(groups, dense, offersTrend);
+  const shownLines = lines.filter((l) => shows(`g:${l.name}`));
+  const peaks = groups.length
+    ? shownLines.flatMap((l) => l.dense.map((p) => p?.totalOut ?? 0))
+    : [...series, ...compare].map((p) => Math.max(p.totalIn, p.totalOut));
+
   const multiYear = new Set(series.map((p) => p.at.slice(0, 4))).size > 1;
   const height = multiYear ? 234 : 220;
   const padL = 50;
@@ -102,21 +62,17 @@ export const SpendLines = ({
   const padT = 10;
   const plotW = Math.max(width - padL - 16, 20);
   const plotH = height - padB - padT;
-  const maxVal = Math.max(
-    ...[...series, ...compare].map((p) => Math.max(p.totalIn, p.totalOut)),
-    1,
-  );
+  const maxVal = Math.max(...peaks, 1);
   const step = niceStep(maxVal);
   const gridMax = Math.ceil(maxVal / step) * step;
 
-  const dense = bucket === "month" ? withGaps(series) : series;
   const clusterW = plotW / Math.max(dense.length, 1);
   const px = (i: number) => padL + i * clusterW + clusterW / 2;
 
-  const trend = offersTrend ? spendTrend(dense) : null;
-  const ends = trend
-    ? [0, dense.length - 1].map((x) => trend.intercept + trend.slope * x)
-    : [];
+  const trend = offersTrend && !groups.length ? spendTrend(dense) : null;
+  const endsOf = (fit: Fit) =>
+    [0, dense.length - 1].map((x) => fit.intercept + fit.slope * x);
+  const ends = trend ? endsOf(trend) : [];
 
   const gridMin = shows("trend")
     ? Math.min(0, ...ends.map((v) => Math.floor(v / step) * step))
@@ -168,7 +124,7 @@ export const SpendLines = ({
 
   const clip = useId();
 
-  const tipFor = (p: SeriesPoint, was: SeriesPoint | null) => (
+  const tipFor = (at: number, p: SeriesPoint, was: SeriesPoint | null) => (
     <div
       className={`grid gap-x-3 tabular-nums ${was ? "grid-cols-[auto_1fr_1fr]" : "grid-cols-[auto_1fr]"}`}
     >
@@ -212,6 +168,7 @@ export const SpendLines = ({
           )}
         </>
       )}
+      <GroupTipRows lines={shownLines} at={at} />
     </div>
   );
 
@@ -222,7 +179,7 @@ export const SpendLines = ({
     const p = dense[at];
     if (!p) return leave();
     setNear(at);
-    show(e, tipFor(p, cmp[at] ?? null));
+    show(e, tipFor(at, p, cmp[at] ?? null));
   };
 
   const leave = () => {
@@ -238,7 +195,8 @@ export const SpendLines = ({
         <ChartLegend
           income={hasIncome}
           spend={hasSpend}
-          trend={trend !== null}
+          trend={[trend, ...lines.map((l) => l.trend)].some(Boolean)}
+          groups={lines}
           compareLabel={compare.length > 0 ? compareLabel : undefined}
           hidden={hidden}
           onToggle={toggle}
@@ -382,25 +340,34 @@ export const SpendLines = ({
           {/* Clipped to the plot rather than clamped to it: the axis already
               stretched to hold both ends, and clamping a line is how a slope
               gets flattened into a claim nobody made. */}
+          <defs>
+            <clipPath id={`${clip}-plot`}>
+              <rect x={padL} y={padT} width={plotW} height={plotH} />
+            </clipPath>
+          </defs>
           {trend && shows("trend") && (
-            <>
-              <defs>
-                <clipPath id={`${clip}-plot`}>
-                  <rect x={padL} y={padT} width={plotW} height={plotH} />
-                </clipPath>
-              </defs>
-              <line
-                x1={px(0)}
-                y1={py(ends[0]!)}
-                x2={px(dense.length - 1)}
-                y2={py(ends[1]!)}
-                strokeWidth={1.5}
-                strokeDasharray="7 5"
-                clipPath={`url(#${clip}-plot)`}
-                className="stroke-chart-1"
-              />
-            </>
+            <line
+              x1={px(0)}
+              y1={py(ends[0]!)}
+              x2={px(dense.length - 1)}
+              y2={py(ends[1]!)}
+              strokeWidth={1.5}
+              strokeDasharray="7 5"
+              clipPath={`url(#${clip}-plot)`}
+              className="stroke-chart-1"
+            />
           )}
+          <GroupLayer
+            lines={shownLines}
+            x={px}
+            y={py}
+            ends={endsOf}
+            last={dense.length - 1}
+            trends={shows("trend")}
+            dots={dots}
+            near={near}
+            clip={`url(#${clip}-plot)`}
+          />
           {near !== null && (
             <line
               x1={px(near)}

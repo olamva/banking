@@ -1,4 +1,4 @@
-import { Fragment, type Dispatch, type SetStateAction } from "react";
+import { Fragment, useState, type Dispatch, type SetStateAction } from "react";
 import {
   AXES,
   axisBounds,
@@ -15,6 +15,7 @@ import {
   monthStats,
   monthlySeries,
   subscriptionGroups,
+  topSpendGroups,
   totals,
   visibleDeltas,
   yearStats,
@@ -24,9 +25,10 @@ import {
 import type { Categorized } from "../../core/types.ts";
 import { Empty, Note, Panel, StatTile, deltaInfo } from "./Cards.tsx";
 import { DivergingBars, HorizontalBars, type BarItem } from "./Charts.tsx";
-import { SpendLines, type Bucket } from "./SpendLines.tsx";
+import { SpendLines } from "./SpendLines.tsx";
+import type { Bucket } from "./axis.ts";
 import { SubscriptionsCard } from "./Transactions.tsx";
-import { categoryLabel, fmtNOK, subcategoryLabel } from "./format.ts";
+import { categoryLabel, fmtNOK, rowLabel, subcategoryLabel } from "./format.ts";
 import {
   AccountIcon,
   CategoryIcon,
@@ -81,32 +83,76 @@ export const pick =
 const slugsByLabel = (slugs: string[]) =>
   new Map(slugs.map((s) => [categoryLabel(s), s]));
 
+type Group = "total" | "merchant" | "category";
+
+const GROUP_LABEL: Record<Group, string> = {
+  total: "Total",
+  merchant: "Merchant",
+  category: "Category",
+};
+
+const GRAIN_SUFFIX: Record<Grain, string> = {
+  running: ", running total",
+  day: " by day",
+  month: " by month",
+};
+
+const chartSubject = (by: Group, anyIncome: boolean, anySpend: boolean) =>
+  by === "merchant"
+    ? "Top merchants"
+    : by === "category"
+      ? "Top categories"
+      : anyIncome
+        ? anySpend
+          ? "Income & spend"
+          : "Income"
+        : "Spending";
+
+const groupingsOf = (shown: Categorized[]) => {
+  const byCategory = topSpendGroups(shown, (t) => categoryLabel(t.category));
+  return {
+    merchant: topSpendGroups(shown, (t) => t.counterparty),
+    category:
+      byCategory.length > 1
+        ? byCategory
+        : topSpendGroups(shown, (t) => rowLabel(t.category, t.subcategory)),
+  };
+};
+
 const GRAIN_LABEL: Record<Grain, string> = {
   running: "Running total",
   day: "Per day",
   month: "Per month",
 };
 
-interface GrainToggleProps {
-  grain: Grain;
-  offered: Grain[];
-  onGrain: (grain: Grain) => void;
+interface ChoiceToggleProps<T extends string> {
+  value: T;
+  offered: T[];
+  labels: Record<T, string>;
+  name: string;
+  onChange: (value: T) => void;
 }
 
-const GrainToggle = ({ grain, offered, onGrain }: GrainToggleProps) =>
+const ChoiceToggle = <T extends string>({
+  value,
+  offered,
+  labels,
+  name,
+  onChange,
+}: ChoiceToggleProps<T>) =>
   offered.length < 2 ? null : (
     <ToggleGroup
       type="single"
       variant="outline"
       size="sm"
       spacing={0}
-      value={grain}
-      onValueChange={(g) => g && onGrain(g as Grain)}
-      aria-label="Chart grain"
+      value={value}
+      onValueChange={(v) => v && onChange(v as T)}
+      aria-label={name}
     >
-      {offered.map((g) => (
-        <ToggleGroupItem key={g} value={g} className="px-2 text-xs">
-          {GRAIN_LABEL[g]}
+      {offered.map((v) => (
+        <ToggleGroupItem key={v} value={v} className="px-2 text-xs">
+          {labels[v]}
         </ToggleGroupItem>
       ))}
     </ToggleGroup>
@@ -314,6 +360,7 @@ export const Dashboard = ({
   offered,
   onGrain,
 }: DashboardProps) => {
+  const [group, setGroup] = useState<Group>("total");
   // `all` is the period. `txns` is the record, and only the comparison period
   // needs it, because that period sits outside this one.
   const shown = all.filter((t) => matchesFilters(t, filters));
@@ -362,7 +409,25 @@ export const Dashboard = ({
   const anyIncome = series.some((s) => s.totalIn > 0);
   const anySpend = series.some((s) => s.totalOut > 0);
 
-  const band = running || bucket === "month";
+  const groupings = groupingsOf(shown);
+  const groupsOffered = (["merchant", "category"] as const).filter(
+    (g) => groupings[g].length > 1,
+  );
+  const by = groupsOffered.find((g) => g === group) ?? "total";
+  const groups = (by === "total" ? [] : groupings[by]).map((g) => ({
+    name: g.name,
+    series: build(g.txns, from, to),
+  }));
+
+  const marks =
+    by === "total"
+      ? {
+          income: anyIncome,
+          spend: anySpend,
+          band: running || bucket === "month",
+          compare,
+        }
+      : { income: false, spend: false, band: false, compare: [] };
 
   return (
     <>
@@ -376,27 +441,34 @@ export const Dashboard = ({
       {series.length > 1 && (
         <div className="mb-4">
           <Panel
-            title={`${anyIncome ? (anySpend ? "Income & spend" : "Income") : "Spending"}${
-              running
-                ? ", running total"
-                : grain === "day"
-                  ? " by day"
-                  : " by month"
-            }`}
+            title={`${chartSubject(by, anyIncome, anySpend)}${GRAIN_SUFFIX[grain]}`}
             icon={MonthlyIcon}
             action={
-              <GrainToggle grain={grain} offered={offered} onGrain={onGrain} />
+              <div className="flex flex-wrap justify-end gap-2">
+                <ChoiceToggle
+                  value={by}
+                  offered={["total", ...groupsOffered]}
+                  labels={GROUP_LABEL}
+                  name="Group the chart by"
+                  onChange={setGroup}
+                />
+                <ChoiceToggle
+                  value={grain}
+                  offered={offered}
+                  labels={GRAIN_LABEL}
+                  name="Chart grain"
+                  onChange={onGrain}
+                />
+              </div>
             }
           >
             <SpendLines
               series={series}
               bucket={bucket}
-              income={anyIncome}
-              spend={anySpend}
-              band={band}
+              {...marks}
               trend={!running && anySpend}
-              compare={compare}
               compareLabel={vs?.label}
+              groups={groups}
             />
           </Panel>
         </div>
