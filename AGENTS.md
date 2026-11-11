@@ -53,9 +53,11 @@ Insert database rows only through `rebuild`. It empties the table and rebuilds f
 Never rely on transaction IDs across syncs. SB1 changes them on every fetch and when reservations book.
 
 Keep `/api/txns` reading only `data/banking.db`.
-Allow page requests to the bank API only through `/api/refresh`, after the user presses Refresh.
-Never call the bank API on page load, reload, filter changes, or timers.
-These routes live in `vite.config.ts`.
+Call the bank and receipt APIs only through `refresh` in `src/web/api.ts`.
+Start `refresh` only from the Refresh button, the hosted server's midnight run, or the first payload request of each Oslo day.
+Run the midnight and first-visit refreshes only on the hosted server, through `autoRefresh` in `src/web/server.ts`.
+Never call the bank API on other page loads, reloads, filter changes, or timers.
+These routes live in `vite.config.ts` and `src/web/server.ts`.
 
 Use `reconcile` to identify missing months.
 Remove `data/raw/<month>/*.json` and press Refresh to fetch a stored month again. Do not add a force flag.
@@ -66,6 +68,9 @@ UTC formatting can place a transaction in the previous month.
 Use only `pnpm rules:push` to send personal data off this machine.
 It uploads `rules/*.json`, `rules/.history/` and new `data/raw/receipts/` files to the Oracle VM over `ssh` and `rsync`.
 GitHub Actions builds the image from git. The VM pulls each new image. The image holds no personal data.
+Use only `pnpm receipts:seed` to send the receipt logins to `/srv/banking/secrets/` on the VM.
+Store each receipt login with `secretSet(<source>)` and read it with `secretGet(<source>)` from `src/net/token.ts`.
+Name each receipt setting in `.env` with the source in capitals and `_`, such as `REMA_SUBSCRIPTION_KEY`, and read it with `env`.
 Keep the deployment gate. Get an explicit decision before adding another upload route.
 Use `pnpm rules:pull` to download these files without sending personal data.
 

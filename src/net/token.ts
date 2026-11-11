@@ -33,26 +33,37 @@ export async function withTokenLock<T>(work: () => Promise<T>): Promise<T> {
 }
 
 const KEYCHAIN_SERVICE = "sb1-banking";
+const KEYCHAIN = process.platform === "darwin";
+const secretFile = (name: string) => `${DATA_DIR}/secrets/${name}`;
 
-export function keychainSet(account: string, secret: string): void {
+export function secretSet(name: string, secret: string): void {
+  if (!KEYCHAIN) {
+    mkdirSync(`${DATA_DIR}/secrets`, { recursive: true, mode: 0o700 });
+    writeFileSync(`${secretFile(name)}.tmp`, secret, { mode: 0o600 });
+    return renameSync(`${secretFile(name)}.tmp`, secretFile(name));
+  }
   execFileSync("security", [
     "add-generic-password",
     "-U",
     "-s",
     KEYCHAIN_SERVICE,
     "-a",
-    account,
+    name,
     "-w",
     secret,
   ]);
 }
 
-export function keychainGet(account: string): string | null {
+export function secretGet(name: string): string | null {
   try {
-    return execFileSync(
-      "security",
-      ["find-generic-password", "-s", KEYCHAIN_SERVICE, "-a", account, "-w"],
-      { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+    return (
+      KEYCHAIN
+        ? execFileSync(
+            "security",
+            ["find-generic-password", "-s", KEYCHAIN_SERVICE, "-a", name, "-w"],
+            { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+          )
+        : readFileSync(secretFile(name), "utf8")
     ).trim();
   } catch {
     return null;
@@ -60,7 +71,7 @@ export function keychainGet(account: string): string | null {
 }
 
 export function env(key: string): string {
-  const v = process.env[key];
+  const v = process.env[key] || (KEYCHAIN ? undefined : secretGet(key));
   if (!v || v.startsWith("<"))
     throw new Error(`Missing ${key} — fill it in .env`);
   return v;
@@ -78,7 +89,7 @@ export async function getToken(): Promise<string | null> {
       if ((e as NodeJS.ErrnoException).code === "ENOENT") return null;
       throw e;
     }
-  return keychainGet("refresh_token");
+  return secretGet("refresh_token");
 }
 
 export async function setToken(token: string): Promise<void> {
@@ -87,5 +98,5 @@ export async function setToken(token: string): Promise<void> {
     writeFileSync(`${file}.tmp`, token, { mode: 0o600 });
     return renameSync(`${file}.tmp`, file);
   }
-  keychainSet("refresh_token", token);
+  secretSet("refresh_token", token);
 }

@@ -16,11 +16,13 @@ import { allowed } from "../auth/session.ts";
 import {
   HANDOFF_PAGE,
   appPayload,
+  autoRefresh,
   payload,
   periodPayload,
   refresh,
   rulesRoute,
   signedIn,
+  visit,
 } from "./api.ts";
 
 const DIST = resolve(import.meta.dirname, "../../data/dist");
@@ -209,7 +211,6 @@ export const server = createServer(async (req, res) => {
     return;
   }
   if (path.startsWith("/api/")) await ready;
-
   const rules = rulesRoute(
     path,
     url.searchParams,
@@ -235,6 +236,7 @@ export const server = createServer(async (req, res) => {
 
   const data = PAYLOADS.get(path);
   if (data) {
+    await visit();
     try {
       send(res, 200, JSON_TYPE, data(), coding(req, JSON_TYPE));
     } catch (e) {
@@ -288,4 +290,5 @@ if (process.argv[1] === import.meta.filename) {
   // The server trusts X-Forwarded-Email, so only the proxy on this host may
   // reach it.
   server.listen(port, "127.0.0.1", () => console.error(`listening on ${port}`));
+  autoRefresh();
 }

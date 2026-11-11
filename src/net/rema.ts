@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
-import { env, keychainGet, keychainSet } from "./token.ts";
+import { env, secretGet, secretSet } from "./token.ts";
 
 const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const REDIRECT = "https://ae-appen.appspot.com/redirect/redirect.html";
@@ -126,7 +126,7 @@ export async function login(): Promise<void> {
         },
       ),
     ]);
-    keychainSet("rema", JSON.stringify(session));
+    secretSet("rema", JSON.stringify(session));
     console.error("Rema login stored in the keychain.");
   } finally {
     timeout.abort();
@@ -153,15 +153,12 @@ async function idToken(s: Session): Promise<string> {
     );
   const t = (await res.json()) as { id_token: string; refresh_token: string };
   if (t.refresh_token !== s.refreshToken)
-    keychainSet(
-      "rema",
-      JSON.stringify({ ...s, refreshToken: t.refresh_token }),
-    );
+    secretSet("rema", JSON.stringify({ ...s, refreshToken: t.refresh_token }));
   return t.id_token;
 }
 
 export async function sync(dir: string): Promise<number> {
-  const stored = keychainGet("rema");
+  const stored = secretGet("rema");
   if (!stored) throw new Error("No Rema login. Run: pnpm receipts login rema");
   const session = JSON.parse(stored) as Session;
   const headers = {

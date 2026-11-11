@@ -55,6 +55,8 @@ pnpm receipts rema                  # new receipts to data/raw/receipts/rema/
 pnpm receipts trumf                 # needs TRUMF_COOKIE, the Cookie header of a logged-in trumf.no page
 pnpm receipts gmail                 # receipt mail to data/raw/receipts/gmail/ as .eml files
                                     # a sync with new receipts rebuilds data/banking.db
+                                    # Refresh runs all three. These commands fetch one source
+pnpm receipts:seed                  # copy the receipt logins to the hosted site
 
 # offline
 pnpm sb1 rebuild                    # rebuild data/banking.db from data/raw/, after a rules edit
@@ -83,7 +85,9 @@ The page lists subscriptions per subscription, not per charge. _Per month_ shows
 
 Every rule save writes a snapshot to `rules/.history/`. _Undo the last change_ steps back one edit, and the version list restores any older state. Nothing leaves the history. The site edits its own copy, so `pnpm rules:push` stops when the site holds an edit that this machine does not, and it names `pnpm rules:pull`.
 
-Refresh is the only control on the page that touches the network. It fetches the months that can still change, rebuilds `data/banking.db` and reloads the page. One refresh runs at a time. A typical press is one request.
+Refresh is the only control on the page that touches the network. It fetches the months that can still change and new Rema, Trumf and Gmail receipts. Then it rebuilds `data/banking.db` and reloads the page. A failed receipt source does not stop the others, and the page shows its error. One refresh runs at a time. A typical press is one bank request.
+
+The hosted server also refreshes itself just after midnight in Oslo, and before it answers the first `/api/txns` or `/api/app` request of each Oslo day. `data/visited` holds the date of that last first visit. `pnpm dev` refreshes only when you press Refresh.
 
 A month closes four days after it ends, which is the window a late card row books in. Only the open months cost a request. The code drops a pending row rather than counting it, so press Refresh again to collect the tail.
 
@@ -115,7 +119,7 @@ The server listens on `127.0.0.1:8080` only and reads the address from `X-Forwar
 An empty list denies everybody. `test/web/` checks the access controls.
 The proxy test runs only where `oauth2-proxy` is on the `PATH`. CI installs it.
 
-`src/web/server.ts` serves `data/dist` and the same three endpoints, on `node:http` and no framework. `/srv/banking` on the VM mounts at `/data`. It holds `data/raw`, the database, the rules, the request ledger and the SB1 refresh token. The image holds only the code and the built page.
+`src/web/server.ts` serves `data/dist` and the same three endpoints, on `node:http` and no framework. `/srv/banking` on the VM mounts at `/data`. It holds `data/raw`, the database, the rules, the request ledger, the SB1 refresh token and the receipt logins in `secrets/`. Off macOS, the code reads each login from `$DATA_DIR/secrets/<name>` instead of the keychain. The image holds only the code and the built page.
 
 `infra/oracle/cloud-init.yaml` installs Podman, Caddy, a swap file and the firewall rules at the first boot.
 Podman runs the app and oauth2-proxy as the systemd quadlets in `infra/oracle/`. The app may use 600 MB of memory.
@@ -156,7 +160,8 @@ The SB1 values arrive last, because the developer portal wants a redirect before
 7. Register a **second SpareBank 1 client** in the developer portal. The BankID login runs on this machine, so the redirect is a localhost URL. Use a port that the first client does not use.
 8. Put the four SB1 values in `infra/terraform.tfvars` and run `infra/oracle/configure.sh` again.
 9. Run `pnpm seed:site`. The token goes to the VM instead of the keychain. Do not use `pnpm sb1 login`, which reads `.env` and would put the token of this machine on the site.
-10. Open the site and press Refresh.
+10. Run `pnpm receipts login rema` and `pnpm receipts login gmail`, and fill in the receipt values in `.env`. Then run `pnpm receipts:seed`. For each source in `src/net/receipts.ts`, it copies the keychain login named after the source and each `.env` value whose name starts with the source in capitals and `_`, such as `REMA_SUBSCRIPTION_KEY` or `TRUMF_COOKIE`. The copies go to `/srv/banking/secrets/` on the VM. Run it again when the site reports an expired receipt login.
+11. Open the site and press Refresh.
 
 SB1 rotates the refresh token on every exchange, so two processes on one chain invalidate each other. The second client gives the site an independent chain.
 
@@ -171,7 +176,7 @@ A refresh prices the whole sweep first, and the pricing costs nothing. It stops 
 ## The iPhone app
 
 `ios/` holds a native SwiftUI app named Spending. It uses SwiftUI, Swift Charts and the system controls only. It has no packages.
-It reads the hosted site, so it works away from this wifi. It never calls the bank, except through **Fetch from the bank** in Settings, which calls `/api/refresh`.
+It reads the hosted site, so it works away from this wifi. It never calls the bank itself. **Fetch from the bank** in Settings calls `/api/refresh`, and the first `/api/app` request of each day makes the site refresh.
 
 `GET /api/app` sends one payload that `src/core/app.ts` composes: the totals of each month and year, the categories, the top merchants, the subscriptions, the day series for the charts and every row.
 The app sums no money. It shows the figures that `src/core/stats.ts` calculates, so the phone and the dashboard agree to the øre.

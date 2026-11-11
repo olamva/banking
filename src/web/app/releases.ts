@@ -6,6 +6,17 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "2.3.0",
+    date: "2026-11-11",
+    highlights: [
+      {
+        title: "Automatic bank and receipt refresh",
+        detail:
+          "Refresh also fetches new Rema, Trumf and Gmail receipts. The site refreshes itself just after midnight and on the first visit of each day.",
+      },
+    ],
+  },
+  {
     version: "2.2.0",
     date: "2026-11-11",
     highlights: [

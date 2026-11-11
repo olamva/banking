@@ -1,8 +1,9 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { appData, appPeriod } from "../core/app.ts";
 import { period } from "../core/select.ts";
 import { openDb, queryRange } from "../core/db.ts";
-import { RULES_DIR } from "../core/paths.ts";
+import { osloDate } from "../core/normalize.ts";
+import { DATA_DIR, RULES_DIR } from "../core/paths.ts";
 import { DB_FILE, rebuildAll } from "../core/pipeline.ts";
 import { RULE_FILES, isRuleFile, type RuleFile } from "../core/ruleFiles.ts";
 import {
@@ -92,9 +93,15 @@ export type Refreshed = {
 
 async function run(): Promise<Refreshed> {
   const { syncAll } = await import("../net/sync.ts");
+  const { syncReceipts } = await import("../net/receipts.ts");
   const { rebuildAll } = await import("../core/pipeline.ts");
-  const { fetched, stopped } = await syncAll();
-  return { rows: await rebuildAll(), fetched, stopped };
+  const [bank, receipts] = await Promise.all([syncAll(), syncReceipts()]);
+  return {
+    rows: await rebuildAll(),
+    fetched: bank.fetched + receipts.added,
+    stopped:
+      [bank.stopped, ...receipts.failed].filter(Boolean).join(" ") || null,
+  };
 }
 
 // One refresh at a time. A second press joins the first rather than starting a
@@ -106,6 +113,35 @@ export function refresh(): Promise<Refreshed> {
     running = null;
   });
   return running;
+}
+
+const today = () => osloDate(Date.now());
+const VISITED = `${DATA_DIR}/visited`;
+let auto = false;
+
+const quietly = (r: Promise<unknown>) =>
+  r.catch((e: unknown) =>
+    console.error(`refresh failed: ${e instanceof Error ? e.message : e}`),
+  );
+
+export function autoRefresh(): void {
+  auto = true;
+  let day = today();
+  setInterval(() => {
+    if (day === today()) return;
+    day = today();
+    void quietly(refresh());
+  }, 60_000).unref();
+}
+
+export async function visit(): Promise<void> {
+  if (
+    !auto ||
+    (existsSync(VISITED) && readFileSync(VISITED, "utf8") === today())
+  )
+    return;
+  writeFileSync(VISITED, today());
+  await quietly(refresh());
 }
 
 // The newest versions only. The whole record is on disk, and a page of two
