@@ -42,7 +42,9 @@
       "Bash(pnpm typecheck:*)",
       "Bash(pnpm build:*)",
       "Bash(pnpm shot:*)",
-      "Bash(pnpm rules:push)"
+      "Bash(pnpm rules:push)",
+      "Bash(pnpm rules:pull)",
+      "Bash(pnpm receipts:seed)"
     ],
     "deny": [
       "Bash(git push --force:*)",

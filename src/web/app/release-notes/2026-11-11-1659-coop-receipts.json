@@ -1,0 +1,9 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "Coop receipts",
+      "detail": "Purchases at Coop stores, such as Extra, Prix, Obs and Mega, show their receipt lines, sizes and member discounts. Refresh fetches new Coop receipts with the other receipt sources."
+    }
+  ]
+}

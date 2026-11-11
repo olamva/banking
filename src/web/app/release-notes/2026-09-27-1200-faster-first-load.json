@@ -1,0 +1,9 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Faster first load",
+      "detail": "The dashboard opens faster after a pause. Refresh also finishes faster."
+    }
+  ]
+}

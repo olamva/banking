@@ -51,6 +51,18 @@ live_diff() {
   done
 }
 
+unrecorded_diff() {
+  local mine="$1" other="$2" f v
+  for f in $RULE_FILES; do
+    [ -f "$mine/$f.json" ] && [ -f "$other/$f.json" ] || continue
+    cmp -s "$mine/$f.json" "$other/$f.json" && continue
+    for v in "$mine"/.history/*-"$f".json; do
+      cmp -s "$v" "$mine/$f.json" && continue 2
+    done
+    printf '  %s\n' "$f.json"
+  done
+}
+
 when() {
   [ -n "$1" ] && [ "$1" != "0" ] || { echo "never"; return; }
   date -r "$(($1 / 1000))" -u +%Y-%m-%dT%H:%MZ

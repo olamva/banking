@@ -136,11 +136,6 @@ function file(req: IncomingMessage, res: ServerResponse, path: string): void {
       .pipe(res);
 }
 
-const PAYLOADS = new Map([
-  ["/api/txns", payload],
-  ["/api/app", appPayload],
-]);
-
 function handoff(req: IncomingMessage, res: ServerResponse, url: URL): void {
   if (url.searchParams.get("open") !== "1") {
     send(res, 200, "text/html; charset=utf-8", HANDOFF_PAGE);
@@ -167,30 +162,84 @@ function handoff(req: IncomingMessage, res: ServerResponse, url: URL): void {
   res.end();
 }
 
+const servePayload =
+  (data: () => string) =>
+  (req: IncomingMessage, res: ServerResponse): void => {
+    visit();
+    try {
+      send(res, 200, JSON_TYPE, data(), coding(req, JSON_TYPE));
+    } catch (e) {
+      send(
+        res,
+        500,
+        "text/plain; charset=utf-8",
+        `${e instanceof Error ? e.message : e}\n`,
+      );
+    }
+  };
+
+function startRefresh(req: IncomingMessage, res: ServerResponse): void {
+  // A custom header cannot be set on a cross-origin request without a
+  // preflight, and no preflight is answered here. A page on another site
+  // therefore cannot make this machine spend its bank quota. The header is
+  // the whole guard, and the method carries none of it: Easy Auth refuses a
+  // cookie on any method but GET, so the button cannot use POST.
+  if (req.headers["x-banking-refresh"] !== "1") {
+    json(res, 405, { error: "needs X-Banking-Refresh: 1" });
+    return;
+  }
+  refresh().then(
+    (r) => json(res, 200, r),
+    (e: unknown) =>
+      json(res, 500, { error: e instanceof Error ? e.message : String(e) }),
+  );
+}
+
+const ROUTES = new Map<
+  string,
+  (req: IncomingMessage, res: ServerResponse, url: URL) => void
+>([
+  ["/app/signed-in", handoff],
+  ["/api/txns", servePayload(payload)],
+  ["/api/app", servePayload(appPayload)],
+  ["/api/refresh", startRefresh],
+]);
+
+function logTraffic(
+  req: IncomingMessage,
+  res: ServerResponse,
+  access: string,
+): void {
+  const start = performance.now();
+  res.once("close", () =>
+    console.info(
+      JSON.stringify({
+        event: "http_request",
+        time: new Date().toISOString(),
+        method: req.method,
+        path: (req.url ?? "/").split(/[?#]/, 1)[0]!.slice(0, 512),
+        userAgent: String(req.headers["user-agent"] ?? "").slice(0, 512),
+        forwardedFor: String(req.headers["x-forwarded-for"] ?? "").slice(
+          0,
+          512,
+        ),
+        access,
+        status: res.writableFinished ? res.statusCode : 0,
+        durationMs: Math.round(performance.now() - start),
+      }),
+    ),
+  );
+}
+
 export const server = createServer(async (req, res) => {
   const email = req.headers["x-forwarded-email"] as string | undefined;
   const permitted = !!email && allowed(email, process.env.ALLOWED_EMAILS);
-  if (process.env.TRAFFIC_LOG === "1") {
-    const start = performance.now();
-    res.once("close", () =>
-      console.info(
-        JSON.stringify({
-          event: "http_request",
-          time: new Date().toISOString(),
-          method: req.method,
-          path: (req.url ?? "/").split(/[?#]/, 1)[0]!.slice(0, 512),
-          userAgent: String(req.headers["user-agent"] ?? "").slice(0, 512),
-          forwardedFor: String(req.headers["x-forwarded-for"] ?? "").slice(
-            0,
-            512,
-          ),
-          access: permitted ? "allowed" : email ? "denied" : "anonymous",
-          status: res.writableFinished ? res.statusCode : 0,
-          durationMs: Math.round(performance.now() - start),
-        }),
-      ),
+  if (process.env.TRAFFIC_LOG === "1")
+    logTraffic(
+      req,
+      res,
+      permitted ? "allowed" : email ? "denied" : "anonymous",
     );
-  }
   const url = new URL(req.url ?? "/", "http://localhost");
   const path = url.pathname;
   if (PUBLIC.has(path) && (req.method === "GET" || req.method === "HEAD")) {
@@ -232,42 +281,9 @@ export const server = createServer(async (req, res) => {
     return;
   }
 
-  if (path === "/app/signed-in") {
-    handoff(req, res, url);
-    return;
-  }
-
-  const data = PAYLOADS.get(path);
-  if (data) {
-    visit();
-    try {
-      send(res, 200, JSON_TYPE, data(), coding(req, JSON_TYPE));
-    } catch (e) {
-      send(
-        res,
-        500,
-        "text/plain; charset=utf-8",
-        `${e instanceof Error ? e.message : e}\n`,
-      );
-    }
-    return;
-  }
-
-  if (path === "/api/refresh") {
-    // A custom header cannot be set on a cross-origin request without a
-    // preflight, and no preflight is answered here. A page on another site
-    // therefore cannot make this machine spend its bank quota. The header is
-    // the whole guard, and the method carries none of it: Easy Auth refuses a
-    // cookie on any method but GET, so the button cannot use POST.
-    if (req.headers["x-banking-refresh"] !== "1") {
-      json(res, 405, { error: "needs X-Banking-Refresh: 1" });
-      return;
-    }
-    refresh().then(
-      (r) => json(res, 200, r),
-      (e: unknown) =>
-        json(res, 500, { error: e instanceof Error ? e.message : String(e) }),
-    );
+  const route = ROUTES.get(path);
+  if (route) {
+    route(req, res, url);
     return;
   }
 
