@@ -19,6 +19,23 @@ test("changeRules removes a map entry immediately", () => {
   );
 });
 
+test("a shorter plain pattern replaces the longer ones it covers for the same value", () => {
+  const map = {
+    "microsoft-g182814034": "Azure",
+    "microsoft-gx": "Other",
+    "/microsoft-g1/": "Azure",
+  };
+  assert.deepEqual(changeRules(map, "Microsoft-G", "Azure"), {
+    "microsoft-gx": "Other",
+    "/microsoft-g1/": "Azure",
+    "Microsoft-G": "Azure",
+  });
+  assert.deepEqual(changeRules(["ola nordmann", "kari"], "ola"), [
+    "kari",
+    "ola",
+  ]);
+});
+
 test("moveRules applies rule history in both directions", () => {
   const data = {
     files: { categories: { old: "one", current: "two" } },
