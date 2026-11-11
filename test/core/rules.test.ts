@@ -293,7 +293,7 @@ test("bulk validation rejects the entire edit before writing any history", () =>
   );
   assert.throws(() => rules.saveBulk("payees", [], "New"), /Select at least/);
   assert.throws(
-    () => rules.saveBulk("categories", ["shop"], "food"),
+    () => rules.saveBulk("giro", ["shop"], "food"),
     /Bulk edits support/,
   );
   assert.deepEqual(asMap("payees"), { shop: "Old" });

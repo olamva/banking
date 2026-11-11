@@ -29,8 +29,7 @@ interface TxnDialogProps {
 }
 
 const TXN_RULE_ACTIONS: [RuleFile, string][] = [
-  ["preferences", "Remember category…"],
-  ["categories", "Category pattern…"],
+  ["categories", "Category rule…"],
   ["payees", "Rename payee…"],
   ["family", "Mark as family…"],
 ];

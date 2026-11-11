@@ -5,8 +5,7 @@ import { join } from "node:path";
 import { after, afterEach, beforeEach, mock, test } from "node:test";
 import { totals } from "../../src/core/stats.ts";
 import type { Categorized } from "../../src/core/types.ts";
-import { preferenceKey } from "../../src/core/preferences.ts";
-import { haystackOf } from "../../src/core/match.ts";
+import { haystackOf, ruleKey } from "../../src/core/match.ts";
 
 const dir = mkdtempSync(join(tmpdir(), "api-"));
 process.env.DATA_DIR = join(dir, "data");
@@ -26,42 +25,47 @@ const network = mock.method(globalThis, "fetch", () => {
   throw new Error("Offline analysis must not fetch");
 });
 
-test("remembered categories survive rebuild and undo without changing totals", async () => {
+test("conditional category rules survive rebuild and undo without changing totals", async () => {
   await rebuildAll();
   const before = readRows();
   const purchase = before.find((t) => t.id === "purchase")!;
   assert.equal(purchase.originalCounterparty, "SHOP");
   assert.equal(haystackOf(purchase).includes("ikea"), false);
-  const key = preferenceKey(purchase)!;
+  const key = ruleKey({ pattern: "shop", direction: "out" });
   assert.equal(
-    (await edit("save", { file: "preferences", key, value: "home/furniture" }))
+    (await edit("save", { file: "categories", key, value: "home/furniture" }))
       .status,
     200,
   );
   let rows = readRows();
   assert.equal(
     rows.find((t) => t.id === "purchase")!.categorySource,
-    "Remembered category",
+    "Category rule",
   );
   assert.equal(rows.find((t) => t.id === "refund")!.category, "food");
   assert.deepEqual(totals(rows), totals(before));
   assert.equal((await edit("rebuild", {})).status, 200);
   assert.equal(readRows().find((t) => t.id === "purchase")!.category, "home");
-  assert.equal((await edit("undo", { file: "preferences" })).status, 200);
+  assert.equal((await edit("undo", { file: "categories" })).status, 200);
   rows = readRows();
   assert.equal(rows.find((t) => t.id === "purchase")!.category, "food");
   assert.deepEqual(totals(rows), totals(before));
-  assert.equal((await edit("redo", { file: "preferences" })).status, 200);
+  assert.equal((await edit("redo", { file: "categories" })).status, 200);
   assert.equal(readRows().find((t) => t.id === "purchase")!.category, "home");
 });
 
-test("invalid preferences change no rules and rebuild requires the request header", async () => {
+test("invalid category rules change no rules and rebuild requires the request header", async () => {
   const before = (
     await rulesRoute("/api/rules", new URLSearchParams(), undefined)!
   ).body;
   assert.equal(
-    (await edit("save", { file: "preferences", key: "[]", value: "food" }))
-      .status,
+    (
+      await edit("save", {
+        file: "categories",
+        key: '{"pattern":"shop"}',
+        value: "food",
+      })
+    ).status,
     400,
   );
   assert.equal(
@@ -250,7 +254,7 @@ test("bulk rename and categories rebuild offline and undo as whole actions", asy
   const selected = before.filter((t) =>
     ["purchase", "trip", "out"].includes(t.id),
   );
-  const apply = async (file: "payees" | "preferences", value: string) => {
+  const apply = async (file: "payees" | "categories", value: string) => {
     const { keys } = bulkPlan(selected, before, file);
     const params = new URLSearchParams({ file, value });
     for (const key of keys) params.append("key", key);
@@ -272,14 +276,14 @@ test("bulk rename and categories rebuild offline and undo as whole actions", asy
     "One payee",
   );
   assert.deepEqual(totals(readRows()), totals(before));
-  await apply("preferences", "home/furniture");
+  await apply("categories", "home/furniture");
   const rows = readRows();
   assert.equal(rows.find((t) => t.id === "purchase")!.category, "home");
   assert.equal(rows.find((t) => t.id === "trip")!.category, "home");
-  assert.equal(rows.find((t) => t.id === "refund")!.category, "food");
+  assert.equal(rows.find((t) => t.id === "refund")!.category, "home");
   assert.equal(rows.find((t) => t.id === "out")!.excluded, true);
   assert.deepEqual(totals(rows), totals(before));
-  await edit("undo", { file: "preferences" });
+  await edit("undo", { file: "categories" });
   await edit("undo", { file: "payees" });
   assert.deepEqual(readRows(), before);
 });
