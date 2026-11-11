@@ -1,6 +1,8 @@
 // The page imports this, so it may hold no `node:` import. The store that
 // reads and writes the files is rules.ts, and only Node loads that one.
 
+import { isRegex } from "./match.ts";
+
 // A map file is pattern -> value. A list file is a bare array of patterns.
 // accounts.json is not here: `pnpm sb1 accounts` writes it, and it holds
 // account numbers, opening balances and sync floors that no page may set.
@@ -58,6 +60,12 @@ export function diffRules(before: Rules, after: Rules): RuleChange[] {
   return out;
 }
 
+const covers = (key: string, other: string): boolean =>
+  other !== key &&
+  !isRegex(key) &&
+  !isRegex(other) &&
+  other.toLowerCase().includes(key.toLowerCase());
+
 export const changeRules = (
   rules: Rules,
   key: string,
@@ -67,11 +75,15 @@ export const changeRules = (
 ): Rules => {
   if (Array.isArray(rules)) {
     const next = rules.filter((item) => item !== key && item !== was);
-    return remove ? next : [...next, key];
+    return remove ? next : [...next.filter((item) => !covers(key, item)), key];
   }
   const next = { ...rules };
   if (was !== undefined) delete next[was];
   if (remove) delete next[key];
-  else next[key] = value!;
+  else {
+    next[key] = value!;
+    for (const [other, v] of Object.entries(next))
+      if (v === value && covers(key, other)) delete next[other];
+  }
   return next;
 };
