@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
@@ -127,6 +127,48 @@ test("a live file that differs is named", () => {
 // compare is not a difference.
 test("a file that one side lacks is not named", () => {
   assert.equal(differs(side({ giro: "{}" }), side({})), "");
+});
+
+const unrecorded = (mine: string, other: string): string =>
+  execFileSync(
+    "bash",
+    ["-c", `. "$0"; unrecorded_diff "$1" "$2"`, lib, mine, other],
+    { encoding: "utf8" },
+  );
+
+const versioned = (live: string, ...versions: string[]): string => {
+  const dir = side({ categories: live });
+  mkdirSync(join(dir, ".history"));
+  versions.forEach((body, i) =>
+    writeFileSync(
+      join(dir, ".history", at(1756300000000 + i, "categories")),
+      body,
+    ),
+  );
+  return dir;
+};
+
+test("a hand edit that the site would overwrite is named", () => {
+  const out = unrecorded(
+    versioned('{"a":"x/y"}', "{}"),
+    side({ categories: '{"b":"x/y"}' }),
+  );
+  assert.match(out, /categories\.json/);
+});
+
+test("a live file that a version holds is not named", () => {
+  assert.equal(
+    unrecorded(
+      versioned("{}", '{"a":"x/y"}', "{}"),
+      side({ categories: '{"b":"x/y"}' }),
+    ),
+    "",
+  );
+});
+
+test("a hand edit that the site already holds is not named", () => {
+  const body = '{"a":"x/y"}';
+  assert.equal(unrecorded(versioned(body), side({ categories: body })), "");
 });
 
 test("a name that is not a rule file is not compared", () => {

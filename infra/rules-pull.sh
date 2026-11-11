@@ -41,6 +41,18 @@ if [ -z "$(behind_files "$remote" "$local")" ] && [ "${1:-}" != "--force" ]; the
   fi
 fi
 
+if [ "${1:-}" != "--force" ]; then
+  live="$(remote_live)"
+  lost="$(unrecorded_diff "$repo/rules" "$live")"
+  rm -rf "$live"
+  if [ -n "$lost" ]; then
+    echo "this machine holds rule edits that no version records, and the site holds other content:" >&2
+    echo "$lost" >&2
+    echo "run \`pnpm rules:push\` first. If it refuses, pass --force and apply the edits again from \`git -C rules log -p\`" >&2
+    exit 1
+  fi
+fi
+
 echo "==> download the rules"
 site_rsync -rt "$HOST:$SITE/rules/" "$repo/rules/"
 
