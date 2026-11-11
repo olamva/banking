@@ -5,7 +5,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { setTimeout as sleep } from "node:timers/promises";
-import { env, keychainGet, keychainSet } from "./token.ts";
+import { env, secretGet, secretSet } from "./token.ts";
 
 const API = "https://gmail.googleapis.com/gmail/v1/users/me";
 const QUERY =
@@ -76,12 +76,12 @@ export async function login(): Promise<void> {
     redirect_uri: redirectUri,
   });
   if (!t.refresh_token) throw new Error("Google returned no refresh token");
-  keychainSet("gmail", t.refresh_token);
+  secretSet("gmail", t.refresh_token);
   console.error("Gmail login stored in the keychain.");
 }
 
 export async function sync(dir: string): Promise<number> {
-  const refresh = keychainGet("gmail");
+  const refresh = secretGet("gmail");
   if (!refresh)
     throw new Error("No Gmail login. Run: pnpm receipts login gmail");
   const { access_token } = await postToken({

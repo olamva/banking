@@ -9,6 +9,7 @@
     "bank": "node src/bank.ts",
     "sb1": "node --env-file=.env src/cli.ts",
     "receipts": "node --env-file=.env src/receipts.ts",
+    "receipts:seed": "node --env-file=.env infra/receipts-seed.ts",
     "dev": "vite",
     "shot": "node infra/shot.ts",
     "test": "oxlint && node --test 'test/**/*.test.ts'",
