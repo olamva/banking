@@ -6,6 +6,7 @@ This repository serves one user.
 
 Create a PR into `main`. Put feedback requests in its description.
 Add a release to `src/web/app/releases.ts` for important features and major changes.
+Limit releases to changes in the app, including performance. Scripts, CI and terminal output get `no release`.
 Apply the `no release` label to every other PR. CI requires one of the two.
 Use the `babysit-pr` skill after creating or updating the PR.
 Complete implementation, relevant tests, and a review of the final diff before merging.
@@ -67,6 +68,7 @@ It uploads `rules/*.json`, `rules/.history/` and new `data/raw/receipts/` files 
 GitHub Actions builds the image from git. The VM pulls each new image. The image holds no personal data.
 Keep the deployment gate. Get an explicit decision before adding another upload route.
 Use `pnpm rules:pull` to download these files without sending personal data.
+Run only code tasks on the T3 VM `t3`. Never copy `data/` or `rules/` there.
 
 ## Money and classification
 
