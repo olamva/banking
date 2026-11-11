@@ -34,8 +34,6 @@ export async function withTokenLock<T>(work: () => Promise<T>): Promise<T> {
 
 const KEYCHAIN_SERVICE = "sb1-banking";
 
-// ponytail: the refresh token goes through argv, so `ps` shows it for a short
-// time. Use a helper that reads stdin if this machine gets other local users.
 export function keychainSet(account: string, secret: string): void {
   execFileSync("security", [
     "add-generic-password",
