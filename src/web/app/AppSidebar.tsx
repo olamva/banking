@@ -1,4 +1,3 @@
-import type { RuleFile } from "../../core/ruleFiles.ts";
 import { THEMES, setTheme, type Theme } from "./data.ts";
 import type { View } from "./FilterBar.tsx";
 import {
@@ -14,7 +13,14 @@ import {
   TransactionsIcon,
 } from "./icons.ts";
 import { CURRENT_RELEASE } from "./Releases.tsx";
-import { RULE_GROUPS, RULE_LABEL } from "./ruleMeta.ts";
+import {
+  CHECK_ICON,
+  RULE_LABEL,
+  TAB_GROUPS,
+  checkTone,
+  type Check,
+  type RuleTab,
+} from "./ruleMeta.ts";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -65,9 +71,9 @@ const title = (s: string) => s[0]!.toUpperCase() + s.slice(1);
 interface AppSidebarProps {
   view: View;
   onView: (view: View) => void;
-  ruleFile: RuleFile;
-  onRuleFile: (file: RuleFile) => void;
-  counts: Partial<Record<RuleFile, number>>;
+  ruleFile: RuleTab;
+  onRuleFile: (file: RuleTab) => void;
+  counts: Partial<Record<RuleTab, number>>;
   theme: Theme;
   onTheme: (theme: Theme) => void;
   onHelp: () => void;
@@ -144,33 +150,44 @@ export const AppSidebar = ({
           </SidebarGroupContent>
         </SidebarGroup>
         {view === "rules" &&
-          RULE_GROUPS.map(([label, files]) => (
+          TAB_GROUPS.map(([label, files]) => (
             <SidebarGroup
               key={label}
               className="group-data-[collapsible=icon]:hidden"
             >
-              <SidebarGroupLabel>{label} rules</SidebarGroupLabel>
+              <SidebarGroupLabel>
+                {label === "Checks" ? label : `${label} rules`}
+              </SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {files.map((f) => (
-                    <SidebarMenuItem key={f}>
-                      <SidebarMenuButton
-                        size="sm"
-                        isActive={ruleFile === f}
-                        onClick={() => {
-                          onRuleFile(f);
-                          close();
-                        }}
-                      >
-                        <span>{RULE_LABEL[f]}</span>
-                      </SidebarMenuButton>
-                      {counts[f] !== undefined && (
-                        <SidebarMenuBadge className="text-muted-foreground">
-                          {counts[f]}
-                        </SidebarMenuBadge>
-                      )}
-                    </SidebarMenuItem>
-                  ))}
+                  {files.map((f) => {
+                    const tone = checkTone(f, counts[f]);
+                    return (
+                      <SidebarMenuItem key={f}>
+                        <SidebarMenuButton
+                          size="sm"
+                          isActive={ruleFile === f}
+                          className={tone}
+                          onClick={() => {
+                            onRuleFile(f);
+                            close();
+                          }}
+                        >
+                          {f in CHECK_ICON && (
+                            <Icon icon={CHECK_ICON[f as Check]} />
+                          )}
+                          <span>{RULE_LABEL[f]}</span>
+                        </SidebarMenuButton>
+                        {counts[f] !== undefined && (
+                          <SidebarMenuBadge
+                            className={tone || "text-muted-foreground"}
+                          >
+                            {counts[f]}
+                          </SidebarMenuBadge>
+                        )}
+                      </SidebarMenuItem>
+                    );
+                  })}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { payeePattern } from "../../core/bulkRules.ts";
 import { haystackOf, ruleKey } from "../../core/match.ts";
 import {
   CATEGORY_VALUED,
@@ -33,7 +34,8 @@ import {
   DialogTitle,
 } from "./ui/dialog.tsx";
 
-const suggestPattern = (t: Categorized): string =>
+const suggestPattern = (t: Categorized, file: RuleFile): string =>
+  (file === "categories" && payeePattern(t)) ||
   (t.description.split(",")[0] ?? t.description).trim().toLowerCase();
 
 export interface FileDialogProps {
@@ -53,7 +55,7 @@ const PatternDialog = ({
   pairs,
   onClose,
 }: FileDialogProps) => {
-  const [pattern, setPattern] = useState(() => suggestPattern(txn));
+  const [pattern, setPattern] = useState(() => suggestPattern(txn, file));
   const map = isMapFile(file);
   const [value, setValue] = useState(() => {
     if (CATEGORY_VALUED.has(file))

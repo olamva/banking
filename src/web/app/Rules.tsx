@@ -1,25 +1,29 @@
 import { useDeferredValue, useMemo, useState } from "react";
 import { haystackOf } from "../../core/match.ts";
-import { overlaps } from "../../core/narrowings.ts";
 import {
   CATEGORY_VALUED,
   isMapFile,
+  isRuleFile,
   type RuleFile,
-  type RuleMap,
 } from "../../core/ruleFiles.ts";
 import type { Categorized } from "../../core/types.ts";
 import { Empty, Loading, Panel } from "./Cards.tsx";
+import { ConflictsView, ReviewView, type Checks } from "./Checks.tsx";
 import { SearchBox } from "./SearchBox.tsx";
 import type { RulesApi } from "./data.ts";
 import { AddedIcon, ErrorIcon, Icon } from "./icons.ts";
-import { RULE_GROUPS, RULE_LABEL, RULE_NOTE, entriesOf } from "./ruleMeta.ts";
+import {
+  CHECK_ICON,
+  RULE_LABEL,
+  RULE_NOTE,
+  TAB_GROUPS,
+  checkTone,
+  entriesOf,
+  type Check,
+  type RuleTab,
+} from "./ruleMeta.ts";
 import { Badge } from "./ui/badge.tsx";
 import { Button } from "./ui/button.tsx";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "./ui/collapsible.tsx";
 import {
   Select,
   SelectContent,
@@ -45,12 +49,7 @@ import { History } from "./RuleHistory.tsx";
 const GROUP_FIELD =
   "min-w-20 max-w-full flex-1 bg-transparent px-2 py-1 font-mono text-xs outline-none";
 
-const GROUPED = new Set<RuleFile>([
-  "categories",
-  "giro",
-  "payees",
-  "countries",
-]);
+const GROUPED = new Set<RuleTab>(["categories", "giro", "payees", "countries"]);
 
 const groupsOf = (entries: [string, string | null][]) => {
   const groups = new Map<string, string[]>();
@@ -182,7 +181,8 @@ export interface RulesViewProps {
   pairs: string[];
   // App owns this, because the page-wide arrows and the tabs in the header
   // both step it.
-  file: RuleFile;
+  file: RuleTab;
+  checks: Checks;
 }
 
 export const RulesView = ({
@@ -190,6 +190,7 @@ export const RulesView = ({
   txns,
   pairs,
   file: chosen,
+  checks,
 }: RulesViewProps) => {
   // The largest rule file draws two fields for each entry. A held arrow steps
   // through the eight tabs faster than that draws. The deferred value lets the
@@ -198,25 +199,8 @@ export const RulesView = ({
   const [find, setFind] = useState("");
   const haystacks = useMemo(() => txns.map(haystackOf), [txns]);
   const data = rules.data;
-  const categoryRules = data?.files.categories as RuleMap | undefined;
-  const payeeRules = data?.files.payees as RuleMap | undefined;
-  const categoryConflicts = useMemo(
-    () => overlaps(txns, categoryRules ?? {}),
-    [txns, categoryRules],
-  );
-  const payeeConflicts = useMemo(
-    () => overlaps(txns, payeeRules ?? {}, true),
-    [txns, payeeRules],
-  );
-  const conflicts = (
-    file === "payees"
-      ? payeeConflicts
-      : file === "categories"
-        ? categoryConflicts
-        : []
-  ).filter((c) => !c.harmless);
   const stale = txns.some((t) => t.originalCounterparty === undefined);
-  const entries = data ? entriesOf(data.files[file]) : [];
+  const entries = data && isRuleFile(file) ? entriesOf(data.files[file]) : [];
   const needle = find.trim().toLowerCase();
   const shown = needle
     ? entries.filter(
@@ -251,43 +235,21 @@ export const RulesView = ({
         </Button>
       </Panel>
     );
+  if (file === "review")
+    return (
+      <ReviewView
+        rules={rules}
+        txns={txns}
+        pairs={pairs}
+        groups={checks.review}
+      />
+    );
+  if (file === "conflicts")
+    return <ConflictsView conflicts={checks.conflicts} />;
 
   return (
     <section className="flex min-w-0 flex-col gap-4">
       <p className="text-sm text-muted-foreground">{RULE_NOTE[file]}</p>
-      {conflicts.length > 0 && (
-        <Collapsible className="min-w-0 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs">
-          <CollapsibleTrigger asChild>
-            <Button variant="link" className="h-7 px-0 text-destructive">
-              <Icon icon={ErrorIcon} size={14} />
-              Conflicting rules ({conflicts.length})
-            </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <p className="my-2">
-              These rules assign different values to the same transactions. They
-              have the same number of conditions, so the first matching rule
-              wins.
-            </p>
-            <ul className="space-y-3 pb-1">
-              {conflicts.map((c) => (
-                <li
-                  key={`${c.winner}|${c.loser}`}
-                  className="break-words [overflow-wrap:anywhere]"
-                >
-                  <p>
-                    <code>{c.winner}</code> → {c.winnerValue}
-                  </p>
-                  <p>
-                    Overrides <code>{c.loser}</code> → {c.loserValue}
-                  </p>
-                  <p>{c.rows} matching transaction(s).</p>
-                </li>
-              ))}
-            </ul>
-          </CollapsibleContent>
-        </Collapsible>
-      )}
 
       {data === null ? (
         <Loading />
@@ -373,9 +335,9 @@ export const RulesView = ({
 };
 
 interface RuleFileSelectProps {
-  file: RuleFile;
-  onFile: (file: RuleFile) => void;
-  counts: Partial<Record<RuleFile, number>>;
+  file: RuleTab;
+  onFile: (file: RuleTab) => void;
+  counts: Partial<Record<RuleTab, number>>;
 }
 
 export const RuleFileSelect = ({
@@ -383,7 +345,7 @@ export const RuleFileSelect = ({
   onFile,
   counts,
 }: RuleFileSelectProps) => (
-  <Select value={file} onValueChange={(f) => onFile(f as RuleFile)}>
+  <Select value={file} onValueChange={(f) => onFile(f as RuleTab)}>
     <SelectTrigger
       aria-label="Rule file"
       className="min-w-0 flex-1 sm:w-64 sm:flex-none"
@@ -391,22 +353,28 @@ export const RuleFileSelect = ({
       <SelectValue />
     </SelectTrigger>
     <SelectContent position="popper" align="start">
-      {RULE_GROUPS.map(([label, files]) => (
+      {TAB_GROUPS.map(([label, files]) => (
         <SelectGroup key={label}>
           <SelectLabel>{label}</SelectLabel>
-          {files.map((f) => (
-            <SelectItem key={f} value={f}>
-              {RULE_LABEL[f]}
-              {counts[f] !== undefined && (
-                <Badge
-                  variant="secondary"
-                  className="ml-auto h-4.5 px-1.5 tabular-nums"
-                >
-                  {counts[f]}
-                </Badge>
-              )}
-            </SelectItem>
-          ))}
+          {files.map((f) => {
+            const tone = checkTone(f, counts[f]);
+            return (
+              <SelectItem key={f} value={f} className={tone}>
+                {f in CHECK_ICON && (
+                  <Icon icon={CHECK_ICON[f as Check]} className={tone} />
+                )}
+                {RULE_LABEL[f]}
+                {counts[f] !== undefined && (
+                  <Badge
+                    variant="secondary"
+                    className={`ml-auto h-4.5 px-1.5 tabular-nums ${tone}`}
+                  >
+                    {counts[f]}
+                  </Badge>
+                )}
+              </SelectItem>
+            );
+          })}
         </SelectGroup>
       ))}
     </SelectContent>

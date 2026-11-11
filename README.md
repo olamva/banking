@@ -211,6 +211,9 @@ Inspect the matching transactions before saving.
 The rule applies to matching past and future transactions. It cannot override an exclusion.
 Transaction details show which classification source applies.
 
+**Rules → Review** lists the payees without a category rule. Guessed categories come first, and the sidebar counts them in yellow.
+**Rules → Conflicts** lists the category and payee rules that compete, and the sidebar counts them in red.
+
 After an upgrade, select **Rebuild saved transactions** if the Rules page requests it.
 This rebuild reads cached files and makes no bank request.
 
@@ -242,7 +245,7 @@ A rule with more conditions wins over a rule with fewer, in any position.
 
 `pnpm sb1 match "<pattern>"` counts the rows that a pattern claims.
 The database preserves the imported payee, so the editor and classifier match the same text.
-The Rules page lists conflicting category and payee rules.
+**Rules → Conflicts** lists conflicting category and payee rules.
 Different subcategories count as a conflict.
 `pnpm sb1 rebuild` prints category conflict warnings without `DEBUG` and suggests narrower patterns where possible.
 

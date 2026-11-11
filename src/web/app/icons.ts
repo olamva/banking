@@ -55,5 +55,6 @@ export { News01Icon as ReleaseIcon } from "@hugeicons/core-free-icons";
 export { ViewIcon as ShowExcludedIcon } from "@hugeicons/core-free-icons";
 
 export { AlertCircleIcon as ErrorIcon } from "@hugeicons/core-free-icons";
+export { Alert02Icon as WarningIcon } from "@hugeicons/core-free-icons";
 export { InformationCircleIcon as InfoIcon } from "@hugeicons/core-free-icons";
 export { Loading03Icon as LoadingIcon } from "@hugeicons/core-free-icons";
