@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { compile } from "../../core/match.ts";
+import { compileRule } from "../../core/match.ts";
 import {
   CATEGORY_VALUED,
   isMapFile,
@@ -31,7 +31,6 @@ import { cn } from "./ui/utils.ts";
 
 export const KEY_LABEL: Record<RuleFile, string> = {
   categories: "Pattern",
-  preferences: "Conditions",
   giro: "Pattern",
   payees: "Pattern",
   countries: "Pattern",
@@ -43,7 +42,6 @@ export const KEY_LABEL: Record<RuleFile, string> = {
 
 export const VALUE_LABEL: Record<RuleFile, string> = {
   categories: "category/sub",
-  preferences: "category/sub",
   giro: "category/sub",
   payees: "Name",
   countries: "Country",
@@ -180,9 +178,9 @@ const PatternMatchNote = ({ pattern, txns, haystacks }: MatchNoteProps) => {
   const result = useMemo(() => {
     if (!checkedPattern.trim()) return null;
     try {
-      const matches = compile(checkedPattern, "pattern");
+      const rule = compileRule(checkedPattern, "pattern");
       return {
-        matches: txns.filter((_, i) => matches(haystacks[i] ?? "")),
+        matches: txns.filter((t, i) => rule.matches(t, haystacks[i])),
         error: null,
       };
     } catch (e) {

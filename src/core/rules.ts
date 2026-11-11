@@ -6,8 +6,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { compile, splitCategory } from "./match.ts";
-import { readPreference } from "./preferences.ts";
+import { compile, compileRule, splitCategory } from "./match.ts";
 import { RULES_DIR } from "./paths.ts";
 import {
   CATEGORY_VALUED,
@@ -165,7 +164,7 @@ function check({ file, key, value, remove }: Edit): void {
   if (!key.trim()) throw new Error("the pattern is empty");
   // A bad regex throws here rather than at the next rebuild, where it would
   // break every category at once.
-  if (file === "preferences") readPreference(key);
+  if (file === "categories") compileRule(key, `${file}.json`);
   else compile(key, `${file}.json`);
   if (remove) return;
   if (!isMap(file)) return;
@@ -190,8 +189,8 @@ export function saveBulk(
   keys: string[],
   value: string,
 ): number {
-  if (file !== "payees" && file !== "preferences")
-    throw new Error("Bulk edits support payees and remembered categories");
+  if (file !== "payees" && file !== "categories")
+    throw new Error("Bulk edits support payees and categories");
   if (keys.length === 0) throw new Error("Select at least one transaction");
   for (const key of keys) check({ file, key, value });
   const existing = load(file) as Record<string, string>;

@@ -83,7 +83,7 @@ export const BulkToolbar = ({
       <Button
         variant="ghost"
         size="sm"
-        onClick={() => onBulk(targets, "preferences")}
+        onClick={() => onBulk(targets, "categories")}
       >
         <Icon icon={CategoryIcon} size={14} />
         Change category

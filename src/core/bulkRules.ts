@@ -1,13 +1,17 @@
 import { haystackOf } from "./match.ts";
 import type { Filters } from "./select.ts";
-import { preferenceKey } from "./preferences.ts";
 import type { Categorized } from "./types.ts";
 
-export type BulkFile = "payees" | "preferences";
+export type BulkFile = "payees" | "categories";
+
+export const payeePattern = (txn: Categorized): string | null =>
+  txn.excluded
+    ? null
+    : (txn.originalCounterparty ?? "").trim().toLowerCase() || null;
 
 export const bulkKey = (txn: Categorized, file: BulkFile): string | null => {
   if (txn.originalCounterparty === undefined) return null;
-  if (file === "preferences") return txn.excluded ? null : preferenceKey(txn);
+  if (file === "categories") return payeePattern(txn);
   const text = haystackOf(txn);
   return text.trim()
     ? `/^${text

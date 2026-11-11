@@ -211,17 +211,13 @@ Each run fetches `origin/main` into that clone and installs it. A failed run sho
 
 ## Categories
 
-Open a transaction and select **Remember category** to save a category without a pattern.
-The imported payee, payment type, direction, and recipient account must match exactly.
+Open a transaction and select **Category rule** to save a pattern for it.
 Inspect the matching transactions before saving.
-The choice applies to matching past and future transactions.
-It overrides category patterns, but it cannot override an exclusion.
-Display names and transaction IDs do not affect this match.
-
-**Rules → Remembered categories** groups bank categories and estimates for optional review.
-The page stores confirmed choices in `rules/preferences.json` and uses the existing history for undo and redo.
-It does not learn from its own predictions or send transactions to a model.
+The rule applies to matching past and future transactions. It cannot override an exclusion.
 Transaction details show which classification source applies.
+
+**Rules → Review** lists the payees without a category rule. Guessed categories come first, and the sidebar counts them in yellow.
+**Rules → Conflicts** lists the category and payee rules that compete, and the sidebar counts them in red.
 
 After an upgrade, select **Rebuild saved transactions** if the Rules page requests it.
 This rebuild reads cached files and makes no bank request.
@@ -244,9 +240,17 @@ Every line must work in any position. Narrow the _pattern_ to fix two lines that
 }
 ```
 
+A key can also be a JSON object that adds conditions to the pattern.
+`type` is a pattern for the payment type. `direction` is `in` or `out`. `account` is the exact recipient account.
+A rule with more conditions wins over a rule with fewer, in any position.
+
+```json
+{ "{\"pattern\":\"sas airline\",\"direction\":\"in\"}": "reise/flybilletter" }
+```
+
 `pnpm sb1 match "<pattern>"` counts the rows that a pattern claims.
 The database preserves the imported payee, so the editor and classifier match the same text.
-The Rules page lists conflicting category and payee rules.
+**Rules → Conflicts** lists conflicting category and payee rules.
 Different subcategories count as a conflict.
 `pnpm sb1 rebuild` prints category conflict warnings without `DEBUG` and suggests narrower patterns where possible.
 

@@ -4,7 +4,7 @@ import {
   type WeekdayHabit,
 } from "./insights.ts";
 import { buildLabels, type Names } from "./labels.ts";
-import { preferenceKey } from "./preferences.ts";
+import { payeePattern } from "./bulkRules.ts";
 import type { Receipt } from "./receipts.ts";
 import {
   axisBounds,
@@ -205,7 +205,7 @@ const appTxn = (t: Categorized): AppTxn => ({
   recurring: t.isSubscription || t.isRecurring,
   pending: t.isPending,
   excluded: t.excluded ? (t.reason ?? "Excluded") : null,
-  remember: t.excluded ? null : preferenceKey(t),
+  remember: payeePattern(t),
   receipt: t.receipt ?? null,
 });
 

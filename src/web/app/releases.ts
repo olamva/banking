@@ -6,6 +6,22 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "2.4.0",
+    date: "2026-11-11",
+    highlights: [
+      {
+        title: "One kind of category rule",
+        detail:
+          "Remembered categories are now category patterns. A pattern can also require a payment type, a direction or a recipient account. A rule with more conditions wins over a rule with fewer.",
+      },
+      {
+        title: "Checks on the Rules page",
+        detail:
+          "Review lists the payees that only have a bank category or a guess, and a yellow count shows the guesses. Conflicts collects the category and payee rules that compete, and a red count shows them.",
+      },
+    ],
+  },
+  {
     version: "2.3.0",
     date: "2026-11-11",
     highlights: [

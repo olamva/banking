@@ -9,7 +9,6 @@ import {
   loadGiro,
   loadNotSubscriptions,
   loadPayees,
-  loadPreferences,
   loadSubscriptions,
   renamePayees,
   setCountries,
@@ -87,7 +86,6 @@ export async function loadRules() {
     giro,
     family,
     notSubscriptions,
-    preferences,
     payees,
   ] = await Promise.all([
     loadCountries(),
@@ -96,7 +94,6 @@ export async function loadRules() {
     loadGiro(),
     loadFamily(),
     loadNotSubscriptions(),
-    loadPreferences(),
     loadPayees(),
   ]);
   return {
@@ -117,7 +114,6 @@ export async function loadRules() {
     giro,
     family,
     notSubscriptions,
-    preferences,
     payees,
   };
 }
@@ -142,7 +138,6 @@ export async function pipeline(
     r.cards,
     r.family,
     r.notSubscriptions,
-    r.preferences,
   );
   return rename ? renamePayees(rows, r.payees) : rows;
 }

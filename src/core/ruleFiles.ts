@@ -8,7 +8,6 @@ import { isRegex } from "./match.ts";
 // account numbers, opening balances and sync floors that no page may set.
 export const MAP_FILES = [
   "categories",
-  "preferences",
   "giro",
   "payees",
   "labels",
@@ -25,11 +24,7 @@ export type RuleFile = (typeof RULE_FILES)[number];
 export type RuleMap = Record<string, string>;
 export type Rules = RuleMap | string[];
 
-export const CATEGORY_VALUED = new Set<RuleFile>([
-  "categories",
-  "giro",
-  "preferences",
-]);
+export const CATEGORY_VALUED = new Set<RuleFile>(["categories", "giro"]);
 
 export const isMapFile = (file: RuleFile): boolean =>
   (MAP_FILES as readonly string[]).includes(file);
@@ -62,8 +57,7 @@ export function diffRules(before: Rules, after: Rules): RuleChange[] {
 
 const covers = (key: string, other: string): boolean =>
   other !== key &&
-  !isRegex(key) &&
-  !isRegex(other) &&
+  ![key, other].some((k) => isRegex(k) || k.startsWith("{")) &&
   other.toLowerCase().includes(key.toLowerCase());
 
 export const changeRules = (

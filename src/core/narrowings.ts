@@ -1,4 +1,4 @@
-import { compile, haystackOf } from "./match.ts";
+import { compileRule, haystackOf } from "./match.ts";
 import type { RuleMap } from "./ruleFiles.ts";
 import type { Categorized } from "./types.ts";
 
@@ -19,22 +19,27 @@ export function overlaps(
   categories: RuleMap,
   includeExcluded = false,
 ): Overlap[] {
-  const compiled = Object.keys(categories).map((p) => ({
-    pattern: p,
-    matches: compile(p, "rules/categories.json"),
-  }));
+  const compiled = Object.keys(categories)
+    .map((p) => ({ pattern: p, ...compileRule(p, "rules/categories.json") }))
+    .sort((a, b) => b.weight - a.weight);
   const acc = new Map<string, Overlap>();
   const hits = new Map<string, typeof compiled>();
 
   for (const t of rows) {
     if (t.excluded && !includeExcluded) continue;
     const haystack = haystackOf(t);
+    const facts = JSON.stringify([
+      haystack,
+      t.typeText,
+      Math.sign(t.amount),
+      t.remoteAccountNumber,
+    ]);
     const hit =
-      hits.get(haystack) ?? compiled.filter((c) => c.matches(haystack));
-    hits.set(haystack, hit);
+      hits.get(facts) ?? compiled.filter((c) => c.matches(t, haystack));
+    hits.set(facts, hit);
     if (hit.length < 2) continue;
-    const [winner, ...losers] = hit;
-    for (const loser of losers) {
+    const [winner, ...rest] = hit;
+    for (const loser of rest.filter((l) => l.weight === winner!.weight)) {
       const key = `${winner!.pattern} | ${loser.pattern}`;
       const o = acc.get(key) ?? {
         winner: winner!.pattern,
@@ -65,6 +70,7 @@ export type Narrowing = {
 };
 
 function body(pattern: string): string | null {
+  if (pattern.startsWith("{")) return null;
   const asRegex = /^\/(.+)\/([a-z]*)$/.exec(pattern);
   if (!asRegex)
     return pattern.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
