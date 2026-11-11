@@ -30,6 +30,7 @@ pnpm dev                            # its own port in 4010-4089, and its own dat
 
 T3 runs dependency installation and worktree linking after creating a worktree.
 Follow [the thread workflow](docs/thread-workflow.md) for PR completion, permissions, merge checks, and cleanup.
+Agents show UI changes as screenshots in the thread. `pnpm shot` captures them in headless WebKit and saves them to `~/.t3/userdata/attachments`.
 
 ## Commands
 
