@@ -57,8 +57,7 @@ export function diffRules(before: Rules, after: Rules): RuleChange[] {
 
 const covers = (key: string, other: string): boolean =>
   other !== key &&
-  !isRegex(key) &&
-  !isRegex(other) &&
+  ![key, other].some((k) => isRegex(k) || k.startsWith("{")) &&
   other.toLowerCase().includes(key.toLowerCase());
 
 export const changeRules = (
