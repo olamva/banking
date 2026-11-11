@@ -34,9 +34,6 @@ const STREET =
 
 // This function needs the whole corpus. One name does not show where its
 // street starts. A word that ends many unrelated names is a town.
-// ponytail: a heuristic. A fixed-width cut at 15/12/rest is exact, but SB1
-// joins the truncated fields with spaces and does not pad them. Check this
-// before you use a fixed width.
 export function makeCleaner(names: Iterable<string>): (name: string) => string {
   const endings = new Map<string, Set<string>>();
   for (const name of names) {
