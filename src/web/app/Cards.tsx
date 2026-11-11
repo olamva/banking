@@ -83,7 +83,11 @@ export const Panel = ({
     <CardHeader>
       <CardTitle className="flex items-center gap-2 text-sm font-medium">
         {icon && (
-          <Icon icon={icon} size={16} className="text-muted-foreground" />
+          <Icon
+            icon={icon}
+            size={16}
+            className="shrink-0 text-muted-foreground"
+          />
         )}
         {title}
       </CardTitle>
