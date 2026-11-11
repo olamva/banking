@@ -6,6 +6,17 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "2.5.0",
+    date: "2026-11-11",
+    highlights: [
+      {
+        title: "Coop receipts",
+        detail:
+          "Purchases at Coop stores, such as Extra, Prix, Obs and Mega, show their receipt lines, sizes and member discounts. Refresh fetches new Coop receipts with the other receipt sources.",
+      },
+    ],
+  },
+  {
     version: "2.4.0",
     date: "2026-11-11",
     highlights: [

@@ -4,6 +4,7 @@ export const SOURCES = {
   rema: () => import("./rema.ts"),
   trumf: () => import("./trumf.ts"),
   gmail: () => import("./gmail.ts"),
+  coop: () => import("./coop.ts"),
 };
 export type Source = keyof typeof SOURCES;
 
