@@ -57,6 +57,7 @@ Call the bank and receipt APIs only through `refresh` in `src/web/api.ts`.
 Start `refresh` only from the Refresh button, the hosted server's midnight run, or the first payload request of each Oslo day.
 Run the midnight and first-visit refreshes only on the hosted server, through `autoRefresh` in `src/web/server.ts`.
 Never call the bank API on other page loads, reloads, filter changes, or timers.
+Let the page poll only `/api/refresh/status`. It reports the refresh state and never starts a refresh.
 These routes live in `vite.config.ts` and `src/web/server.ts`.
 
 Use `reconcile` to identify missing months.

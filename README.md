@@ -87,7 +87,9 @@ Every rule save writes a snapshot to `rules/.history/`. _Undo the last change_ s
 
 Refresh is the only control on the page that touches the network. It fetches the months that can still change and new Rema, Trumf and Gmail receipts. Then it rebuilds `data/banking.db` and reloads the page. A failed receipt source does not stop the others, and the page shows its error. One refresh runs at a time. A typical press is one bank request.
 
-The hosted server also refreshes itself just after midnight in Oslo, and before it answers the first `/api/txns` or `/api/app` request of each Oslo day. That answer waits at most 20 seconds for the refresh. `data/visited` holds the date of that last first visit. `pnpm dev` refreshes only when you press Refresh.
+The page starts a refresh with `/api/refresh/start`, which answers at once. While the refresh runs, the page keeps its data, the Refresh button shows "Refreshing…", and the page asks `/api/refresh/status` every 2 seconds. When the refresh ends, the page reloads its data and shows the result. No request waits for the refresh, so a slow refresh never meets the proxy timeout. The iPhone app still calls `/api/refresh`, which waits for the result.
+
+The hosted server also refreshes itself just after midnight in Oslo, and when it answers the first `/api/txns` or `/api/app` request of each Oslo day. That answer does not wait. It carries `refreshing: true`, so the page shows the stored data and the indicator until the new data arrives. `data/visited` holds the date of that last first visit. `pnpm dev` refreshes only when you press Refresh.
 
 A month closes four days after it ends, which is the window a late card row books in. Only the open months cost a request. The code drops a pending row rather than counting it, so press Refresh again to collect the tail.
 

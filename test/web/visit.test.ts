@@ -16,17 +16,25 @@ mock.method(console, "error", () => {});
 const network = mock.method(globalThis, "fetch", () => {
   throw new Error("offline");
 });
-const { autoRefresh, visit } = await import("../../src/web/api.ts");
+const { autoRefresh, refresh, refreshRoute, visit } =
+  await import("../../src/web/api.ts");
 
-test("only the first visit of the day on the hosted server fetches", async () => {
-  await visit();
-  assert.equal(network.mock.callCount(), 0);
+const status = () =>
+  JSON.parse(refreshRoute("/api/refresh/status", undefined)!.body);
+
+test("only the first visit of the day on the hosted server starts a refresh, and the status reports it", async () => {
+  visit();
+  assert.equal(status().running, false);
 
   autoRefresh();
-  await visit();
+  visit();
+  assert.equal(status().running, true);
+  await refresh().catch(() => {});
   assert.ok(network.mock.callCount() > 0);
+  assert.deepEqual(Object.keys(status()), ["running", "last"]);
+  assert.equal(status().running, false);
+  assert.ok(status().last.at);
 
-  network.mock.resetCalls();
-  await visit();
-  assert.equal(network.mock.callCount(), 0);
+  visit();
+  assert.equal(status().running, false);
 });

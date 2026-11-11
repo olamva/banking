@@ -68,7 +68,10 @@ export const App = () => {
     all: Categorized[];
     file: BulkFile;
   } | null>(null);
-  const refresh = useRefresh(reload);
+  const refresh = useRefresh(
+    reload,
+    load.status === "ready" && load.refreshing,
+  );
   const rules = useRules(reload);
   const [filing, setFiling] = useState<{
     txn: Categorized;

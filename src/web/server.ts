@@ -17,8 +17,8 @@ import {
   HANDOFF_PAGE,
   appPayload,
   autoRefresh,
+  jsonRoute,
   payload,
-  periodPayload,
   refresh,
   rulesRoute,
   signedIn,
@@ -223,8 +223,11 @@ export const server = createServer(async (req, res) => {
     return;
   }
 
-  if (path === "/api/app/period") {
-    const a = periodPayload(url.searchParams.get("p"));
+  const a = jsonRoute(
+    url,
+    req.headers["x-banking-refresh"] as string | undefined,
+  );
+  if (a) {
     send(res, a.status, JSON_TYPE, a.body, coding(req, JSON_TYPE));
     return;
   }
@@ -236,7 +239,7 @@ export const server = createServer(async (req, res) => {
 
   const data = PAYLOADS.get(path);
   if (data) {
-    await visit();
+    visit();
     try {
       send(res, 200, JSON_TYPE, data(), coding(req, JSON_TYPE));
     } catch (e) {
