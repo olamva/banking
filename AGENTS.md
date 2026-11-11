@@ -68,7 +68,6 @@ It uploads `rules/*.json`, `rules/.history/` and new `data/raw/receipts/` files 
 GitHub Actions builds the image from git. The VM pulls each new image. The image holds no personal data.
 Keep the deployment gate. Get an explicit decision before adding another upload route.
 Use `pnpm rules:pull` to download these files without sending personal data.
-Run only code tasks on the T3 VM `t3`. Never copy `data/` or `rules/` there.
 
 ## Money and classification
 
