@@ -5,7 +5,7 @@ This repository serves one user.
 ## Complete the work
 
 Create a PR into `main`. Put feedback requests in its description.
-Add a release to `src/web/app/releases.ts` for important features and major changes.
+Add a release file to `src/web/app/release-notes/` for important features and major changes. The README gives its format.
 Limit releases to changes in the app, including performance. Scripts, CI and terminal output get `no release`.
 Apply the `no release` label to every other PR. CI requires one of the two.
 Use the `babysit-pr` skill after creating or updating the PR.
@@ -17,11 +17,11 @@ Ask only when a missing decision, permission, or external failure prevents progr
 Notify the user in the thread when work needs input and when the PR merges.
 Include the PR URL, validation results, and cleanup status in the final response.
 Keep T3 and its agent process running while checks run.
+Run each post-merge step yourself, such as `pnpm rules:push` and `pnpm receipts:seed`. Ask only when a tool refuses it twice.
 
-Fetch `origin/main` before merging. Merge it into the task branch when the task branch falls behind.
-Push the updated branch and repeat all checks for its new commit.
+Merge `origin/main` into the task branch only when GitHub reports a conflict. Then push and repeat all checks for the new commit.
 Use merge commits. Never force-push, bypass protection, or merge a PR stack.
-Keep GitHub's required CI check and strict branch updating enabled.
+Keep GitHub's required CI check enabled. Keep strict branch updating off.
 
 Use `pnpm worktree:link` after dependency installation when T3 does not run setup.
 Keep each task's changes in its existing worktree.
