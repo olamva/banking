@@ -249,7 +249,7 @@ const BulkPreview = ({
         <p>
           {rename
             ? "Match the complete imported description, payee, and recipient account. New names take priority over existing payee patterns."
-            : "Match the imported payee, payment type, direction, and recipient account. Exclusions still apply."}
+            : "Match the imported payee name. New categories take priority over existing category patterns. Exclusions still apply."}
         </p>
         <p>
           Save rules for matching past and future transactions. Filters do not

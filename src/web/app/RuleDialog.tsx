@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { haystackOf } from "../../core/match.ts";
+import { haystackOf, ruleKey } from "../../core/match.ts";
 import {
   CATEGORY_VALUED,
   isMapFile,
@@ -8,7 +8,6 @@ import {
 import type { Categorized } from "../../core/types.ts";
 import type { RulesApi } from "./data.ts";
 import { BackIcon, Icon } from "./icons.ts";
-import { RememberDialog } from "./Preferences.tsx";
 import {
   CategoryInput,
   FIELD,
@@ -18,6 +17,13 @@ import {
 } from "./RuleFields.tsx";
 import { RULE_LABEL, RULE_NOTE } from "./ruleMeta.ts";
 import { Button } from "./ui/button.tsx";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select.tsx";
 import {
   Dialog,
   DialogContent,
@@ -58,6 +64,19 @@ const PatternDialog = ({
     if (file === "countries") return txn.country ?? "";
     return "";
   });
+  const [type, setType] = useState("");
+  const [direction, setDirection] = useState("any");
+  const [account, setAccount] = useState("");
+  const key =
+    file === "categories"
+      ? ruleKey({
+          pattern: pattern.trim(),
+          type: type.trim() || undefined,
+          direction:
+            direction === "any" ? undefined : (direction as "in" | "out"),
+          account: account.trim() || undefined,
+        })
+      : pattern.trim();
   const haystacks = useMemo(() => txns.map(haystackOf), [txns]);
   const ready = pattern.trim() !== "" && (!map || value.trim() !== "");
 
@@ -69,7 +88,7 @@ const PatternDialog = ({
           onSubmit={(e) => {
             e.preventDefault();
             if (!ready) return;
-            rules.save(file, pattern.trim(), map ? value.trim() : undefined);
+            rules.save(file, key, map ? value.trim() : undefined);
             onClose();
           }}
         >
@@ -88,7 +107,42 @@ const PatternDialog = ({
               className={`${FIELD} font-mono font-normal`}
             />
           </label>
-          <MatchNote pattern={pattern} txns={txns} haystacks={haystacks} />
+          {file === "categories" && (
+            <div className="grid gap-3 sm:grid-cols-3">
+              <label className="flex flex-col gap-1.5 text-xs font-medium">
+                Payment type
+                <input
+                  value={type}
+                  onChange={(e) => setType(e.target.value)}
+                  placeholder={txn.typeText ?? "Any"}
+                  className={`${FIELD} font-mono font-normal`}
+                />
+              </label>
+              <label className="flex flex-col gap-1.5 text-xs font-medium">
+                Direction
+                <Select value={direction} onValueChange={setDirection}>
+                  <SelectTrigger className="w-full font-normal">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="any">Any</SelectItem>
+                    <SelectItem value="out">Money out</SelectItem>
+                    <SelectItem value="in">Money in</SelectItem>
+                  </SelectContent>
+                </Select>
+              </label>
+              <label className="flex flex-col gap-1.5 text-xs font-medium">
+                Recipient account
+                <input
+                  value={account}
+                  onChange={(e) => setAccount(e.target.value)}
+                  placeholder={txn.remoteAccountNumber ?? "Any"}
+                  className={`${FIELD} font-mono font-normal`}
+                />
+              </label>
+            </div>
+          )}
+          <MatchNote pattern={key} txns={txns} haystacks={haystacks} />
 
           {map && (
             <label className="flex flex-col gap-1.5 text-xs font-medium [&>div]:basis-auto">
@@ -127,9 +181,4 @@ const PatternDialog = ({
   );
 };
 
-export const FileDialog = (props: FileDialogProps) =>
-  props.file === "preferences" ? (
-    <RememberDialog {...props} />
-  ) : (
-    <PatternDialog {...props} />
-  );
+export const FileDialog = PatternDialog;

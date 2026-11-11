@@ -12,7 +12,6 @@ import { Empty, Loading, Panel } from "./Cards.tsx";
 import { SearchBox } from "./SearchBox.tsx";
 import type { RulesApi } from "./data.ts";
 import { AddedIcon, ErrorIcon, Icon } from "./icons.ts";
-import { PreferencesView } from "./Preferences.tsx";
 import { RULE_GROUPS, RULE_LABEL, RULE_NOTE, entriesOf } from "./ruleMeta.ts";
 import { Badge } from "./ui/badge.tsx";
 import { Button } from "./ui/button.tsx";
@@ -252,8 +251,6 @@ export const RulesView = ({
         </Button>
       </Panel>
     );
-  if (file === "preferences")
-    return <PreferencesView rules={rules} txns={txns} pairs={pairs} />;
 
   return (
     <section className="flex min-w-0 flex-col gap-4">
@@ -268,8 +265,9 @@ export const RulesView = ({
           </CollapsibleTrigger>
           <CollapsibleContent>
             <p className="my-2">
-              These rules assign different values to the same transactions. The
-              first matching rule wins.
+              These rules assign different values to the same transactions. They
+              have the same number of conditions, so the first matching rule
+              wins.
             </p>
             <ul className="space-y-3 pb-1">
               {conflicts.map((c) => (

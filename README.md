@@ -206,16 +206,9 @@ Each run fetches `origin/main` into that clone and installs it. A failed run sho
 
 ## Categories
 
-Open a transaction and select **Remember category** to save a category without a pattern.
-The imported payee, payment type, direction, and recipient account must match exactly.
+Open a transaction and select **Category rule** to save a pattern for it.
 Inspect the matching transactions before saving.
-The choice applies to matching past and future transactions.
-It overrides category patterns, but it cannot override an exclusion.
-Display names and transaction IDs do not affect this match.
-
-**Rules → Remembered categories** groups bank categories and estimates for optional review.
-The page stores confirmed choices in `rules/preferences.json` and uses the existing history for undo and redo.
-It does not learn from its own predictions or send transactions to a model.
+The rule applies to matching past and future transactions. It cannot override an exclusion.
 Transaction details show which classification source applies.
 
 After an upgrade, select **Rebuild saved transactions** if the Rules page requests it.
@@ -237,6 +230,14 @@ Every line must work in any position. Narrow the _pattern_ to fix two lines that
 {
   "/^(?!.*(?:sit kafe|sit storkiosk))(?=.*\\bsit\\b)/": "faste_utgifter/boligutgifter"
 }
+```
+
+A key can also be a JSON object that adds conditions to the pattern.
+`type` is a pattern for the payment type. `direction` is `in` or `out`. `account` is the exact recipient account.
+A rule with more conditions wins over a rule with fewer, in any position.
+
+```json
+{ "{\"pattern\":\"sas airline\",\"direction\":\"in\"}": "reise/flybilletter" }
 ```
 
 `pnpm sb1 match "<pattern>"` counts the rows that a pattern claims.

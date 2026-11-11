@@ -93,6 +93,7 @@ Preserve this `categorize` precedence:
 7. The travel guess, for card rows only.
 
 Keep `rules/categories.json` independent of line order. Reordering must never change a row's category.
+Keep one category rule type. A key with more conditions wins over a key with fewer conditions.
 Fix collisions between different categories by narrowing patterns, never by changing the matcher or line order.
 Use `rebuild` to report collisions and suggested patterns. Leave collisions within the same category alone.
 

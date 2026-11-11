@@ -102,20 +102,20 @@ test("excluded rows stay in the list with their reason", () => {
   assert.equal(data.labels.dagligvarer, "Food");
 });
 
-test("only counted rows with a payee and payment type offer a remembered category", () => {
+test("only counted rows with an imported payee offer a category pattern", () => {
   const typed = appData(
     [
-      txn("2026-10-02", -10, { typeText: "Varekjøp" }),
-      txn("2026-10-03", -20, { typeText: "Varekjøp", excluded: true }),
-      txn("2026-10-04", -30),
+      txn("2026-10-02", -10, { originalCounterparty: " KIWI 123 " }),
+      txn("2026-10-03", -20, { originalCounterparty: "KIWI", excluded: true }),
+      txn("2026-10-04", -30, { originalCounterparty: "" }),
     ],
     {},
     "2026-10-12",
     "now",
   );
   assert.deepEqual(
-    typed.txns.map((t) => t.remember !== null),
-    [false, false, true],
+    typed.txns.map((t) => t.remember),
+    [null, null, "kiwi 123"],
   );
 });
 

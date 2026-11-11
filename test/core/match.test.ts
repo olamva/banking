@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import {
-  preferenceKey,
-  readPreference,
-  reviewGroups,
-} from "../../src/core/preferences.ts";
 import { categorize, renamePayees } from "../../src/core/categorize.ts";
-import { compile, haystackOf } from "../../src/core/match.ts";
+import {
+  compile,
+  haystackOf,
+  readRule,
+  ruleKey,
+} from "../../src/core/match.ts";
 import { overlaps, narrowings } from "../../src/core/narrowings.ts";
 import type { Classified } from "../../src/core/types.ts";
 
@@ -33,8 +33,13 @@ const row: Classified = {
   reason: null,
 };
 
-test("remembered categories use original identity and preserve exclusions", () => {
-  const key = preferenceKey(row)!;
+test("a rule with more conditions beats a plain pattern in any line order and keeps exclusions", () => {
+  const narrow = ruleKey({
+    pattern: "raw shop",
+    type: "card",
+    direction: "out",
+    account: "recipient-a",
+  });
   const rows = [
     row,
     { ...row, id: "booked-again", date: "2026-10-01", amount: -250 },
@@ -45,50 +50,53 @@ test("remembered categories use original identity and preserve exclusions", () =
     { ...row, excluded: true, reason: "internal transfer" },
   ];
   const renamed = renamePayees(rows, { "raw shop": "Display name" });
-  assert.equal(preferenceKey(renamed[0]!), key);
-  const out = categorize(
-    renamed,
-    { "raw shop": "old" },
-    [],
-    {},
-    new Set(),
-    [],
-    [],
-    { [key]: "home/furniture" },
-  );
-  assert.deepEqual(
-    out.map((t) => t.category),
-    ["home", "home", "old", "old", "old", "food", "overfoering"],
-  );
-  assert.equal(out[0]!.categorySource, "Remembered category");
-  assert.equal(out[0]!.subcategory, "furniture");
-  assert.deepEqual(
-    out.map((t) => [t.amount, t.excluded, t.reason]),
-    rows.map((t) => [t.amount, t.excluded, t.reason]),
-  );
+  for (const categories of [
+    { "raw shop": "old", [narrow]: "home/furniture" },
+    { [narrow]: "home/furniture", "raw shop": "old" },
+  ]) {
+    const out = categorize(renamed, categories);
+    assert.deepEqual(
+      out.map((t) => t.category),
+      ["home", "home", "old", "old", "old", "food", "overfoering"],
+    );
+    assert.equal(out[0]!.categorySource, "Category rule");
+    assert.equal(out[0]!.subcategory, "furniture");
+    assert.deepEqual(
+      out.map((t) => [t.amount, t.excluded, t.reason]),
+      rows.map((t) => [t.amount, t.excluded, t.reason]),
+    );
+  }
 });
 
-test("preferences reject incomplete and noncanonical identities", () => {
+test("rules reject malformed and noncanonical conditions", () => {
   for (const key of [
-    "[]",
     "{}",
-    "null",
-    '["shop","card",0,""]',
-    '["shop","",-1,""]',
-    '["SHOP","card",-1,""]',
-    '["shop","card",-1,"",123]',
+    '{"pattern":"shop"}',
+    '{"pattern":"","type":"card"}',
+    '{"pattern":"shop","direction":"sideways"}',
+    '{"pattern":"shop","colour":"red"}',
+    '{"type":"card","pattern":"shop"}',
+    '{"pattern":"shop","account":1}',
+    "{not json",
   ])
-    assert.throws(() => readPreference(key));
-  assert.equal(preferenceKey({ ...row, counterparty: null }), null);
-  assert.equal(preferenceKey({ ...row, typeText: null }), null);
-  assert.equal(preferenceKey({ ...row, amount: 0 }), null);
+    assert.throws(() => readRule(key, "test"), /not a valid rule/);
+  assert.deepEqual(readRule("shop", "test"), { pattern: "shop" });
+  assert.equal(ruleKey({ pattern: "shop" }), "shop");
+});
+
+test("only rules with the same number of conditions conflict", () => {
+  const rows = categorize([row], {});
+  const narrow = ruleKey({ pattern: "shop", direction: "out" });
+  assert.deepEqual(
+    overlaps(rows, { "raw shop": "food", [narrow]: "home" }),
+    [],
+  );
   assert.equal(
-    preferenceKey({
-      ...row,
-      originalCounterparty: "",
-      counterparty: "Named by rule",
-    }),
-    null,
+    overlaps(rows, {
+      [narrow]: "home",
+      [ruleKey({ pattern: "raw", type: "card" })]: "food",
+    }).length,
+    1,
   );
 });
 
@@ -137,22 +145,4 @@ test("stateful regex flags do not alternate rule matches", () => {
     [match("shop"), match("shop"), match("shop")],
     [true, true, true],
   );
-});
-
-test("review groups include only eligible unconfirmed identities", () => {
-  const rows = categorize(
-    [
-      row,
-      { ...row, id: "later", date: "2026-09-02" },
-      { ...row, typeText: "Giro" },
-      { ...row, excluded: true },
-    ],
-    {},
-  );
-  const groups = reviewGroups(rows, {});
-  assert.equal(groups.length, 2);
-  assert.equal(groups[0]!.length, 2);
-  assert.equal(groups[0]![0]!.id, "later");
-  assert.equal(reviewGroups(rows, { [preferenceKey(row)!]: "food" }).length, 1);
-  assert.equal(reviewGroups(categorize([row], { shop: "food" }), {}).length, 0);
 });

@@ -156,8 +156,8 @@ struct Answer: Decodable {
     private static let plain = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~")
 
     func remember(_ key: String, as value: String) async -> String? {
-        guard let base, var parts = URLComponents(url: base.appending(path: "api/rules/save"), resolvingAgainstBaseURL: false) else { return "No server." }
-        parts.percentEncodedQuery = ["file": "preferences", "key": key, "value": value]
+        guard let base, var parts = URLComponents(url: base.appending(path: "api/rules/bulk"), resolvingAgainstBaseURL: false) else { return "No server." }
+        parts.percentEncodedQuery = ["file": "categories", "key": key, "value": value]
             .map { "\($0.key)=\($0.value.addingPercentEncoding(withAllowedCharacters: Self.plain) ?? "")" }
             .joined(separator: "&")
         do {

@@ -6,6 +6,17 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "2.3.0",
+    date: "2026-11-11",
+    highlights: [
+      {
+        title: "One kind of category rule",
+        detail:
+          "Remembered categories are now category patterns. A pattern can also require a payment type, a direction or a recipient account. A rule with more conditions wins over a rule with fewer.",
+      },
+    ],
+  },
+  {
     version: "2.2.0",
     date: "2026-11-11",
     highlights: [

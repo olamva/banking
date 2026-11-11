@@ -2,7 +2,6 @@ import type { RuleFile, Rules } from "../../core/ruleFiles.ts";
 
 export const RULE_LABEL: Record<RuleFile, string> = {
   categories: "Categories",
-  preferences: "Remembered categories",
   giro: "Giro",
   payees: "Payee names",
   countries: "Countries",
@@ -14,8 +13,7 @@ export const RULE_LABEL: Record<RuleFile, string> = {
 
 export const RULE_NOTE: Record<RuleFile, string> = {
   categories:
-    "Patterns set categories unless an exclusion or a remembered category applies.",
-  preferences: "Save a category for an exact payee and payment context.",
+    "Pattern to category, unless an exclusion applies. Add a payment type, direction or recipient account to narrow a rule. A rule with more conditions wins.",
   giro: "Pattern to category, on a lump only. A giro or a plain Overførsel, never an instant payment.",
   payees:
     "Pattern to the name on the page. A rename can never move money, so this file is safe to edit.",
@@ -31,14 +29,7 @@ export const RULE_NOTE: Record<RuleFile, string> = {
 export const RULE_GROUPS: [string, RuleFile[]][] = [
   [
     "Transactions",
-    [
-      "preferences",
-      "categories",
-      "giro",
-      "family",
-      "subscriptions",
-      "not-subscriptions",
-    ],
+    ["categories", "giro", "family", "subscriptions", "not-subscriptions"],
   ],
   ["Display", ["payees", "countries", "labels"]],
 ];

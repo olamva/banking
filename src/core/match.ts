@@ -40,3 +40,61 @@ export function compile(pattern: string, source: string): Matcher {
     );
   }
 }
+
+export type Conditions = {
+  pattern: string;
+  type?: string;
+  direction?: "in" | "out";
+  account?: string;
+};
+
+type Facts = Parameters<typeof haystackOf>[0] & {
+  typeText: string | null;
+  amount: number;
+};
+
+export type Rule = {
+  weight: number;
+  matches: (t: Facts, haystack?: string) => boolean;
+};
+
+const FIELDS = ["pattern", "type", "direction", "account"];
+
+export const ruleKey = ({ pattern, type, direction, account }: Conditions) =>
+  type || direction || account
+    ? JSON.stringify({ pattern, type, direction, account })
+    : pattern;
+
+export function readRule(key: string, source: string): Conditions {
+  if (!key.startsWith("{")) return { pattern: key };
+  let value: unknown;
+  try {
+    value = JSON.parse(key);
+  } catch {}
+  const ok =
+    typeof value === "object" &&
+    value !== null &&
+    "pattern" in value &&
+    Object.entries(value).every(
+      ([k, v]) => FIELDS.includes(k) && typeof v === "string" && v.trim(),
+    ) &&
+    [undefined, "in", "out"].includes((value as Conditions).direction) &&
+    ruleKey(value as Conditions) === key;
+  if (!ok) throw new Error(`${source}: ${key} is not a valid rule`);
+  return value as Conditions;
+}
+
+export function compileRule(key: string, source: string): Rule {
+  const { pattern, type, direction, account } = readRule(key, source);
+  const text = compile(pattern, source);
+  const kind = type === undefined ? null : compile(type, source);
+  const sign = direction === undefined ? 0 : direction === "in" ? 1 : -1;
+  return {
+    weight: [type, direction, account].filter(Boolean).length,
+    matches: (t, haystack = haystackOf(t)) =>
+      text(haystack) &&
+      (!kind || kind((t.typeText ?? "").toLowerCase())) &&
+      (!sign || Math.sign(t.amount) === sign) &&
+      (!account || t.remoteAccountNumber === account),
+  };
+}

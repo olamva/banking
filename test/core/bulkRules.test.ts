@@ -52,29 +52,22 @@ test("bulk rename escapes imported text and previews matching rows outside selec
   assert.equal(match(`${haystackOf(row)}\n`), false);
 });
 
-test("bulk category preview preserves exclusions, sign, type, and recipient boundaries", () => {
-  const same = { ...row, id: "new-id", amount: -250, counterparty: "Renamed" };
+test("bulk category preview groups by imported payee and skips exclusions", () => {
+  const same = { ...row, id: "new-id", amount: 250, counterparty: "Renamed" };
   const excluded = { ...row, excluded: true };
-  const unknown = { ...row, typeText: null };
-  const all = [
-    row,
-    same,
-    excluded,
-    unknown,
-    { ...row, amount: 100 },
-    { ...row, typeText: "Giro" },
-    { ...row, remoteAccountNumber: "recipient-b" },
-  ];
-  const plan = bulkPlan([row, same, excluded, unknown], all, "preferences");
-  assert.equal(plan.keys.length, 1);
+  const unnamed = { ...row, originalCounterparty: "" };
+  const other = { ...row, originalCounterparty: "OTHER" };
+  const all = [row, same, excluded, unnamed, other];
+  const plan = bulkPlan([row, excluded, unnamed], all, "categories");
+  assert.deepEqual(plan.keys, ["shop (a+b)"]);
   assert.deepEqual(plan.matches, [row, same]);
   assert.equal(plan.skipped, 2);
-  assert.equal(plan.outside, 0);
+  assert.equal(plan.outside, 1);
 });
 
 test("bulk edits refuse stale imported names and empty selections", () => {
   const stale = { ...row, originalCounterparty: undefined };
-  for (const file of ["payees", "preferences"] as const) {
+  for (const file of ["payees", "categories"] as const) {
     assert.deepEqual(bulkPlan([], [row], file).keys, []);
     assert.deepEqual(bulkPlan([stale], [stale], file).keys, []);
   }
@@ -108,7 +101,7 @@ test("bulk edits retain existing filters and include the new name or category", 
     ...before,
     merchants: ["Shop", "Cafe", "Unified"],
   });
-  assert.deepEqual(bulkFilters(before, "preferences", "home/furniture"), {
+  assert.deepEqual(bulkFilters(before, "categories", "home/furniture"), {
     ...before,
     categories: ["food", "home/furniture"],
   });
