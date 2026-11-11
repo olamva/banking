@@ -76,7 +76,22 @@ before(async () => {
       bank("coop", "2026-09-05", -180, "COOP EXTRA MOHOLT"),
       bank("kiwi", "2026-09-07", -268.41, "KIWI 505 MOHOLT"),
       bank("twitch", "2026-09-03", -59, "TWITCH"),
+      bank("rema-split", "2026-09-12", -650.19, "REMA 1000 MOHOLT"),
     ],
+  });
+  put("data/raw/receipts/rema/2.json", {
+    head: {
+      id: 2,
+      purchaseDate: Date.parse("2026-09-11T12:00:00+02:00"),
+      storeName: "REMA 1000 MOHOLT",
+      amount: 850.19,
+      transactionPayments: [
+        { amount: 0, meansOfPaymentDesc: "Rounding" },
+        { amount: 200, meansOfPaymentDesc: "CreditDebit" },
+        { amount: 650.19, meansOfPaymentDesc: "CreditDebit" },
+      ],
+    },
+    receipt: { rows: [item("Kaffe", 1, 850.19)] },
   });
   put("data/raw/receipts/rema/1.json", {
     head: {
@@ -191,6 +206,11 @@ test("a store receipt reaches its card row, not a same-priced row at another sho
   );
   assert.equal(receiptOf("coop"), undefined);
   assert.equal(receiptOf("kiwi"), "trumf/b-1");
+  assert.equal(
+    receiptOf("rema-split"),
+    "rema/2",
+    "one card payment of a split payment",
+  );
 });
 
 test("a receipt line keeps the pack size apart from the product name", () => {
@@ -276,7 +296,7 @@ test("each mail goes to one bank row, and each row takes the closest mail", () =
 });
 
 test("a broken or undated receipt file leaves the rest of the rebuild intact", () => {
-  assert.equal(rows.length, 6);
+  assert.equal(rows.length, 7);
   assert.ok(
     errors.mock.calls.some((c) =>
       String(c.arguments[0]).includes("broken.json"),
