@@ -1,5 +1,4 @@
 import type { RuleChange, RuleFile } from "../../core/ruleFiles.ts";
-import { preferenceLabel } from "../../core/preferences.ts";
 import { Note } from "./Cards.tsx";
 import { versionAt, type RulesApi } from "./data.ts";
 import {
@@ -38,7 +37,7 @@ const Change = ({ change: { key, from, to }, file }: ChangeProps) => {
         className={`shrink-0 self-center ${gone ? "text-destructive" : "text-chart-1"}`}
       />
       <span className="min-w-0 break-words text-foreground [overflow-wrap:anywhere]">
-        {file === "preferences" ? preferenceLabel(key) : key}
+        {key}
       </span>
       {value && (
         <span className="min-w-0 truncate text-muted-foreground">{value}</span>

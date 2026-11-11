@@ -147,6 +147,11 @@ const letters = (s: string) => s.toLowerCase().replace(/[^a-zæøå]/g, "");
 
 const firstWord = (s: string) => letters(s.trim().split(/\s/)[0] ?? "");
 
+const cardPayments = (head: RemaFile["head"]) =>
+  head.transactionPayments.filter(
+    (p) => p.meansOfPaymentDesc === "CreditDebit",
+  );
+
 export const remaReceipt = ({ head, receipt }: RemaFile): Found => ({
   receipt: {
     source: "rema",
@@ -158,9 +163,8 @@ export const remaReceipt = ({ head, receipt }: RemaFile): Found => ({
     payments: remaPayments(head),
   },
   amounts: [
-    head.transactionPayments
-      .filter((p) => p.meansOfPaymentDesc === "CreditDebit")
-      .reduce((sum, p) => sum + p.amount, 0),
+    sum(cardPayments(head)),
+    ...cardPayments(head).map((p) => p.amount),
   ].filter((a) => a > 0),
   names: ["rema"],
 });

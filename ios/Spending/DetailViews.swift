@@ -222,12 +222,12 @@ struct RememberView: View {
         NavigationStack {
             List {
                 Section {
-                    Text(conditions).font(.subheadline)
+                    Text(key).font(.subheadline.monospaced())
                     Text("\(matches.count) matching transactions. \(matches.filter { $0.pair != value }.count) category changes.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 } footer: {
-                    Text("The imported payee, payment type, direction and recipient account must match exactly. This choice overrides category patterns. Exclusions still apply.")
+                    Text("Saves a category pattern for this payee. It takes priority over existing category patterns. Exclusions still apply.")
                 }
                 Section("Category") {
                     ForEach(choices, id: \.pair) { choice in
@@ -246,7 +246,7 @@ struct RememberView: View {
                 }
             }
             .searchable(text: $query, prompt: "Categories")
-            .navigationTitle("Remember category")
+            .navigationTitle("Change category")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -278,14 +278,6 @@ struct RememberView: View {
             .map { (pair: $0, title: data.pairLabel($0)) }
             .filter { choice in words.allSatisfy { choice.title.lowercased().contains($0) } }
             .sorted { $0.title < $1.title }
-    }
-
-    private var conditions: String {
-        guard let parts = try? JSONSerialization.jsonObject(with: Data(key.utf8)) as? [Any], parts.count == 4 else { return key }
-        let account = parts[3] as? String ?? ""
-        return ["\(parts[0])", "\(parts[1])", (parts[2] as? Int ?? 0) < 0 ? "Money out" : "Money in", account.isEmpty ? nil : "Recipient \(account)"]
-            .compactMap { $0 }
-            .joined(separator: " · ")
     }
 
     private func save() async {

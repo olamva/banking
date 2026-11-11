@@ -24,10 +24,12 @@ test("a shorter plain pattern replaces the longer ones it covers for the same va
     "microsoft-g182814034": "Azure",
     "microsoft-gx": "Other",
     "/microsoft-g1/": "Azure",
+    '{"pattern":"microsoft-g1","direction":"in"}': "Azure",
   };
   assert.deepEqual(changeRules(map, "Microsoft-G", "Azure"), {
     "microsoft-gx": "Other",
     "/microsoft-g1/": "Azure",
+    '{"pattern":"microsoft-g1","direction":"in"}': "Azure",
     "Microsoft-G": "Azure",
   });
   assert.deepEqual(changeRules(["ola nordmann", "kari"], "ola"), [

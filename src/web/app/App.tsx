@@ -43,7 +43,8 @@ import { Insights } from "./Insights.tsx";
 import { useFilterOptions } from "./options.ts";
 import { PeriodPicker } from "./PeriodPicker.tsx";
 import { ReleaseNotesDialog } from "./Releases.tsx";
-import { RULE_TAB_FILES, entriesOf } from "./ruleMeta.ts";
+import { guessedCount, useChecks } from "./Checks.tsx";
+import { RULE_TABS, entriesOf, type RuleTab } from "./ruleMeta.ts";
 import { FileDialog } from "./RuleDialog.tsx";
 import { RuleFileSelect, RulesView } from "./Rules.tsx";
 import { ShortcutsDialog, useShortcuts, type Shortcut } from "./Shortcuts.tsx";
@@ -76,7 +77,7 @@ export const App = () => {
   const [initial] = useState(readUrl);
   const [view, setView] = useState<View>(initial.view);
   const shownView = useDeferredValue(view);
-  const [ruleFile, setRuleFile] = useState<RuleFile>(initial.ruleFile);
+  const [ruleFile, setRuleFile] = useState<RuleTab>(initial.ruleFile);
   const [chosen, setChosen] = useState<string | null>(initial.period);
   const [filters, setFilters] = useState<Filters>(initial.filters);
   const [chosenGrain, setChosenGrain] = useState<Grain>(initial.grain);
@@ -110,14 +111,22 @@ export const App = () => {
     [txns],
   );
 
+  const checks = useChecks(rules, txns, view === "rules");
   const counts = useMemo(
-    (): Partial<Record<RuleFile, number>> =>
+    (): Partial<Record<RuleTab, number>> =>
       rules.data
-        ? Object.fromEntries(
-            RULE_FILES.map((f) => [f, entriesOf(rules.data!.files[f]).length]),
-          )
+        ? {
+            ...Object.fromEntries(
+              RULE_FILES.map((f) => [
+                f,
+                entriesOf(rules.data!.files[f]).length,
+              ]),
+            ),
+            review: guessedCount(checks.review),
+            conflicts: checks.conflicts.length,
+          }
         : {},
-    [rules.data],
+    [rules.data, checks],
   );
 
   const offered = [...months, ...years, "all"];
@@ -152,9 +161,8 @@ export const App = () => {
     if (view !== "rules") return step(by);
     setRuleFile(
       (f) =>
-        RULE_TAB_FILES[
-          (RULE_TAB_FILES.indexOf(f) + by + RULE_TAB_FILES.length) %
-            RULE_TAB_FILES.length
+        RULE_TABS[
+          (RULE_TABS.indexOf(f) + by + RULE_TABS.length) % RULE_TABS.length
         ]!,
     );
   };
@@ -268,7 +276,13 @@ export const App = () => {
 
   const views: Record<View, () => ReactNode> = {
     rules: () => (
-      <RulesView rules={rules} txns={txns} pairs={pairs} file={ruleFile} />
+      <RulesView
+        rules={rules}
+        txns={txns}
+        pairs={pairs}
+        file={ruleFile}
+        checks={checks}
+      />
     ),
     dashboard: () => (
       <Dashboard

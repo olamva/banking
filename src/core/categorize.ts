@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import {
   compile,
+  compileRule,
   haystackOf,
   splitCategory,
   type Matcher,
@@ -9,7 +10,6 @@ import {
 } from "./match.ts";
 import { makeCleaner } from "./names.ts";
 import { RULES_DIR } from "./paths.ts";
-import { preferenceKey, readPreference } from "./preferences.ts";
 import type { RuleMap } from "./ruleFiles.ts";
 import type { Categorized, Classified } from "./types.ts";
 
@@ -41,9 +41,6 @@ const VIPPS_PEER_DOUBLED = /vipps\*\s*vipps\*/i;
 const LUMP_TYPE = /^(giro|mobilgiro|overførsel|avtale)\b(?! mellom egne)/i;
 
 export const loadCategories = (path = `${RULES_DIR}/categories.json`) =>
-  loadJson<RuleMap>(path, {});
-
-export const loadPreferences = (path = `${RULES_DIR}/preferences.json`) =>
   loadJson<RuleMap>(path, {});
 
 export const loadGiro = (path = `${RULES_DIR}/giro.json`) =>
@@ -85,6 +82,25 @@ const finder = (map: RuleMap, file: string): Find => {
     return seen.get(haystack);
   };
   finders.set(map, find);
+  return find;
+};
+
+type FindRule = (t: Classified, haystack: string) => string | undefined;
+
+const ruleFinders = new WeakMap<RuleMap, FindRule>();
+
+const ruleFinder = (map: RuleMap): FindRule => {
+  const cached = ruleFinders.get(map);
+  if (cached) return cached;
+  const rules = Object.entries(map)
+    .map(([key, value]) => ({
+      ...compileRule(key, "rules/categories.json"),
+      value,
+    }))
+    .sort((a, b) => b.weight - a.weight);
+  const find: FindRule = (t, haystack) =>
+    rules.find((r) => r.matches(t, haystack))?.value;
+  ruleFinders.set(map, find);
   return find;
 };
 
@@ -139,10 +155,8 @@ export function categorize(
   cards: Set<string> = new Set(),
   family: string[] = [],
   notSubscriptions: Subscriptions = [],
-  preferences: RuleMap = {},
 ): Categorized[] {
-  for (const key of Object.keys(preferences)) readPreference(key);
-  const rules = finder(categories, "categories");
+  const rules = ruleFinder(categories);
   const giroRules = finder(giro, "giro");
   const familyRules = family.map((pattern) =>
     compile(pattern, "rules/family.json"),
@@ -158,15 +172,7 @@ export function categorize(
     const denied = nots.some((m) => m(haystack));
     return {
       ...t,
-      ...categoryFor(
-        t,
-        rules,
-        giroRules,
-        familyRules,
-        haystack,
-        cards,
-        preferences,
-      ),
+      ...categoryFor(t, rules, giroRules, familyRules, haystack, cards),
       isRecurring: t.isRecurring && !denied,
       isSubscription:
         !denied && (t.isSubscription || subs.some((m) => m(haystack))),
@@ -212,19 +218,14 @@ export function bankPair(t: {
 
 function categoryFor(
   t: Classified,
-  rules: Find,
+  rules: FindRule,
   giroRules: Find,
   familyRules: Matcher[],
   haystack: string,
   cards: Set<string>,
-  preferences: RuleMap,
 ): Pair & { categorySource: string } {
   if (t.excluded) return assigned(flat(TRANSFER), "Excluded");
-  const key = preferenceKey(t);
-  const remembered = key === null ? undefined : preferences[key];
-  if (remembered)
-    return assigned(splitCategory(remembered), "Remembered category");
-  const hit = rules(haystack);
+  const hit = rules(t, haystack);
   if (hit !== undefined) return assigned(splitCategory(hit), "Category rule");
   if (LUMP_TYPE.test(t.typeText ?? "")) {
     const named = giroRules(haystack);
