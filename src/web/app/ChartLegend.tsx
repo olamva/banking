@@ -97,15 +97,9 @@ export const ChartLegend = ({
       {trend && (
         <LegendKey {...key("trend")} name="the fitted trend">
           <svg aria-hidden width={16} height={3} className="shrink-0">
-            <Dash
-              y={1.5}
-              dashes="7 5"
-              className={
-                groups.length > 0 ? "stroke-muted-foreground" : "stroke-chart-1"
-              }
-            />
+            <Dash y={1.5} dashes="7 5" className="stroke-chart-1" />
           </svg>
-          {groups.length > 0 ? "Trends" : "Trend"}
+          Trend
         </LegendKey>
       )}
       {/* One key for both dashed lines — the dashes are what mark the period, and

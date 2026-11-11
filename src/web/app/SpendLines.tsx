@@ -10,7 +10,6 @@ import {
   GroupTipRows,
   groupLines,
   runsOf,
-  type Fit,
   type GroupSeries,
 } from "./GroupLines.tsx";
 
@@ -49,7 +48,7 @@ export const SpendLines = ({
 
   const dense = bucket === "month" ? withGaps(series) : series;
 
-  const lines = groupLines(groups, dense, offersTrend);
+  const lines = groupLines(groups, dense);
   const shownLines = lines.filter((l) => shows(`g:${l.name}`));
   const peaks = groups.length
     ? shownLines.flatMap((l) => l.dense.map((p) => p?.totalOut ?? 0))
@@ -69,10 +68,10 @@ export const SpendLines = ({
   const clusterW = plotW / Math.max(dense.length, 1);
   const px = (i: number) => padL + i * clusterW + clusterW / 2;
 
-  const trend = offersTrend && !groups.length ? spendTrend(dense) : null;
-  const endsOf = (fit: Fit) =>
-    [0, dense.length - 1].map((x) => fit.intercept + fit.slope * x);
-  const ends = trend ? endsOf(trend) : [];
+  const trend = offersTrend ? spendTrend(dense) : null;
+  const ends = trend
+    ? [0, dense.length - 1].map((x) => trend.intercept + trend.slope * x)
+    : [];
 
   const gridMin = shows("trend")
     ? Math.min(0, ...ends.map((v) => Math.floor(v / step) * step))
@@ -195,7 +194,7 @@ export const SpendLines = ({
         <ChartLegend
           income={hasIncome}
           spend={hasSpend}
-          trend={[trend, ...lines.map((l) => l.trend)].some(Boolean)}
+          trend={trend !== null}
           groups={lines}
           compareLabel={compare.length > 0 ? compareLabel : undefined}
           hidden={hidden}
@@ -340,33 +339,31 @@ export const SpendLines = ({
           {/* Clipped to the plot rather than clamped to it: the axis already
               stretched to hold both ends, and clamping a line is how a slope
               gets flattened into a claim nobody made. */}
-          <defs>
-            <clipPath id={`${clip}-plot`}>
-              <rect x={padL} y={padT} width={plotW} height={plotH} />
-            </clipPath>
-          </defs>
           {trend && shows("trend") && (
-            <line
-              x1={px(0)}
-              y1={py(ends[0]!)}
-              x2={px(dense.length - 1)}
-              y2={py(ends[1]!)}
-              strokeWidth={1.5}
-              strokeDasharray="7 5"
-              clipPath={`url(#${clip}-plot)`}
-              className="stroke-chart-1"
-            />
+            <>
+              <defs>
+                <clipPath id={`${clip}-plot`}>
+                  <rect x={padL} y={padT} width={plotW} height={plotH} />
+                </clipPath>
+              </defs>
+              <line
+                x1={px(0)}
+                y1={py(ends[0]!)}
+                x2={px(dense.length - 1)}
+                y2={py(ends[1]!)}
+                strokeWidth={1.5}
+                strokeDasharray="7 5"
+                clipPath={`url(#${clip}-plot)`}
+                className="stroke-chart-1"
+              />
+            </>
           )}
           <GroupLayer
             lines={shownLines}
             x={px}
             y={py}
-            ends={endsOf}
-            last={dense.length - 1}
-            trends={shows("trend")}
             dots={dots}
             near={near}
-            clip={`url(#${clip}-plot)`}
           />
           {near !== null && (
             <line

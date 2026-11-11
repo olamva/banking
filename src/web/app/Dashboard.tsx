@@ -1,4 +1,4 @@
-import { Fragment, useState, type Dispatch, type SetStateAction } from "react";
+import { Fragment, type Dispatch, type SetStateAction } from "react";
 import {
   AXES,
   axisBounds,
@@ -15,7 +15,6 @@ import {
   monthStats,
   monthlySeries,
   subscriptionGroups,
-  topSpendGroups,
   totals,
   visibleDeltas,
   yearStats,
@@ -25,10 +24,11 @@ import {
 import type { Categorized } from "../../core/types.ts";
 import { Empty, Note, Panel, StatTile, deltaInfo } from "./Cards.tsx";
 import { DivergingBars, HorizontalBars, type BarItem } from "./Charts.tsx";
+import { GROUP_LABEL, useChartGroup, type Group } from "./chartGroup.ts";
 import { SpendLines } from "./SpendLines.tsx";
 import type { Bucket } from "./axis.ts";
 import { SubscriptionsCard } from "./Transactions.tsx";
-import { categoryLabel, fmtNOK, rowLabel, subcategoryLabel } from "./format.ts";
+import { categoryLabel, fmtNOK, subcategoryLabel } from "./format.ts";
 import {
   AccountIcon,
   CategoryIcon,
@@ -83,14 +83,6 @@ export const pick =
 const slugsByLabel = (slugs: string[]) =>
   new Map(slugs.map((s) => [categoryLabel(s), s]));
 
-type Group = "total" | "merchant" | "category";
-
-const GROUP_LABEL: Record<Group, string> = {
-  total: "Total",
-  merchant: "Merchant",
-  category: "Category",
-};
-
 const GRAIN_SUFFIX: Record<Grain, string> = {
   running: ", running total",
   day: " by day",
@@ -107,17 +99,6 @@ const chartSubject = (by: Group, anyIncome: boolean, anySpend: boolean) =>
           ? "Income & spend"
           : "Income"
         : "Spending";
-
-const groupingsOf = (shown: Categorized[]) => {
-  const byCategory = topSpendGroups(shown, (t) => categoryLabel(t.category));
-  return {
-    merchant: topSpendGroups(shown, (t) => t.counterparty),
-    category:
-      byCategory.length > 1
-        ? byCategory
-        : topSpendGroups(shown, (t) => rowLabel(t.category, t.subcategory)),
-  };
-};
 
 const GRAIN_LABEL: Record<Grain, string> = {
   running: "Running total",
@@ -360,10 +341,10 @@ export const Dashboard = ({
   offered,
   onGrain,
 }: DashboardProps) => {
-  const [group, setGroup] = useState<Group>("total");
   // `all` is the period. `txns` is the record, and only the comparison period
   // needs it, because that period sits outside this one.
   const shown = all.filter((t) => matchesFilters(t, filters));
+  const { by, offered: groupsOffered, top, setGroup } = useChartGroup(shown);
 
   if (shown.length === 0)
     return (
@@ -409,12 +390,7 @@ export const Dashboard = ({
   const anyIncome = series.some((s) => s.totalIn > 0);
   const anySpend = series.some((s) => s.totalOut > 0);
 
-  const groupings = groupingsOf(shown);
-  const groupsOffered = (["merchant", "category"] as const).filter(
-    (g) => groupings[g].length > 1,
-  );
-  const by = groupsOffered.find((g) => g === group) ?? "total";
-  const groups = (by === "total" ? [] : groupings[by]).map((g) => ({
+  const groups = top.map((g) => ({
     name: g.name,
     series: build(g.txns, from, to),
   }));
@@ -425,9 +401,10 @@ export const Dashboard = ({
           income: anyIncome,
           spend: anySpend,
           band: running || bucket === "month",
+          trend: !running && anySpend,
           compare,
         }
-      : { income: false, spend: false, band: false, compare: [] };
+      : { income: false, spend: false, band: false, trend: false, compare: [] };
 
   return (
     <>
@@ -447,7 +424,7 @@ export const Dashboard = ({
               <div className="flex flex-wrap justify-end gap-2">
                 <ChoiceToggle
                   value={by}
-                  offered={["total", ...groupsOffered]}
+                  offered={groupsOffered}
                   labels={GROUP_LABEL}
                   name="Group the chart by"
                   onChange={setGroup}
@@ -466,7 +443,6 @@ export const Dashboard = ({
               series={series}
               bucket={bucket}
               {...marks}
-              trend={!running && anySpend}
               compareLabel={vs?.label}
               groups={groups}
             />

@@ -10,9 +10,9 @@ export const RELEASES: Release[] = [
     date: "2026-11-11",
     highlights: [
       {
-        title: "Trends for each merchant and category",
+        title: "Spending by merchant and category over time",
         detail:
-          "The spending chart groups by merchant or by category. It draws one line and one trend line for each of the top five. Select a name in the legend to hide or show its line.",
+          "The spending chart groups by merchant or by category. It draws one line for each of the top five. Select a name in the legend to hide or show its line. Press G to go to the next grouping.",
       },
     ],
   },

@@ -24,6 +24,7 @@ import {
 import type { Categorized } from "../../core/types.ts";
 import { AppSidebar, VIEW_LABEL } from "./AppSidebar.tsx";
 import { BulkTransactions } from "./BulkTransactions.tsx";
+import { GROUP_SHORTCUT } from "./chartGroup.ts";
 import { Dashboard, pick } from "./Dashboard.tsx";
 import {
   THEMES,
@@ -225,6 +226,7 @@ export const App = () => {
       run: () =>
         setChosenGrain(grains[(grains.indexOf(grain) + 1) % grains.length]!),
     },
+    { cap: "G", what: GROUP_SHORTCUT },
     {
       keys: ["e"],
       cap: "e",

@@ -1,5 +1,5 @@
 import { Fragment } from "react";
-import { spendTrend, type SeriesPoint } from "../../core/stats.ts";
+import type { SeriesPoint } from "../../core/stats.ts";
 import { fmtNOK } from "./format.ts";
 
 export const runsOf = <T,>(dense: (T | null)[]): { m: T; i: number }[][] => {
@@ -13,8 +13,6 @@ export const runsOf = <T,>(dense: (T | null)[]): { m: T; i: number }[][] => {
   return runs;
 };
 
-export type Fit = NonNullable<ReturnType<typeof spendTrend>>;
-
 export interface GroupSeries {
   name: string;
   series: SeriesPoint[];
@@ -24,24 +22,20 @@ export interface GroupLine {
   name: string;
   color: string;
   dense: (SeriesPoint | null)[];
-  trend: Fit | null;
 }
 
 export const groupLines = (
   groups: GroupSeries[],
   dense: (SeriesPoint | null)[],
-  fits: boolean,
 ): GroupLine[] =>
   groups.map((g, k) => {
     const byAt = new Map(g.series.map((p) => [p.at, p.totalOut]));
-    const values = dense.map(
-      (p) => p && { at: p.at, totalIn: 0, totalOut: byAt.get(p.at) ?? 0 },
-    );
     return {
       name: g.name,
       color: `var(--chart-${k + 1})`,
-      dense: values,
-      trend: fits ? spendTrend(values) : null,
+      dense: dense.map(
+        (p) => p && { at: p.at, totalIn: 0, totalOut: byAt.get(p.at) ?? 0 },
+      ),
     };
   });
 
@@ -69,61 +63,32 @@ interface GroupLayerProps {
   lines: GroupLine[];
   x: (i: number) => number;
   y: (v: number) => number;
-  ends: (fit: Fit) => number[];
-  last: number;
-  trends: boolean;
   dots: boolean;
   near: number | null;
-  clip: string;
 }
 
-export const GroupLayer = ({
-  lines,
-  x,
-  y,
-  ends,
-  last,
-  trends,
-  dots,
-  near,
-  clip,
-}: GroupLayerProps) =>
-  lines.map((l) => {
-    const [y0, y1] = l.trend ? ends(l.trend) : [];
-    return (
-      <g key={l.name}>
-        {runsOf(l.dense).map((run) => (
-          <polyline
-            key={run[0]!.i}
-            points={run.map(({ m, i }) => `${x(i)},${y(m.totalOut)}`).join(" ")}
-            strokeWidth={2}
-            fill="none"
-            style={{ stroke: l.color }}
+export const GroupLayer = ({ lines, x, y, dots, near }: GroupLayerProps) =>
+  lines.map((l) => (
+    <g key={l.name}>
+      {runsOf(l.dense).map((run) => (
+        <polyline
+          key={run[0]!.i}
+          points={run.map(({ m, i }) => `${x(i)},${y(m.totalOut)}`).join(" ")}
+          strokeWidth={2}
+          fill="none"
+          style={{ stroke: l.color }}
+        />
+      ))}
+      {l.dense.map((p, i) =>
+        p === null || (!dots && i !== near) ? null : (
+          <circle
+            key={p.at}
+            cx={x(i)}
+            cy={y(p.totalOut)}
+            r={near === i ? (dots ? 5 : 4) : 3}
+            style={{ fill: l.color }}
           />
-        ))}
-        {l.trend && trends && (
-          <line
-            x1={x(0)}
-            y1={y(y0!)}
-            x2={x(last)}
-            y2={y(y1!)}
-            strokeWidth={1.5}
-            strokeDasharray="7 5"
-            clipPath={clip}
-            style={{ stroke: l.color }}
-          />
-        )}
-        {l.dense.map((p, i) =>
-          p === null || (!dots && i !== near) ? null : (
-            <circle
-              key={p.at}
-              cx={x(i)}
-              cy={y(p.totalOut)}
-              r={near === i ? (dots ? 5 : 4) : 3}
-              style={{ fill: l.color }}
-            />
-          ),
-        )}
-      </g>
-    );
-  });
+        ),
+      )}
+    </g>
+  ));
