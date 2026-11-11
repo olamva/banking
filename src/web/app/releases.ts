@@ -6,7 +6,7 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
-    version: "2.3.0",
+    version: "2.4.0",
     date: "2026-11-11",
     highlights: [
       {
@@ -18,6 +18,17 @@ export const RELEASES: Release[] = [
         title: "Checks on the Rules page",
         detail:
           "Review lists the payees that only have a bank category or a guess, and a yellow count shows the guesses. Conflicts collects the category and payee rules that compete, and a red count shows them.",
+      },
+    ],
+  },
+  {
+    version: "2.3.0",
+    date: "2026-11-11",
+    highlights: [
+      {
+        title: "Automatic bank and receipt refresh",
+        detail:
+          "Refresh also fetches new Rema, Trumf and Gmail receipts. The site refreshes itself just after midnight and on the first visit of each day.",
       },
     ],
   },
