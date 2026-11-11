@@ -21,6 +21,9 @@ export const haystackOf = (t: {
 }): string =>
   `${t.description} ${t.originalCounterparty ?? t.counterparty ?? ""} ${t.remoteAccountNumber ?? ""}`.toLowerCase();
 
+export const isRegex = (pattern: string): boolean =>
+  /^\/(.+)\/([a-z]*)$/.test(pattern);
+
 export function compile(pattern: string, source: string): Matcher {
   const asRegex = /^\/(.+)\/([a-z]*)$/.exec(pattern);
   if (!asRegex) {
