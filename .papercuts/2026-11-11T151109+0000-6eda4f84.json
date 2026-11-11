@@ -1,0 +1,11 @@
+{
+  "id": "6eda4f84",
+  "ts": "2026-11-11T15:11:09+00:00",
+  "text": "Web search cited torsteinelv/firefly-norwegian-receipt-sync PR #16 for Coop API, but repo returns 404 (gh and web)",
+  "tags": [],
+  "who": "agent",
+  "model": "claude-opus-5-5",
+  "session": "89deb8cd",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3-a25cffef-75d291126ce7ac9c",
+  "branch": "t3/coop-membership-receipts"
+}

@@ -1,0 +1,11 @@
+{
+  "id": "680dc8a8",
+  "ts": "2026-11-11T15:25:20+00:00",
+  "text": "pnpm here is a version that rejects -s (pnpm -s typecheck -> unexpected argument '-s')",
+  "tags": [],
+  "who": "agent",
+  "model": "claude-opus-5-5",
+  "session": "89deb8cd",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3-a25cffef-75d291126ce7ac9c",
+  "branch": "t3/coop-membership-receipts"
+}

@@ -1,16 +1,11 @@
-import { spawn } from "node:child_process";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { setTimeout as sleep } from "node:timers/promises";
+import { mkdir, writeFile } from "node:fs/promises";
+import { chromeLogin } from "./chrome.ts";
 import { env, secretGet, secretSet } from "./token.ts";
 
-const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const REDIRECT = "https://ae-appen.appspot.com/redirect/redirect.html";
 const API = "https://api.rema.no";
-const LOGIN_MINUTES = 5;
 
 type Session = { key: string; refreshToken: string; deviceId: string };
 
@@ -23,18 +18,6 @@ type Cdp = {
   };
   result?: { body?: string };
 };
-
-async function devtoolsPort(profile: string): Promise<string> {
-  for (let i = 0; i < 100; i++) {
-    const file = await readFile(
-      join(profile, "DevToolsActivePort"),
-      "utf8",
-    ).catch(() => "");
-    if (file) return file.split("\n")[0]!;
-    await sleep(100);
-  }
-  throw new Error("Chrome did not open a DevTools port");
-}
 
 function capture(ws: WebSocket, url: string): Promise<Session> {
   return new Promise((resolve, reject) => {
@@ -95,44 +78,11 @@ export async function login(): Promise<void> {
     redirect_uri: REDIRECT,
   }).toString();
 
-  const timeout = new AbortController();
-  const profile = await mkdtemp(join(tmpdir(), "rema-login-"));
-  const chrome = spawn(
-    CHROME,
-    [
-      `--user-data-dir=${profile}`,
-      "--remote-debugging-port=0",
-      "--no-first-run",
-      "--no-default-browser-check",
-      "about:blank",
-    ],
-    { stdio: "ignore" },
+  const session = await chromeLogin("Rema", "with your phone number", (ws) =>
+    capture(ws, auth.toString()),
   );
-  try {
-    const port = await devtoolsPort(profile);
-    const targets = (await (
-      await fetch(`http://127.0.0.1:${port}/json/list`)
-    ).json()) as { type: string; webSocketDebuggerUrl: string }[];
-    const page = targets.find((t) => t.type === "page");
-    if (!page) throw new Error("Chrome opened no page");
-    console.error(
-      `Log in with your phone number in the Chrome window (${LOGIN_MINUTES} min).`,
-    );
-    const session = await Promise.race([
-      capture(new WebSocket(page.webSocketDebuggerUrl), auth.toString()),
-      sleep(LOGIN_MINUTES * 60_000, null, { signal: timeout.signal }).then(
-        () => {
-          throw new Error("Rema login timed out");
-        },
-      ),
-    ]);
-    secretSet("rema", JSON.stringify(session));
-    console.error("Rema login stored in the keychain.");
-  } finally {
-    timeout.abort();
-    chrome.kill();
-    await rm(profile, { recursive: true, force: true });
-  }
+  secretSet("rema", JSON.stringify(session));
+  console.error("Rema login stored in the keychain.");
 }
 
 async function idToken(s: Session): Promise<string> {
