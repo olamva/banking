@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { chromeLogin } from "./chrome.ts";
@@ -7,6 +7,9 @@ import { secretGet, secretSet } from "./token.ts";
 const CLIENT = "7WrQEdeXwUudArpQVjmZEvrTgVs1WkRr";
 const REDIRECT = "https://login.coop.no/android/no.coop.members/callback";
 const API = "https://coopay.coop.no/user/pay/history";
+const AGENT = "iPhone(27.2)/Coop(4.42.0)/2.7.7";
+
+type Session = { refreshToken: string; deviceId: string };
 
 type Cdp = { method?: string; params?: { request?: { url: string } } };
 
@@ -23,7 +26,10 @@ function capture(ws: WebSocket, url: string): Promise<string> {
     ws.onmessage = (e) => {
       const m = JSON.parse(String(e.data)) as Cdp;
       const req = m.params?.request;
-      if (m.method === "Network.requestWillBeSent" && req?.url.startsWith(REDIRECT)) {
+      if (
+        m.method === "Network.requestWillBeSent" &&
+        req?.url.startsWith(REDIRECT)
+      ) {
         const code = new URL(req.url).searchParams.get("code");
         if (code) resolve(code);
       }
@@ -31,7 +37,10 @@ function capture(ws: WebSocket, url: string): Promise<string> {
   });
 }
 
-async function token(params: Record<string, string>): Promise<string> {
+async function token(
+  deviceId: string,
+  params: Record<string, string>,
+): Promise<string> {
   const res = await fetch("https://login.coop.no/oauth/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -45,7 +54,11 @@ async function token(params: Record<string, string>): Promise<string> {
     access_token: string;
     refresh_token?: string;
   };
-  if (t.refresh_token) secretSet("coop", t.refresh_token);
+  if (t.refresh_token)
+    secretSet(
+      "coop",
+      JSON.stringify({ refreshToken: t.refresh_token, deviceId }),
+    );
   return t.access_token;
 }
 
@@ -67,7 +80,7 @@ export async function login(): Promise<void> {
     "with your password and SMS code",
     (ws) => capture(ws, auth.toString()),
   );
-  await token({
+  await token(randomUUID().toUpperCase(), {
     grant_type: "authorization_code",
     code,
     redirect_uri: REDIRECT,
@@ -77,13 +90,17 @@ export async function login(): Promise<void> {
 }
 
 export async function sync(dir: string): Promise<number> {
-  const refresh = secretGet("coop");
-  if (!refresh) throw new Error("No Coop login. Run: pnpm receipts login coop");
+  const stored = secretGet("coop");
+  if (!stored) throw new Error("No Coop login. Run: pnpm receipts login coop");
+  const { refreshToken, deviceId } = JSON.parse(stored) as Session;
   const headers = {
-    "x-token": await token({
+    "X-Token": await token(deviceId, {
       grant_type: "refresh_token",
-      refresh_token: refresh,
+      refresh_token: refreshToken,
     }),
+    "X-DeviceId": deviceId,
+    "User-Agent": AGENT,
+    Accept: "application/json",
   };
   const get = async (path: string): Promise<unknown> => {
     const res = await fetch(`${API}/${path}`, { headers });
@@ -103,16 +120,17 @@ export async function sync(dir: string): Promise<number> {
   await mkdir(dir, { recursive: true });
   let added = 0;
   for (let n = ordinal(currentPeriod); n >= ordinal(oldestPeriod); n--) {
+    const period = { year: Math.floor(n / 12), month: (n % 12) + 1 };
     const { purchases } = (await get(
-      `month?year=${Math.floor(n / 12)}&month=${(n % 12) + 1}`,
+      `month?${new URLSearchParams({ year: String(period.year), month: String(period.month) })}`,
     )) as { purchases: { summaryId: string }[] };
     for (const head of purchases) {
-      const file = `${dir}/${head.summaryId}.json`;
+      const file = `${dir}/${head.summaryId.replace(/[^\w-]+/g, "-")}.json`;
       if (existsSync(file)) continue;
       const details = await get(
         `details?${new URLSearchParams({ summaryId: head.summaryId })}`,
       );
-      await writeFile(file, JSON.stringify({ head, details }, null, 2));
+      await writeFile(file, JSON.stringify({ period, head, details }, null, 2));
       added++;
     }
   }

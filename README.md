@@ -51,11 +51,13 @@ pnpm sb1 login                      # BankID in the browser. Refresh token to th
 pnpm sb1 accounts                   # writes data/raw/accounts.json and rules/accounts.json
 pnpm receipts login rema            # phone number and SMS code in a Chrome window. Login to the keychain
 pnpm receipts login gmail           # Google login in the browser. Refresh token to the keychain
+pnpm receipts login coop            # password and SMS code in a Chrome window. Login to the keychain
 pnpm receipts rema                  # new receipts to data/raw/receipts/rema/
 pnpm receipts trumf                 # needs TRUMF_COOKIE, the Cookie header of a logged-in trumf.no page
 pnpm receipts gmail                 # receipt mail to data/raw/receipts/gmail/ as .eml files
+pnpm receipts coop                  # Coop app receipts to data/raw/receipts/coop/
                                     # a sync with new receipts rebuilds data/banking.db
-                                    # Refresh runs all three. These commands fetch one source
+                                    # Refresh runs all four. These commands fetch one source
 pnpm receipts:seed                  # copy the receipt logins to the hosted site
 
 # offline
@@ -85,7 +87,7 @@ The page lists subscriptions per subscription, not per charge. _Per month_ shows
 
 Every rule save writes a snapshot to `rules/.history/`. _Undo the last change_ steps back one edit, and the version list restores any older state. Nothing leaves the history. The site edits its own copy, so `pnpm rules:push` stops when the site holds an edit that this machine does not, and it names `pnpm rules:pull`.
 
-Refresh is the only control on the page that touches the network. It fetches the months that can still change and new Rema, Trumf and Gmail receipts. Then it rebuilds `data/banking.db` and reloads the page. A failed receipt source does not stop the others, and the page shows its error. One refresh runs at a time. A typical press is one bank request.
+Refresh is the only control on the page that touches the network. It fetches the months that can still change and new Rema, Trumf, Gmail and Coop receipts. Then it rebuilds `data/banking.db` and reloads the page. A failed receipt source does not stop the others, and the page shows its error. One refresh runs at a time. A typical press is one bank request.
 
 The hosted server also refreshes itself just after midnight in Oslo, and before it answers the first `/api/txns` or `/api/app` request of each Oslo day. That answer waits at most 20 seconds for the refresh. `data/visited` holds the date of that last first visit. `pnpm dev` refreshes only when you press Refresh.
 
@@ -160,7 +162,7 @@ The SB1 values arrive last, because the developer portal wants a redirect before
 7. Register a **second SpareBank 1 client** in the developer portal. The BankID login runs on this machine, so the redirect is a localhost URL. Use a port that the first client does not use.
 8. Put the four SB1 values in `infra/terraform.tfvars` and run `infra/oracle/configure.sh` again.
 9. Run `pnpm seed:site`. The token goes to the VM instead of the keychain. Do not use `pnpm sb1 login`, which reads `.env` and would put the token of this machine on the site.
-10. Run `pnpm receipts login rema` and `pnpm receipts login gmail`, and fill in the receipt values in `.env`. Then run `pnpm receipts:seed`. For each source in `src/net/receipts.ts`, it copies the keychain login named after the source and each `.env` value whose name starts with the source in capitals and `_`, such as `REMA_SUBSCRIPTION_KEY` or `TRUMF_COOKIE`. The copies go to `/srv/banking/secrets/` on the VM. Run it again when the site reports an expired receipt login.
+10. Run `pnpm receipts login rema`, `pnpm receipts login gmail` and `pnpm receipts login coop`, and fill in the receipt values in `.env`. Then run `pnpm receipts:seed`. For each source in `src/net/receipts.ts`, it copies the keychain login named after the source and each `.env` value whose name starts with the source in capitals and `_`, such as `REMA_SUBSCRIPTION_KEY` or `TRUMF_COOKIE`. The copies go to `/srv/banking/secrets/` on the VM. Run it again when the site reports an expired receipt login.
 11. Open the site and press Refresh.
 
 SB1 rotates the refresh token on every exchange, so two processes on one chain invalidate each other. The second client gives the site an independent chain.

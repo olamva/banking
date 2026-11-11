@@ -76,7 +76,34 @@ before(async () => {
       bank("coop", "2026-09-05", -180, "COOP EXTRA MOHOLT"),
       bank("kiwi", "2026-09-07", -268.41, "KIWI 505 MOHOLT"),
       bank("twitch", "2026-09-03", -59, "TWITCH"),
+      bank("extra", "2026-09-01", -296.6, "EXTRA ELGESETER, TRONDHEIM"),
     ],
+  });
+  put("data/raw/receipts/coop/A0-coop-1.json", {
+    period: { year: 2026, month: 9 },
+    head: { summaryId: "A0:/coop-1" },
+    details: {
+      summary: {
+        summaryId: "A0:/coop-1",
+        storeName: "Extra Elgeseter",
+        dateTime: "1. September 00:30",
+        totalSum: "296,60",
+        lines: [
+          {
+            quantity: "4 stk",
+            name: "COOP KJØTTDEIG 14% 400G",
+            discount: "110,21",
+            price: "199,79",
+          },
+          {
+            quantity: "0,456 kg",
+            name: "BANANER",
+            discount: null,
+            price: "96,81",
+          },
+        ],
+      },
+    },
   });
   put("data/raw/receipts/rema/1.json", {
     head: {
@@ -275,8 +302,29 @@ test("each mail goes to one bank row, and each row takes the closest mail", () =
   assert.equal(rows.find((t) => t.id === "apple-1")!.receipt!.store, "Apple");
 });
 
+test("a Coop receipt dated just after Oslo midnight reaches that day's card row", () => {
+  assert.equal(receiptOf("extra"), "coop/A0:/coop-1");
+  const receipt = rows.find((t) => t.id === "extra")!.receipt!;
+  assert.equal(
+    new Date(receipt.at).toLocaleString("sv", { timeZone: "Europe/Oslo" }),
+    "2026-09-01 00:30:00",
+  );
+  assert.deepEqual(receipt.lines, [
+    {
+      name: "COOP KJØTTDEIG 14%",
+      size: "400 g",
+      qty: 4,
+      price: 77.5,
+      amount: 199.79,
+      discounts: [{ label: "", amount: 110.21 }],
+    },
+    { name: "BANANER", qty: 0.456, unit: "kg", price: 212.3, amount: 96.81 },
+  ]);
+  assert.equal(receipt.total, 296.6);
+});
+
 test("a broken or undated receipt file leaves the rest of the rebuild intact", () => {
-  assert.equal(rows.length, 6);
+  assert.equal(rows.length, 7);
   assert.ok(
     errors.mock.calls.some((c) =>
       String(c.arguments[0]).includes("broken.json"),
