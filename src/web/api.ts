@@ -1,5 +1,4 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { setTimeout as sleep } from "node:timers/promises";
 import { appData, appPeriod } from "../core/app.ts";
 import { period } from "../core/select.ts";
 import { openDb, queryRange } from "../core/db.ts";
@@ -35,7 +34,7 @@ const rows = () => {
 };
 
 export const payload = (): string =>
-  JSON.stringify({ txns: rows(), names: names() });
+  JSON.stringify({ txns: rows(), names: names(), refreshing: !!running });
 
 export const appPayload = (): string =>
   JSON.stringify(appData(rows(), names()));
@@ -109,16 +108,55 @@ async function run(): Promise<Refreshed> {
 // second full-history sync against the same quota.
 let running: Promise<Refreshed> | null = null;
 
+export type RefreshStatus = {
+  running: boolean;
+  last: ((Refreshed | { error: string }) & { at: number }) | null;
+};
+let last: RefreshStatus["last"] = null;
+
 export function refresh(): Promise<Refreshed> {
-  running ??= run().finally(() => {
-    running = null;
-  });
+  running ??= run()
+    .then(
+      (r) => {
+        last = { ...r, at: Date.now() };
+        return r;
+      },
+      (e: unknown) => {
+        last = {
+          error: e instanceof Error ? e.message : String(e),
+          at: Date.now(),
+        };
+        throw e;
+      },
+    )
+    .finally(() => {
+      running = null;
+    });
   return running;
 }
 
+export function refreshRoute(
+  path: string,
+  header: string | undefined,
+): Answer | null {
+  if (path === "/api/refresh/start") {
+    if (header !== "1")
+      return bad(405, new Error("needs X-Banking-Refresh: 1"));
+    void quietly(refresh());
+  } else if (path !== "/api/refresh/status") return null;
+  return ok({ running: !!running, last } satisfies RefreshStatus);
+}
+
+export const jsonRoute = (
+  url: URL,
+  refreshHeader: string | undefined,
+): Answer | null =>
+  url.pathname === "/api/app/period"
+    ? periodPayload(url.searchParams.get("p"))
+    : refreshRoute(url.pathname, refreshHeader);
+
 const today = () => osloDate(Date.now());
 const VISITED = `${DATA_DIR}/visited`;
-const FIRST_VISIT_WAIT = 20_000;
 let auto = false;
 
 const quietly = (r: Promise<unknown>) =>
@@ -136,17 +174,14 @@ export function autoRefresh(): void {
   }, 60_000).unref();
 }
 
-export async function visit(): Promise<void> {
+export function visit(): void {
   if (
     !auto ||
     (existsSync(VISITED) && readFileSync(VISITED, "utf8") === today())
   )
     return;
   writeFileSync(VISITED, today());
-  await Promise.race([
-    quietly(refresh()),
-    sleep(FIRST_VISIT_WAIT, undefined, { ref: false }),
-  ]);
+  void quietly(refresh());
 }
 
 // The newest versions only. The whole record is on disk, and a page of two

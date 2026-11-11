@@ -7,8 +7,9 @@ import {
   type Rules,
 } from "../../core/ruleFiles.ts";
 import type { Categorized } from "../../core/types.ts";
+import type { RefreshStatus } from "../api.ts";
 
-type Payload = { txns: Categorized[]; names: Names };
+type Payload = { txns: Categorized[]; names: Names; refreshing: boolean };
 
 const msg = (e: unknown): string =>
   e instanceof Error ? e.message : String(e);
@@ -22,7 +23,12 @@ const getJson = async <T>(url: string, init?: RequestInit): Promise<T> => {
 export type Load =
   | { status: "loading" }
   | { status: "error"; message: string }
-  | { status: "ready"; txns: Categorized[]; labels: Labels };
+  | {
+      status: "ready";
+      txns: Categorized[];
+      labels: Labels;
+      refreshing: boolean;
+    };
 
 export const useTransactions = (): [Load, () => void] => {
   const [load, setLoad] = useState<Load>({ status: "loading" });
@@ -32,9 +38,14 @@ export const useTransactions = (): [Load, () => void] => {
     let live = true;
     getJson<Payload>("/api/txns")
       .then(
-        ({ txns, names }) =>
+        ({ txns, names, refreshing }) =>
           live &&
-          setLoad({ status: "ready", txns, labels: buildLabels(txns, names) }),
+          setLoad({
+            status: "ready",
+            txns,
+            labels: buildLabels(txns, names),
+            refreshing,
+          }),
       )
       .catch(
         (e: unknown) => live && setLoad({ status: "error", message: msg(e) }),
@@ -54,34 +65,42 @@ export type Refresh = {
   run: () => void;
 };
 
-export const useRefresh = (onDone: () => void): Refresh => {
+const POLL_MS = 2000;
+
+const status = (): Promise<RefreshStatus> =>
+  getJson<RefreshStatus>("/api/refresh/status");
+
+const settled = async (s: RefreshStatus): Promise<RefreshStatus> => {
+  while (s.running) {
+    await new Promise((done) => setTimeout(done, POLL_MS));
+    s = await status();
+  }
+  return s;
+};
+
+export const useRefresh = (
+  onDone: () => void,
+  refreshing: boolean,
+): Refresh => {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [bad, setBad] = useState(false);
+  const watching = useRef(false);
 
-  const run = () => {
+  const watch = (started: Promise<RefreshStatus>) => {
+    if (watching.current) return;
+    watching.current = true;
     setBusy(true);
     setNote(null);
-    // Not POST. Easy Auth authenticates a session cookie on GET alone, and
-    // refuses every other method with 403 before the request arrives.
-    fetch("/api/refresh", { headers: { "X-Banking-Refresh": "1" } })
-      .then(async (r) => {
-        // Check the status first. A gateway answers with an empty body, and
-        // `json()` on that reports a parse error rather than the status.
-        if (!r.ok)
-          throw new Error(`${r.status} ${(await r.text()) || "(no body)"}`);
-        const body = (await r.json()) as {
-          rows?: number;
-          fetched?: number;
-          stopped?: string | null;
-          error?: string;
-        };
-        if (body.error) throw new Error(body.error);
-        // A stopped run still wrote every file it got, so the rebuild stands.
-        setBad(!!body.stopped);
+    started
+      .then(settled)
+      .then(({ last }) => {
+        if (!last) return;
+        if ("error" in last) throw new Error(last.error);
+        setBad(!!last.stopped);
         setNote(
-          body.stopped ??
-            `${body.fetched} file(s) fetched, ${body.rows} rows rebuilt.`,
+          last.stopped ??
+            `${last.fetched} file(s) fetched, ${last.rows} rows rebuilt.`,
         );
         onDone();
       })
@@ -89,10 +108,27 @@ export const useRefresh = (onDone: () => void): Refresh => {
         setBad(true);
         setNote(msg(e));
       })
-      .finally(() => setBusy(false));
+      .finally(() => {
+        watching.current = false;
+        setBusy(false);
+      });
   };
 
-  return { busy, note, bad, run };
+  useEffect(() => {
+    if (refreshing) watch(status());
+  }, [refreshing]);
+
+  return {
+    busy,
+    note,
+    bad,
+    run: () =>
+      watch(
+        getJson<RefreshStatus>("/api/refresh/start", {
+          headers: { "X-Banking-Refresh": "1" },
+        }),
+      ),
+  };
 };
 
 export type RuleVersion = { at: number; changes: RuleChange[] };

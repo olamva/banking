@@ -64,6 +64,8 @@ test("anonymous requests redirect before any page or API action", async () => {
     "/api/app",
     "/app/signed-in",
     "/api/refresh",
+    "/api/refresh/start",
+    "/api/refresh/status",
     "/api/rules",
     "/api/rules/save?file=categories&key=x&value=y",
   ]) {
@@ -226,10 +228,8 @@ test("a signed-in address off the list is refused", async () => {
 
 test("the refresh endpoint still needs the custom header", async () => {
   const who = { "x-forwarded-email": "ola@example.com" };
-  assert.equal(
-    (await fetch(`${base}/api/refresh`, { headers: who })).status,
-    405,
-  );
+  for (const path of ["/api/refresh", "/api/refresh/start"])
+    assert.equal((await fetch(`${base}${path}`, { headers: who })).status, 405);
   const posted = await fetch(`${base}/api/refresh`, {
     method: "POST",
     headers: who,
