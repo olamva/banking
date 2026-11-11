@@ -133,7 +133,10 @@ Require review for noticeable changes to layout, navigation, typography, color s
 Limit minor corrections to isolated fixes that preserve the existing design.
 Require review when the classification is unclear.
 Prepare the completed changes before requesting approval.
-Provide either a working preview with access instructions or before-and-after screenshots embedded in the PR body.
+Capture before and after screenshots with `pnpm shot --before origin/main`. Follow `.claude/skills/screenshots/SKILL.md`.
+Show the screenshots in the T3 thread. Do not ask me to open a dev server or a preview.
+Never put screenshots on GitHub. This repository is public, and each screenshot shows real transactions.
+Write in the PR description that visual approval is pending in the T3 thread.
 Include the affected pages, states, and screen sizes needed to assess the changes.
 Wait for my explicit approval of the presented visual changes before merging or enabling automatic merge.
 Do not treat silence, passing tests, screenshots alone, or earlier implementation permission as visual approval.
@@ -141,8 +144,7 @@ Request renewed approval if subsequent changes materially alter the reviewed app
 
 ## Phone layout
 
-Open the local page in the collaborative preview without asking. Standing permission applies.
-Inspect every UI change at 375 CSS px before completion.
+Inspect every UI change at 375 CSS px with `pnpm shot` before completion. Do not use the T3 preview tools.
 Use one responsive layout. Prevent horizontal page scrolling.
 Never bind the development server to `0.0.0.0`. The local page has no access gate and serves all transactions.
 
