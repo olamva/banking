@@ -12,7 +12,6 @@ export type SubscriptionGroup = {
   count: number;
   total: number;
   // NOK charged on `last`, not the average. This is the current price.
-  // ponytail: assumes a monthly price. A yearly bill shows its yearly amount.
   latest: number;
   last: string;
 };

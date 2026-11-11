@@ -49,8 +49,6 @@ export const loadAll = (): Record<RuleFile, Rules> =>
 // The newest first. A version is the whole file as it stood after one edit. The
 // live file holds the version at the cursor, which is the newest one until the
 // reader steps back through the stack.
-// ponytail: no pruning. 20 kB per version of the largest file, so the volume
-// takes years of edits. Prune the oldest when that stops being true.
 export function versions(file: RuleFile): number[] {
   if (!existsSync(HISTORY)) return [];
   const suffix = `-${file}.json`;
