@@ -104,6 +104,10 @@ export async function sync(dir: string): Promise<number> {
   };
   const get = async (path: string): Promise<unknown> => {
     const res = await fetch(`${API}/${path}`, { headers });
+    if (res.headers.get("x-client-upgrade") === "force")
+      throw new Error(
+        "Coop rejects the app version. Raise the Coop version in AGENT in src/net/coop.ts",
+      );
     if (!res.ok)
       throw new Error(
         `GET ${path} -> ${res.status}: ${(await res.text()).slice(0, 300)}`,
