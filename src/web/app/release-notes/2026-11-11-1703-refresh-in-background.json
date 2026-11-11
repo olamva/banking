@@ -1,0 +1,9 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Use the page while it refreshes",
+      "detail": "The page opens at once with the stored data. While a refresh runs, the Refresh button shows Refreshing…, and the new data appears when the refresh ends. A slow refresh no longer ends in an error."
+    }
+  ]
+}

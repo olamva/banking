@@ -1,0 +1,9 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Much faster start after a pause",
+      "detail": "The page loads while the server prepares your transactions. The transactions download about seven times smaller."
+    }
+  ]
+}

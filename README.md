@@ -101,8 +101,10 @@ Never share the dashboard. It holds every transaction you have, and so does a sc
 
 ### Releases
 
-Add each release to the start of `src/web/app/releases.ts`.
-Increase the semantic version for each release.
+Add each release as one file in `src/web/app/release-notes/`.
+Name it with the Oslo date and time and a short title, such as `2026-11-11-1530-coop-receipts.json`.
+Set `bump` to `major`, `minor` or `patch`. The app computes each version from the bumps in name order.
+A new file must sort after every file on `main`.
 Write short notes for important new features and major changes.
 Do not generate notes from commit messages.
 Exclude routine fixes, maintenance, and internal changes.

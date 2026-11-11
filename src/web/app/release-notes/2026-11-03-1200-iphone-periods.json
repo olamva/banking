@@ -1,0 +1,9 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "Periods, insights and receipts on iPhone",
+      "detail": "The iPhone app shows a month, a whole year, all time or a custom range. Summary, Insights and Activity follow the period that you choose. A transaction shows its receipt and can remember a new category. Summary shows the biggest changes, spending by account and income by payer. Activity filters by account and category."
+    }
+  ]
+}
