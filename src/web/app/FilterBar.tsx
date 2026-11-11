@@ -48,19 +48,21 @@ interface ChipProps {
 
 const Chip = ({ axis, text, out, onRemove }: ChipProps) => (
   <Badge
+    asChild
     variant={out ? "destructive" : "secondary"}
-    className="h-6 max-w-full gap-1 pr-0.5 pl-2 font-normal"
+    className="h-6 max-w-full cursor-pointer gap-1 pr-0.5 pl-2 font-normal"
   >
-    <span className="opacity-70">{axis}:</span>
-    {out && <span className="font-medium">not</span>}
-    <span className={cn("truncate", out && "line-through")}>{text}</span>
     <button
       type="button"
       onClick={onRemove}
       aria-label={`Remove ${out ? "exclusion " : ""}${text}`}
-      className="flex size-5 shrink-0 items-center justify-center rounded-full opacity-70 hover:bg-foreground/10 hover:opacity-100"
     >
-      <Icon icon={CloseIcon} size={12} />
+      <span className="opacity-70">{axis}:</span>
+      {out && <span className="font-medium">not</span>}
+      <span className={cn("truncate", out && "line-through")}>{text}</span>
+      <span className="flex size-5 shrink-0 items-center justify-center rounded-full opacity-70 group-hover/badge:bg-foreground/10 group-hover/badge:opacity-100">
+        <Icon icon={CloseIcon} size={12} />
+      </span>
     </button>
   </Badge>
 );
