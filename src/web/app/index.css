@@ -216,6 +216,10 @@
     @apply bg-background text-foreground antialiased;
   }
 
+  html body[data-scroll-locked] {
+    margin-right: 0 !important;
+  }
+
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),
   summary,
