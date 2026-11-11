@@ -19,6 +19,7 @@ import { narrowings } from "./narrowings.ts";
 import { DATA_DIR, DB_FILE, RULES_DIR } from "./paths.ts";
 import { normalizeMonth } from "./normalize.ts";
 import {
+  coopReceipt,
   mailReceipt,
   matchReceipts,
   remaReceipt,
@@ -47,6 +48,7 @@ const mails = new Map<string, Promise<Found>>();
 const READERS: Record<string, (file: string) => Promise<Found | null>> = {
   rema: async (file) => remaReceipt(JSON.parse(await readFile(file, "utf8"))),
   trumf: async (file) => trumfReceipt(JSON.parse(await readFile(file, "utf8"))),
+  coop: async (file) => coopReceipt(JSON.parse(await readFile(file, "utf8"))),
   gmail: (file) => {
     if (!mails.has(file))
       mails.set(

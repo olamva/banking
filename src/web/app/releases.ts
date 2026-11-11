@@ -6,13 +6,24 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
-    version: "2.4.1",
+    version: "2.5.1",
     date: "2026-11-11",
     highlights: [
       {
         title: "Use the page while it refreshes",
         detail:
           "The page opens at once with the stored data. While a refresh runs, the Refresh button shows Refreshing…, and the new data appears when the refresh ends. A slow refresh no longer ends in an error.",
+      },
+    ],
+  },
+  {
+    version: "2.5.0",
+    date: "2026-11-11",
+    highlights: [
+      {
+        title: "Coop receipts",
+        detail:
+          "Purchases at Coop stores, such as Extra, Prix, Obs and Mega, show their receipt lines, sizes and member discounts. Refresh fetches new Coop receipts with the other receipt sources.",
       },
     ],
   },

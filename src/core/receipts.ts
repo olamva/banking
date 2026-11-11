@@ -15,7 +15,7 @@ export type ReceiptLine = {
 };
 
 export type Receipt = {
-  source: "rema" | "trumf" | "gmail";
+  source: "rema" | "trumf" | "gmail" | "coop";
   id: string;
   at: number;
   store: string;
@@ -195,6 +195,78 @@ export const trumfReceipt = ({ purchase, receipt }: TrumfFile): Found | null =>
     amounts: [purchase.belop],
     names: [firstWord(purchase.beskrivelse)],
   };
+
+type CoopFile = {
+  period: { year: number; month: number };
+  details: {
+    summary: {
+      summaryId: string;
+      storeName: string;
+      dateTime: string;
+      totalSum: string;
+      lines: {
+        name: string;
+        quantity: string;
+        price: string;
+        discount: string | null;
+      }[];
+    };
+  };
+};
+
+const kroner = (s: string | null) =>
+  Number((s ?? "0").replace(/[\s.]/g, "").replace(",", "."));
+
+const osloOffset = (utc: number) => {
+  const [, sign, h, m] = new Intl.DateTimeFormat("en", {
+    timeZone: "Europe/Oslo",
+    timeZoneName: "longOffset",
+  })
+    .format(utc)
+    .match(/([+-])(\d\d):(\d\d)/)!;
+  return (sign === "-" ? -1 : 1) * (Number(h) * 60 + Number(m)) * 60_000;
+};
+
+function coopTime({ year, month }: CoopFile["period"], text: string): number {
+  const [, day, hour, minute] = text.match(/^(\d+)\.\D+(\d+):(\d+)/) ?? [];
+  const local = Date.UTC(
+    year,
+    month - 1,
+    Number(day),
+    Number(hour),
+    Number(minute),
+  );
+  return local - osloOffset(local);
+}
+
+export const coopReceipt = ({ period, details }: CoopFile): Found => {
+  const s = details.summary;
+  return {
+    receipt: {
+      source: "coop",
+      id: s.summaryId,
+      at: coopTime(period, s.dateTime),
+      store: s.storeName,
+      lines: s.lines.map((l) => {
+        const [, count, unit] = l.quantity.match(/^([\d,.]+)\s*(\S*)/) ?? [];
+        const qty = count ? kroner(count) : 1;
+        const amount = kroner(l.price);
+        const discount = kroner(l.discount);
+        return {
+          ...splitSize(l.name),
+          qty,
+          ...(unit?.toLowerCase() === "kg" ? { unit: "kg" as const } : {}),
+          price: ore((amount + discount) / qty),
+          amount,
+          ...(discount ? { discounts: [{ label: "", amount: discount }] } : {}),
+        };
+      }),
+      total: kroner(s.totalSum),
+    },
+    amounts: [kroner(s.totalSum)],
+    names: [firstWord(s.storeName)],
+  };
+};
 
 const MONEY =
   /(\d{1,3}(?:[ .,]\d{3})+|\d+)(?:[.,](\d{2})(?!\d)|,-)|(?:kr\.?|nok) ?(\d{1,3}(?: \d{3})+|\d+)(?![\d.,]| \d)|(\d{1,3}(?: \d{3})+|\d+) ?(?:kr|nok)\b/gi;
