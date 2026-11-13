@@ -29,6 +29,7 @@ export type Found = { receipt: Receipt; amounts: number[]; names: string[] };
 
 type RemaRow = {
   prodtxt1?: string;
+  prodtxt2?: string;
   productDescription?: string;
   pieces: number;
   amount: number;
@@ -81,9 +82,9 @@ const UNITS: Record<string, string> = {
 
 const number = (s: string) => s.replace(".", ",").replace(/ ?[x×] ?/i, " × ");
 
-function splitSize(text: string): { name: string; size?: string } {
+function parseSizes(text: string): { rest: string; sizes: string[] } {
   const sizes = new Set<string>();
-  const name = text
+  const rest = text
     .replace(SIZE, (_, ca, amount, unit = "", times, pack, litres) => {
       const count = times ?? pack;
       sizes.add(
@@ -95,8 +96,13 @@ function splitSize(text: string): { name: string; size?: string } {
     })
     .replace(/\s+/g, " ")
     .trim();
-  return sizes.size && name
-    ? { name, size: [...sizes].join(" · ") }
+  return { rest, sizes: [...sizes] };
+}
+
+function splitSize(text: string): { name: string; size?: string } {
+  const { rest, sizes } = parseSizes(text);
+  return sizes.length && rest
+    ? { name: rest, size: sizes.join(" · ") }
     : { name: text };
 }
 
@@ -116,8 +122,12 @@ function remaLine(r: RemaRow): ReceiptLine {
     : r.discount
       ? [{ label: "", amount: -r.discount }]
       : [];
+  const { name, size = parseSizes(r.prodtxt2 ?? "").sizes[0] } = splitSize(
+    r.prodtxt1 ?? r.productDescription ?? "Unnamed item",
+  );
   return {
-    ...splitSize(r.prodtxt1 ?? r.productDescription ?? "Unnamed item"),
+    name,
+    ...(size ? { size } : {}),
     qty: kg ? r.volume : r.pieces,
     ...(kg ? { unit: "kg" as const } : {}),
     price: kg

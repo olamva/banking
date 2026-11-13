@@ -138,7 +138,10 @@ before(async () => {
         item("Nudler M/kjøttsmak 85G Mr.lee", 1, 6),
         item("Mack Isbjørn Lite 0,5LX6 BX", 1, 120),
         item("Schous Pilsner 0.33", 1, 25),
-        item("Stange Gårdsegg 10 M/l/xl", 1, 4),
+        {
+          ...item("Stange Gårdsegg 10 M/l/xl", 1, 4),
+          prodtxt2: "Stange 530 G",
+        },
         { ...item("", 1, 10), prodtxt1: undefined },
         {
           ...item("Oreo Rull Dobbel 157G", 2, 39.84),
@@ -148,6 +151,7 @@ before(async () => {
         },
         {
           ...item("Paprika Rød Løsvekt", 1, 10.39),
+          prodtxt2: "Kilo",
           unit: "Kg",
           volume: 0.17,
           unitPrice: 67.9,
@@ -250,7 +254,7 @@ test("a receipt line keeps the pack size apart from the product name", () => {
       ["Nudler M/kjøttsmak Mr.lee", "85 g"],
       ["Mack Isbjørn Lite", "0,5 l × 6"],
       ["Schous Pilsner", "0,33 l"],
-      ["Stange Gårdsegg 10 M/l/xl", undefined],
+      ["Stange Gårdsegg 10 M/l/xl", "530 g"],
       ["Unnamed item", undefined],
       ["Oreo Rull Dobbel", "157 g"],
       ["Paprika Rød Løsvekt", undefined],

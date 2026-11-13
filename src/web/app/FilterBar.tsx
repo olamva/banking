@@ -7,18 +7,40 @@ import {
 } from "../../core/select.ts";
 import { Picker } from "./FilterPicker.tsx";
 import { pairLabel, treeLabel } from "./format.ts";
-import {
-  CloseIcon,
-  Icon,
-  ResetFiltersIcon,
-  ShowExcludedIcon,
-} from "./icons.ts";
+import { CloseIcon, Icon, ResetFiltersIcon } from "./icons.ts";
 import { Badge } from "./ui/badge.tsx";
 import { Button } from "./ui/button.tsx";
-import { Toggle } from "./ui/toggle.tsx";
+import { Switch } from "./ui/switch.tsx";
 import { cn } from "./ui/utils.ts";
 
-export type View = "dashboard" | "insights" | "transactions" | "rules";
+export type View =
+  "dashboard" | "insights" | "transactions" | "items" | "rules";
+
+export const SEARCH_VIEWS: View[] = ["transactions", "items"];
+
+interface SwitchFieldProps {
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  className?: string;
+}
+
+export const SwitchField = ({
+  label,
+  checked,
+  onChange,
+  className,
+}: SwitchFieldProps) => (
+  <label
+    className={cn(
+      "inline-flex h-8 shrink-0 cursor-pointer items-center gap-2 rounded-lg border border-border bg-background px-2.5 text-sm whitespace-nowrap hover:bg-muted dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
+      className,
+    )}
+  >
+    <Switch checked={checked} onCheckedChange={onChange} />
+    {label}
+  </label>
+);
 
 interface FilterBarProps {
   view: View;
@@ -99,7 +121,7 @@ export const FilterBar = ({
     ...filters[key].map((v) => ({ key, list: key, v, out: false })),
     ...filters[outKey].map((v) => ({ key, list: outKey, v, out: true })),
   ]);
-  const searchChip = filters.search !== "" && view !== "transactions";
+  const searchChip = filters.search !== "" && !SEARCH_VIEWS.includes(view);
   const dirty =
     chips.length > 0 || filters.search !== "" || filters.showExcluded;
   const PICKER = "max-sm:flex-1 max-sm:basis-[calc(50%-0.25rem)]";
@@ -144,20 +166,12 @@ export const FilterBar = ({
           label={(c) => (c === NO_COUNTRY ? "No country" : c)}
           className={PICKER}
         />
-        <Toggle
-          variant="outline"
-          pressed={filters.showExcluded}
-          onPressedChange={(showExcluded) =>
-            onFilters({ ...filters, showExcluded })
-          }
-          className={cn(
-            PICKER,
-            "font-normal data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground",
-          )}
-        >
-          <Icon icon={ShowExcludedIcon} size={15} />
-          Excluded rows
-        </Toggle>
+        <SwitchField
+          label="Excluded rows"
+          checked={filters.showExcluded}
+          onChange={(showExcluded) => onFilters({ ...filters, showExcluded })}
+          className={PICKER}
+        />
         <Button
           variant="ghost"
           disabled={!dirty}
