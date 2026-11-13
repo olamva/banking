@@ -151,6 +151,23 @@ export const purchasesOf = (
   );
 };
 
+export const withItems = (
+  txns: Categorized[],
+  rules: RuleMap = {},
+): Categorized[] => {
+  const nameOf = namer(rules);
+  return txns.map((t) =>
+    t.receipt
+      ? {
+          ...t,
+          items: [
+            ...new Set(receiptPurchases(t.receipt, nameOf).map((p) => p.key)),
+          ],
+        }
+      : t,
+  );
+};
+
 const median = (xs: number[]): number | null => {
   const s = xs.toSorted((a, b) => a - b);
   const mid = s.length >> 1;

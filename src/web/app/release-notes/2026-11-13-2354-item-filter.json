@@ -1,0 +1,9 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "Filter by item",
+      "detail": "Use the Items filter to show only the purchases that contain an item, or to hide them. The filter works on every page. On the Items page, it shows or hides the items themselves."
+    }
+  ]
+}

@@ -30,6 +30,8 @@ test("a populated state round-trips, nulls included", () => {
       categoriesOut: ["dagligvarer/andre_dagligvarer"],
       merchants: ["Rema 1000", "Kiwi"],
       merchantsOut: ["Meny"],
+      items: ["Tine Lettmelk 0,5%"],
+      itemsOut: ["Pose"],
       accounts: [],
       accountsOut: ["Mastercard Ung"],
       countries: ["Japan", "—"],

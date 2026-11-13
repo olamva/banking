@@ -12,7 +12,6 @@ import {
   purchasesOf,
   type Item,
 } from "../../core/items.ts";
-import type { RuleMap } from "../../core/ruleFiles.ts";
 import { matchesFilters, type Filters } from "../../core/select.ts";
 import type { Categorized } from "../../core/types.ts";
 import {
@@ -23,7 +22,7 @@ import {
   StatTile,
   type Column,
 } from "./Cards.tsx";
-import type { RulesApi } from "./data.ts";
+import { itemRules, type RulesApi } from "./data.ts";
 import { fmtDate, fmtNOK, fmtNOKExact } from "./format.ts";
 import { DropdownIcon, Icon, InfoIcon, ItemsIcon } from "./icons.ts";
 import { SwitchField } from "./FilterBar.tsx";
@@ -210,25 +209,37 @@ interface ItemsProps {
   onSearch: (search: string) => void;
 }
 
-const NO_RULES: RuleMap = {};
-
 export const Items = ({ rows, filters, rules, onSearch }: ItemsProps) => {
   const words = useDeferredValue(filters.search)
     .toLowerCase()
     .replace(/(\d),(\d)/g, "$1.$2")
     .split(/\s+/);
   const [bySize, setBySize] = useState(false);
-  const names = (rules.data?.files.items as RuleMap | undefined) ?? NO_RULES;
+  const names = itemRules(rules);
   const purchases = useMemo(
     () =>
       purchasesOf(
-        rows.filter((t) => matchesFilters(t, { ...filters, search: "" })),
+        rows.filter((t) =>
+          matchesFilters(t, {
+            ...filters,
+            search: "",
+            items: [],
+            itemsOut: [],
+          }),
+        ),
         names,
       ),
     [rows, filters, names],
   );
   const items = useMemo(() => itemsOf(purchases, bySize), [purchases, bySize]);
-  const shown = items.filter((i) => words.every((w) => i.key.includes(w)));
+  const picks = filters.items.map(nameKey);
+  const drops = filters.itemsOut.map(nameKey);
+  const shown = items.filter(
+    ({ key, purchases: [first] }) =>
+      words.every((w) => key.includes(w)) &&
+      (!picks.length || picks.includes(first!.key)) &&
+      !drops.includes(first!.key),
+  );
   const [sort, setSort] = useState<Sort>("count");
   const [descending, setDescending] = useState(true);
   const [picked, setPicked] = useState<string | null>(null);
@@ -324,7 +335,11 @@ export const Items = ({ rows, filters, rules, onSearch }: ItemsProps) => {
         {items.length === 0 ? (
           <Empty>No receipts with item lines match the current filters.</Empty>
         ) : shown.length === 0 ? (
-          <Empty>No items match “{filters.search}”.</Empty>
+          <Empty>
+            {filters.search
+              ? `No items match “${filters.search}”.`
+              : "No items match the item filter."}
+          </Empty>
         ) : (
           <DataTable
             scroll
