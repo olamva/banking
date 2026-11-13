@@ -14,6 +14,7 @@ import { fmtDate, fmtNOK, fmtNOKExact } from "./format.ts";
 import { CloseIcon, Icon, InfoIcon, ItemsIcon, ReceiptIcon } from "./icons.ts";
 import { SearchBox } from "./SearchBox.tsx";
 import { Button } from "./ui/button.tsx";
+import { Toggle } from "./ui/toggle.tsx";
 
 type Sort =
   "name" | "count" | "qty" | "spent" | "price" | "medianDays" | "last";
@@ -67,17 +68,20 @@ interface ItemsProps {
 }
 
 export const Items = ({ rows, filters, onSearch }: ItemsProps) => {
-  const search = useDeferredValue(filters.search).toLowerCase().trim();
-  const items = useMemo(
+  const words = useDeferredValue(filters.search)
+    .toLowerCase()
+    .replace(/(\d),(\d)/g, "$1.$2")
+    .split(/\s+/);
+  const [bySize, setBySize] = useState(false);
+  const purchases = useMemo(
     () =>
-      itemsOf(
-        purchasesOf(
-          rows.filter((t) => matchesFilters(t, { ...filters, search: "" })),
-        ),
+      purchasesOf(
+        rows.filter((t) => matchesFilters(t, { ...filters, search: "" })),
       ),
     [rows, filters],
   );
-  const shown = items.filter((i) => i.key.includes(search));
+  const items = useMemo(() => itemsOf(purchases, bySize), [purchases, bySize]);
+  const shown = items.filter((i) => words.every((w) => i.key.includes(w)));
   const [sort, setSort] = useState<Sort>("count");
   const [descending, setDescending] = useState(true);
   const [picked, setPicked] = useState<string | null>(null);
@@ -103,7 +107,12 @@ export const Items = ({ rows, filters, onSearch }: ItemsProps) => {
   const tableRows: ReactNode[][] = sorted.map((i) => [
     <span className="block max-w-[45vw] truncate sm:max-w-96">
       {i.name}
-      {i.size && <span className="text-muted-foreground"> · {i.size}</span>}
+      {i.sizes.length > 0 && (
+        <span className="text-muted-foreground">
+          {" · "}
+          {i.sizes.length > 1 ? `${i.sizes.length} sizes` : i.sizes[0]}
+        </span>
+      )}
     </span>,
     i.count,
     fmtQty(i.qty, i.unit),
@@ -113,23 +122,33 @@ export const Items = ({ rows, filters, onSearch }: ItemsProps) => {
     fmtDate(i.last),
   ]);
 
-  const purchases = shown.reduce((n, i) => n + i.count, 0);
+  const bought = shown.reduce((n, i) => n + i.count, 0);
   const receipts = new Set(
     shown.flatMap((i) => i.purchases.map((p) => p.receipt)),
   ).size;
 
   return (
     <>
-      <SearchBox
-        value={filters.search}
-        onChange={onSearch}
-        placeholder="Search items"
-        hotkey
-        className="mb-4"
-      />
+      <div className="mb-4 flex gap-2">
+        <SearchBox
+          value={filters.search}
+          onChange={onSearch}
+          placeholder="Search items"
+          hotkey
+          className="flex-1"
+        />
+        <Toggle
+          variant="outline"
+          pressed={bySize}
+          onPressedChange={setBySize}
+          className="font-normal data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+        >
+          Split by size
+        </Toggle>
+      </div>
       <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(min(150px,100%),1fr))] gap-3 max-sm:grid-cols-2">
         <StatTile label="Items" value={String(shown.length)} />
-        <StatTile label="Purchases" value={String(purchases)} />
+        <StatTile label="Purchases" value={String(bought)} />
         <StatTile label="Shopping trips" value={String(receipts)} />
         <StatTile
           label="Spent"
