@@ -5,6 +5,7 @@ import {
   DashboardIcon,
   Icon,
   InsightsIcon,
+  ItemsIcon,
   KeyboardIcon,
   LightThemeIcon,
   ReleaseIcon,
@@ -50,13 +51,15 @@ export const VIEW_LABEL: Record<View, string> = {
   dashboard: "Dashboard",
   transactions: "Transactions",
   insights: "Insights",
+  items: "Items",
   rules: "Rules",
 };
 
-const VIEWS: [View, typeof DashboardIcon][] = [
+export const VIEWS: [View, typeof DashboardIcon][] = [
   ["dashboard", DashboardIcon],
   ["transactions", TransactionsIcon],
   ["insights", InsightsIcon],
+  ["items", ItemsIcon],
   ["rules", RulesIcon],
 ];
 

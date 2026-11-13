@@ -22,7 +22,7 @@ import {
   type Filters,
 } from "../../core/select.ts";
 import type { Categorized } from "../../core/types.ts";
-import { AppSidebar, VIEW_LABEL } from "./AppSidebar.tsx";
+import { AppSidebar, VIEWS, VIEW_LABEL } from "./AppSidebar.tsx";
 import { BulkTransactions } from "./BulkTransactions.tsx";
 import { GROUP_SHORTCUT } from "./chartGroup.ts";
 import { Dashboard, pick } from "./Dashboard.tsx";
@@ -36,10 +36,11 @@ import {
   useTransactions,
   type Theme,
 } from "./data.ts";
-import { FilterBar, type View } from "./FilterBar.tsx";
+import { FilterBar, SEARCH_VIEWS, type View } from "./FilterBar.tsx";
 import { setCategoryHues, setLabels } from "./format.ts";
 import { Header, LoadNote, RefreshButton } from "./Header.tsx";
 import { Insights } from "./Insights.tsx";
+import { Items } from "./Items.tsx";
 import { useFilterOptions } from "./options.ts";
 import { PeriodPicker } from "./PeriodPicker.tsx";
 import { ReleaseNotesDialog } from "./Releases.tsx";
@@ -148,7 +149,7 @@ export const App = () => {
   );
 
   const changeView = (next: View) => {
-    if (view === "transactions" && next !== "transactions")
+    if (SEARCH_VIEWS.includes(view) && next !== view)
       setFilters((f) => ({ ...f, search: "" }));
     setView(next);
   };
@@ -181,14 +182,12 @@ export const App = () => {
   };
 
   const shortcuts: Shortcut[] = [
-    ...(["dashboard", "transactions", "insights", "rules"] as const).map(
-      (v, i): Shortcut => ({
-        keys: [String(i + 1)],
-        cap: String(i + 1),
-        what: VIEW_LABEL[v],
-        run: () => changeView(v),
-      }),
-    ),
+    ...VIEWS.map(([v], i): Shortcut => ({
+      keys: [String(i + 1)],
+      cap: String(i + 1),
+      what: VIEW_LABEL[v],
+      run: () => changeView(v),
+    })),
     {
       keys: ["ArrowLeft"],
       cap: "←",
@@ -266,7 +265,7 @@ export const App = () => {
       },
     },
     { cap: "⌘ B", what: "Show or hide the sidebar" },
-    { cap: "/ ⌘F", what: "Search the transactions table" },
+    { cap: "/ ⌘F", what: "Search transactions or items" },
     { keys: ["?"], cap: "?", what: "This list", run: () => setHelp(true) },
   ];
   useShortcuts(shortcuts);
@@ -305,6 +304,13 @@ export const App = () => {
         filters={filters}
         onMerchant={pick(setFilters, "merchants")}
         onCategory={pick(setFilters, "categories")}
+      />
+    ),
+    items: () => (
+      <Items
+        rows={inPeriod}
+        filters={filters}
+        onSearch={(search) => setFilters((f) => ({ ...f, search }))}
       />
     ),
     transactions: () => (

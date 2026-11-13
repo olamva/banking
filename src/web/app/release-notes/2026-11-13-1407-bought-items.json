@@ -1,0 +1,9 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "Bought items",
+      "detail": "The new Items view lists each item from your store receipts. Search for an item to see how often you buy it, how much you spend, the usual gap between purchases and each purchase."
+    }
+  ]
+}

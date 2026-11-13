@@ -1,10 +1,11 @@
 import { period, type Filters, type PeriodKind } from "../../core/select.ts";
+import type { View } from "./FilterBar.tsx";
 import { RULE_TABS, type RuleTab } from "./ruleMeta.ts";
 
 export type Grain = "running" | "day" | "month";
 
 export type UrlState = {
-  view: "dashboard" | "insights" | "transactions" | "rules";
+  view: View;
   ruleFile: RuleTab;
   period: string | null;
   grain: Grain;
@@ -15,6 +16,7 @@ const VIEWS: UrlState["view"][] = [
   "dashboard",
   "transactions",
   "insights",
+  "items",
   "rules",
 ];
 const ALL_GRAINS: Grain[] = ["running", "day", "month"];

@@ -18,7 +18,10 @@ import { Button } from "./ui/button.tsx";
 import { Toggle } from "./ui/toggle.tsx";
 import { cn } from "./ui/utils.ts";
 
-export type View = "dashboard" | "insights" | "transactions" | "rules";
+export type View =
+  "dashboard" | "insights" | "transactions" | "items" | "rules";
+
+export const SEARCH_VIEWS: View[] = ["transactions", "items"];
 
 interface FilterBarProps {
   view: View;
@@ -99,7 +102,7 @@ export const FilterBar = ({
     ...filters[key].map((v) => ({ key, list: key, v, out: false })),
     ...filters[outKey].map((v) => ({ key, list: outKey, v, out: true })),
   ]);
-  const searchChip = filters.search !== "" && view !== "transactions";
+  const searchChip = filters.search !== "" && !SEARCH_VIEWS.includes(view);
   const dirty =
     chips.length > 0 || filters.search !== "" || filters.showExcluded;
   const PICKER = "max-sm:flex-1 max-sm:basis-[calc(50%-0.25rem)]";

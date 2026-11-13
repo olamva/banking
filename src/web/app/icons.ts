@@ -50,6 +50,7 @@ export { ArrowRight01Icon as NextIcon } from "@hugeicons/core-free-icons";
 export { Calendar03Icon as CalendarIcon } from "@hugeicons/core-free-icons";
 export { DashboardSquare01Icon as DashboardIcon } from "@hugeicons/core-free-icons";
 export { AnalyticsUpIcon as InsightsIcon } from "@hugeicons/core-free-icons";
+export { ShoppingBasket01Icon as ItemsIcon } from "@hugeicons/core-free-icons";
 export { FileEditIcon as RulesIcon } from "@hugeicons/core-free-icons";
 export { News01Icon as ReleaseIcon } from "@hugeicons/core-free-icons";
 export { ViewIcon as ShowExcludedIcon } from "@hugeicons/core-free-icons";
