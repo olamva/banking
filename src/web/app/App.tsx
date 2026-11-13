@@ -310,6 +310,7 @@ export const App = () => {
       <Items
         rows={inPeriod}
         filters={filters}
+        rules={rules}
         onSearch={(search) => setFilters((f) => ({ ...f, search }))}
       />
     ),

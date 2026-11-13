@@ -195,6 +195,7 @@ export interface Column {
   min?: boolean;
   onClick?: () => void;
   sort?: "asc" | "desc" | null;
+  className?: string;
 }
 
 export const highlighting = (e: { detail: number }) =>
@@ -298,6 +299,7 @@ export const DataTable = ({
       "px-2 first:pl-0 last:pr-0",
       c?.num ? "text-right" : "text-left",
       c?.min && "w-px whitespace-nowrap",
+      c?.className,
     );
 
   return (

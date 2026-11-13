@@ -51,8 +51,11 @@ const Rule = () => (
   <div className="my-2 border-t border-dashed border-muted-foreground/60" />
 );
 
-const Item = ({ line }: { line: ReceiptLine }) => (
-  <div className="py-0.5">
+const Item = ({ line, marked }: { line: ReceiptLine; marked: boolean }) => (
+  <div
+    data-marked={marked || undefined}
+    className={`py-0.5 ${marked ? "-mx-1.5 rounded-sm bg-muted px-1.5 font-semibold" : ""}`}
+  >
     <div className="uppercase wrap-break-word">{line.name}</div>
     <Row
       amount={line.amount + total(line.discounts ?? []) - (line.deposit ?? 0)}
@@ -82,7 +85,13 @@ const Item = ({ line }: { line: ReceiptLine }) => (
   </div>
 );
 
-const Slip = ({ receipt }: { receipt: Receipt }) => {
+export const Slip = ({
+  receipt,
+  marked,
+}: {
+  receipt: Receipt;
+  marked?: string;
+}) => {
   const lines = merged(receipt.lines);
   const saved = total(lines.flatMap((l) => l.discounts ?? []));
   return (
@@ -93,7 +102,7 @@ const Slip = ({ receipt }: { receipt: Receipt }) => {
       </div>
       <Rule />
       {lines.map((l, i) => (
-        <Item key={i} line={l} />
+        <Item key={i} line={l} marked={l.name === marked} />
       ))}
       <Rule />
       <Row
