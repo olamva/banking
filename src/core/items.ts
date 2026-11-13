@@ -1,10 +1,13 @@
+import { compile } from "./match.ts";
 import type { Receipt } from "./receipts.ts";
+import type { RuleMap } from "./ruleFiles.ts";
 import type { Categorized } from "./types.ts";
 
 export type Purchase = {
   key: string;
   sizeKey: string;
-  receipt: string;
+  receipt: Receipt;
+  raw: string;
   name: string;
   size?: string;
   date: string;
@@ -30,9 +33,45 @@ export type Item = {
 
 const osloDay = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Oslo" });
 
-const PACKAGING = new Set(["bx", "boks", "fl", "flaske", "fridepack"]);
+const PACKAGING = new Set([
+  "bx",
+  "boks",
+  "fl",
+  "flaske",
+  "plastfl",
+  "fridepack",
+  "x",
+]);
 
-const nameKey = (name: string): string =>
+const tidy = (name: string): string => {
+  const shouted = name === name.toUpperCase();
+  return (
+    name
+      .split(/\s+/)
+      .filter((w) => !PACKAGING.has(w.toLowerCase()))
+      .map((w) =>
+        w === "R"
+          ? "REMA 1000"
+          : shouted
+            ? w.charAt(0) + w.slice(1).toLowerCase()
+            : w,
+      )
+      .join(" ") || name
+  );
+};
+
+export const itemPattern = (raw: string): string =>
+  `/^${raw.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$/`;
+
+const namer = (rules: RuleMap) => {
+  const found = Object.entries(rules).map(
+    ([pattern, name]) => [compile(pattern, "rules/items.json"), name] as const,
+  );
+  return (raw: string) =>
+    found.find(([matches]) => matches(raw.toLowerCase()))?.[1] ?? tidy(raw);
+};
+
+export const nameKey = (name: string): string =>
   name
     .toLowerCase()
     .replace(/(\d),(\d)/g, "$1.$2")
@@ -76,27 +115,41 @@ const sizeKey = (size = ""): string =>
 
 const ore = (n: number) => Math.round(n * 100) / 100;
 
-const receiptPurchases = (receipt: Receipt): Purchase[] =>
+const receiptPurchases = (
+  receipt: Receipt,
+  nameOf: (raw: string) => string,
+): Purchase[] =>
   [
     ...Map.groupBy(
       receipt.lines.filter((l) => l.amount > 0),
-      (l) => `${nameKey(l.name)}\n${sizeKey(l.size)}`,
+      (l) => `${l.name}\n${sizeKey(l.size)}`,
     ).values(),
-  ].map((same) => ({
-    key: nameKey(same[0]!.name),
-    sizeKey: sizeKey(same[0]!.size),
-    receipt: `${receipt.source}:${receipt.id}`,
-    name: same[0]!.name,
-    size: same[0]!.size,
-    date: osloDay.format(receipt.at),
-    store: receipt.store,
-    qty: same.reduce((n, l) => n + l.qty, 0),
-    unit: same[0]!.unit,
-    amount: ore(same.reduce((n, l) => n + l.amount, 0)),
-  }));
+  ].map((same) => {
+    const name = nameOf(same[0]!.name);
+    return {
+      key: nameKey(name),
+      sizeKey: sizeKey(same[0]!.size),
+      receipt,
+      raw: same[0]!.name,
+      name,
+      size: same[0]!.size,
+      date: osloDay.format(receipt.at),
+      store: receipt.store,
+      qty: same.reduce((n, l) => n + l.qty, 0),
+      unit: same[0]!.unit,
+      amount: ore(same.reduce((n, l) => n + l.amount, 0)),
+    };
+  });
 
-export const purchasesOf = (txns: Categorized[]): Purchase[] =>
-  txns.flatMap((t) => (t.receipt ? receiptPurchases(t.receipt) : []));
+export const purchasesOf = (
+  txns: Categorized[],
+  rules: RuleMap = {},
+): Purchase[] => {
+  const nameOf = namer(rules);
+  return txns.flatMap((t) =>
+    t.receipt ? receiptPurchases(t.receipt, nameOf) : [],
+  );
+};
 
 const median = (xs: number[]): number | null => {
   const s = xs.toSorted((a, b) => a - b);

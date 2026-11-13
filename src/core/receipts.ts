@@ -123,7 +123,7 @@ function remaLine(r: RemaRow): ReceiptLine {
       ? [{ label: "", amount: -r.discount }]
       : [];
   const { name, size = parseSizes(r.prodtxt2 ?? "").sizes[0] } = splitSize(
-    r.prodtxt1 ?? r.productDescription ?? "Unnamed item",
+    r.prodtxt1 || r.productDescription || "Unnamed item",
   );
   return {
     name,

@@ -29,6 +29,7 @@ export const RULE_LABEL: Record<RuleTab, string> = {
   giro: "Giro",
   payees: "Payee names",
   countries: "Countries",
+  items: "Item names",
   labels: "Category names",
   family: "Family",
   subscriptions: "Subscriptions",
@@ -43,6 +44,8 @@ export const RULE_NOTE: Record<RuleFile, string> = {
     "Pattern to the name on the page. A rename can never move money, so this file is safe to edit.",
   countries:
     "Pattern to the country on the row. It beats the country the code reads off the card name.",
+  items:
+    "Receipt line name to the name on the Items page. Items with the same name show as one item.",
   labels: "Slug to the name on the page. Write the slug as category/sub.",
   family:
     "A relative, by name or by account number. Money in is from family. Money out is a repayment.",
@@ -55,7 +58,7 @@ export const RULE_GROUPS: [string, RuleFile[]][] = [
     "Transactions",
     ["categories", "giro", "family", "subscriptions", "not-subscriptions"],
   ],
-  ["Display", ["payees", "countries", "labels"]],
+  ["Display", ["payees", "countries", "labels", "items"]],
 ];
 
 export const TAB_GROUPS: [string, RuleTab[]][] = [

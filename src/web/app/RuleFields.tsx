@@ -34,6 +34,7 @@ export const KEY_LABEL: Record<RuleFile, string> = {
   giro: "Pattern",
   payees: "Pattern",
   countries: "Pattern",
+  items: "Pattern",
   labels: "Slug",
   family: "Name or account number",
   subscriptions: "Pattern",
@@ -45,6 +46,7 @@ export const VALUE_LABEL: Record<RuleFile, string> = {
   giro: "category/sub",
   payees: "Name",
   countries: "Country",
+  items: "Name",
   labels: "Name",
   family: "",
   subscriptions: "",
@@ -463,7 +465,9 @@ export const AddForm = ({
           Add
         </Button>
       </div>
-      <MatchNote pattern={key} txns={txns} haystacks={haystacks} />
+      {file !== "items" && (
+        <MatchNote pattern={key} txns={txns} haystacks={haystacks} />
+      )}
     </form>
   );
 };

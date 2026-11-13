@@ -142,7 +142,10 @@ before(async () => {
           ...item("Stange Gårdsegg 10 M/l/xl", 1, 4),
           prodtxt2: "Stange 530 G",
         },
-        { ...item("", 1, 10), prodtxt1: undefined },
+        {
+          ...item("", 1, 10),
+          productDescription: "KJØTTDEIG 14% 400G PRIMA LAVPRIS",
+        },
         {
           ...item("Oreo Rull Dobbel 157G", 2, 39.84),
           unitPrice: 49.8,
@@ -255,7 +258,7 @@ test("a receipt line keeps the pack size apart from the product name", () => {
       ["Mack Isbjørn Lite", "0,5 l × 6"],
       ["Schous Pilsner", "0,33 l"],
       ["Stange Gårdsegg 10 M/l/xl", "530 g"],
-      ["Unnamed item", undefined],
+      ["KJØTTDEIG 14% PRIMA LAVPRIS", "400 g"],
       ["Oreo Rull Dobbel", "157 g"],
       ["Paprika Rød Løsvekt", undefined],
       ["Tuborg Lite", "0,50 l"],

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { itemsOf, purchasesOf } from "../../src/core/items.ts";
+import { itemPattern, itemsOf, purchasesOf } from "../../src/core/items.ts";
 import type { Receipt, ReceiptLine } from "../../src/core/receipts.ts";
 import type { Categorized } from "../../src/core/types.ts";
 
@@ -57,20 +57,43 @@ const summary = (items: ReturnType<typeof itemsOf>) =>
 
 test("groups the same product across case, word order and packaging words", () => {
   assert.deepEqual(summary(itemsOf(purchases)), [
-    "Isbjørn Lite Glutenfri Boks | 2 | 2 | 2 | 222",
-    "MACK ISBJØRN LITE | 1 | 1 | 1 | 185",
-    "Monster Ultra White Bx | 1 | 2 | 2 | 61",
+    "Isbjørn Lite Glutenfri | 2 | 2 | 2 | 222",
+    "Mack Isbjørn Lite | 1 | 1 | 1 | 185",
+    "Monster Ultra White | 1 | 2 | 2 | 61",
     "Tine Lettmelk 0.5% | 2 | 3 | 5 | 118",
     "Tine Lettmelk Vanilje | 1 | 1 | 1 | 31",
   ]);
 });
 
+test("a rule renames exact receipt names, and other names lose packaging and shouting", () => {
+  const shrunk = purchasesOf(
+    [
+      txn("5", "2026-10-01T10:00:00Z", [
+        line("Tortillachips Ost", 30, "185 g"),
+        line("Tortillas R", 20, "6 pk"),
+        line("KJØTTDEIG 14% PRIMA LAVPRIS", 60, "400 g"),
+      ]),
+      txn("6", "2026-11-01T10:00:00Z", [
+        line("Maarud Tortilla Cheese", 32, "175 g"),
+        line("Maarud Tortilla Cheese Xtra", 33, "175 g"),
+      ]),
+    ],
+    { [itemPattern("Maarud Tortilla Cheese")]: "Tortillachips Ost" },
+  );
+  assert.deepEqual(summary(itemsOf(shrunk)), [
+    "Kjøttdeig 14% Prima Lavpris | 1 | 1 | 1 | 60",
+    "Maarud Tortilla Cheese Xtra | 1 | 1 | 1 | 33",
+    "Tortillachips Ost | 2 | 2 | 2 | 62",
+    "Tortillas REMA 1000 | 1 | 1 | 1 | 20",
+  ]);
+});
+
 test("splits by size when equal sizes are written in different units", () => {
   assert.deepEqual(summary(itemsOf(purchases, true)), [
-    "Isbjørn Lite Glutenfri Boks | 1 | 1 | 1 | 32",
     "Isbjørn Lite Glutenfri | 1 | 1 | 1 | 190",
-    "MACK ISBJØRN LITE | 1 | 1 | 1 | 185",
-    "Monster Ultra White Bx | 1 | 2 | 2 | 61",
+    "Isbjørn Lite Glutenfri | 1 | 1 | 1 | 32",
+    "Mack Isbjørn Lite | 1 | 1 | 1 | 185",
+    "Monster Ultra White | 1 | 2 | 2 | 61",
     "Tine Lettmelk 0.5% | 1 | 1 | 1 | 35",
     "Tine Lettmelk 0.5% | 1 | 3 | 4 | 83",
     "Tine Lettmelk Vanilje | 1 | 1 | 1 | 31",
