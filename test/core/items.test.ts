@@ -34,6 +34,8 @@ const purchases = purchasesOf([
     line("Tine Lettmelk 0.5%", 20, "1 l"),
     line("Tine Lettmelk 0.5%", 35, "1,75 l"),
     line("Pant", -2),
+    line("TAST PANT UTGÅENDE SALG AV EMB", 2),
+    line("Pantene Shampoo", 50, "250 ml"),
   ]),
   txn("2", "2026-09-05T22:30:00Z", [line("LETTMELK 0,5% TINE", 22, "1 l")]),
   txn("3", "2026-09-10T10:00:00Z", [
@@ -60,6 +62,7 @@ test("groups the same product across case, word order and packaging words", () =
     "Isbjørn Lite Glutenfri | 2 | 2 | 2 | 222",
     "Mack Isbjørn Lite | 1 | 1 | 1 | 185",
     "Monster Ultra White | 1 | 2 | 2 | 61",
+    "Pantene Shampoo | 1 | 1 | 1 | 50",
     "Tine Lettmelk 0.5% | 2 | 3 | 5 | 118",
     "Tine Lettmelk Vanilje | 1 | 1 | 1 | 31",
   ]);
@@ -94,6 +97,7 @@ test("splits by size when equal sizes are written in different units", () => {
     "Isbjørn Lite Glutenfri | 1 | 1 | 1 | 32",
     "Mack Isbjørn Lite | 1 | 1 | 1 | 185",
     "Monster Ultra White | 1 | 2 | 2 | 61",
+    "Pantene Shampoo | 1 | 1 | 1 | 50",
     "Tine Lettmelk 0.5% | 1 | 1 | 1 | 35",
     "Tine Lettmelk 0.5% | 1 | 3 | 4 | 83",
     "Tine Lettmelk Vanilje | 1 | 1 | 1 | 31",
