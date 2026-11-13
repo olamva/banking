@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { RULE_FILES } from "../../src/core/ruleFiles.ts";
 
 const lib = fileURLToPath(new URL("../../infra/rules-lib.sh", import.meta.url));
 
@@ -70,16 +71,7 @@ test("a name that is not a version is ignored", () => {
 });
 
 test("every rule file is compared, and no other name is", () => {
-  const all = [
-    "categories",
-    "giro",
-    "payees",
-    "labels",
-    "countries",
-    "family",
-    "subscriptions",
-    "not-subscriptions",
-  ];
+  const all = RULE_FILES;
   const out = behind(
     [...all, "accounts"].map((f) => at(1756300000000, f)).join("\n"),
     "",

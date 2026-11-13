@@ -12,6 +12,7 @@ export const MAP_FILES = [
   "payees",
   "labels",
   "countries",
+  "items",
 ] as const;
 export const LIST_FILES = [
   "family",

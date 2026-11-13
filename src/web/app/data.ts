@@ -290,7 +290,18 @@ export const useRules = (onRebuilt: () => void): RulesApi => {
     saveBulk: (file, keys, value) => {
       const q = new URLSearchParams({ file, value });
       for (const key of keys) q.append("key", key);
-      return run(`/api/rules/bulk?${q}`, "Saved bulk edit.", (data) => data);
+      return run(`/api/rules/bulk?${q}`, "Saved bulk edit.", (data) =>
+        changedFile(data, file, (rules) =>
+          Array.isArray(rules)
+            ? rules
+            : {
+                ...Object.fromEntries(keys.map((key) => [key, value])),
+                ...Object.fromEntries(
+                  Object.entries(rules).filter(([key]) => !keys.includes(key)),
+                ),
+              },
+        ),
+      );
     },
     saveGroup: (file, keys, value) => {
       const q = new URLSearchParams({ file, value });

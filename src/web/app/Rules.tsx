@@ -49,7 +49,13 @@ import { History } from "./RuleHistory.tsx";
 const GROUP_FIELD =
   "min-w-20 max-w-full flex-1 bg-transparent px-2 py-1 font-mono text-xs outline-none";
 
-const GROUPED = new Set<RuleTab>(["categories", "giro", "payees", "countries"]);
+const GROUPED = new Set<RuleTab>([
+  "categories",
+  "giro",
+  "payees",
+  "countries",
+  "items",
+]);
 
 const groupsOf = (entries: [string, string | null][]) => {
   const groups = new Map<string, string[]>();

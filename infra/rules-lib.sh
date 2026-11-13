@@ -6,7 +6,7 @@
 # without reading a rule. The live file holds the version at the cursor, which
 # sits below the newest one while a reader steps back through the stack.
 
-RULE_FILES="categories giro payees labels countries family subscriptions not-subscriptions"
+RULE_FILES="categories giro payees labels countries items family subscriptions not-subscriptions"
 
 HOST="${BANKING_SSH:-banking}"
 SITE=/srv/banking

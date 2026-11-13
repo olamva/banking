@@ -189,8 +189,8 @@ export function saveBulk(
   keys: string[],
   value: string,
 ): number {
-  if (file !== "payees" && file !== "categories")
-    throw new Error("Bulk edits support payees and categories");
+  if (file !== "payees" && file !== "categories" && file !== "items")
+    throw new Error("Bulk edits support payees, categories and items");
   if (keys.length === 0) throw new Error("Select at least one transaction");
   for (const key of keys) check({ file, key, value });
   const existing = load(file) as Record<string, string>;
