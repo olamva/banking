@@ -11,7 +11,8 @@ Apply the `no release` label to every other PR. CI requires one of the two.
 Use the `babysit-pr` skill after creating or updating the PR.
 Complete implementation, relevant tests, and a review of the final diff before merging.
 Fix failures and resolve review feedback within the requested scope.
-Wait for all checks to pass. Merge the PR yourself when the change is ready and any required visual approval is present.
+Enable auto-merge with `gh pr merge --auto --merge` after you create the PR.
+For a change that needs visual approval, enable auto-merge only after I approve.
 Continue through these steps without asking for routine confirmation.
 Ask only when a missing decision, permission, or external failure prevents progress.
 Notify the user in the thread when work needs input and when the PR merges.
