@@ -53,7 +53,6 @@ export { AnalyticsUpIcon as InsightsIcon } from "@hugeicons/core-free-icons";
 export { ShoppingBasket01Icon as ItemsIcon } from "@hugeicons/core-free-icons";
 export { FileEditIcon as RulesIcon } from "@hugeicons/core-free-icons";
 export { News01Icon as ReleaseIcon } from "@hugeicons/core-free-icons";
-export { ViewIcon as ShowExcludedIcon } from "@hugeicons/core-free-icons";
 
 export { AlertCircleIcon as ErrorIcon } from "@hugeicons/core-free-icons";
 export { Alert02Icon as WarningIcon } from "@hugeicons/core-free-icons";

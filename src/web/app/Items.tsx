@@ -12,9 +12,9 @@ import {
 } from "./Cards.tsx";
 import { fmtDate, fmtNOK, fmtNOKExact } from "./format.ts";
 import { CloseIcon, Icon, InfoIcon, ItemsIcon, ReceiptIcon } from "./icons.ts";
+import { SwitchField } from "./FilterBar.tsx";
 import { SearchBox } from "./SearchBox.tsx";
 import { Button } from "./ui/button.tsx";
-import { Toggle } from "./ui/toggle.tsx";
 
 type Sort =
   "name" | "count" | "qty" | "spent" | "price" | "medianDays" | "last";
@@ -137,14 +137,12 @@ export const Items = ({ rows, filters, onSearch }: ItemsProps) => {
           hotkey
           className="flex-1"
         />
-        <Toggle
-          variant="outline"
-          pressed={bySize}
-          onPressedChange={setBySize}
-          className="font-normal data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-        >
-          Split by size
-        </Toggle>
+        <SwitchField
+          label="Split by size"
+          checked={bySize}
+          onChange={setBySize}
+          className="h-auto self-stretch"
+        />
       </div>
       <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(min(150px,100%),1fr))] gap-3 max-sm:grid-cols-2">
         <StatTile label="Items" value={String(shown.length)} />
