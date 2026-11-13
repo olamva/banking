@@ -4,6 +4,7 @@ import {
   changeRules,
   type RuleChange,
   type RuleFile,
+  type RuleMap,
   type Rules,
 } from "../../core/ruleFiles.ts";
 import type { Categorized } from "../../core/types.ts";
@@ -155,6 +156,11 @@ export type RulesApi = {
 };
 
 export { changeRules } from "../../core/ruleFiles.ts";
+
+const NO_ITEM_RULES: RuleMap = {};
+
+export const itemRules = (rules: RulesApi): RuleMap =>
+  (rules.data?.files.items as RuleMap | undefined) ?? NO_ITEM_RULES;
 
 const changedFile = (
   data: RulesData,

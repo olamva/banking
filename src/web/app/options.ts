@@ -1,4 +1,6 @@
 import { useMemo } from "react";
+import { itemsOf, purchasesOf } from "../../core/items.ts";
+import type { RuleMap } from "../../core/ruleFiles.ts";
 import {
   distinctAccounts,
   distinctCategories,
@@ -18,7 +20,11 @@ const parentOf = (pair: string) => pair.slice(0, pair.indexOf("/"));
 const subLabelOf = (pair: string) =>
   subcategoryLabel(parentOf(pair), pair.slice(pair.indexOf("/") + 1) || null);
 
-export const useFilterOptions = (inPeriod: Categorized[], filters: Filters) => {
+export const useFilterOptions = (
+  inPeriod: Categorized[],
+  filters: Filters,
+  names: RuleMap,
+) => {
   const categories = useMemo(
     () =>
       [
@@ -47,6 +53,14 @@ export const useFilterOptions = (inPeriod: Categorized[], filters: Filters) => {
     () => withPicked(distinctMerchants(inPeriod), filters.merchants),
     [inPeriod, filters.merchants],
   );
+  const items = useMemo(
+    () =>
+      withPicked(
+        itemsOf(purchasesOf(inPeriod, names)).map((i) => i.name),
+        filters.items,
+      ),
+    [inPeriod, names, filters.items],
+  );
   const people = useMemo(() => personMerchants(inPeriod), [inPeriod]);
   const accounts = useMemo(
     () => withPicked(distinctAccounts(inPeriod), filters.accounts),
@@ -56,5 +70,13 @@ export const useFilterOptions = (inPeriod: Categorized[], filters: Filters) => {
     const inView = distinctCountries(inPeriod);
     return inView.concat(filters.countries.filter((c) => !inView.includes(c)));
   }, [inPeriod, filters.countries]);
-  return { categories, subcategories, merchants, people, accounts, countries };
+  return {
+    categories,
+    subcategories,
+    merchants,
+    items,
+    people,
+    accounts,
+    countries,
+  };
 };

@@ -43,6 +43,8 @@ export const toParams = (s: UrlState): string => {
   // Use one parameter for each merchant. A merchant name can contain a comma.
   for (const m of s.filters.merchants) p.append("m", m);
   for (const m of s.filters.merchantsOut) p.append("m_not", m);
+  for (const i of s.filters.items) p.append("it", i);
+  for (const i of s.filters.itemsOut) p.append("it_not", i);
   for (const a of s.filters.accounts) p.append("acct", a);
   for (const a of s.filters.accountsOut) p.append("acct_not", a);
   for (const c of s.filters.countries) p.append("co", c);
@@ -94,6 +96,8 @@ export const fromParams = (p: URLSearchParams): UrlState => {
       categoriesOut,
       merchants,
       merchantsOut,
+      items: repeated("it"),
+      itemsOut: repeated("it_not"),
       accounts,
       accountsOut,
       countries,

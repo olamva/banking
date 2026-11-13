@@ -8,6 +8,7 @@ import {
 } from "react";
 import { toast } from "sonner";
 import { bulkFilters, type BulkFile } from "../../core/bulkRules.ts";
+import { withItems } from "../../core/items.ts";
 import { RULE_FILES, type RuleFile } from "../../core/ruleFiles.ts";
 import {
   NO_FILTERS,
@@ -28,6 +29,7 @@ import { GROUP_SHORTCUT } from "./chartGroup.ts";
 import { Dashboard, pick } from "./Dashboard.tsx";
 import {
   THEMES,
+  itemRules,
   readTheme,
   setTheme,
   useHideOnScroll,
@@ -55,7 +57,9 @@ import { Toaster } from "./ui/sonner.tsx";
 import { TooltipProvider } from "./ui/tooltip.tsx";
 import { GRAINS, readUrl, writeUrl, type Grain } from "./url.ts";
 
-const useNoteToast = (note: string | null, bad: boolean) =>
+const NO_TXNS: Categorized[] = [];
+
+const useNoteToast =(note: string | null, bad: boolean) =>
   useEffect(() => {
     if (note === null) return;
     if (bad) toast.error(note, { duration: Infinity, closeButton: true });
@@ -98,7 +102,9 @@ export const App = () => {
     setCategoryHues(distinctCategories(load.txns));
   }
 
-  const txns = load.status === "ready" ? load.txns : [];
+  const names = itemRules(rules);
+  const loaded = load.status === "ready" ? load.txns : NO_TXNS;
+  const txns = useMemo(() => withItems(loaded, names), [loaded, names]);
   const ready = txns.length > 0;
   const months = useMemo(() => distinctMonths(txns), [txns]);
   const years = useMemo(() => distinctYears(txns), [txns]);
@@ -274,7 +280,7 @@ export const App = () => {
     () => txns.filter((t) => inRange(t, p.from, p.to)),
     [txns, p],
   );
-  const options = useFilterOptions(inPeriod, filters);
+  const options = useFilterOptions(inPeriod, filters, names);
 
   const views: Record<View, () => ReactNode> = {
     rules: () => (

@@ -37,4 +37,5 @@ export type Categorized = Classified & {
   subcategory: string | null;
   categorySource?: string;
   receipt?: Receipt;
+  items?: string[];
 };

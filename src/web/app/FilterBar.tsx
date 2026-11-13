@@ -47,6 +47,7 @@ interface FilterBarProps {
   categories: string[];
   subcategories: string[];
   merchants: string[];
+  items: string[];
   people: ReadonlySet<string>;
   accounts: string[];
   countries: string[];
@@ -57,6 +58,7 @@ interface FilterBarProps {
 const AXIS_NAME: Record<Axis, string> = {
   categories: "Category",
   merchants: "Merchant",
+  items: "Item",
   accounts: "Account",
   countries: "Country",
 };
@@ -94,6 +96,7 @@ export const FilterBar = ({
   categories,
   subcategories,
   merchants,
+  items,
   people,
   accounts,
   countries,
@@ -150,6 +153,14 @@ export const FilterBar = ({
           className={PICKER}
         />
         <Picker
+          title="Items"
+          options={items}
+          picked={filters.items}
+          excluded={filters.itemsOut}
+          onToggle={toggle("items")}
+          className={PICKER}
+        />
+        <Picker
           title="Accounts"
           options={accounts}
           picked={filters.accounts}
@@ -176,7 +187,7 @@ export const FilterBar = ({
           variant="ghost"
           disabled={!dirty}
           onClick={() => onFilters(NO_FILTERS)}
-          className={cn(PICKER, "text-muted-foreground", !dirty && "invisible")}
+          className={cn(PICKER, "text-muted-foreground", !dirty && "invisible max-sm:hidden")}
         >
           <Icon icon={ResetFiltersIcon} size={15} />
           Reset

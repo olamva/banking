@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { itemPattern, itemsOf, purchasesOf } from "../../src/core/items.ts";
+import {
+  itemPattern,
+  itemsOf,
+  purchasesOf,
+  withItems,
+} from "../../src/core/items.ts";
 import type { Receipt, ReceiptLine } from "../../src/core/receipts.ts";
+import { matchesFilters, NO_FILTERS } from "../../src/core/select.ts";
 import type { Categorized } from "../../src/core/types.ts";
 
 const line = (
@@ -98,6 +104,25 @@ test("splits by size when equal sizes are written in different units", () => {
     "Tine Lettmelk 0.5% | 1 | 3 | 4 | 83",
     "Tine Lettmelk Vanilje | 1 | 1 | 1 | 31",
   ]);
+});
+
+test("the item filter keeps receipts by the item name, after rules rename lines", () => {
+  const rows = withItems(
+    [
+      txn("7", "2026-10-01T10:00:00Z", [line("TINE LETTMELK 0,5%", 20)]),
+      txn("8", "2026-10-02T10:00:00Z", [line("Maarud Tortilla Cheese", 32)]),
+      txn("9", "2026-10-03T10:00:00Z", [line("Tortillachips Ost", 30)]),
+      { receipt: undefined, category: "x" } as Categorized,
+    ],
+    { [itemPattern("Maarud Tortilla Cheese")]: "Tortillachips Ost" },
+  );
+  const ids = (f: Partial<typeof NO_FILTERS>) =>
+    rows
+      .filter((t) => matchesFilters(t, { ...NO_FILTERS, ...f }))
+      .map((t) => t.receipt?.id ?? "none");
+  assert.deepEqual(ids({ items: ["Tortillachips Ost"] }), ["8", "9"]);
+  assert.deepEqual(ids({ items: ["Tine Lettmelk 0.5%"] }), ["7"]);
+  assert.deepEqual(ids({ itemsOut: ["tortillachips ost"] }), ["7", "none"]);
 });
 
 test("dates purchases in Oslo and measures the usual gap in days", () => {

@@ -1,3 +1,4 @@
+import { nameKey } from "./items.ts";
 import type { Categorized } from "./types.ts";
 
 export type Filters = {
@@ -5,6 +6,8 @@ export type Filters = {
   categoriesOut: string[];
   merchants: string[];
   merchantsOut: string[];
+  items: string[];
+  itemsOut: string[];
   accounts: string[];
   accountsOut: string[];
   countries: string[];
@@ -16,6 +19,7 @@ export type Filters = {
 export const AXES = {
   categories: "categoriesOut",
   merchants: "merchantsOut",
+  items: "itemsOut",
   accounts: "accountsOut",
   countries: "countriesOut",
 } as const;
@@ -31,6 +35,8 @@ export const NO_FILTERS: Filters = {
   categoriesOut: [],
   merchants: [],
   merchantsOut: [],
+  items: [],
+  itemsOut: [],
   accounts: [],
   accountsOut: [],
   countries: [],
@@ -86,6 +92,8 @@ export function matchesFilters(t: Categorized, f: Filters): boolean {
   if (!shown(f.categories, f.categoriesOut, [t.category, subcategoryOf(t)]))
     return false;
   if (!shown(f.merchants, f.merchantsOut, [merchantOf(t)])) return false;
+  if (!shown(f.items.map(nameKey), f.itemsOut.map(nameKey), t.items ?? []))
+    return false;
   if (!shown(f.accounts, f.accountsOut, [t.account])) return false;
   if (!shown(f.countries, f.countriesOut, [countryOf(t)])) return false;
   if (f.search) {
