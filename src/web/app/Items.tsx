@@ -1,12 +1,5 @@
+import { useDeferredValue, useMemo, useState, type ReactNode } from "react";
 import {
-  useDeferredValue,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
-import {
-  itemPattern,
   itemsOf,
   nameKey,
   packPrice,
@@ -31,28 +24,13 @@ import {
 } from "./Cards.tsx";
 import { HorizontalBars, type BarItem } from "./Charts.tsx";
 import { itemRules, type RulesApi } from "./data.ts";
-import { fmtDate, fmtNOK, fmtNOKExact } from "./format.ts";
-import {
-  CategoryIcon,
-  ChangesIcon,
-  DropdownIcon,
-  Icon,
-  InfoIcon,
-  ItemsIcon,
-} from "./icons.ts";
+import { fmtDate, fmtNOK, fmtNOKExact, fmtPct } from "./format.ts";
+import { CategoryIcon, ChangesIcon, InfoIcon, ItemsIcon } from "./icons.ts";
 import { SwitchField } from "./FilterBar.tsx";
 import { Picker } from "./FilterPicker.tsx";
-import { PriceChart, unitText } from "./PriceChart.tsx";
-import { Slip } from "./ReceiptLines.tsx";
+import { fmtGap, fmtQty, ItemSheet } from "./ItemSheet.tsx";
+import { PriceChart } from "./PriceChart.tsx";
 import { SearchBox } from "./SearchBox.tsx";
-import { Button } from "./ui/button.tsx";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "./ui/sheet.tsx";
 
 type Sort =
   | "name"
@@ -61,6 +39,7 @@ type Sort =
   | "qty"
   | "spent"
   | "price"
+  | "change"
   | "medianDays"
   | "last";
 
@@ -82,183 +61,53 @@ const categoryBars = (items: Item[]): BarItem[] =>
     }))
     .sort((a, b) => b.total - a.total);
 
-const QTY = new Intl.NumberFormat("nb-NO", { maximumFractionDigits: 3 });
+const Change = ({ change }: { change: number | null }) =>
+  change !== null && (
+    <span
+      className={
+        change < 0 ? "text-income" : change > 0 ? "text-destructive" : ""
+      }
+    >
+      {`${change > 0 ? "+" : ""}${fmtPct(change)}`}
+    </span>
+  );
 
-const fmtQty = (qty: number, unit?: "kg") =>
-  `${QTY.format(qty)}${unit ? " kg" : ""}`;
+const value = (item: Item, sort: Sort) => item[sort];
 
-const fmtGap = (days: number | null) =>
-  days === null ? "" : `${Math.round(days)} days`;
-
-const value = (item: Item, sort: Sort) =>
-  sort === "medianDays" ? (item.medianDays ?? -1) : item[sort];
-
-interface ItemSheetProps {
-  item: Item;
-  names: string[];
-  rules: RulesApi;
-  onRename: (name: string) => void;
-  onClose: () => void;
+interface SwingsProps {
+  title: string;
+  items: Item[];
+  onPick: (key: string) => void;
 }
 
-const ItemSheet = ({
-  item,
-  names,
-  rules,
-  onRename,
-  onClose,
-}: ItemSheetProps) => {
-  const [name, setName] = useState(item.name);
-  const [shown, setShown] = useState<number | null>(null);
-  useEffect(() => {
-    document
-      .querySelector("[data-marked]")
-      ?.scrollIntoView({ block: "center", behavior: "smooth" });
-  }, [shown]);
-  const facts: [string, string][] = [
-    ["Purchases", String(item.count)],
-    ["Quantity", fmtQty(item.qty, item.unit)],
-    ["Spent", fmtNOKExact(item.spent)],
-    ["Average price", fmtNOKExact(item.price)],
-    ["Usual gap", fmtGap(item.medianDays) || "–"],
-    ["Last bought", fmtDate(item.last)],
-  ];
-  const next = name.trim();
-
-  return (
-    <Sheet open onOpenChange={(o) => !o && onClose()}>
-      <SheetContent
-        onOpenAutoFocus={(e) => e.preventDefault()}
-        className="gap-0 overflow-y-auto data-[side=right]:w-full data-[side=right]:sm:max-w-md"
-      >
-        <SheetHeader className="gap-3 border-b pr-12">
-          <div className="min-w-0">
-            <SheetTitle className="text-lg font-semibold wrap-break-word">
-              {item.name}
-            </SheetTitle>
-            <SheetDescription className="mt-1 text-xs">
-              {item.category.replace("/", " · ")} ·{" "}
-              {item.sizes.join(" · ") || "No size on the receipt"}
-            </SheetDescription>
-          </div>
-          <dl className="grid grid-cols-3 gap-x-3 gap-y-2 text-xs">
-            {facts.map(([label, fact]) => (
-              <div key={label} className="min-w-0">
-                <dt className="text-muted-foreground">{label}</dt>
-                <dd className="font-medium tabular-nums">{fact}</dd>
-              </div>
-            ))}
-          </dl>
-        </SheetHeader>
-        <div className="space-y-5 p-4">
-          <section>
-            <h3 className="mb-1 text-xs font-medium text-muted-foreground">
-              Price
-            </h3>
-            <PriceChart
-              lines={[
-                ...Map.groupBy(item.purchases.toReversed(), (p) => p.sizeKey),
-              ].map(([, list]) => ({
-                name: list[0]!.size ?? "No size",
-                purchases: list,
-              }))}
-              onPick={(p) => setShown(item.purchases.indexOf(p))}
-            />
-          </section>
-          <form
-            className="space-y-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!next || next === item.name) return;
-              onRename(next);
-              void rules.saveBulk(
-                "items",
-                [...new Set(item.purchases.map((p) => itemPattern(p.raw)))],
-                next,
-              );
-            }}
-          >
-            <label
-              htmlFor="item-name"
-              className="block text-xs font-medium text-muted-foreground"
-            >
-              Name
-            </label>
-            <div className="flex gap-2">
-              <input
-                id="item-name"
-                value={name}
-                list="item-names"
-                onChange={(e) => setName(e.target.value)}
-                className="min-h-8 min-w-0 flex-1 rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
-              />
-              <Button
-                type="submit"
-                variant="outline"
-                disabled={!next || next === item.name || rules.busy}
-              >
-                Rename
-              </Button>
-            </div>
-            <datalist id="item-names">
-              {names.map((n) => (
-                <option key={n} value={n} />
-              ))}
-            </datalist>
-            <p className="text-xs text-muted-foreground">
-              Give two items the same name to show them as one item.
-            </p>
-          </form>
-          <section>
-            <h3 className="mb-1 text-xs font-medium text-muted-foreground">
-              Purchases
-            </h3>
-            <ul className="divide-y text-[13px]">
-              {item.purchases.map((p, i) => (
-                <li key={i}>
-                  <button
-                    type="button"
-                    aria-expanded={shown === i}
-                    onClick={() => setShown(shown === i ? null : i)}
-                    className="flex w-full items-center gap-3 py-2 text-left hover:bg-muted/60"
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate">
-                        {fmtDate(p.date)} · {p.store}
-                      </span>
-                      <span className="block truncate text-xs text-muted-foreground">
-                        {[
-                          p.size,
-                          `${fmtQty(p.qty, p.unit)} × ${fmtNOKExact(packPrice(p))}`,
-                          unitText(p),
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </span>
-                    </span>
-                    <span className="shrink-0 tabular-nums">
-                      {fmtNOKExact(p.amount)}
-                    </span>
-                    <Icon
-                      icon={DropdownIcon}
-                      size={14}
-                      className={`shrink-0 text-muted-foreground transition-transform ${shown === i ? "rotate-180" : ""}`}
-                    />
-                  </button>
-                  {shown === i && (
-                    <div className="pb-3">
-                      <Slip receipt={p.receipt} marked={p.raw} />
-                    </div>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </section>
-        </div>
-      </SheetContent>
-    </Sheet>
-  );
-};
+const Swings = ({ title, items, onPick }: SwingsProps) => (
+  <section className="min-w-0">
+    <h3 className="mb-1 text-xs font-medium text-muted-foreground">{title}</h3>
+    {items.length === 0 ? (
+      <p className="py-1.5 text-xs text-muted-foreground">None</p>
+    ) : (
+      items.map((i) => (
+        <button
+          key={i.key}
+          type="button"
+          onClick={() => onPick(i.key)}
+          className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-md px-2 py-1.5 text-left text-xs hover:bg-muted/70"
+        >
+          <span className="min-w-0 flex-1">
+            <span className="block truncate">{i.name}</span>
+            <span className="block truncate text-[11px] text-muted-foreground">
+              {fmtNOKExact(packPrice(i.purchases[0]!))}, usually{" "}
+              {fmtNOKExact(i.usual!)}
+            </span>
+          </span>
+          <span className="shrink-0 font-semibold tabular-nums">
+            <Change change={i.change} />
+          </span>
+        </button>
+      ))
+    )}
+  </section>
+);
 
 interface ItemsProps {
   rows: Categorized[];
@@ -320,6 +169,8 @@ export const Items = ({ rows, filters, rules, onSearch }: ItemsProps) => {
 
   const sorted = shown.toSorted((a, b) => {
     const [x, y] = [value(a, sort), value(b, sort)];
+    if (x === null || y === null)
+      return Number(x === null) - Number(y === null) || b.count - a.count;
     const order =
       typeof x === "string" ? x.localeCompare(String(y)) : x - Number(y);
     return (descending ? -order : order) || b.count - a.count;
@@ -360,9 +211,14 @@ export const Items = ({ rows, filters, rules, onSearch }: ItemsProps) => {
     fmtQty(i.qty, i.unit),
     fmtNOK(i.spent),
     fmtNOKExact(i.price),
+    <Change change={i.change} />,
     fmtGap(i.medianDays),
     fmtDate(i.last),
   ]);
+
+  const swings = shown
+    .filter((i) => i.change)
+    .toSorted((a, b) => a.change! - b.change!);
 
   const bought = shown.reduce((n, i) => n + i.count, 0);
   const receipts = new Set(
@@ -431,6 +287,30 @@ export const Items = ({ rows, filters, rules, onSearch }: ItemsProps) => {
           />
         </Panel>
       )}
+      {swings.length > 0 && (
+        <Panel
+          title="Biggest price changes"
+          icon={ChangesIcon}
+          description="The latest price against the median of earlier purchases of the same size."
+          className="mb-4"
+        >
+          <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
+            <Swings
+              title="Cheaper now"
+              items={swings.filter((i) => i.change! < 0).slice(0, 5)}
+              onPick={setPicked}
+            />
+            <Swings
+              title="More expensive now"
+              items={swings
+                .filter((i) => i.change! > 0)
+                .toReversed()
+                .slice(0, 5)}
+              onPick={setPicked}
+            />
+          </div>
+        </Panel>
+      )}
       {sorted.length > 0 && (
         <Panel
           title="Price over time"
@@ -468,6 +348,7 @@ export const Items = ({ rows, filters, rules, onSearch }: ItemsProps) => {
               sortable("Quantity", "qty", true, "max-sm:hidden"),
               sortable("Spent", "spent", true),
               sortable("Average price", "price", true, "max-sm:hidden"),
+              sortable("Price change", "change", true, "max-sm:hidden"),
               sortable("Usual gap", "medianDays", true, "max-sm:hidden"),
               sortable("Last bought", "last", false, "max-sm:hidden"),
             ]}

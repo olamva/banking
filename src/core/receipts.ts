@@ -92,7 +92,10 @@ const UNITS: Record<string, string> = {
   pakk: "pk",
 };
 
-const PACK_SIZES: Record<string, string> = { "7044613876013": "0,5 l × 6" };
+const PACK_SIZES: Record<string, string> = {
+  "7044613876013": "0,5 l × 6",
+  "7030019539799": "0,5 l",
+};
 
 const number = (s: string) => s.replace(".", ",").replace(/ ?[x×] ?/i, " × ");
 
