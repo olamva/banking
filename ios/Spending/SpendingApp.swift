@@ -12,8 +12,25 @@ struct SpendingApp: App {
                 .environment(store)
                 .task { await store.start() }
                 .onChange(of: phase) { _, now in
-                    if now == .active, store.data != nil, store.signedIn { Task { await store.reload() } }
+                    if now == .active, store.data != nil, store.signedIn {
+                        Task {
+                            await store.reload()
+                            await store.fetchFromBank(start: false)
+                        }
+                    }
                 }
+        }
+    }
+}
+
+enum Theme: String, CaseIterable {
+    case system = "System", light = "Light", dark = "Dark"
+
+    var scheme: ColorScheme? {
+        switch self {
+        case .system: nil
+        case .light: .light
+        case .dark: .dark
         }
     }
 }
@@ -21,30 +38,39 @@ struct SpendingApp: App {
 struct RootView: View {
     @Environment(Store.self) private var store
     @AppStorage("tab") private var tab = "summary"
+    @AppStorage("theme") private var theme = Theme.system
 
     var body: some View {
-        if store.data == nil && !store.signedIn || store.base == nil {
-            WelcomeView()
-        } else {
-            TabView(selection: $tab) {
-                Tab("Summary", systemImage: "chart.pie.fill", value: "summary") {
-                    SummaryView()
+        Group {
+            if store.data == nil && !store.signedIn || store.base == nil {
+                WelcomeView()
+            } else {
+                TabView(selection: $tab) {
+                    Tab("Summary", systemImage: "chart.pie.fill", value: "summary") {
+                        SummaryView()
+                    }
+                    Tab("Activity", systemImage: "list.bullet", value: "activity") {
+                        ActivityView()
+                    }
+                    Tab("Insights", systemImage: "lightbulb", value: "insights") {
+                        InsightsView()
+                    }
+                    Tab("Items", systemImage: "basket", value: "items") {
+                        ItemsView()
+                    }
+                    Tab(value: "search", role: .search) {
+                        SearchView()
+                    }
                 }
-                Tab("Trends", systemImage: "chart.bar.xaxis", value: "trends") {
-                    TrendsView()
-                }
-                Tab("Insights", systemImage: "lightbulb", value: "insights") {
-                    InsightsView()
-                }
-                Tab("Activity", systemImage: "list.bullet", value: "activity") {
-                    ActivityView()
-                }
-                Tab(value: "search", role: .search) {
-                    SearchView()
-                }
+                .tabViewSearchActivation(.searchTabSelection)
+                .tabBarMinimizeBehavior(.onScrollDown)
             }
-            .tabViewSearchActivation(.searchTabSelection)
-            .tabBarMinimizeBehavior(.onScrollDown)
+        }
+        .preferredColorScheme(theme.scheme)
+        .onOpenURL { url in
+            guard url.host() == "open" else { return }
+            store.open(url)
+            tab = url.pathComponents.dropFirst().first ?? tab
         }
     }
 }

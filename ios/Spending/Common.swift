@@ -12,6 +12,14 @@ struct PeriodPicker: ViewModifier {
             .navigationTitle(selected?.title ?? "Spending")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarTitleMenu {
+                if let today = store.data?.today {
+                    let month = String(today.prefix(7))
+                    let year = String(today.prefix(4))
+                    Button("This month", systemImage: "calendar.day.timeline.left") { store.period = month }
+                        .disabled(store.lookup(month) == nil)
+                    Button("This year", systemImage: "calendar") { store.period = year }
+                        .disabled(store.lookup(year) == nil)
+                }
                 Button("All time", systemImage: "infinity") { store.period = "all" }
                 Button("Custom range", systemImage: "calendar.badge.clock") { choosing = true }
                 Divider()
@@ -48,6 +56,8 @@ struct RangeView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var from = Date.now
     @State private var to = Date.now
+    @State private var openStart = false
+    @State private var openEnd = false
     @State private var loading = false
     @State private var failure: String?
 
@@ -56,8 +66,14 @@ struct RangeView: View {
         NavigationStack {
             Form {
                 Section {
-                    DatePicker("From", selection: $from, in: first...max(first, to), displayedComponents: .date)
-                    DatePicker("To", selection: $to, in: from...max(from, .now), displayedComponents: .date)
+                    Toggle("From the first transaction", isOn: $openStart)
+                    if !openStart {
+                        DatePicker("From", selection: $from, in: first...max(first, to), displayedComponents: .date)
+                    }
+                    Toggle("Up to now", isOn: $openEnd)
+                    if !openEnd {
+                        DatePicker("To", selection: $to, in: from...max(from, .now), displayedComponents: .date)
+                    }
                 } footer: {
                     Text(failure ?? "The server sums a custom range. This needs a connection.")
                         .foregroundStyle(failure == nil ? Color.secondary : Color.red)
@@ -77,7 +93,7 @@ struct RangeView: View {
                         Button("Show", systemImage: "checkmark") {
                             Task {
                                 loading = true
-                                failure = await store.show("\(Day.key(from))..\(Day.key(to))")
+                                failure = await store.show("\(openStart ? "" : Day.key(from))..\(openEnd ? "" : Day.key(to))")
                                 loading = false
                                 if failure == nil { dismiss() }
                             }
@@ -86,7 +102,7 @@ struct RangeView: View {
                 }
             }
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.medium, .large])
         .onAppear {
             guard let selected = store.selected else { return }
             from = max(Day.date(selected.from), first)
@@ -108,6 +124,10 @@ struct Loading: View {
                 Text(store.problem?.localizedDescription ?? "Pull to try again.")
             } actions: {
                 Button("Try again") { Task { await store.reload() } }
+                if store.signedIn {
+                    Button("Fetch from the bank") { Task { await store.fetchFromBank() } }
+                        .disabled(store.fetchingBank)
+                }
             }
         }
     }
@@ -142,9 +162,17 @@ struct TxnRow: View {
         HStack(spacing: 12) {
             CategoryIcon(category: txn.category, size: 36)
             VStack(alignment: .leading, spacing: 2) {
-                Text(txn.merchant)
-                    .font(.body)
-                    .lineLimit(1)
+                HStack(spacing: 4) {
+                    Text(txn.merchant)
+                        .font(.body)
+                        .lineLimit(1)
+                    if txn.receipt != nil {
+                        Image(systemName: "receipt")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .accessibilityLabel("Has a receipt")
+                    }
+                }
                 Text(subtitle)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -167,7 +195,7 @@ struct TxnRow: View {
 
     private var subtitle: String {
         let label = store.data?.label(txn.category, txn.subcategory) ?? txn.category
-        return showDate ? "\(txn.day.shortDay) · \(label)" : label
+        return showDate ? "\(txn.day.shortDay) · \(label) · \(txn.account)" : "\(label) · \(txn.account)"
     }
 }
 

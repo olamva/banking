@@ -1,11 +1,25 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { appData, appPeriod } from "../core/app.ts";
-import { period } from "../core/select.ts";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { appData, appPeriod, appTxn } from "../core/app.ts";
+import { payeePattern } from "../core/bulkRules.ts";
+import { withItems } from "../core/items.ts";
+import { compileRule } from "../core/match.ts";
+import { overlaps } from "../core/narrowings.ts";
+import { reviewGroups } from "../core/review.ts";
+import { filtersFromParams } from "../core/select.ts";
 import { openDb, queryRange } from "../core/db.ts";
 import { osloDate } from "../core/normalize.ts";
 import { DATA_DIR, RULES_DIR } from "../core/paths.ts";
 import { DB_FILE, rebuildAll } from "../core/pipeline.ts";
-import { RULE_FILES, isRuleFile, type RuleFile } from "../core/ruleFiles.ts";
+import {
+  FILE_LABEL,
+  RULE_FILES,
+  RULE_GROUPS,
+  RULE_NOTE,
+  isRuleFile,
+  type RuleFile,
+  type RuleMap,
+} from "../core/ruleFiles.ts";
+import { NOTE_NAME, versioned, type Note } from "./app/releaseNotes.ts";
 import {
   current,
   history,
@@ -33,21 +47,111 @@ const rows = () => {
   }
 };
 
+const itemNames = (): RuleMap => loadAll().items as RuleMap;
+
 export const payload = (): string =>
   JSON.stringify({ txns: rows(), names: names(), refreshing: !!running });
 
 export const appPayload = (): string =>
-  JSON.stringify(appData(rows(), names()));
+  JSON.stringify(appData(rows(), names(), undefined, undefined, itemNames()));
 
-export function periodPayload(key: string | null): Answer {
-  if (period(key ?? "").kind !== "custom")
-    return bad(400, new Error("needs p=YYYY-MM-DD..YYYY-MM-DD"));
+const PERIOD_KEY =
+  /^(\d{4}(-\d{2})?|all|(\d{4}-\d{2}-\d{2})?\.\.(\d{4}-\d{2}-\d{2})?)$/;
+
+const answer = (work: () => unknown): Answer => {
   try {
-    return ok(appPeriod(key!, rows()));
+    return ok(work());
   } catch (e) {
     return bad(500, e);
   }
+};
+
+export function periodPayload(params: URLSearchParams): Answer {
+  const key = params.get("p") ?? "";
+  if (!PERIOD_KEY.test(key))
+    return bad(
+      400,
+      new Error("needs p=YYYY-MM, YYYY, all or YYYY-MM-DD..YYYY-MM-DD"),
+    );
+  return answer(() =>
+    appPeriod(
+      key,
+      withItems(rows(), itemNames()),
+      undefined,
+      filtersFromParams(params),
+    ),
+  );
 }
+
+const MATCHES_SHOWN = 200;
+
+export function matchPayload(params: URLSearchParams): Answer {
+  const all = rows();
+  if (all.some((t) => t.originalCounterparty === undefined))
+    return ok({ rebuild: true, count: 0, txns: [] });
+  let rule: ReturnType<typeof compileRule>;
+  try {
+    rule = compileRule(params.get("key") ?? "", "pattern");
+  } catch (e) {
+    return bad(400, e);
+  }
+  const items = itemNames();
+  const found = all
+    .filter((t) => rule.matches(t))
+    .sort((a, b) => b.date.localeCompare(a.date));
+  return ok({
+    rebuild: false,
+    count: found.length,
+    txns: found.slice(0, MATCHES_SHOWN).map((t) => appTxn(t, items)),
+  });
+}
+
+const CHECKED = ["categories", "payees"] as const;
+
+export const appRulesPayload = (): Answer =>
+  answer(() => {
+    const all = rows();
+    const files = loadAll();
+    const items = itemNames();
+    return {
+      files,
+      history: Object.fromEntries(
+        RULE_FILES.map((f) => [f, history(f, SHOWN_VERSIONS)]),
+      ),
+      at: Object.fromEntries(RULE_FILES.map((f) => [f, current(f)])),
+      labels: FILE_LABEL,
+      notes: RULE_NOTE,
+      groups: RULE_GROUPS,
+      rebuild: all.some((t) => t.originalCounterparty === undefined),
+      review: reviewGroups(all).map(({ txns, guessed }) => ({
+        key: payeePattern(txns[0]!),
+        guessed,
+        count: txns.length,
+        txn: appTxn(txns[0]!, items),
+      })),
+      conflicts: CHECKED.flatMap((file) =>
+        overlaps(all, files[file] as RuleMap, file === "payees")
+          .filter((c) => !c.harmless)
+          .map((c) => ({ ...c, file })),
+      ),
+    };
+  });
+
+const NOTES = new URL("./app/release-notes/", import.meta.url);
+
+export const releasesPayload = (): Answer =>
+  answer(() =>
+    versioned(
+      Object.fromEntries(
+        readdirSync(NOTES)
+          .filter((name) => NOTE_NAME.test(name))
+          .map((name) => [
+            name,
+            JSON.parse(readFileSync(new URL(name, NOTES), "utf8")) as Note,
+          ]),
+      ),
+    ),
+  );
 
 const SESSION = /^_oauth2_proxy(_\d+)?$/;
 
@@ -147,13 +251,19 @@ export function refreshRoute(
   return ok({ running: !!running, last } satisfies RefreshStatus);
 }
 
+const APP_ROUTES: Record<string, (params: URLSearchParams) => Answer> = {
+  "/api/app/period": periodPayload,
+  "/api/app/match": matchPayload,
+  "/api/app/rules": appRulesPayload,
+  "/api/app/releases": releasesPayload,
+};
+
 export const jsonRoute = (
   url: URL,
   refreshHeader: string | undefined,
 ): Answer | null =>
-  url.pathname === "/api/app/period"
-    ? periodPayload(url.searchParams.get("p"))
-    : refreshRoute(url.pathname, refreshHeader);
+  APP_ROUTES[url.pathname]?.(url.searchParams) ??
+  refreshRoute(url.pathname, refreshHeader);
 
 const today = () => osloDate(Date.now());
 const VISITED = `${DATA_DIR}/visited`;

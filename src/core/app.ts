@@ -3,17 +3,22 @@ import {
   type MerchantHabit,
   type WeekdayHabit,
 } from "./insights.ts";
-import { buildLabels, type Names } from "./labels.ts";
+import { bankLabel, buildLabels, type Names } from "./labels.ts";
 import { payeePattern } from "./bulkRules.ts";
+import { purchasesOf } from "./items.ts";
 import type { Receipt } from "./receipts.ts";
+import type { RuleMap } from "./ruleFiles.ts";
 import {
   axisBounds,
   distinctMonths,
   distinctYears,
   inRange,
+  matchesFilters,
   merchantOf,
+  NO_FILTERS,
   period,
   todayOslo,
+  type Filters,
   type PeriodKind,
 } from "./select.ts";
 import {
@@ -23,6 +28,7 @@ import {
   monthStats,
   monthlySeries,
   subscriptionGroups,
+  totals,
   visibleDeltas,
   withGaps,
   yearStats,
@@ -37,7 +43,24 @@ import {
 } from "./stats.ts";
 import type { Categorized } from "./types.ts";
 
+export type AppPurchase = {
+  key: string;
+  sizeKey: string;
+  name: string;
+  raw: string;
+  size: string | null;
+  qty: number;
+  unit: string | null;
+  amount: number;
+};
+
 export type AppTxn = {
+  unnamed: boolean;
+  original: string | null;
+  remote: string | null;
+  source: string | null;
+  bank: [string, string] | null;
+  purchases: AppPurchase[] | null;
   date: string;
   amount: number;
   merchant: string;
@@ -81,14 +104,18 @@ export type AppPeriod = {
   totalOut: number;
   net: number;
   averageOut: number | null;
+  averageIn: number | null;
   delta: MonthDelta | null;
   compared: string | null;
+  prev: { from: string; to: string } | null;
   categories: CategoryTotal[];
   subcategories: SubcategoryTotal[];
   incomeCategories: CategoryTotal[];
+  incomeSubcategories: SubcategoryTotal[];
   merchants: CounterpartyTotal[];
   incomeMerchants: CounterpartyTotal[];
   accounts: AccountTotal[];
+  incomeAccounts: AccountTotal[];
   changes: CategoryDelta[];
   subscriptions: SubscriptionGroup[];
   excluded: Totals["excluded"];
@@ -104,7 +131,7 @@ export type AppData = {
   txns: AppTxn[];
 };
 
-const MERCHANTS = 12;
+const MERCHANTS = 25;
 const EXPECTED = 10;
 const HABITS = 40;
 
@@ -152,15 +179,19 @@ export function appPeriod(
   key: string,
   txns: Categorized[],
   today = todayOslo(),
+  filters: Filters = NO_FILTERS,
 ): AppPeriod {
   const p = period(key, today);
-  const rows = txns.filter((t) => inRange(t, p.from, p.to));
-  const before = p.prev
+  const all = txns.filter((t) => inRange(t, p.from, p.to));
+  const rows = all.filter((t) => matchesFilters(t, filters));
+  const earlier = p.prev
     ? txns.filter((t) => inRange(t, p.prev!.from, p.prev!.to))
     : [];
-  const stats = monthStats(p.label, rows, before.length ? before : undefined);
+  const before = earlier.filter((t) => matchesFilters(t, filters));
+  const stats = monthStats(p.label, rows, earlier.length ? before : undefined);
   const months = byMonth(rows);
-  const { from, to } = axisBounds(rows, p, today);
+  const average = months.length > 1 ? yearStats(p.label, months) : null;
+  const { from, to } = axisBounds(all, p, today);
   return {
     key,
     kind: p.kind,
@@ -170,29 +201,50 @@ export function appPeriod(
     totalIn: stats.totalIn,
     totalOut: stats.totalOut,
     net: stats.net,
-    averageOut:
-      months.length > 1
-        ? yearStats(p.label, months).averageMonth.totalOut
-        : null,
+    averageOut: average?.averageMonth.totalOut ?? null,
+    averageIn: average?.averageMonth.totalIn ?? null,
     delta: stats.delta,
-    compared: before.length ? p.prev!.label : null,
+    compared: earlier.length ? p.prev!.label : null,
+    prev: earlier.length ? { from: p.prev!.from, to: p.prev!.to } : null,
     categories: stats.categories,
     subcategories: stats.subcategories,
     incomeCategories: stats.incomeCategories,
+    incomeSubcategories: stats.incomeSubcategories,
     merchants: stats.topCounterparties.slice(0, MERCHANTS),
     incomeMerchants: stats.topIncomeCounterparties.slice(0, MERCHANTS),
     accounts: stats.accounts,
+    incomeAccounts: stats.incomeAccounts,
     changes: visibleDeltas(stats.categoryDeltas),
     subscriptions: subscriptionGroups(
       rows.filter((t) => t.isSubscription || t.isRecurring),
     ),
-    excluded: stats.excluded,
+    excluded: totals(all).excluded,
     series: appSeries(rows, p.kind, from, to),
     insights: appInsights(rows, today),
   };
 }
 
-const appTxn = (t: Categorized): AppTxn => ({
+const appPurchases = (t: Categorized, items: RuleMap): AppPurchase[] | null =>
+  t.receipt
+    ? purchasesOf([t], items).map((p) => ({
+        key: p.key,
+        sizeKey: p.sizeKey,
+        name: p.name,
+        raw: p.raw,
+        size: p.size ?? null,
+        qty: p.qty,
+        unit: p.unit ?? null,
+        amount: p.amount,
+      }))
+    : null;
+
+export const appTxn = (t: Categorized, items: RuleMap): AppTxn => ({
+  unnamed: t.counterparty === null,
+  original: t.originalCounterparty ?? null,
+  remote: t.remoteAccountNumber,
+  source: t.categorySource ?? null,
+  bank: bankLabel(t),
+  purchases: appPurchases(t, items),
   date: t.date,
   amount: t.amount,
   merchant: merchantOf(t),
@@ -214,6 +266,7 @@ export function appData(
   names: Names = {},
   today = todayOslo(),
   generated = new Date().toISOString(),
+  items: RuleMap = {},
 ): AppData {
   const labelOf = buildLabels(txns, names);
   const labels: Record<string, string> = {};
@@ -232,6 +285,8 @@ export function appData(
     periods: [...distinctMonths(txns), ...distinctYears(txns), "all"].map(
       (key) => appPeriod(key, txns, today),
     ),
-    txns: txns.toSorted((a, b) => b.date.localeCompare(a.date)).map(appTxn),
+    txns: txns
+      .toSorted((a, b) => b.date.localeCompare(a.date))
+      .map((t) => appTxn(t, items)),
   };
 }

@@ -3,8 +3,9 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(Store.self) private var store
     @Environment(\.dismiss) private var dismiss
+    @AppStorage("theme") private var theme = Theme.system
+    @AppStorage("tab") private var tab = "summary"
     @State private var confirmBank = false
-    @State private var bankNote: String?
 
     var body: some View {
         NavigationStack {
@@ -21,6 +22,26 @@ struct SettingsView: View {
                 }
                 Section {
                     Button {
+                        confirmBank = true
+                    } label: {
+                        HStack {
+                            Label(store.fetchingBank ? "Refreshing…" : "Fetch from the bank", systemImage: "building.columns")
+                            Spacer()
+                            if store.fetchingBank { ProgressView() }
+                        }
+                    }
+                    .disabled(store.fetchingBank)
+                    .confirmationDialog("Fetch new transactions from the bank?", isPresented: $confirmBank, titleVisibility: .visible) {
+                        Button("Fetch") {
+                            Task { await store.fetchFromBank() }
+                        }
+                    } message: {
+                        Text("The server asks SpareBank 1 for the months that can still change, and fetches new receipts. This uses the request quota.")
+                    }
+                    if let note = store.refreshNote {
+                        Text(note).font(.footnote).foregroundStyle(.secondary)
+                    }
+                    Button {
                         Task { await store.reload() }
                     } label: {
                         HStack {
@@ -31,31 +52,34 @@ struct SettingsView: View {
                     }
                     .disabled(store.loading)
                 } footer: {
-                    Text("Reads the data the server already holds. This makes no request to the bank.")
+                    Text("Fetch is the same action as Refresh on the web dashboard. Download again reads the data the server already holds and makes no request to the bank.")
                 }
                 Section {
-                    Button {
-                        confirmBank = true
+                    NavigationLink {
+                        RulesView()
                     } label: {
-                        HStack {
-                            Label("Fetch from the bank", systemImage: "building.columns")
-                            Spacer()
-                            if store.fetchingBank { ProgressView() }
-                        }
+                        Label("Rules", systemImage: "list.bullet.rectangle")
                     }
-                    .disabled(store.fetchingBank)
-                    .confirmationDialog("Fetch new transactions from the bank?", isPresented: $confirmBank, titleVisibility: .visible) {
-                        Button("Fetch") {
-                            Task { bankNote = await store.fetchFromBank() }
-                        }
-                    } message: {
-                        Text("The server asks SpareBank 1 for the months that can still change. This uses the request quota.")
+                    NavigationLink {
+                        ReleasesView()
+                    } label: {
+                        Label("Release notes", systemImage: "sparkles")
                     }
-                    if let bankNote {
-                        Text(bankNote).font(.footnote).foregroundStyle(.secondary)
+                }
+                Section {
+                    Picker("Appearance", selection: $theme) {
+                        ForEach(Theme.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                    }
+                }
+                Section {
+                    if let link = store.link(tab: tab) {
+                        ShareLink(item: link) { Label("Share this view as a web link", systemImage: "square.and.arrow.up") }
+                    }
+                    if let app = appLink {
+                        ShareLink(item: app) { Label("Share this view as an app link", systemImage: "link") }
                     }
                 } footer: {
-                    Text("The same action as Refresh on the web dashboard.")
+                    Text("A link holds the period, the filters and the search. The app link opens this tab in the app.")
                 }
                 if !store.isLocal {
                     Section {
@@ -76,6 +100,74 @@ struct SettingsView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done", systemImage: "checkmark") { dismiss() }
                 }
+            }
+        }
+    }
+
+    private var appLink: URL? {
+        var parts = URLComponents()
+        parts.scheme = Store.scheme
+        parts.host = "open"
+        parts.path = "/\(tab)"
+        let query = Query.encode((store.period.isEmpty ? [] : [("p", store.period)]) + store.filters.query)
+        parts.percentEncodedQuery = query.isEmpty ? nil : query
+        return parts.url
+    }
+}
+
+struct Release: Decodable, Identifiable {
+    struct Highlight: Decodable, Hashable {
+        let title: String
+        let detail: String
+    }
+
+    let version: String
+    let date: String
+    let highlights: [Highlight]
+
+    var id: String { version }
+}
+
+struct ReleasesView: View {
+    @Environment(Store.self) private var store
+    @State private var releases: [Release]?
+    @State private var failure: String?
+
+    var body: some View {
+        List {
+            ForEach(Array((releases ?? []).enumerated()), id: \.element.id) { index, release in
+                Section {
+                    ForEach(release.highlights, id: \.self) { highlight in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(highlight.title).font(.headline)
+                            Text(highlight.detail).font(.subheadline).foregroundStyle(.secondary)
+                        }
+                        .padding(.vertical, 2)
+                    }
+                } header: {
+                    HStack {
+                        Text("Version \(release.version)")
+                        Spacer()
+                        if index == 0 { Text("Current").foregroundStyle(.green) }
+                        Text(Day.date(release.date).shortDay)
+                    }
+                }
+            }
+        }
+        .overlay {
+            if let failure {
+                ContentUnavailableView("No release notes", systemImage: "sparkles", description: Text(failure))
+            } else if releases == nil {
+                ProgressView()
+            }
+        }
+        .navigationTitle("Release notes")
+        .navigationBarTitleDisplayMode(.inline)
+        .task {
+            do {
+                releases = try await store.load([Release].self, "api/app/releases")
+            } catch {
+                failure = error.localizedDescription
             }
         }
     }

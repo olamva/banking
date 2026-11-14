@@ -287,3 +287,43 @@ test("bulk rename and categories rebuild offline and undo as whole actions", asy
   await edit("undo", { file: "payees" });
   assert.deepEqual(readRows(), before);
 });
+
+test("the app period applies the web filter params and refuses an unknown period", async () => {
+  const { jsonRoute } = await import("../../src/web/api.ts");
+  await rebuildAll();
+  const get = (query: string) =>
+    jsonRoute(new URL(`http://x/api/app/period?${query}`), undefined)!;
+  const all = JSON.parse(get("p=2026-07").body);
+  const daily = JSON.parse(get("p=2026-07&acct=Daily").body);
+  const notCard = JSON.parse(get("p=2026-07&acct_not=Card").body);
+  assert.equal(all.totalOut, 130.3);
+  assert.equal(daily.totalOut, 100.25);
+  assert.equal(daily.totalIn, 20.1);
+  assert.deepEqual(
+    notCard.accounts.map((a: { account: string }) => a.account),
+    ["Daily"],
+  );
+  assert.deepEqual(daily.excluded, all.excluded);
+  assert.equal(get("p=next-week").status, 400);
+});
+
+test("a rule preview counts the rows a pattern claims and rejects a bad regex", async () => {
+  const { jsonRoute } = await import("../../src/web/api.ts");
+  await rebuildAll();
+  const match = (key: string) =>
+    jsonRoute(
+      new URL(`http://x/api/app/match?${new URLSearchParams({ key })}`),
+      undefined,
+    )!;
+  const shop = JSON.parse(match("shop").body);
+  assert.equal(shop.count, 2);
+  assert.deepEqual(
+    shop.txns.map((t: { amount: number }) => t.amount).sort(),
+    [-100.25, 20.1],
+  );
+  const out = JSON.parse(
+    match(ruleKey({ pattern: "shop", direction: "out" })).body,
+  );
+  assert.equal(out.count, 1);
+  assert.equal(match("/(/").status, 400);
+});

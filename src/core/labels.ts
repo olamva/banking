@@ -12,6 +12,18 @@ export function tidy(slug: string): string {
   return words ? words[0]!.toUpperCase() + words.slice(1) : slug;
 }
 
+export const bankLabel = (
+  t: Categorized,
+): [name: string, slug: string] | null => {
+  if (t.bankCategory === null) return null;
+  const name = t.bankCategoryName ?? tidy(t.bankCategory);
+  const sub = t.bankSubName ?? (t.bankSub === null ? null : tidy(t.bankSub));
+  return [
+    sub === null ? name : `${name} / ${sub}`,
+    t.bankSub === null ? t.bankCategory : `${t.bankCategory}/${t.bankSub}`,
+  ];
+};
+
 export const NO_SUB = "Annet";
 
 export function buildLabels(txns: Categorized[], names: Names = {}): Labels {

@@ -168,14 +168,18 @@ struct Period: Codable, Sendable, Identifiable, Hashable {
     let totalOut: Double
     let net: Double
     let averageOut: Double?
+    let averageIn: Double?
     let delta: Delta?
     let compared: String?
+    let prev: Bounds?
     let categories: [Share]
     let subcategories: [SubShare]
     let incomeCategories: [Share]
+    let incomeSubcategories: [SubShare]?
     let merchants: [Merchant]
     let incomeMerchants: [Merchant]
     let accounts: [AccountTotal]
+    let incomeAccounts: [AccountTotal]?
     let changes: [CategoryDelta]
     let subscriptions: [Subscription]
     let excluded: Excluded
@@ -202,9 +206,32 @@ struct Period: Codable, Sendable, Identifiable, Hashable {
     func contains(_ txn: Txn) -> Bool { txn.date >= from && txn.date <= to }
 }
 
+struct Bounds: Codable, Sendable, Hashable {
+    let from: String
+    let to: String
+}
+
+struct Purchase: Codable, Sendable, Hashable {
+    let key: String
+    let sizeKey: String
+    let name: String
+    let raw: String
+    let size: String?
+    let qty: Double
+    let unit: String?
+    let amount: Double
+}
+
 struct Txn: Codable, Sendable, Identifiable, Hashable {
     var id = 0
     var search = ""
+    var itemKeys: [String] = []
+    let unnamed: Bool?
+    let original: String?
+    let remote: String?
+    let source: String?
+    let bank: [String]?
+    let purchases: [Purchase]?
     let date: String
     let amount: Double
     let merchant: String
@@ -223,8 +250,12 @@ struct Txn: Codable, Sendable, Identifiable, Hashable {
     var day: Date { Day.date(date) }
     var month: String { String(date.prefix(7)) }
     var pair: String { subcategory.map { "\(category)/\($0)" } ?? category }
+    var subPair: String { "\(category)/\(subcategory ?? "")" }
+    var countryKey: String { country ?? Filters.noCountry }
+    var payeeText: String { unnamed == true ? "" : merchant }
 
     enum CodingKeys: String, CodingKey {
+        case unnamed, original, remote, source, bank, purchases
         case date, amount, merchant, description, category, subcategory, account, country, type, recurring, pending, excluded, remember, receipt
     }
 }
