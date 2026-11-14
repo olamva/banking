@@ -168,6 +168,41 @@ test("the deposit stays in a can price unless the deposit setting removes it", (
   assert.equal(perLitre(true), "69.39");
 });
 
+test("compares the latest price with the median of two or more earlier prices of the same size", () => {
+  const changes = itemsOf(
+    purchasesOf([
+      txn("20", "2026-10-01T10:00:00Z", [
+        line("Kaffe", 60, "250 g"),
+        line("Kaffe", 30, "100 g"),
+        line("Smør", 40),
+        line("Ost", 2),
+      ]),
+      txn("21", "2026-10-08T10:00:00Z", [
+        line("Kaffe", 80, "250 g"),
+        line("Smør", 42),
+      ]),
+      txn("22", "2026-10-15T10:00:00Z", [
+        line("Kaffe", 70, "250 g"),
+        line("Smør", 41),
+      ]),
+      txn("23", "2026-10-22T10:00:00Z", [
+        line("Kaffe", 30, "100 g"),
+        line("Kaffe", 140, "250 g", 2),
+        line("Smør", 60, undefined, 2),
+      ]),
+      txn("24", "2026-10-29T10:00:00Z", [
+        line("Kaffe", 36, "100 g"),
+        line("Ost", 100),
+      ]),
+    ]),
+  ).map((i) => [i.name, i.change && Math.round(i.change * 100)]);
+  assert.deepEqual(changes, [
+    ["Kaffe", 20],
+    ["Smør", -27],
+    ["Ost", null],
+  ]);
+});
+
 test("dates purchases in Oslo and measures the usual gap in days", () => {
   const milk = itemsOf(purchases, true).find((i) => i.qty === 4)!;
   assert.deepEqual(

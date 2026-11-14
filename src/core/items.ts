@@ -28,6 +28,8 @@ export type Item = {
   price: number;
   last: string;
   medianDays: number | null;
+  usual: number | null;
+  change: number | null;
   purchases: Purchase[];
 };
 
@@ -226,6 +228,10 @@ export const itemsOf = (purchases: Purchase[], bySize = false): Item[] =>
     const qty = sorted.reduce((n, p) => n + p.qty, 0);
     const spent = ore(sorted.reduce((n, p) => n + p.amount, 0));
     const days = [...new Set(sorted.map((p) => dayOf(p.date)))];
+    const [now, ...before] = sorted
+      .filter((p) => p.sizeKey === sorted[0]!.sizeKey)
+      .map(packPrice);
+    const usual = before.length > 1 ? median(before) : null;
     return {
       key,
       name: commonest(sorted.map((p) => p.name)),
@@ -241,6 +247,8 @@ export const itemsOf = (purchases: Purchase[], bySize = false): Item[] =>
       price: qty ? ore(spent / qty) : 0,
       last: sorted[0]!.date,
       medianDays: median(days.slice(1).map((d, i) => days[i]! - d)),
+      usual,
+      change: usual ? now! / usual - 1 : null,
       purchases: sorted,
     };
   });

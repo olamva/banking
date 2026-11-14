@@ -24,7 +24,7 @@ import {
   type Column,
 } from "./Cards.tsx";
 import { itemRules, type RulesApi } from "./data.ts";
-import { fmtDate, fmtNOK, fmtNOKExact } from "./format.ts";
+import { fmtDate, fmtNOK, fmtNOKExact, fmtPct } from "./format.ts";
 import {
   ChangesIcon,
   DropdownIcon,
@@ -46,7 +46,14 @@ import {
 } from "./ui/sheet.tsx";
 
 type Sort =
-  "name" | "count" | "qty" | "spent" | "price" | "medianDays" | "last";
+  | "name"
+  | "count"
+  | "qty"
+  | "spent"
+  | "price"
+  | "change"
+  | "medianDays"
+  | "last";
 
 const QTY = new Intl.NumberFormat("nb-NO", { maximumFractionDigits: 3 });
 
@@ -56,8 +63,10 @@ const fmtQty = (qty: number, unit?: "kg") =>
 const fmtGap = (days: number | null) =>
   days === null ? "" : `${Math.round(days)} days`;
 
-const value = (item: Item, sort: Sort) =>
-  sort === "medianDays" ? (item.medianDays ?? -1) : item[sort];
+const fmtChange = (change: number | null) =>
+  change === null ? "" : `${change > 0 ? "+" : ""}${fmtPct(change)}`;
+
+const value = (item: Item, sort: Sort) => item[sort];
 
 interface ItemSheetProps {
   item: Item;
@@ -225,6 +234,41 @@ const ItemSheet = ({
   );
 };
 
+interface SwingsProps {
+  title: string;
+  items: Item[];
+  onPick: (key: string) => void;
+}
+
+const Swings = ({ title, items, onPick }: SwingsProps) => (
+  <section className="min-w-0">
+    <h3 className="mb-1 text-xs font-medium text-muted-foreground">{title}</h3>
+    {items.length === 0 ? (
+      <p className="py-1.5 text-xs text-muted-foreground">None</p>
+    ) : (
+      items.map((i) => (
+        <button
+          key={i.key}
+          type="button"
+          onClick={() => onPick(i.key)}
+          className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-md px-2 py-1.5 text-left text-xs hover:bg-muted/70"
+        >
+          <span className="min-w-0 flex-1">
+            <span className="block truncate">{i.name}</span>
+            <span className="block truncate text-[11px] text-muted-foreground">
+              {fmtNOKExact(packPrice(i.purchases[0]!))}, usually{" "}
+              {fmtNOKExact(i.usual!)}
+            </span>
+          </span>
+          <span className="shrink-0 font-semibold tabular-nums">
+            {fmtChange(i.change)}
+          </span>
+        </button>
+      ))
+    )}
+  </section>
+);
+
 interface ItemsProps {
   rows: Categorized[];
   filters: Filters;
@@ -271,6 +315,8 @@ export const Items = ({ rows, filters, rules, onSearch }: ItemsProps) => {
 
   const sorted = shown.toSorted((a, b) => {
     const [x, y] = [value(a, sort), value(b, sort)];
+    if (x === null || y === null)
+      return Number(x === null) - Number(y === null) || b.count - a.count;
     const order =
       typeof x === "string" ? x.localeCompare(String(y)) : x - Number(y);
     return (descending ? -order : order) || b.count - a.count;
@@ -308,9 +354,14 @@ export const Items = ({ rows, filters, rules, onSearch }: ItemsProps) => {
     fmtQty(i.qty, i.unit),
     fmtNOK(i.spent),
     fmtNOKExact(i.price),
+    fmtChange(i.change),
     fmtGap(i.medianDays),
     fmtDate(i.last),
   ]);
+
+  const swings = shown
+    .filter((i) => i.change)
+    .toSorted((a, b) => a.change! - b.change!);
 
   const bought = shown.reduce((n, i) => n + i.count, 0);
   const receipts = new Set(
@@ -355,6 +406,30 @@ export const Items = ({ rows, filters, rules, onSearch }: ItemsProps) => {
           onClose={() => setPicked(null)}
         />
       )}
+      {swings.length > 0 && (
+        <Panel
+          title="Biggest price changes"
+          icon={ChangesIcon}
+          description="The latest price against the median of earlier purchases of the same size."
+          className="mb-4"
+        >
+          <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
+            <Swings
+              title="Cheaper now"
+              items={swings.filter((i) => i.change! < 0).slice(0, 5)}
+              onPick={setPicked}
+            />
+            <Swings
+              title="Dearer now"
+              items={swings
+                .filter((i) => i.change! > 0)
+                .toReversed()
+                .slice(0, 5)}
+              onPick={setPicked}
+            />
+          </div>
+        </Panel>
+      )}
       {sorted.length > 0 && (
         <Panel
           title="Price over time"
@@ -391,6 +466,7 @@ export const Items = ({ rows, filters, rules, onSearch }: ItemsProps) => {
               sortable("Quantity", "qty", true, "max-sm:hidden"),
               sortable("Spent", "spent", true),
               sortable("Average price", "price", true, "max-sm:hidden"),
+              sortable("Price change", "change", true, "max-sm:hidden"),
               sortable("Usual gap", "medianDays", true, "max-sm:hidden"),
               sortable("Last bought", "last", false, "max-sm:hidden"),
             ]}
