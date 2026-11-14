@@ -8,6 +8,8 @@ export type Filters = {
   merchantsOut: string[];
   items: string[];
   itemsOut: string[];
+  kinds: string[];
+  kindsOut: string[];
   accounts: string[];
   accountsOut: string[];
   countries: string[];
@@ -21,6 +23,7 @@ export const AXES = {
   categories: "categoriesOut",
   merchants: "merchantsOut",
   items: "itemsOut",
+  kinds: "kindsOut",
   accounts: "accountsOut",
   countries: "countriesOut",
 } as const;
@@ -38,6 +41,8 @@ export const NO_FILTERS: Filters = {
   merchantsOut: [],
   items: [],
   itemsOut: [],
+  kinds: [],
+  kindsOut: [],
   accounts: [],
   accountsOut: [],
   countries: [],
@@ -107,6 +112,7 @@ export function matchesFilters(t: Categorized, f: Filters): boolean {
   if (!shown(f.merchants, f.merchantsOut, [merchantOf(t)])) return false;
   if (!shown(f.items.map(nameKey), f.itemsOut.map(nameKey), t.items ?? []))
     return false;
+  if (!shown(f.kinds, f.kindsOut, t.kinds ?? [])) return false;
   if (!shown(f.accounts, f.accountsOut, [t.account])) return false;
   if (!shown(f.countries, f.countriesOut, [countryOf(t)])) return false;
   if (f.search) {
@@ -247,6 +253,7 @@ export const distinctAccounts = (txns: Categorized[]): string[] =>
 const REPEATED = [
   ["merchants", "m"],
   ["items", "it"],
+  ["kinds", "ic"],
   ["accounts", "acct"],
   ["countries", "co"],
 ] as const;
@@ -298,6 +305,8 @@ export function filtersFromParams(p: URLSearchParams): Filters {
     merchantsOut,
     items: repeated("it"),
     itemsOut: repeated("it_not"),
+    kinds: repeated("ic"),
+    kindsOut: repeated("ic_not"),
     accounts,
     accountsOut,
     countries,

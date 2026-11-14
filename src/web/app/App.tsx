@@ -114,7 +114,11 @@ export const App = () => {
 
   const names = itemRules(rules);
   const loaded = load.status === "ready" ? load.txns : NO_TXNS;
-  const txns = useMemo(() => withItems(loaded, names), [loaded, names]);
+  const kindRules = itemRules(rules, "item-categories");
+  const txns = useMemo(
+    () => withItems(loaded, names, kindRules),
+    [loaded, names, kindRules],
+  );
   const ready = txns.length > 0;
   const months = useMemo(() => distinctMonths(txns), [txns]);
   const years = useMemo(() => distinctYears(txns), [txns]);
@@ -296,7 +300,7 @@ export const App = () => {
     () => txns.filter((t) => inRange(t, p.from, p.to)),
     [txns, p],
   );
-  const options = useFilterOptions(inPeriod, filters, names);
+  const options = useFilterOptions(inPeriod, filters, names, kindRules);
   const specs = axisSpecs(options);
   const matching = useMemo(
     () =>
@@ -339,8 +343,7 @@ export const App = () => {
         rows={inPeriod}
         filters={filters}
         rules={rules}
-        onSearch={(search) => setFilters((f) => ({ ...f, search }))}
-        onDeposit={(on) => setFilters((f) => ({ ...f, withoutDeposit: !on }))}
+        onFilters={setFilters}
       />
     ),
     transactions: () => (
@@ -412,6 +415,7 @@ export const App = () => {
                     onScope={setScope}
                     matching={matching}
                     count={activeCount(specs, filters, view)}
+                    deposit={view === "items"}
                   />
                 </>
               )

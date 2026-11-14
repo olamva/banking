@@ -248,18 +248,26 @@ export const purchasesOf = (
 export const withItems = (
   txns: Categorized[],
   rules: RuleMap = {},
+  categories: RuleMap = {},
 ): Categorized[] => {
   const nameOf = namer(rules);
-  return txns.map((t) =>
-    t.receipt
-      ? {
-          ...t,
-          items: [
-            ...new Set(receiptPurchases(t.receipt, nameOf).map((p) => p.key)),
-          ],
-        }
-      : t,
-  );
+  const categoryOf = lookup(categories, "rules/item-categories.json");
+  return txns.map((t) => {
+    if (!t.receipt) return t;
+    const bought = receiptPurchases(t.receipt, nameOf, false, categoryOf);
+    return {
+      ...t,
+      items: [...new Set(bought.map((p) => p.key))],
+      kinds: [
+        ...new Set(
+          bought.flatMap((p) => {
+            const c = p.category ?? UNCATEGORIZED;
+            return [topCategory(c), c];
+          }),
+        ),
+      ],
+    };
+  });
 };
 
 const median = (xs: number[]): number | null => {

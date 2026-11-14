@@ -7,7 +7,6 @@ import {
   RemovedIcon,
   TickIcon,
 } from "./icons.ts";
-import { Badge } from "./ui/badge.tsx";
 import { Button } from "./ui/button.tsx";
 import {
   Command,
@@ -17,8 +16,9 @@ import {
   CommandItem,
   CommandList,
 } from "./ui/command.tsx";
-import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover.tsx";
+import { Kbd } from "./ui/kbd.tsx";
 import { ToggleGroup, ToggleGroupItem } from "./ui/toggle-group.tsx";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip.tsx";
 import { cn } from "./ui/utils.ts";
 
 export const fine = () => matchMedia("(pointer: fine)").matches;
@@ -104,19 +104,26 @@ export const ValueRow = ({
       )}
     </CommandItem>
     {children}
-    <button
-      type="button"
-      tabIndex={-1}
-      aria-label={out ? `Stop excluding ${text}` : `Exclude ${text}`}
-      title={out ? "Stop excluding" : "Exclude"}
-      onClick={() => onToggle(true)}
-      className={cn(
-        "flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground/60 hover:bg-destructive/10 hover:text-destructive pointer-coarse:size-10",
-        out && "text-destructive",
-      )}
-    >
-      <Icon icon={ExcludeIcon} size={15} />
-    </button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-label={out ? `Stop excluding ${text}` : `Exclude ${text}`}
+          onClick={() => onToggle(true)}
+          className={cn(
+            "flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground/60 hover:bg-destructive/10 hover:text-destructive pointer-coarse:size-10",
+            out && "text-destructive",
+          )}
+        >
+          <Icon icon={ExcludeIcon} size={15} />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="left">
+        {out ? "Stop excluding" : "Exclude"}
+        <Kbd>⇧ Enter</Kbd>
+      </TooltipContent>
+    </Tooltip>
   </div>
 );
 
@@ -320,55 +327,5 @@ export const PickerList = ({
         )}
       </CommandList>
     </Command>
-  );
-};
-
-export const HINT = (
-  <>
-    <span className="pointer-coarse:hidden">Click</span>
-    <span className="hidden pointer-coarse:inline">Tap</span>{" "}
-    <Icon icon={ExcludeIcon} size={11} className="inline align-[-1px]" /> to
-    exclude a row
-    <span className="pointer-coarse:hidden">, or press Shift Enter</span>.
-  </>
-);
-
-interface PickerProps extends Omit<PickerListProps, "query" | "onBack"> {
-  className?: string;
-}
-
-export const Picker = ({ className, ...list }: PickerProps) => {
-  const count = list.picked.length + list.excluded.length;
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          className={cn("justify-between font-normal", className)}
-        >
-          {list.title}
-          {count > 0 && (
-            <Badge variant="secondary" className="h-4.5 px-1.5 tabular-nums">
-              {count}
-            </Badge>
-          )}
-          <Icon
-            icon={DropdownIcon}
-            size={14}
-            className="text-muted-foreground"
-          />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="start"
-        onOpenAutoFocus={(e) => e.preventDefault()}
-        className="max-h-[min(30rem,var(--radix-popover-content-available-height))] w-[min(18rem,calc(100vw-1.5rem))] gap-0 p-0"
-      >
-        <PickerList {...list} />
-        <p className="border-t px-3 py-2 text-[11px] leading-snug text-muted-foreground">
-          {HINT}
-        </p>
-      </PopoverContent>
-    </Popover>
   );
 };

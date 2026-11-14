@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { itemsOf, purchasesOf } from "../../core/items.ts";
+import { itemsOf, purchasesOf, topCategory } from "../../core/items.ts";
 import type { RuleMap } from "../../core/ruleFiles.ts";
 import {
   countryOf,
@@ -28,6 +28,7 @@ export const useFilterOptions = (
   inPeriod: Categorized[],
   filters: Filters,
   names: RuleMap,
+  kindRules: RuleMap,
 ) => {
   const categories = useMemo(
     () =>
@@ -58,8 +59,32 @@ export const useFilterOptions = (
     [inPeriod, filters.merchants],
   );
   const bought = useMemo(
-    () => itemsOf(purchasesOf(inPeriod, names)),
-    [inPeriod, names],
+    () => itemsOf(purchasesOf(inPeriod, names, false, kindRules)),
+    [inPeriod, names, kindRules],
+  );
+  const kindUses = useMemo(() => {
+    const n = new Map<string, number>();
+    for (const i of bought)
+      for (const k of new Set([topCategory(i.category), i.category]))
+        n.set(k, (n.get(k) ?? 0) + i.count);
+    return n;
+  }, [bought]);
+  const kinds = useMemo(
+    () =>
+      [
+        ...new Set([
+          ...[...kindUses.keys()].map(topCategory),
+          ...filters.kinds.map(topCategory),
+        ]),
+      ].sort(),
+    [kindUses, filters.kinds],
+  );
+  const kindPairs = useMemo(
+    () =>
+      [...new Set([...kindUses.keys(), ...filters.kinds])]
+        .filter((k) => k.includes("/"))
+        .sort(),
+    [kindUses, filters.kinds],
   );
   const items = useMemo(
     () =>
@@ -80,10 +105,11 @@ export const useFilterOptions = (
       categories: tally((t) => [t.category, subcategoryOf(t)]),
       merchants: tally((t) => [merchantOf(t)]),
       items: new Map(bought.map((i) => [i.name, i.count])),
+      kinds: kindUses,
       accounts: tally((t) => [t.account]),
       countries: tally((t) => [countryOf(t)]),
     };
-  }, [inPeriod, bought]);
+  }, [inPeriod, bought, kindUses]);
   const people = useMemo(() => personMerchants(inPeriod), [inPeriod]);
   const accounts = useMemo(
     () => withPicked(distinctAccounts(inPeriod), filters.accounts),
@@ -98,6 +124,8 @@ export const useFilterOptions = (
     subcategories,
     merchants,
     items,
+    kinds,
+    kindPairs,
     people,
     accounts,
     countries,

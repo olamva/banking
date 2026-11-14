@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
+import { topCategory } from "../../core/items.ts";
 import type { Axis, Filters } from "../../core/select.ts";
 import { AXES, clearFilters, NO_COUNTRY } from "../../core/select.ts";
 import { FilterPanel, type AxisSpec, type Scope } from "./FilterPanel.tsx";
@@ -72,6 +73,15 @@ export const axisSpecs = (o: Options): AxisSpec[] => {
     },
     { axis: "items", name: "Item", plural: "Items", options: o.items },
     {
+      axis: "kinds",
+      name: "Item category",
+      plural: "Item categories",
+      options: o.kinds,
+      fullLabel: (k) => k.replace("/", " › "),
+      subs: (top) => o.kindPairs.filter((p) => topCategory(p) === top),
+      subLabel: (k) => k.slice(k.indexOf("/") + 1),
+    },
+    {
       axis: "accounts",
       name: "Account",
       plural: "Accounts",
@@ -97,6 +107,7 @@ interface FilterButtonProps {
   onScope: (scope: Scope | null) => void;
   matching: number;
   count: number;
+  deposit: boolean;
 }
 
 export const FilterButton = ({
@@ -107,6 +118,7 @@ export const FilterButton = ({
   onScope,
   matching,
   count,
+  deposit,
 }: FilterButtonProps) => {
   return (
     <Popover
@@ -141,6 +153,7 @@ export const FilterButton = ({
             onScope={onScope}
             matching={matching}
             active={count > 0}
+            deposit={deposit}
           />
         )}
       </PopoverContent>
@@ -182,12 +195,12 @@ const AxisChip = ({ spec, filters, onFilters, onEdit }: AxisChipProps) => {
   const inn = filters[spec.axis];
   const out = filters[outKey];
   const name = spec.fullLabel ?? ((v: string) => v);
-  const words = [...inn.map(name), ...out.map((v) => `not ${name(v)}`)];
-  const join = (list: string[]) =>
-    list.reduce((s, w, i) => `${s}${i < inn.length ? " or " : ", "}${w}`);
-  const parts = join(words);
-  const text =
-    join(words.slice(0, 2)) + (words.length > 2 ? ` +${words.length - 2}` : "");
+  const words = [...inn, ...out];
+  const sep = (i: number) => (i === 0 ? "" : i < inn.length ? " or " : ", ");
+  const not = (i: number) => i >= inn.length;
+  const parts = words
+    .map((v, i) => `${sep(i)}${not(i) ? "Not " : ""}${name(v)}`)
+    .join("");
 
   return (
     <span className={CHIP}>
@@ -198,10 +211,15 @@ const AxisChip = ({ spec, filters, onFilters, onEdit }: AxisChipProps) => {
         className={CHIP_BODY}
       >
         <span className="text-muted-foreground">{spec.name}:</span>
-        <span
-          className={cn("truncate", inn.length === 0 && "text-destructive")}
-        >
-          {text}
+        <span className="truncate">
+          {words.slice(0, 2).map((v, i) => (
+            <Fragment key={v}>
+              {sep(i)}
+              {not(i) && <span className="text-destructive">Not </span>}
+              {name(v)}
+            </Fragment>
+          ))}
+          {words.length > 2 && ` +${words.length - 2}`}
         </span>
       </button>
       <X

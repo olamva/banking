@@ -8,7 +8,6 @@ import {
 } from "../../core/select.ts";
 import {
   fine,
-  HINT,
   PickerList,
   ROW,
   useExcludeKey,
@@ -26,6 +25,7 @@ import {
   CommandList,
 } from "./ui/command.tsx";
 import { Switch } from "./ui/switch.tsx";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip.tsx";
 
 export interface AxisSpec {
   axis: Axis;
@@ -143,7 +143,7 @@ const Home = ({
     >
       <CommandInput
         autoFocus={fine()}
-        placeholder="Search categories, merchants, items…"
+        placeholder="Search all filters…"
         value={query}
         onValueChange={onQuery}
         aria-label="Search filters"
@@ -238,8 +238,7 @@ const Home = ({
         )}
         {q !== "" && (
           <CommandEmpty className="px-3 py-3 text-left text-xs text-muted-foreground">
-            No category, merchant, item, account or country matches. Use the
-            text search above.
+            No matches.
           </CommandEmpty>
         )}
       </CommandList>
@@ -255,7 +254,32 @@ interface FilterPanelProps {
   onScope: (scope: Scope | null) => void;
   matching: number;
   active: boolean;
+  deposit: boolean;
 }
+
+interface SwitchRowProps {
+  label: string;
+  tip?: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}
+
+const SwitchRow = ({ label, tip, checked, onChange }: SwitchRowProps) => {
+  const row = (
+    <label className="flex min-h-9 cursor-pointer items-center justify-between gap-3 rounded-sm px-2 text-sm hover:bg-muted/50 pointer-coarse:min-h-11">
+      {label}
+      <Switch checked={checked} onCheckedChange={onChange} />
+    </label>
+  );
+  return tip ? (
+    <Tooltip>
+      <TooltipTrigger asChild>{row}</TooltipTrigger>
+      <TooltipContent side="left">{tip}</TooltipContent>
+    </Tooltip>
+  ) : (
+    row
+  );
+};
 
 export const FilterPanel = ({
   specs,
@@ -265,6 +289,7 @@ export const FilterPanel = ({
   onScope,
   matching,
   active,
+  deposit,
 }: FilterPanelProps) => {
   const root = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -332,26 +357,30 @@ export const FilterPanel = ({
             onScope(null);
           }}
           options={
-            <label className="mx-1 mb-1 flex cursor-pointer items-center justify-between gap-3 rounded-sm border-t px-2 pt-2.5 pb-1.5 text-sm hover:bg-muted/50">
-              <span>
-                Show internal transfers
-                <span className="block text-xs text-muted-foreground">
-                  Moves between your accounts, card bills and funds
-                </span>
-              </span>
-              <Switch
+            <div className="mx-1 mb-1 border-t pt-1">
+              <SwitchRow
+                label="Show internal transfers"
+                tip="Moves between your accounts, card bills and funds"
                 checked={filters.showExcluded}
-                onCheckedChange={(showExcluded) =>
+                onChange={(showExcluded) =>
                   onFilters({ ...filters, showExcluded })
                 }
               />
-            </label>
+              {deposit && (
+                <SwitchRow
+                  label="Include bottle deposit"
+                  checked={!filters.withoutDeposit}
+                  onChange={(on) =>
+                    onFilters({ ...filters, withoutDeposit: !on })
+                  }
+                />
+              )}
+            </div>
           }
         />
       )}
       <div className="border-t px-3 py-2">
-        <p className="text-[11px] leading-snug text-muted-foreground">{HINT}</p>
-        <div className="mt-1.5 flex items-center gap-2">
+        <div className="flex items-center gap-2">
           <span
             aria-live="polite"
             className="mr-auto text-xs text-muted-foreground tabular-nums"
