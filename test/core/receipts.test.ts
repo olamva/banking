@@ -80,6 +80,67 @@ before(async () => {
       bank("rema-split", "2026-09-12", -650.19, "REMA 1000 MOHOLT"),
     ],
   });
+  put("data/raw/2026-10/a.json", {
+    transactions: [
+      bank("power", "2026-10-03", -1176.5, "POWER TRONDHEIM"),
+      bank("ticket", "2026-10-04", -450, "BILLETTEN.NO"),
+      bank("steam", "2026-10-05", -145, "STEAMPOWERED.COM"),
+      bank("paypal", "2026-10-06", -90.24, "PAYPAL *LACHYW02"),
+    ],
+  });
+  put(
+    "data/raw/receipts/gmail/power.eml",
+    mail(
+      "POWER Norge <noreply@power.no>",
+      "2 Oct 2026 10:00:00 +0200",
+      [
+        "<table>",
+        "<tr><td>Produkt</td><td>Antall</td><td>Sum</td></tr>",
+        "<tr><td>KULZ VANNKOKER, SVART</td><td>1</td><td>kr 199,00</td></tr>",
+        "<tr><td>EMV Power Norge</td><td></td><td>-kr 99,50</td></tr>",
+        "<tr><td>POINT BRØDRISTER</td><td>2</td><td>kr 998,00</td></tr>",
+        "<tr><td>Delsum</td><td>kr 1&nbsp;097,50</td></tr>",
+        "<tr><td>Frakt:</td><td>kr 79,00</td></tr>",
+        "<tr><td>Total</td><td>kr 1&nbsp;176,50</td></tr>",
+        "<tr><td>Visa</td><td>kr 1&nbsp;176,50</td></tr>",
+        "</table>",
+      ].join(""),
+    ),
+  );
+  put(
+    "data/raw/receipts/gmail/ticket.eml",
+    mail(
+      "Billetten <kvittering@billetten.no>",
+      "4 Oct 2026 10:00:00 +0200",
+      "<p>Kvittering</p><div>Konsert: Sondre Justad</div><div>kr 450,00</div>",
+    ),
+  );
+  put(
+    "data/raw/receipts/gmail/steam.eml",
+    mail(
+      "Steam <noreply@steampowered.com>",
+      "5 Oct 2026 10:00:00 +0200",
+      [
+        "<table><tr><td>Valheim</td>",
+        "<td>Subtotal (excl. VAT): 116,00 kr<br>VAT at 25%: 29,00 kr<br>Total: 145,00 kr</td></tr>",
+        "<tr><td>Visa:</td><td>145,00 kr</td></tr></table>",
+      ].join(""),
+    ),
+  );
+  put(
+    "data/raw/receipts/gmail/paypal.eml",
+    mail(
+      "PayPal <service@paypal.no>",
+      "6 Oct 2026 10:00:00 +0200",
+      [
+        "<table>",
+        "<tr><td>Tip - Thanks for tipping!</td><td>$9,00 USD</td><td>1</td><td>$9,00 USD</td></tr>",
+        "<tr><td>Totalt</td><td>$9,00 USD</td></tr>",
+        "<tr><td>Fra:</td><td>90,24 NOK</td></tr>",
+        "</table>",
+      ].join(""),
+    ),
+  );
   put("data/raw/receipts/coop/A0-coop-1.json", {
     period: { year: 2026, month: 9 },
     head: { summaryId: "A0:/coop-1" },
@@ -350,8 +411,52 @@ test("a Coop receipt dated just after Oslo midnight reaches that day's card row"
   assert.equal(receipt.total, 296.6);
 });
 
+const mailLines = (id: string) => {
+  const r = rows.find((t) => t.id === id)!.receipt!;
+  return {
+    lines: r.lines.map((l) => [l.name, l.qty, l.price, l.amount]),
+    total: r.total,
+    currency: r.currency,
+  };
+};
+
+test("a mail receipt lists the item rows that add up to its total", () => {
+  assert.deepEqual(mailLines("power"), {
+    lines: [
+      ["KULZ VANNKOKER, SVART", 1, 199, 199],
+      ["EMV Power Norge", 1, -99.5, -99.5],
+      ["POINT BRØDRISTER", 2, 499, 998],
+      ["Frakt", 1, 79, 79],
+    ],
+    total: 1176.5,
+    currency: undefined,
+  });
+});
+
+test("a mail without a total row lists the item that adds up to the card charge", () => {
+  assert.deepEqual(mailLines("ticket").lines, [
+    ["Konsert: Sondre Justad", 1, 450, 450],
+  ]);
+});
+
+test("a mail that prints one item beside the total gives that item the total", () => {
+  assert.deepEqual(mailLines("steam").lines, [["Valheim", 1, 145, 145]]);
+});
+
+test("a mail in another currency keeps its own total and currency", () => {
+  assert.deepEqual(mailLines("paypal"), {
+    lines: [["Tip - Thanks for tipping!", 1, 9, 9]],
+    total: 9,
+    currency: "USD",
+  });
+});
+
+test("a mail whose rows do not add up shows no items", () => {
+  assert.deepEqual(rows.find((t) => t.id === "apple-1")!.receipt!.lines, []);
+});
+
 test("a broken or undated receipt file leaves the rest of the rebuild intact", () => {
-  assert.equal(rows.length, 8);
+  assert.equal(rows.length, 12);
   assert.ok(
     errors.mock.calls.some((c) =>
       String(c.arguments[0]).includes("broken.json"),

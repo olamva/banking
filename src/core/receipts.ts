@@ -1,4 +1,5 @@
 import PostalMime from "postal-mime";
+import { mailItems } from "./mail.ts";
 import type { Txn } from "./types.ts";
 
 export type Entry = { label: string; amount: number };
@@ -22,10 +23,16 @@ export type Receipt = {
   title?: string;
   lines: ReceiptLine[];
   total?: number;
+  currency?: string;
   payments?: Entry[];
 };
 
-export type Found = { receipt: Receipt; amounts: number[]; names: string[] };
+export type Found = {
+  receipt: Receipt;
+  amounts: number[];
+  names: string[];
+  fit?: (paid: number) => Receipt;
+};
 
 type RemaRow = {
   prodtxt1?: string;
@@ -289,15 +296,17 @@ export async function mailReceipt(id: string, raw: Uint8Array): Promise<Found> {
       .replace(/\s+/g, " ");
   const address = mail.from?.address ?? "";
   const domain = address.split("@")[1]?.split(".").at(-2) ?? "";
+  const receipt: Receipt = {
+    source: "gmail",
+    id,
+    at: Date.parse(mail.date ?? ""),
+    store: mail.from?.name || domain || address,
+    title: mail.subject ?? "",
+    lines: [],
+  };
   return {
-    receipt: {
-      source: "gmail",
-      id,
-      at: Date.parse(mail.date ?? ""),
-      store: mail.from?.name || domain || address,
-      title: mail.subject ?? "",
-      lines: [],
-    },
+    receipt,
+    fit: (paid) => ({ ...receipt, ...mailItems(mail, receipt.store, paid) }),
     amounts: [...text.matchAll(MONEY)].map(
       (m) =>
         Number((m[1] ?? m[3] ?? m[4])!.replace(/[ .,]/g, "")) +
@@ -347,7 +356,7 @@ export function matchReceipts<T extends Txn>(
   for (const { f, t } of pairs)
     if (!used.has(f) && !matched.has(t)) {
       used.add(f);
-      matched.set(t, f.receipt);
+      matched.set(t, f.fit?.(-t.amount) ?? f.receipt);
     }
   return matched;
 }
