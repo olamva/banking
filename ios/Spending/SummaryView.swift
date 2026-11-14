@@ -3,24 +3,37 @@ import SwiftUI
 
 struct SummaryView: View {
     @Environment(Store.self) private var store
-    @State private var settings = false
 
     var body: some View {
         NavigationStack {
             Group {
-                if let period = store.selected {
+                if let selected = store.selected {
+                    let rows = store.rows
                     List {
                         SessionBanner()
-                        Section { Hero(period: period, compare: period.lastYear.flatMap(store.lookup)) }
-                        CategoriesSection(period: period)
-                        ChangesSection(period: period)
-                        MerchantsSection(period: period)
-                        AccountsSection(period: period)
-                        IncomeSection(period: period)
-                        SubscriptionsSection(period: period)
+                        if rows.isEmpty {
+                            Section {
+                                ContentUnavailableView("No transactions match the current filters.", systemImage: "line.3.horizontal.decrease.circle")
+                            }
+                            ExcludedNote(excluded: selected.excluded)
+                        } else {
+                            if let shown = store.shown {
+                                Section { Tiles(period: shown) }
+                                    .listRowBackground(Color.clear)
+                                    .listRowInsets(EdgeInsets())
+                            } else {
+                                Figuring()
+                            }
+                            SpendingChart(rows: rows, period: store.shown ?? selected)
+                            if let shown = store.shown {
+                                Breakdowns(period: shown)
+                                SubscriptionsSection(subscriptions: shown.subscriptions)
+                                ExcludedNote(excluded: shown.excluded)
+                            }
+                        }
                     }
                     .contentTransition(.opacity)
-                    .animation(.snappy, value: period.key)
+                    .animation(.snappy, value: selected.key)
                     .refreshable { await store.reload() }
                     .navigationDestination(for: CategoryRoute.self) { CategoryView(route: $0) }
                     .navigationDestination(for: MerchantRoute.self) { MerchantView(name: $0.name) }
@@ -30,12 +43,7 @@ struct SummaryView: View {
                 }
             }
             .periodPicker()
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Settings", systemImage: "gearshape") { settings = true }
-                }
-            }
-            .sheet(isPresented: $settings) { SettingsView() }
+            .filtering()
         }
     }
 }
@@ -49,163 +57,238 @@ struct MerchantRoute: Hashable {
     let name: String
 }
 
-private struct Hero: View {
-    let period: Period
-    let compare: Period?
+struct Figuring: View {
+    @Environment(Store.self) private var store
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Spent")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                Text(Money.kr(period.totalOut))
-                    .font(.system(size: 40, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                    .contentTransition(.numericText(value: period.totalOut))
-                if let average = period.averageOut {
-                    Text("\(Money.kr(average)) a month on average")
+        Section {
+            if let problem = store.figureProblem {
+                VStack(alignment: .leading, spacing: 10) {
+                    Label("The filtered figures did not load", systemImage: "exclamationmark.triangle")
+                        .font(.headline)
+                    Text(problem)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                        .monospacedDigit()
+                    Button("Try again") { store.figures() }
+                        .buttonStyle(.bordered)
                 }
-                if let delta = period.delta, let compared = period.compared {
-                    DeltaLabel(delta: delta.totalOut, compared: compared)
+                .padding(.vertical, 4)
+            } else {
+                HStack(spacing: 10) {
+                    ProgressView()
+                    Text(store.figuring ? "Calculating the filtered figures" : "The filtered figures need a connection.")
+                        .foregroundStyle(.secondary)
+                    if !store.figuring {
+                        Spacer()
+                        Button("Try again") { store.figures() }
+                            .buttonStyle(.borderless)
+                    }
                 }
-            }
-            SeriesChart(period: period, compare: compare)
-                .frame(height: 170)
-            HStack(spacing: 12) {
-                Figure(title: "Income", value: period.totalIn, tint: .green)
-                Figure(title: "Net", value: period.net, tint: period.net >= 0 ? .green : .red)
             }
         }
-        .padding(.vertical, 6)
     }
 }
 
-private struct Figure: View {
-    let title: String
-    let value: Double
-    let tint: Color
+struct ExcludedNote: View {
+    let excluded: Excluded
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
+        if excluded.count > 0 {
+            Section {
+                Label {
+                    Text("\(excluded.count) transaction(s) totalling \(Money.kr(excluded.total)) excluded in this period (internal transfers, card bill payments).")
+                } icon: {
+                    Image(systemName: "info.circle")
+                }
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+struct Drill: Hashable {
+    let axis: Axis
+    let value: String
+    let name: String
+    var only = true
+    var hide = true
+}
+
+private struct DrillMenu: ViewModifier {
+    @Environment(Store.self) private var store
+    let drills: [Drill]
+
+    func body(content: Content) -> some View {
+        content.contextMenu {
+            ForEach(drills, id: \.self) { drill in
+                if drill.only {
+                    Button(
+                        store.filters[drill.axis, false] == [drill.value] ? "Show all \(drill.axis.title.lowercased())" : "Show only \(drill.name)",
+                        systemImage: "line.3.horizontal.decrease.circle"
+                    ) { store.filters.only(drill.axis, drill.value) }
+                }
+                if drill.hide {
+                    Button("Hide \(drill.name)", systemImage: "eye.slash") { store.filters.hide(drill.axis, drill.value) }
+                }
+            }
+        }
+    }
+}
+
+extension View {
+    func drill(_ drills: Drill...) -> some View { modifier(DrillMenu(drills: drills)) }
+}
+
+private struct TileSpec: Identifiable {
+    let title: String
+    let value: Double
+    let average: Double?
+    let delta: Double?
+    let goodIfUp: Bool
+
+    var id: String { title }
+}
+
+private struct Tiles: View {
+    let period: Period
+
+    var body: some View {
+        let tiles = specs
+        let pairs = stride(from: 0, to: tiles.count, by: 2).map { Array(tiles[$0..<min($0 + 2, tiles.count)]) }
+        Grid(horizontalSpacing: 12, verticalSpacing: 12) {
+            ForEach(pairs.indices, id: \.self) { row in
+                GridRow {
+                    ForEach(pairs[row]) { tile in
+                        StatTile(tile: tile, compared: period.compared)
+                            .gridCellColumns(pairs[row].count == 1 ? 2 : 1)
+                    }
+                }
+            }
+        }
+    }
+
+    private var specs: [TileSpec] {
+        let average = { (a: Double?, b: Double?) in a.flatMap { a in b.map { (($0 - a) * 100).rounded() / 100 } } }
+        var out: [TileSpec] = []
+        if period.totalOut > 0 {
+            out.append(TileSpec(title: "Spent", value: period.totalOut, average: period.averageOut, delta: period.delta?.totalOut, goodIfUp: false))
+        }
+        if period.totalIn > 0 {
+            out.append(TileSpec(title: "Income", value: period.totalIn, average: period.averageIn, delta: period.delta?.totalIn, goodIfUp: true))
+        }
+        if period.totalIn > 0, period.totalOut > 0 {
+            out.append(TileSpec(title: "Net", value: period.net, average: average(period.averageOut, period.averageIn), delta: period.delta?.net, goodIfUp: true))
+        }
+        return out
+    }
+}
+
+private struct StatTile: View {
+    let tile: TileSpec
+    let compared: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(tile.title)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
-            Text(Money.kr(value, signed: title == "Net"))
+            Text(Money.kr(tile.value))
                 .font(.title3.weight(.semibold))
                 .monospacedDigit()
-                .foregroundStyle(tint)
-                .contentTransition(.numericText(value: value))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .contentTransition(.numericText(value: tile.value))
+            if let average = tile.average {
+                Text("\(Money.kr(average)) / month")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                    .lineLimit(1)
+            }
+            if let delta = tile.delta, let compared {
+                let previous = tile.value - delta
+                let percent = previous > 0 && tile.value >= 0 ? delta / previous : nil
+                let tone: Color = abs(delta) < 0.5 ? .secondary : (tile.goodIfUp == (delta > 0) ? .green : .red)
+                Label {
+                    Text(Money.kr(delta, signed: true) + (percent.map { " (\($0.formatted(.percent.precision(.fractionLength(0)).sign(strategy: .always(includingZero: false)))))" } ?? ""))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                } icon: {
+                    Image(systemName: delta > 0 ? "arrow.up.right" : delta < 0 ? "arrow.down.right" : "equal")
+                }
+                .font(.caption.weight(.medium))
+                .monospacedDigit()
+                .foregroundStyle(tone)
+                Text("vs \(compared)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
         .padding(12)
         .background(.fill.quaternary, in: .rect(cornerRadius: 12, style: .continuous))
         .accessibilityElement(children: .combine)
     }
 }
 
-private struct SeriesChart: View {
+private struct Breakdowns: View {
+    @Environment(Store.self) private var store
     let period: Period
-    let compare: Period?
-    @State private var picked: Date?
 
     var body: some View {
-        let series = period.series
-        let running = series.bucket == "day"
-        let index = picked.map(series.index)
-        Chart {
-            if let compare, running {
-                ForEach(Array(compare.series.spent.enumerated()), id: \.offset) { offset, value in
-                    LineMark(x: .value("Date", series.date(offset)), y: .value("Spent", value), series: .value("Series", "Last year"))
-                        .foregroundStyle(Color.gray.opacity(0.6))
-                        .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [3, 3]))
-                }
-            }
-            ForEach(Array(series.spent.enumerated()), id: \.offset) { offset, value in
-                if running {
-                    AreaMark(x: .value("Date", series.date(offset)), y: .value("Spent", value))
-                        .foregroundStyle(.linearGradient(colors: [.accentColor.opacity(0.3), .accentColor.opacity(0)], startPoint: .top, endPoint: .bottom))
-                        .interpolationMethod(.monotone)
-                    LineMark(x: .value("Date", series.date(offset)), y: .value("Spent", value), series: .value("Series", "This period"))
-                        .foregroundStyle(Color.accentColor)
-                        .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
-                        .interpolationMethod(.monotone)
-                } else {
-                    BarMark(x: .value("Date", series.date(offset), unit: .month), y: .value("Spent", value))
-                        .foregroundStyle(Color.accentColor.opacity(index == nil || index == offset ? 1 : 0.4))
-                }
-            }
-            if let index, let value = series.spent[safe: index] {
-                RuleMark(x: .value("Date", series.date(index)))
-                    .foregroundStyle(running ? Color.secondary.opacity(0.4) : .clear)
-                    .annotation(position: .top, overflowResolution: .init(x: .fit(to: .chart), y: .disabled)) {
-                        VStack(spacing: 2) {
-                            Text(running ? series.date(index).shortDay : series.date(index).monthTitle).font(.caption2).foregroundStyle(.secondary)
-                            Text(Money.kr(value)).font(.caption.weight(.semibold)).monospacedDigit()
-                            if running, let before = compare?.series.spent[safe: index] {
-                                Text("Last year \(Money.kr(before))").font(.caption2).foregroundStyle(.secondary)
-                            }
-                        }
-                        .padding(6)
-                        .background(.regularMaterial, in: .rect(cornerRadius: 8))
-                    }
+        let single = store.filters.categories.count == 1
+        if !single, !period.categories.isEmpty {
+            Section("Spending by category") {
+                Donut(period: period)
+                CategoryRows(period: period, shares: period.categories, subs: period.subcategories, income: false)
             }
         }
-        .chartXSelection(value: $picked)
-        .chartYAxis {
-            AxisMarks(position: .trailing) { value in
-                AxisGridLine()
-                AxisValueLabel { Text(Money.short(value.as(Double.self) ?? 0)).fixedSize() }
+        if !single { ChangesSection(period: period) }
+        MerchantsSection(title: "Spending by merchant", income: false, merchants: period.merchants)
+        AccountsSection(title: "Spending by account", accounts: period.accounts)
+        if !single, !period.incomeCategories.isEmpty {
+            Section("Income by category") {
+                CategoryRows(period: period, shares: period.incomeCategories, subs: period.incomeSubcategories ?? [], income: true)
             }
         }
-        .accessibilityLabel(running ? "Running total of spending" : "Spending by month")
+        MerchantsSection(title: "Income by merchant", income: true, merchants: period.incomeMerchants)
+        AccountsSection(title: "Income by account", accounts: period.incomeAccounts ?? [])
     }
 }
 
-private struct CategoriesSection: View {
+private struct Donut: View {
     @Environment(Store.self) private var store
     let period: Period
     @State private var picked: Double?
 
     var body: some View {
-        if !period.categories.isEmpty {
-            Section("Categories") {
-                Chart(period.categories, id: \.category) { share in
-                    SectorMark(angle: .value("Spent", share.total), innerRadius: .ratio(0.64), angularInset: 1.5)
-                        .cornerRadius(4)
-                        .foregroundStyle(CategoryStyle.of(share.category).color)
-                        .opacity(selected == nil || selected == share.category ? 1 : 0.35)
-                }
-                .chartAngleSelection(value: $picked)
-                .chartBackground { _ in
-                    VStack(spacing: 2) {
-                        let share = period.categories.first { $0.category == selected }
-                        Text(share.map { store.data?.label($0.category) ?? $0.category } ?? "Total")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                        Text(Money.kr(share?.total ?? period.totalOut))
-                            .font(.title3.bold())
-                            .monospacedDigit()
-                        if let share {
-                            Text(Percent.of(share.share))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-                .frame(height: 220)
-                .padding(.vertical, 8)
-
-                ForEach(period.categories, id: \.category) { share in
-                    NavigationLink(value: CategoryRoute(period: period.key, category: share.category)) {
-                        ShareRow(category: share.category, title: store.data?.label(share.category) ?? share.category, total: share.total, share: share.share)
-                    }
+        Chart(period.categories, id: \.category) { share in
+            SectorMark(angle: .value("Spent", share.total), innerRadius: .ratio(0.64), angularInset: 1.5)
+                .cornerRadius(4)
+                .foregroundStyle(CategoryStyle.of(share.category).color)
+                .opacity(selected == nil || selected == share.category ? 1 : 0.35)
+        }
+        .chartAngleSelection(value: $picked)
+        .chartBackground { _ in
+            VStack(spacing: 2) {
+                let share = period.categories.first { $0.category == selected }
+                Text(share.map { store.data?.label($0.category) ?? $0.category } ?? "Total")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Text(Money.kr(share?.total ?? period.totalOut))
+                    .font(.title3.bold())
+                    .monospacedDigit()
+                if let share {
+                    Text(Percent.of(share.share))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
         }
+        .frame(height: 220)
+        .padding(.vertical, 8)
     }
 
     private var selected: String? {
@@ -218,23 +301,46 @@ private struct CategoriesSection: View {
     }
 }
 
-private struct MerchantsSection: View {
+private struct CategoryRows: View {
+    @Environment(Store.self) private var store
     let period: Period
+    let shares: [Share]
+    let subs: [SubShare]
+    let income: Bool
+    @State private var open: Set<String> = []
 
     var body: some View {
-        if !period.merchants.isEmpty {
-            Section("Top merchants") {
-                ForEach(period.merchants.prefix(8), id: \.counterparty) { merchant in
-                    NavigationLink(value: MerchantRoute(name: merchant.counterparty)) {
-                        ValueRow(
-                            title: merchant.counterparty,
-                            detail: merchant.count == 1 ? "1 payment" : "\(merchant.count) payments",
-                            value: Money.kr(merchant.total)
-                        )
+        ForEach(shares, id: \.category) { share in
+            let parts = subs.filter { $0.category == share.category }
+            if parts.count > 1 {
+                DisclosureGroup(isExpanded: Binding { open.contains(share.category) } set: { if $0 { open.insert(share.category) } else { open.remove(share.category) } }) {
+                    ForEach(parts, id: \.self) { sub in
+                        let name = store.data?.label(sub.category, sub.subcategory) ?? sub.subcategory ?? sub.category
+                        LabeledContent(name) {
+                            Text(Money.kr(sub.total)).monospacedDigit()
+                        }
+                        .drill(Drill(axis: .categories, value: "\(sub.category)/\(sub.subcategory ?? "")", name: name))
                     }
+                } label: {
+                    row(share)
                 }
+            } else {
+                row(share)
             }
         }
+    }
+
+    @ViewBuilder private func row(_ share: Share) -> some View {
+        let name = store.data?.label(share.category) ?? share.category
+        let content = ShareRow(category: share.category, title: name, total: share.total, share: share.share)
+        Group {
+            if income {
+                content
+            } else {
+                NavigationLink(value: CategoryRoute(period: period.key, category: share.category)) { content }
+            }
+        }
+        .drill(Drill(axis: .categories, value: share.category, name: name))
     }
 }
 
@@ -246,84 +352,103 @@ private struct ChangesSection: View {
         if let compared = period.compared, !period.changes.isEmpty {
             Section("Biggest changes vs \(compared)") {
                 ForEach(period.changes, id: \.category) { change in
+                    let name = store.data?.label(change.category) ?? change.category
                     NavigationLink(value: CategoryRoute(period: period.key, category: change.category)) {
                         HStack(spacing: 12) {
                             CategoryIcon(category: change.category)
                             ValueRow(
-                                title: store.data?.label(change.category) ?? change.category,
+                                title: name,
                                 detail: "\(Money.kr(change.current)) now, \(Money.kr(change.previous)) before",
                                 value: Money.kr(change.delta, signed: true),
                                 tint: change.delta <= 0 ? .green : .red
                             )
                         }
                     }
+                    .drill(Drill(axis: .categories, value: change.category, name: name))
                 }
             }
         }
+    }
+}
+
+private struct MerchantsSection: View {
+    let title: String
+    let income: Bool
+    let merchants: [Merchant]
+
+    var body: some View {
+        if !merchants.isEmpty {
+            Section(title) {
+                ForEach(merchants.prefix(10), id: \.counterparty) { MerchantRow(merchant: $0, income: income) }
+                if merchants.count > 10 {
+                    NavigationLink("Show all \(merchants.count)") { MerchantList(title: title, income: income) }
+                }
+            }
+        }
+    }
+}
+
+private struct MerchantList: View {
+    @Environment(Store.self) private var store
+    let title: String
+    let income: Bool
+
+    var body: some View {
+        let merchants = (income ? store.shown?.incomeMerchants : store.shown?.merchants) ?? []
+        List(merchants, id: \.counterparty) { MerchantRow(merchant: $0, income: income) }
+            .overlay {
+                if merchants.isEmpty { ContentUnavailableView("No merchants", systemImage: "storefront") }
+            }
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct MerchantRow: View {
+    let merchant: Merchant
+    let income: Bool
+
+    var body: some View {
+        NavigationLink(value: MerchantRoute(name: merchant.counterparty)) {
+            ValueRow(
+                title: merchant.counterparty,
+                detail: merchant.count == 1 ? "1 payment" : "\(merchant.count) payments",
+                value: Money.kr(merchant.total),
+                tint: income ? .green : .secondary
+            )
+        }
+        .drill(Drill(axis: .merchants, value: merchant.counterparty, name: merchant.counterparty))
     }
 }
 
 private struct AccountsSection: View {
-    let period: Period
-
-    var body: some View {
-        if period.accounts.count > 1 {
-            Section("Spending by account") {
-                ForEach(period.accounts, id: \.account) { account in
-                    ValueRow(title: account.account, detail: Percent.of(account.share), value: Money.kr(account.total))
-                }
-            }
-        }
-    }
-}
-
-private struct IncomeSection: View {
     @Environment(Store.self) private var store
-    let period: Period
+    let title: String
+    let accounts: [AccountTotal]
 
     var body: some View {
-        if !period.incomeCategories.isEmpty {
-            Section("Income") {
-                ForEach(period.incomeCategories, id: \.category) { share in
-                    ShareRow(category: share.category, title: store.data?.label(share.category) ?? share.category, total: share.total, share: nil)
-                }
-            }
-        }
-        if !period.incomeMerchants.isEmpty {
-            Section("Income by payer") {
-                ForEach(period.incomeMerchants, id: \.counterparty) { merchant in
-                    NavigationLink(value: MerchantRoute(name: merchant.counterparty)) {
-                        ValueRow(
-                            title: merchant.counterparty,
-                            detail: merchant.count == 1 ? "1 payment" : "\(merchant.count) payments",
-                            value: Money.kr(merchant.total),
-                            tint: .green
-                        )
+        if accounts.count > 1 {
+            Section {
+                ForEach(accounts, id: \.account) { account in
+                    Button {
+                        store.filters.only(.accounts, account.account)
+                    } label: {
+                        HStack(spacing: 8) {
+                            ValueRow(title: account.account, detail: Percent.of(account.share), value: Money.kr(account.total))
+                            Image(systemName: "checkmark")
+                                .foregroundStyle(Color.accentColor)
+                                .opacity(store.filters.accounts == [account.account] ? 1 : 0)
+                                .accessibilityHidden(true)
+                        }
                     }
+                    .tint(.primary)
+                    .accessibilityAddTraits(store.filters.accounts == [account.account] ? .isSelected : [])
+                    .drill(Drill(axis: .accounts, value: account.account, name: account.account, only: false))
                 }
-            }
-        }
-    }
-}
-
-private struct SubscriptionsSection: View {
-    let period: Period
-
-    var body: some View {
-        Section {
-            ForEach(period.subscriptions, id: \.name) { sub in
-                NavigationLink(value: MerchantRoute(name: sub.name)) {
-                    HStack(spacing: 12) {
-                        CategoryIcon(category: sub.category)
-                        ValueRow(title: sub.name, detail: "Last \(Day.date(sub.last).shortDay)", value: Money.kr(sub.latest))
-                    }
-                }
-            }
-        } header: {
-            if !period.subscriptions.isEmpty { Text("Subscriptions") }
-        } footer: {
-            if period.excluded.count > 0 {
-                Text("\(period.excluded.count) internal transfers and card bill payments for \(Money.kr(period.excluded.total)) are not counted.")
+            } header: {
+                Text(title)
+            } footer: {
+                Text("Tap an account to show only its transactions.")
             }
         }
     }
