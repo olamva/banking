@@ -1,0 +1,9 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "Item categories",
+      "detail": "Each item on the Items view has a category, such as Snacks & sweets or Dairy & eggs, with the REMA product group as the subcategory. Use Item categories to filter the items, sort the table by Category, and see the spend for each category. Add a rule in Item categories to set the category of an item that has no product group."
+    }
+  ]
+}

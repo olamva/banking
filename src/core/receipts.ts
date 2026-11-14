@@ -14,6 +14,7 @@ export type ReceiptLine = {
   discounts?: Entry[];
   deposit?: number;
   fee?: boolean;
+  group?: { code: string; name: string };
 };
 
 export type Receipt = {
@@ -40,6 +41,8 @@ type RemaRow = {
   prodtxt2?: string;
   prodtxt3?: string;
   productDescription?: string;
+  productGroupCode?: string;
+  productGroupDescription?: string;
   pieces: number;
   amount: number;
   amountWithoutDeposit: number;
@@ -148,6 +151,14 @@ function remaLine(r: RemaRow): ReceiptLine {
     amount: r.amount,
     ...(discounts.length ? { discounts } : {}),
     ...(deposit ? { deposit } : {}),
+    ...(r.productGroupCode
+      ? {
+          group: {
+            code: r.productGroupCode,
+            name: r.productGroupDescription ?? "",
+          },
+        }
+      : {}),
   };
 }
 
