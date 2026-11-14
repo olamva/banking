@@ -1,0 +1,9 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "Item prices over time",
+      "detail": "The Items view has a chart of the price of each purchase for the first five items in the table. Each item shows a price chart with one line for each package size, so you can see when a size changes. Use Per kg to compare the sizes by weight or volume. Select a point to open the item or its receipt."
+    }
+  ]
+}

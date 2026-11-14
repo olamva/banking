@@ -9,6 +9,7 @@ import {
   itemPattern,
   itemsOf,
   nameKey,
+  packPrice,
   purchasesOf,
   type Item,
 } from "../../core/items.ts";
@@ -24,8 +25,15 @@ import {
 } from "./Cards.tsx";
 import { itemRules, type RulesApi } from "./data.ts";
 import { fmtDate, fmtNOK, fmtNOKExact } from "./format.ts";
-import { DropdownIcon, Icon, InfoIcon, ItemsIcon } from "./icons.ts";
+import {
+  ChangesIcon,
+  DropdownIcon,
+  Icon,
+  InfoIcon,
+  ItemsIcon,
+} from "./icons.ts";
 import { SwitchField } from "./FilterBar.tsx";
+import { PriceChart, unitText } from "./PriceChart.tsx";
 import { Slip } from "./ReceiptLines.tsx";
 import { SearchBox } from "./SearchBox.tsx";
 import { Button } from "./ui/button.tsx";
@@ -108,6 +116,20 @@ const ItemSheet = ({
           </dl>
         </SheetHeader>
         <div className="space-y-5 p-4">
+          <section>
+            <h3 className="mb-1 text-xs font-medium text-muted-foreground">
+              Price
+            </h3>
+            <PriceChart
+              lines={[
+                ...Map.groupBy(item.purchases.toReversed(), (p) => p.sizeKey),
+              ].map(([, list]) => ({
+                name: list[0]!.size ?? "No size",
+                purchases: list,
+              }))}
+              onPick={(p) => setShown(item.purchases.indexOf(p))}
+            />
+          </section>
           <form
             className="space-y-2"
             onSubmit={(e) => {
@@ -172,7 +194,8 @@ const ItemSheet = ({
                       <span className="block truncate text-xs text-muted-foreground">
                         {[
                           p.size,
-                          `${fmtQty(p.qty, p.unit)} × ${fmtNOKExact(p.qty ? p.amount / p.qty : 0)}`,
+                          `${fmtQty(p.qty, p.unit)} × ${fmtNOKExact(packPrice(p))}`,
+                          unitText(p),
                         ]
                           .filter(Boolean)
                           .join(" · ")}
@@ -330,6 +353,24 @@ export const Items = ({ rows, filters, rules, onSearch }: ItemsProps) => {
           }
           onClose={() => setPicked(null)}
         />
+      )}
+      {sorted.length > 0 && (
+        <Panel
+          title="Price over time"
+          icon={ChangesIcon}
+          description="The first five items in the table. Select a point to open its item."
+          className="mb-4"
+        >
+          <PriceChart
+            lines={sorted.slice(0, 5).map((i) => ({
+              name: bySize && i.sizes[0] ? `${i.name} · ${i.sizes[0]}` : i.name,
+              purchases: i.purchases,
+            }))}
+            onPick={(p) =>
+              setPicked(sorted.find((i) => i.purchases.includes(p))!.key)
+            }
+          />
+        </Panel>
       )}
       <Panel title="Bought items" icon={ItemsIcon}>
         {items.length === 0 ? (

@@ -4,6 +4,7 @@ import {
   itemPattern,
   itemsOf,
   purchasesOf,
+  unitPrice,
   withItems,
 } from "../../src/core/items.ts";
 import type { Receipt, ReceiptLine } from "../../src/core/receipts.ts";
@@ -127,6 +128,32 @@ test("the item filter keeps receipts by the item name, after rules rename lines"
   assert.deepEqual(ids({ items: ["Tortillachips Ost"] }), ["8", "9"]);
   assert.deepEqual(ids({ items: ["Tine Lettmelk 0.5%"] }), ["7"]);
   assert.deepEqual(ids({ itemsOut: ["tortillachips ost"] }), ["7", "none"]);
+});
+
+test("prices each purchase by kilo, litre or piece across pack sizes", () => {
+  const priced = purchasesOf([
+    txn("10", "2026-10-01T10:00:00Z", [
+      line("Tortillachips Ost", 37.9, "185 g"),
+      line("Maarud Tortilla Cheese", 77.8, "175 g", 2),
+      line("Isbjørn Lite Glutenfri", 190, "0,5 l · 6 pk"),
+      line("Taco Spice Mix", 23.4, "3 pk · 3 × 25 g"),
+      line("Tortillas R", 20, "6 pk"),
+      line("Bæreposer", 5),
+      { name: "Bananer", qty: 0.5, unit: "kg", price: 30, amount: 15 },
+    ]),
+  ]).map((p) => {
+    const u = unitPrice(p);
+    return [p.raw, u && `${u.price.toFixed(2)}/${u.per}`];
+  });
+  assert.deepEqual(priced, [
+    ["Tortillachips Ost", "204.86/kg"],
+    ["Maarud Tortilla Cheese", "222.29/kg"],
+    ["Isbjørn Lite Glutenfri", "63.33/l"],
+    ["Taco Spice Mix", "312.00/kg"],
+    ["Tortillas R", "3.33/stk"],
+    ["Bæreposer", null],
+    ["Bananer", null],
+  ]);
 });
 
 test("dates purchases in Oslo and measures the usual gap in days", () => {
