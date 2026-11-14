@@ -115,6 +115,26 @@ const sizeKey = (size = ""): string =>
 
 const ore = (n: number) => Math.round(n * 100) / 100;
 
+export const packPrice = (p: Purchase): number =>
+  p.qty ? p.amount / p.qty : p.amount;
+
+export const unitPrice = (
+  p: Purchase,
+): { price: number; per: "kg" | "l" | "stk" } | null => {
+  if (p.unit) return null;
+  const parts = p.sizeKey.split(" · ");
+  const pk = parts.find((s) => s.endsWith(" pk"));
+  const count = Number(pk?.slice(0, -3) ?? 1);
+  const [, amount, base] =
+    parts.map((s) => s.match(/^([\d.]+) (g|l)$/)).find(Boolean) ?? [];
+  const content = Number(amount) * count * (base === "g" ? 0.001 : 1);
+  return amount
+    ? { price: packPrice(p) / content, per: base === "g" ? "kg" : "l" }
+    : pk
+      ? { price: packPrice(p) / count, per: "stk" }
+      : null;
+};
+
 const receiptPurchases = (
   receipt: Receipt,
   nameOf: (raw: string) => string,

@@ -39,7 +39,7 @@ const Dash = ({
   />
 );
 
-const LegendKey = ({ on, onToggle, name, children }: LegendKeyProps) => (
+export const LegendKey = ({ on, onToggle, name, children }: LegendKeyProps) => (
   <button
     type="button"
     onClick={onToggle}
