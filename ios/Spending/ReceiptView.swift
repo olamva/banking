@@ -21,14 +21,16 @@ struct ReceiptSection: View {
     }
 }
 
-private struct Slip: View {
+struct Slip: View {
     let receipt: Receipt
+    var marked: String?
 
     var body: some View {
         let lines = merged
         let saved = lines.flatMap { $0.discounts ?? [] }.reduce(0) { $0 + $1.amount }
         VStack(alignment: .leading, spacing: 4) {
             ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
+                let isMarked = line.name == marked
                 VStack(alignment: .leading, spacing: 1) {
                     Text(line.name.uppercased())
                     Row(amount: line.amount + (line.discounts ?? []).reduce(0) { $0 + $1.amount } - (line.deposit ?? 0)) {
@@ -50,6 +52,11 @@ private struct Slip: View {
                         Row(amount: deposit) { Text("Pant") }
                     }
                 }
+                .fontWeight(isMarked ? .semibold : nil)
+                .padding(.horizontal, isMarked ? 6 : 0)
+                .padding(.vertical, isMarked ? 2 : 0)
+                .background(isMarked ? AnyShapeStyle(.fill.secondary) : AnyShapeStyle(.clear), in: .rect(cornerRadius: 4))
+                .padding(.horizontal, isMarked ? -6 : 0)
             }
             Divider()
             Row(amount: receipt.total ?? lines.reduce(0) { $0 + $1.amount }) { Text("SUM").bold() }
