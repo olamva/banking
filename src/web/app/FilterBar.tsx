@@ -7,9 +7,10 @@ import {
 } from "../../core/select.ts";
 import { Picker } from "./FilterPicker.tsx";
 import { pairLabel, treeLabel } from "./format.ts";
-import { CloseIcon, Icon, ResetFiltersIcon } from "./icons.ts";
+import { CloseIcon, DropdownIcon, Icon, ResetFiltersIcon } from "./icons.ts";
 import { Badge } from "./ui/badge.tsx";
 import { Button } from "./ui/button.tsx";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover.tsx";
 import { Switch } from "./ui/switch.tsx";
 import { cn } from "./ui/utils.ts";
 
@@ -41,6 +42,67 @@ export const SwitchField = ({
     {label}
   </label>
 );
+
+interface SettingsProps {
+  filters: Filters;
+  onFilters: (filters: Filters) => void;
+  className?: string;
+}
+
+const Settings = ({ filters, onFilters, className }: SettingsProps) => {
+  const count = Number(filters.showExcluded) + Number(filters.withoutDeposit);
+  const rows: [string, boolean, (on: boolean) => Filters][] = [
+    [
+      "Show excluded rows",
+      filters.showExcluded,
+      (showExcluded) => ({ ...filters, showExcluded }),
+    ],
+    [
+      "Include deposit in item prices",
+      !filters.withoutDeposit,
+      (on) => ({ ...filters, withoutDeposit: !on }),
+    ],
+  ];
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          className={cn("justify-between font-normal", className)}
+        >
+          Settings
+          {count > 0 && (
+            <Badge variant="secondary" className="h-4.5 px-1.5 tabular-nums">
+              {count}
+            </Badge>
+          )}
+          <Icon
+            icon={DropdownIcon}
+            size={14}
+            className="text-muted-foreground"
+          />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className="w-[min(18rem,calc(100vw-1.5rem))] gap-0 p-1"
+      >
+        {rows.map(([label, checked, next]) => (
+          <label
+            key={label}
+            className="flex cursor-pointer items-center justify-between gap-3 rounded-md px-2 py-2 text-sm hover:bg-muted"
+          >
+            {label}
+            <Switch
+              checked={checked}
+              onCheckedChange={(on) => onFilters(next(on))}
+            />
+          </label>
+        ))}
+      </PopoverContent>
+    </Popover>
+  );
+};
 
 interface FilterBarProps {
   view: View;
@@ -126,7 +188,10 @@ export const FilterBar = ({
   ]);
   const searchChip = filters.search !== "" && !SEARCH_VIEWS.includes(view);
   const dirty =
-    chips.length > 0 || filters.search !== "" || filters.showExcluded;
+    chips.length > 0 ||
+    filters.search !== "" ||
+    filters.showExcluded ||
+    filters.withoutDeposit;
   const PICKER = "max-sm:flex-1 max-sm:basis-[calc(50%-0.25rem)]";
 
   return (
@@ -177,17 +242,16 @@ export const FilterBar = ({
           label={(c) => (c === NO_COUNTRY ? "No country" : c)}
           className={PICKER}
         />
-        <SwitchField
-          label="Excluded rows"
-          checked={filters.showExcluded}
-          onChange={(showExcluded) => onFilters({ ...filters, showExcluded })}
-          className={PICKER}
-        />
+        <Settings filters={filters} onFilters={onFilters} className={PICKER} />
         <Button
           variant="ghost"
           disabled={!dirty}
           onClick={() => onFilters(NO_FILTERS)}
-          className={cn(PICKER, "text-muted-foreground", !dirty && "invisible max-sm:hidden")}
+          className={cn(
+            PICKER,
+            "text-muted-foreground",
+            !dirty && "invisible max-sm:hidden",
+          )}
         >
           <Icon icon={ResetFiltersIcon} size={15} />
           Reset

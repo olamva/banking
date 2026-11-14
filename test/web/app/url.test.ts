@@ -38,6 +38,7 @@ test("a populated state round-trips, nulls included", () => {
       countriesOut: ["Norway"],
       search: "rema",
       showExcluded: true,
+      withoutDeposit: true,
     },
   };
   assert.deepEqual(fromParams(new URLSearchParams(toParams(state))), state);

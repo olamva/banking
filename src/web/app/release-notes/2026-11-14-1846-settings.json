@@ -1,0 +1,9 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "Settings menu",
+      "detail": "The Settings menu next to the filters holds Show excluded rows and Include deposit in item prices. Turn off the deposit to compare item prices without pant. The badge shows how many settings differ from the default."
+    }
+  ]
+}

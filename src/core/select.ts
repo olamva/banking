@@ -14,6 +14,7 @@ export type Filters = {
   countriesOut: string[];
   search: string;
   showExcluded: boolean;
+  withoutDeposit: boolean;
 };
 
 export const AXES = {
@@ -43,6 +44,7 @@ export const NO_FILTERS: Filters = {
   countriesOut: [],
   search: "",
   showExcluded: false,
+  withoutDeposit: false,
 };
 
 export function cycleFilter(
@@ -247,6 +249,7 @@ export function filtersToParams(f: Filters, p = new URLSearchParams()) {
   }
   if (f.search) p.set("q", f.search);
   if (f.showExcluded) p.set("excl", "1");
+  if (f.withoutDeposit) p.set("pant", "0");
   return p;
 }
 
@@ -290,5 +293,6 @@ export function filtersFromParams(p: URLSearchParams): Filters {
     countriesOut,
     search: p.get("q") ?? "",
     showExcluded: p.get("excl") === "1",
+    withoutDeposit: p.get("pant") === "0",
   };
 }
