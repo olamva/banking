@@ -1,0 +1,17 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "Every web filter on iPhone",
+      "detail": "The iPhone app has the same filters as the web: categories and sub-categories, merchants, items, accounts, countries, search and excluded rows. Tap a value once to show it, again to hide it and a third time to clear it. The filters apply to Summary, Activity, Insights and Items, and the server computes the filtered totals."
+    },
+    {
+      "title": "Items, rules and bulk edits on iPhone",
+      "detail": "The iPhone app has an Items tab, a Rules page with Review, Conflicts and the version history, and rule actions on each transaction. Select rows in Activity to rename payees or change their category in one edit."
+    },
+    {
+      "title": "Dashboard charts on iPhone",
+      "detail": "Summary shows the spending chart per day, per month or as a running total, grouped by merchant or category, with the comparison and trend lines. Trends now opens from Summary."
+    }
+  ]
+}
