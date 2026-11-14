@@ -59,7 +59,7 @@ export const axisSpecs = (o: Options): AxisSpec[] => {
       fullLabel: (c) =>
         c.includes("/")
           ? `${categoryLabel(c.slice(0, c.indexOf("/")))} › ${pairLabel(c)}`
-          : treeLabel(c, subsOf(c)),
+          : tree(c),
       subs: subsOf,
       subLabel: pairLabel,
     },

@@ -247,7 +247,7 @@ export const PickerList = ({
             aria-label={`${openHere ? "Hide" : "Show"} ${label(row.value)} subcategories`}
             tabIndex={-1}
             onClick={() => setExpanded((prev) => toggled(prev, row.value))}
-            className="text-muted-foreground pointer-coarse:size-8"
+            className="text-muted-foreground pointer-coarse:size-10"
           >
             <Icon
               icon={DropdownIcon}
