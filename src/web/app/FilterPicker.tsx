@@ -37,8 +37,7 @@ export const useExcludeKey = () => {
   };
 };
 
-export const ROW =
-  "gap-2 py-1 [&>svg:last-child]:hidden";
+export const ROW = "gap-2 py-1 [&>svg:last-child]:hidden";
 
 const State = ({ on, out }: { on: boolean; out: boolean }) => (
   <span
