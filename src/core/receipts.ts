@@ -30,6 +30,7 @@ export type Found = { receipt: Receipt; amounts: number[]; names: string[] };
 type RemaRow = {
   prodtxt1?: string;
   prodtxt2?: string;
+  prodtxt3?: string;
   productDescription?: string;
   pieces: number;
   amount: number;
@@ -80,6 +81,8 @@ const UNITS: Record<string, string> = {
   pakk: "pk",
 };
 
+const PACK_SIZES: Record<string, string> = { "7044613876013": "0,5 l × 6" };
+
 const number = (s: string) => s.replace(".", ",").replace(/ ?[x×] ?/i, " × ");
 
 function parseSizes(text: string): { rest: string; sizes: string[] } {
@@ -120,9 +123,9 @@ function remaLine(r: RemaRow): ReceiptLine {
     : r.discount
       ? [{ label: "", amount: -r.discount }]
       : [];
-  const { name, size = parseSizes(r.prodtxt2 ?? "").sizes[0] } = splitSize(
-    r.prodtxt1 || r.productDescription || "Unnamed item",
-  );
+  const { name, size: found = parseSizes(r.prodtxt2 ?? "").sizes[0] } =
+    splitSize(r.prodtxt1 || r.productDescription || "Unnamed item");
+  const size = PACK_SIZES[r.prodtxt3 ?? ""] ?? found;
   return {
     name,
     ...(size ? { size } : {}),

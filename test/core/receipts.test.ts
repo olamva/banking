@@ -147,6 +147,11 @@ before(async () => {
           prodtxt2: "Mack 4,5% 0,33X10b",
         },
         {
+          ...item("Dahls Pils 6Pk", 1, 200.4),
+          prodtxt2: "6Pk",
+          prodtxt3: "7044613876013",
+        },
+        {
           ...item("", 1, 10),
           productDescription: "KJØTTDEIG 14% 400G PRIMA LAVPRIS",
         },
@@ -263,6 +268,7 @@ test("a receipt line keeps the pack size apart from the product name", () => {
       ["Schous Pilsner", "0,33 l"],
       ["Stange Gårdsegg 10 M/l/xl", "530 g"],
       ["Isbjørn Lite Glutenfri Fridepack", "0,33 l × 10"],
+      ["Dahls Pils", "0,5 l × 6"],
       ["KJØTTDEIG 14% PRIMA LAVPRIS", "400 g"],
       ["Oreo Rull Dobbel", "157 g"],
       ["Paprika Rød Løsvekt", undefined],
