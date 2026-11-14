@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   AXES,
   clearFilters,
@@ -68,6 +68,7 @@ interface HomeProps {
   onQuery: (query: string) => void;
   onScope: (scope: Scope | null) => void;
   onSearch: (text: string) => void;
+  options: ReactNode;
 }
 
 const Home = ({
@@ -78,6 +79,7 @@ const Home = ({
   onQuery,
   onScope,
   onSearch,
+  options,
 }: HomeProps) => {
   const keys = useExcludeKey();
   const [pinned] = useState(() =>
@@ -199,6 +201,7 @@ const Home = ({
                 {selected.map(([s, v]) => row(s, v, s.name))}
               </CommandGroup>
             )}
+            {options}
           </>
         ) : (
           <>
@@ -328,23 +331,23 @@ export const FilterPanel = ({
             onFilters({ ...filters, search });
             onScope(null);
           }}
+          options={
+            <label className="mx-1 mb-1 flex cursor-pointer items-center justify-between gap-3 rounded-sm border-t px-2 pt-2.5 pb-1.5 text-sm hover:bg-muted/50">
+              <span>
+                Show internal transfers
+                <span className="block text-xs text-muted-foreground">
+                  Moves between your accounts, card bills and funds
+                </span>
+              </span>
+              <Switch
+                checked={filters.showExcluded}
+                onCheckedChange={(showExcluded) =>
+                  onFilters({ ...filters, showExcluded })
+                }
+              />
+            </label>
+          }
         />
-      )}
-      {!spec && query.trim() === "" && (
-        <label className="flex cursor-pointer items-center justify-between gap-3 border-t px-3 py-2 text-sm hover:bg-muted/50">
-          <span>
-            Show internal transfers
-            <span className="block text-xs text-muted-foreground">
-              Moves between your accounts, card bills and funds
-            </span>
-          </span>
-          <Switch
-            checked={filters.showExcluded}
-            onCheckedChange={(showExcluded) =>
-              onFilters({ ...filters, showExcluded })
-            }
-          />
-        </label>
       )}
       <div className="border-t px-3 py-2">
         <p className="text-[11px] leading-snug text-muted-foreground">{HINT}</p>

@@ -77,45 +77,47 @@ export const ValueRow = ({
   className,
   children,
 }: ValueRowProps) => (
-  <CommandItem
-    value={id}
-    onSelect={() => onToggle(meta.current)}
-    className={cn(ROW, className)}
-  >
-    <State on={on} out={out} />
-    <span
+  <div className="flex items-center rounded-sm pr-1 has-data-[selected=true]:bg-muted">
+    <CommandItem
+      value={id}
+      onSelect={() => onToggle(meta.current)}
       className={cn(
-        "min-w-0 flex-1 truncate",
-        out && "text-destructive line-through",
+        ROW,
+        "min-w-0 flex-1 data-selected:bg-transparent",
+        className,
       )}
     >
-      {text}
-      <span className="sr-only">
-        {on ? ", included" : out ? ", excluded" : ""}
+      <State on={on} out={out} />
+      <span
+        className={cn(
+          "min-w-0 flex-1 truncate",
+          out && "text-destructive line-through",
+        )}
+      >
+        {text}
+        <span className="sr-only">
+          {on ? ", included" : out ? ", excluded" : ""}
+        </span>
       </span>
-    </span>
-    {note && (
-      <span className="shrink-0 text-xs text-muted-foreground">{note}</span>
-    )}
+      {note && (
+        <span className="shrink-0 text-xs text-muted-foreground">{note}</span>
+      )}
+    </CommandItem>
     {children}
     <button
       type="button"
       tabIndex={-1}
       aria-label={out ? `Stop excluding ${text}` : `Exclude ${text}`}
       title={out ? "Stop excluding" : "Exclude"}
-      onPointerDown={(e) => e.stopPropagation()}
-      onClick={(e) => {
-        e.stopPropagation();
-        onToggle(true);
-      }}
+      onClick={() => onToggle(true)}
       className={cn(
-        "-my-1.5 -mr-1 flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground/60 hover:bg-destructive/10 hover:text-destructive pointer-coarse:size-10",
+        "flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground/60 hover:bg-destructive/10 hover:text-destructive pointer-coarse:size-10",
         out && "text-destructive",
       )}
     >
       <Icon icon={ExcludeIcon} size={15} />
     </button>
-  </CommandItem>
+  </div>
 );
 
 type Kind = "all" | "people" | "business";
@@ -243,12 +245,9 @@ export const PickerList = ({
             size="icon-xs"
             aria-expanded={openHere}
             aria-label={`${openHere ? "Hide" : "Show"} ${label(row.value)} subcategories`}
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => {
-              e.stopPropagation();
-              setExpanded((prev) => toggled(prev, row.value));
-            }}
-            className="-my-1 text-muted-foreground pointer-coarse:size-8"
+            tabIndex={-1}
+            onClick={() => setExpanded((prev) => toggled(prev, row.value))}
+            className="text-muted-foreground pointer-coarse:size-8"
           >
             <Icon
               icon={DropdownIcon}
