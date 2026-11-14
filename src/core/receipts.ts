@@ -71,7 +71,7 @@ type TrumfFile = {
 };
 
 const SIZE =
-  /(?<![\p{L}\d.,])(?:(ca)\.? ?)?((?:\d+ ?[x×] ?)?\d+(?:[.,]\d+)?) ?(kg|gr|g|mg|ltr|l|dl|cl|ml|cm|stk|pk|pakk|pak|tab|ark)\.?(?: ?[x×] ?(\d+) ?(?:stk|pk|fl|bx)?|(\d+)pk)?(?![\p{L}\d])|(?<![\p{L}\d.,])(0[.,]\d{1,3}) ?(?:bx|fl)?$/giu;
+  /(?<![\p{L}\d.,])(?:(ca)\.? ?)?((?:\d+ ?[x×] ?)?\d+(?:[.,]\d+)?) ?(kg|gr|g|mg|ltr|l|dl|cl|ml|cm|stk|pk|pakk|pak|tab|ark)\.?(?: ?[x×] ?(\d+) ?(?:stk|pk|fl|bx)?|(\d+)pk)?(?![\p{L}\d])|(?<![\p{L}\d.,])(0[.,]\d{1,3})(?: ?[x×] ?(\d+))? ?(?:bx|fl|b)?$/giu;
 
 const UNITS: Record<string, string> = {
   gr: "g",
@@ -85,12 +85,10 @@ const number = (s: string) => s.replace(".", ",").replace(/ ?[x×] ?/i, " × ");
 function parseSizes(text: string): { rest: string; sizes: string[] } {
   const sizes = new Set<string>();
   const rest = text
-    .replace(SIZE, (_, ca, amount, unit = "", times, pack, litres) => {
-      const count = times ?? pack;
+    .replace(SIZE, (_, ca, amount, unit = "", times, pack, litres, cans) => {
+      const count = times ?? pack ?? cans;
       sizes.add(
-        litres
-          ? `${number(litres)} l`
-          : `${ca ? "ca. " : ""}${number(amount)} ${UNITS[unit.toLowerCase()] ?? unit.toLowerCase()}${count ? ` × ${count}` : ""}`,
+        `${litres ? number(litres) : `${ca ? "ca. " : ""}${number(amount)}`} ${litres ? "l" : (UNITS[unit.toLowerCase()] ?? unit.toLowerCase())}${count ? ` × ${count}` : ""}`,
       );
       return " ";
     })
