@@ -4,7 +4,6 @@ struct SettingsView: View {
     @Environment(Store.self) private var store
     @Environment(\.dismiss) private var dismiss
     @State private var confirmBank = false
-    @State private var bankNote: String?
 
     var body: some View {
         NavigationStack {
@@ -46,13 +45,13 @@ struct SettingsView: View {
                     .disabled(store.fetchingBank)
                     .confirmationDialog("Fetch new transactions from the bank?", isPresented: $confirmBank, titleVisibility: .visible) {
                         Button("Fetch") {
-                            Task { bankNote = await store.fetchFromBank() }
+                            Task { await store.fetchFromBank() }
                         }
                     } message: {
                         Text("The server asks SpareBank 1 for the months that can still change. This uses the request quota.")
                     }
-                    if let bankNote {
-                        Text(bankNote).font(.footnote).foregroundStyle(.secondary)
+                    if let note = store.refreshNote {
+                        Text(note).font(.footnote).foregroundStyle(.secondary)
                     }
                 } footer: {
                     Text("The same action as Refresh on the web dashboard.")
