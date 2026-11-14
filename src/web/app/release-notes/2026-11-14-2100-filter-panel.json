@@ -1,0 +1,17 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "One Filter button",
+      "detail": "One Filter button next to the period replaces the five filter menus and Settings. Search all categories, merchants, items, accounts and countries in one field, or open one list. Tap a row to include it, and tap the ⊘ button to exclude it. Press f to open the panel."
+    },
+    {
+      "title": "One chip for each filter",
+      "detail": "Each active filter shows as one chip under the period. Tap a chip to edit it, to switch between include and exclude, or to remove it."
+    },
+    {
+      "title": "Settings moved",
+      "detail": "Show internal transfers is in the Filter panel. Include deposit is on the Items page."
+    }
+  ]
+}

@@ -56,7 +56,13 @@ export function cycleFilter(
   const outKey = AXES[axis];
   const isIn = f[axis].includes(value);
   const isOut = f[outKey].includes(value);
-  const target = isOut ? null : exclude || isIn ? outKey : axis;
+  const target = exclude
+    ? isOut
+      ? null
+      : outKey
+    : isIn || isOut
+      ? null
+      : axis;
   return {
     ...f,
     [axis]: f[axis].filter((v) => v !== value),

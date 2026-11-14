@@ -317,24 +317,23 @@ test("a merchant is a person when any row of theirs is a peer payment", () => {
   assert.equal(people.size, 2);
 });
 
-test("a tap cycles a value through only, except and off", () => {
+test("a tap includes a value and a second tap clears it", () => {
   const only = cycleFilter(NO_FILTERS, "merchants", "Kiwi");
   assert.deepEqual(only.merchants, ["Kiwi"]);
   assert.deepEqual(only.merchantsOut, []);
 
-  const except = cycleFilter(only, "merchants", "Kiwi");
-  assert.deepEqual(except.merchants, []);
-  assert.deepEqual(except.merchantsOut, ["Kiwi"]);
-
-  const off = cycleFilter(except, "merchants", "Kiwi");
+  const off = cycleFilter(only, "merchants", "Kiwi");
   assert.deepEqual(off.merchants, []);
   assert.deepEqual(off.merchantsOut, []);
 });
 
-test("a meta-tap goes straight to except, and back off", () => {
-  const except = cycleFilter(NO_FILTERS, "categories", "mat", true);
+test("an exclude moves a value to except, and a tap on it clears it", () => {
+  const only = cycleFilter(NO_FILTERS, "categories", "mat");
+  const except = cycleFilter(only, "categories", "mat", true);
   assert.deepEqual(except.categories, []);
   assert.deepEqual(except.categoriesOut, ["mat"]);
+
+  assert.deepEqual(cycleFilter(except, "categories", "mat").categoriesOut, []);
   assert.deepEqual(
     cycleFilter(except, "categories", "mat", true).categoriesOut,
     [],

@@ -18,6 +18,7 @@ const { values: o, positionals: paths } = parseArgs({
     theme: { type: "string", default: "both" },
     size: { type: "string", default: "phone" },
     click: { type: "string", multiple: true, default: [] },
+    type: { type: "string" },
     wait: { type: "string" },
     element: { type: "string" },
     full: { type: "boolean", default: false },
@@ -32,6 +33,7 @@ if (!paths.length) {
   --theme <t>           dark, light or both (default both)
   --size <s>            phone (375x812), desktop (1440x900) or WIDTHxHEIGHT
   --click <selector>    Click before the capture; repeat for more steps
+  --type <text>         Type into the focused element after the clicks
   --wait <selector>     Wait for this element before the capture
   --element <selector>  Capture only this element
   --full                Capture the full page
@@ -84,6 +86,7 @@ const shoot = async (
     viewport: { width, height },
     deviceScaleFactor: 2,
     colorScheme: theme as "dark" | "light",
+    hasTouch: o.size === "phone",
   });
   context.setDefaultTimeout(10_000);
   const page = await context.newPage();
@@ -95,6 +98,7 @@ const shoot = async (
       await visible(target).click();
       await page.waitForLoadState("networkidle");
     }
+    if (o.type) await page.keyboard.type(o.type);
     if (o.wait) await visible(o.wait).waitFor();
     await page.evaluate(() => document.fonts.ready);
     const shot = { path: file, animations: "disabled" as const };

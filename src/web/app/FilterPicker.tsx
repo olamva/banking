@@ -1,6 +1,12 @@
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode, type RefObject } from "react";
 import { toggled } from "./format.ts";
-import { DropdownIcon, Icon, RemovedIcon, TickIcon } from "./icons.ts";
+import {
+  DropdownIcon,
+  ExcludeIcon,
+  Icon,
+  RemovedIcon,
+  TickIcon,
+} from "./icons.ts";
 import { Badge } from "./ui/badge.tsx";
 import { Button } from "./ui/button.tsx";
 import {
@@ -15,23 +21,24 @@ import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover.tsx";
 import { ToggleGroup, ToggleGroupItem } from "./ui/toggle-group.tsx";
 import { cn } from "./ui/utils.ts";
 
-interface PickerProps {
-  title: string;
-  options: string[];
-  picked: string[];
-  excluded: string[];
-  onToggle: (value: string, exclude: boolean) => void;
-  label?: (value: string) => string;
-  subs?: (option: string) => string[];
-  subLabel?: (value: string) => string;
-  people?: ReadonlySet<string>;
-  className?: string;
-}
+export const fine = () => matchMedia("(pointer: fine)").matches;
 
-type Kind = "all" | "people" | "business";
-type Row = { value: string; sub: boolean };
+export const useExcludeKey = () => {
+  const meta = useRef(false);
+  const read = (e: React.KeyboardEvent | React.PointerEvent) => {
+    meta.current = e.metaKey || e.ctrlKey || e.shiftKey;
+  };
+  return {
+    meta,
+    onKeyDown: (e: React.KeyboardEvent) => {
+      if (e.key === "Enter") read(e);
+    },
+    onPointerDownCapture: read,
+  };
+};
 
-const PAGE = 80;
+export const ROW =
+  "gap-2 py-1 pointer-coarse:min-h-11 [&>svg:last-child]:hidden";
 
 const State = ({ on, out }: { on: boolean; out: boolean }) => (
   <span
@@ -47,9 +54,92 @@ const State = ({ on, out }: { on: boolean; out: boolean }) => (
   </span>
 );
 
+interface ValueRowProps {
+  id: string;
+  text: string;
+  on: boolean;
+  out: boolean;
+  meta: RefObject<boolean>;
+  onToggle: (exclude: boolean) => void;
+  note?: string;
+  className?: string;
+  children?: ReactNode;
+}
+
+export const ValueRow = ({
+  id,
+  text,
+  on,
+  out,
+  meta,
+  onToggle,
+  note,
+  className,
+  children,
+}: ValueRowProps) => (
+  <CommandItem
+    value={id}
+    onSelect={() => onToggle(meta.current)}
+    className={cn(ROW, className)}
+  >
+    <State on={on} out={out} />
+    <span
+      className={cn(
+        "min-w-0 flex-1 truncate",
+        out && "text-destructive line-through",
+      )}
+    >
+      {text}
+      <span className="sr-only">
+        {on ? ", included" : out ? ", excluded" : ""}
+      </span>
+    </span>
+    {note && (
+      <span className="shrink-0 text-xs text-muted-foreground">{note}</span>
+    )}
+    {children}
+    <button
+      type="button"
+      tabIndex={-1}
+      aria-hidden
+      title={out ? "Stop excluding" : "Exclude"}
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={(e) => {
+        e.stopPropagation();
+        onToggle(true);
+      }}
+      className={cn(
+        "-my-1.5 -mr-1 flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground/60 hover:bg-destructive/10 hover:text-destructive pointer-coarse:size-10",
+        out && "text-destructive",
+      )}
+    >
+      <Icon icon={ExcludeIcon} size={15} />
+    </button>
+  </CommandItem>
+);
+
+type Kind = "all" | "people" | "business";
+type Row = { value: string; sub: boolean };
+
+const PAGE = 80;
+
 const keyOf = (row: Row) => `${row.sub ? "sub:" : ""}${row.value}`;
 
-export const Picker = ({
+export interface PickerListProps {
+  title: string;
+  options: string[];
+  picked: string[];
+  excluded: string[];
+  onToggle: (value: string, exclude: boolean) => void;
+  label?: (value: string) => string;
+  subs?: (option: string) => string[];
+  subLabel?: (value: string) => string;
+  people?: ReadonlySet<string>;
+  query?: string;
+  onBack?: () => void;
+}
+
+export const PickerList = ({
   title,
   options,
   picked,
@@ -59,16 +149,16 @@ export const Picker = ({
   subs,
   subLabel = (v) => v,
   people,
-  className,
-}: PickerProps) => {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
+  query: initialQuery = "",
+  onBack,
+}: PickerListProps) => {
+  const [query, setQuery] = useState(initialQuery);
   const [kind, setKind] = useState<Kind>("all");
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const [limit, setLimit] = useState(PAGE);
-  const [pinned, setPinned] = useState<readonly string[]>([]);
+  const [pinned] = useState<readonly string[]>(() => [...picked, ...excluded]);
   const [active, setActive] = useState("");
-  const meta = useRef(false);
+  const keys = useExcludeKey();
   const on = (v: string) => picked.includes(v) || excluded.includes(v);
 
   const q = query.trim().toLowerCase();
@@ -108,24 +198,17 @@ export const Picker = ({
   const top = shown.filter(isPinned).flatMap(rowsOf);
   const rest = shown.filter((o) => !isPinned(o)).flatMap(rowsOf);
   const restShown = rest.slice(0, Math.max(limit - top.length, 0));
-  const count = picked.length + excluded.length;
-
-  const onOpenChange = (next: boolean) => {
-    setOpen(next);
-    if (next) {
-      setPinned([...picked, ...excluded]);
-      return;
-    }
-    setQuery("");
-    setExpanded(new Set());
-    setLimit(PAGE);
-  };
 
   const rowByKey = (key: string) =>
     [...top, ...restShown].find((row) => keyOf(row) === key);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") meta.current = e.metaKey || e.ctrlKey;
+    keys.onKeyDown(e);
+    if (e.key === "Backspace" && query === "" && onBack) {
+      e.preventDefault();
+      onBack();
+      return;
+    }
     if (q || (e.key !== "ArrowRight" && e.key !== "ArrowLeft")) return;
     const row = rowByKey(active);
     if (!row || row.sub || childrenOf(row.value).length < 2) return;
@@ -137,30 +220,22 @@ export const Picker = ({
 
   const item = (row: Row) => {
     const kids = row.sub ? [] : childrenOf(row.value);
-    const out = excluded.includes(row.value);
-    const isOn = picked.includes(row.value);
     const text =
       row.sub || row.value.includes("/")
         ? subLabel(row.value)
         : label(row.value);
     const openHere = kids.length > 1 && rowsOf(row.value).length > 1;
     return (
-      <CommandItem
+      <ValueRow
         key={keyOf(row)}
-        value={keyOf(row)}
-        onSelect={() => onToggle(row.value, meta.current)}
-        className={cn("gap-2 py-1", row.sub && "pl-8 text-muted-foreground")}
+        id={keyOf(row)}
+        text={text}
+        on={picked.includes(row.value)}
+        out={excluded.includes(row.value)}
+        meta={keys.meta}
+        onToggle={(exclude) => onToggle(row.value, exclude)}
+        className={cn(row.sub && "pl-8 text-muted-foreground")}
       >
-        <State on={isOn} out={out} />
-        <span
-          className={cn(
-            "min-w-0 flex-1 truncate",
-            out && "text-destructive line-through",
-          )}
-        >
-          {out && <span className="sr-only">Except </span>}
-          {text}
-        </span>
         {kids.length > 1 && (
           <Button
             type="button"
@@ -173,7 +248,7 @@ export const Picker = ({
               e.stopPropagation();
               setExpanded((prev) => toggled(prev, row.value));
             }}
-            className="-my-1 text-muted-foreground"
+            className="-my-1 text-muted-foreground pointer-coarse:size-8"
           >
             <Icon
               icon={DropdownIcon}
@@ -182,18 +257,96 @@ export const Picker = ({
             />
           </Button>
         )}
-      </CommandItem>
+      </ValueRow>
     );
   };
 
   return (
-    <Popover open={open} onOpenChange={onOpenChange}>
+    <Command
+      shouldFilter={false}
+      loop
+      value={active}
+      onValueChange={setActive}
+      onKeyDown={onKeyDown}
+      onPointerDownCapture={keys.onPointerDownCapture}
+      className="min-h-0 flex-1 rounded-none!"
+    >
+      {people && (
+        <ToggleGroup
+          type="single"
+          variant="outline"
+          size="sm"
+          spacing={0}
+          value={kind}
+          onValueChange={(v) => {
+            if (!v) return;
+            setKind(v as Kind);
+            setLimit(PAGE);
+          }}
+          className="w-full p-1 pb-0 *:flex-1"
+        >
+          <ToggleGroupItem value="all">All</ToggleGroupItem>
+          <ToggleGroupItem value="people">People</ToggleGroupItem>
+          <ToggleGroupItem value="business">Businesses</ToggleGroupItem>
+        </ToggleGroup>
+      )}
+      <CommandInput
+        autoFocus={fine()}
+        placeholder={`Search ${title.toLowerCase()}…`}
+        value={query}
+        onValueChange={(v) => {
+          setQuery(v);
+          setLimit(PAGE);
+        }}
+        aria-label={`Search ${title.toLowerCase()}`}
+      />
+      <CommandList
+        className="max-h-none min-h-0 flex-1"
+        onScroll={(e) => {
+          const el = e.currentTarget;
+          if (el.scrollHeight - el.scrollTop - el.clientHeight < 120)
+            setLimit((n) => n + PAGE);
+        }}
+      >
+        <CommandEmpty className="py-4 text-xs text-muted-foreground">
+          {options.length === 0 ? "Nothing in this period." : "No match."}
+        </CommandEmpty>
+        {top.length > 0 && (
+          <CommandGroup heading="Selected">{top.map(item)}</CommandGroup>
+        )}
+        {restShown.length > 0 && (
+          <CommandGroup heading={top.length > 0 ? "All" : undefined}>
+            {restShown.map(item)}
+          </CommandGroup>
+        )}
+      </CommandList>
+    </Command>
+  );
+};
+
+export const HINT = (
+  <>
+    Tap a row to include it. Tap{" "}
+    <Icon icon={ExcludeIcon} size={11} className="inline align-[-1px]" /> to
+    exclude it.
+    <span className="pointer-coarse:hidden"> Shift Enter excludes too.</span>
+  </>
+);
+
+interface PickerProps extends Omit<PickerListProps, "query" | "onBack"> {
+  className?: string;
+}
+
+export const Picker = ({ className, ...list }: PickerProps) => {
+  const count = list.picked.length + list.excluded.length;
+  return (
+    <Popover>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
           className={cn("justify-between font-normal", className)}
         >
-          {title}
+          {list.title}
           {count > 0 && (
             <Badge variant="secondary" className="h-4.5 px-1.5 tabular-nums">
               {count}
@@ -208,69 +361,13 @@ export const Picker = ({
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className="w-[min(18rem,calc(100vw-1.5rem))] gap-0 p-0"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        className="max-h-[min(30rem,var(--radix-popover-content-available-height))] w-[min(18rem,calc(100vw-1.5rem))] gap-0 p-0"
       >
-        <Command
-          shouldFilter={false}
-          loop
-          value={active}
-          onValueChange={setActive}
-          onKeyDown={onKeyDown}
-          onPointerDownCapture={(e) => {
-            meta.current = e.metaKey || e.ctrlKey;
-          }}
-        >
-          {people && (
-            <ToggleGroup
-              type="single"
-              variant="outline"
-              size="sm"
-              spacing={0}
-              value={kind}
-              onValueChange={(v) => {
-                if (!v) return;
-                setKind(v as Kind);
-                setLimit(PAGE);
-              }}
-              className="w-full p-1 pb-0 *:flex-1"
-            >
-              <ToggleGroupItem value="all">All</ToggleGroupItem>
-              <ToggleGroupItem value="people">People</ToggleGroupItem>
-              <ToggleGroupItem value="business">Businesses</ToggleGroupItem>
-            </ToggleGroup>
-          )}
-          <CommandInput
-            placeholder={`Search ${title.toLowerCase()}…`}
-            value={query}
-            onValueChange={(v) => {
-              setQuery(v);
-              setLimit(PAGE);
-            }}
-            aria-label={`Search ${title.toLowerCase()}`}
-          />
-          <CommandList
-            onScroll={(e) => {
-              const el = e.currentTarget;
-              if (el.scrollHeight - el.scrollTop - el.clientHeight < 120)
-                setLimit((n) => n + PAGE);
-            }}
-          >
-            <CommandEmpty className="py-4 text-xs text-muted-foreground">
-              {options.length === 0 ? "Nothing in this period." : "No match."}
-            </CommandEmpty>
-            {top.length > 0 && (
-              <CommandGroup heading="Selected">{top.map(item)}</CommandGroup>
-            )}
-            {restShown.length > 0 && (
-              <CommandGroup heading={top.length > 0 ? "All" : undefined}>
-                {restShown.map(item)}
-              </CommandGroup>
-            )}
-          </CommandList>
-          <p className="border-t px-3 py-2 text-[11px] leading-snug text-muted-foreground">
-            Tap to include, again to exclude, again to clear.
-          </p>
-        </Command>
+        <PickerList {...list} />
+        <p className="border-t px-3 py-2 text-[11px] leading-snug text-muted-foreground">
+          {HINT}
+        </p>
       </PopoverContent>
     </Popover>
   );

@@ -230,9 +230,16 @@ interface ItemsProps {
   filters: Filters;
   rules: RulesApi;
   onSearch: (search: string) => void;
+  onDeposit: (on: boolean) => void;
 }
 
-export const Items = ({ rows, filters, rules, onSearch }: ItemsProps) => {
+export const Items = ({
+  rows,
+  filters,
+  rules,
+  onSearch,
+  onDeposit,
+}: ItemsProps) => {
   const words = useDeferredValue(filters.search)
     .toLowerCase()
     .replace(/(\d),(\d)/g, "$1.$2")
@@ -319,19 +326,25 @@ export const Items = ({ rows, filters, rules, onSearch }: ItemsProps) => {
 
   return (
     <>
-      <div className="mb-4 flex gap-2">
+      <div className="mb-4 flex flex-wrap gap-2">
         <SearchBox
           value={filters.search}
           onChange={onSearch}
           placeholder="Search items"
           hotkey
-          className="flex-1"
+          className="flex-1 max-sm:basis-full"
         />
         <SwitchField
           label="Split by size"
           checked={bySize}
           onChange={setBySize}
-          className="h-auto self-stretch"
+          className="max-sm:flex-1 sm:h-auto sm:self-stretch"
+        />
+        <SwitchField
+          label="Include deposit"
+          checked={!filters.withoutDeposit}
+          onChange={onDeposit}
+          className="max-sm:flex-1 sm:h-auto sm:self-stretch"
         />
       </div>
       <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(min(150px,100%),1fr))] gap-3 max-sm:grid-cols-2">

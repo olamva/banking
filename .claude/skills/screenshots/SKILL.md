@@ -24,8 +24,9 @@ pnpm shot '/?view=transactions&p=all' --before origin/main
 | Option                       | Effect                                                               |
 | ---------------------------- | -------------------------------------------------------------------- |
 | `--theme dark\|light\|both`  | Color scheme. The default is `both`.                                 |
-| `--size phone\|desktop\|WxH` | Viewport. `phone` is 375×812 and the default. `desktop` is 1440×900. |
+| `--size phone\|desktop\|WxH` | Viewport. `phone` is 375×812 with touch, and the default. `desktop` is 1440×900. |
 | `--click <selector>`         | Click a visible element. Repeat it for more steps.                   |
+| `--type <text>`              | Type into the focused element after the clicks.                      |
 | `--wait <selector>`          | Wait for a visible element.                                          |
 | `--element <selector>`       | Capture one element.                                                 |
 | `--full`                     | Capture the full page.                                               |
