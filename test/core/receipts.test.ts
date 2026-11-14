@@ -11,6 +11,7 @@ process.env.DB_FILE = join(dir, "banking.db");
 after(() => rmSync(dir, { recursive: true, force: true }));
 const { rebuildAll } = await import("../../src/core/pipeline.ts");
 const { openDb, queryRange } = await import("../../src/core/db.ts");
+const { itemsOf, purchasesOf } = await import("../../src/core/items.ts");
 
 const put = (path: string, value: unknown) => {
   mkdirSync(join(dir, path, ".."), { recursive: true });
@@ -160,6 +161,8 @@ before(async () => {
           unitPrice: 49.8,
           discount: -9.96,
           usedOffers: [{ offerDesc: "Oreo", discount: 9.96 }],
+          productGroupCode: "102410",
+          productGroupDescription: "SØTE KJEKS",
         },
         {
           ...item("Paprika Rød Løsvekt", 1, 10.39),
@@ -274,6 +277,16 @@ test("a receipt line keeps the pack size apart from the product name", () => {
       ["Paprika Rød Løsvekt", undefined],
       ["Tuborg Lite", "0,50 l"],
     ],
+  );
+});
+
+test("a REMA product group gives the item its category", () => {
+  const items = itemsOf(purchasesOf(rows.filter((t) => t.id === "rema")));
+  assert.deepEqual(
+    ["Oreo Rull Dobbel", "Tuborg Lite"].map(
+      (name) => items.find((i) => i.name === name)!.category,
+    ),
+    ["Snacks & sweets/Søte kjeks", "Uncategorized"],
   );
 });
 

@@ -1,5 +1,5 @@
 import { compile } from "./match.ts";
-import type { Receipt } from "./receipts.ts";
+import type { Receipt, ReceiptLine } from "./receipts.ts";
 import type { RuleMap } from "./ruleFiles.ts";
 import type { Categorized } from "./types.ts";
 
@@ -15,11 +15,13 @@ export type Purchase = {
   qty: number;
   unit?: "kg";
   amount: number;
+  category?: string;
 };
 
 export type Item = {
   key: string;
   name: string;
+  category: string;
   sizes: string[];
   unit?: "kg";
   count: number;
@@ -28,6 +30,8 @@ export type Item = {
   price: number;
   last: string;
   medianDays: number | null;
+  usual: number | null;
+  change: number | null;
   purchases: Purchase[];
 };
 
@@ -63,13 +67,67 @@ const tidy = (name: string): string => {
 export const itemPattern = (raw: string): string =>
   `/^${raw.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$/`;
 
-const namer = (rules: RuleMap) => {
+const lookup = (rules: RuleMap, file: string) => {
   const found = Object.entries(rules).map(
-    ([pattern, name]) => [compile(pattern, "rules/items.json"), name] as const,
+    ([pattern, value]) => [compile(pattern, file), value] as const,
   );
-  return (raw: string) =>
-    found.find(([matches]) => matches(raw.toLowerCase()))?.[1] ?? tidy(raw);
+  return (text: string) =>
+    found.find(([matches]) => matches(text.toLowerCase()))?.[1];
 };
+
+const namer = (rules: RuleMap) => {
+  const named = lookup(rules, "rules/items.json");
+  return (raw: string) => named(raw) ?? tidy(raw);
+};
+
+export const UNCATEGORIZED = "Uncategorized";
+
+const AISLES: Record<string, string> = {
+  "10": "Pantry",
+  "1023": "Snacks & sweets",
+  "1024": "Snacks & sweets",
+  "1025": "Snacks & sweets",
+  "1027": "Snacks & sweets",
+  "1028": "Snacks & sweets",
+  "1035": "Snacks & sweets",
+  "11": "Meat & fish",
+  "1126": "Dairy & eggs",
+  "1128": "Dairy & eggs",
+  "1129": "Dairy & eggs",
+  "1130": "Pantry",
+  "1133": "Pantry",
+  "12": "Bread & bakery",
+  "13": "Frozen",
+  "1321": "Snacks & sweets",
+  "14": "Dairy & eggs",
+  "1412": "Drinks",
+  "1417": "Drinks",
+  "15": "Drinks",
+  "1521": "Alcohol",
+  "16": "Fruit & veg",
+  "18": "Household",
+  "1810": "Personal care",
+  "1914": "Personal care",
+};
+
+const groupName = (name: string): string | undefined => {
+  const kept = name.replace(/\s*\((?:detaljert\)|[^)]*$)/i, "").trim();
+  return /^(\d*|ikke i bruk)$/i.test(kept)
+    ? undefined
+    : kept.charAt(0) + kept.slice(1).toLowerCase();
+};
+
+const groupCategory = (group: ReceiptLine["group"]): string | undefined =>
+  group &&
+  [
+    AISLES[group.code.slice(0, 4)] ?? AISLES[group.code.slice(0, 2)] ?? "Other",
+    groupName(group.name),
+  ]
+    .filter(Boolean)
+    .join("/");
+
+export const topCategory = (category: string): string =>
+  category.split("/")[0]!;
 
 export const nameKey = (name: string): string =>
   name
@@ -139,6 +197,7 @@ const receiptPurchases = (
   receipt: Receipt,
   nameOf: (raw: string) => string,
   withoutDeposit = false,
+  categoryOf: (name: string) => string | undefined = () => undefined,
 ): Purchase[] =>
   [
     ...Map.groupBy(
@@ -149,6 +208,7 @@ const receiptPurchases = (
     ).values(),
   ].map((same) => {
     const name = nameOf(same[0]!.name);
+    const category = categoryOf(name) ?? groupCategory(same[0]!.group);
     return {
       key: nameKey(name),
       sizeKey: sizeKey(same[0]!.size),
@@ -166,6 +226,7 @@ const receiptPurchases = (
           0,
         ),
       ),
+      ...(category ? { category } : {}),
     };
   });
 
@@ -173,10 +234,14 @@ export const purchasesOf = (
   txns: Categorized[],
   rules: RuleMap = {},
   withoutDeposit = false,
+  categories: RuleMap = {},
 ): Purchase[] => {
   const nameOf = namer(rules);
+  const categoryOf = lookup(categories, "rules/item-categories.json");
   return txns.flatMap((t) =>
-    t.receipt ? receiptPurchases(t.receipt, nameOf, withoutDeposit) : [],
+    t.receipt
+      ? receiptPurchases(t.receipt, nameOf, withoutDeposit, categoryOf)
+      : [],
   );
 };
 
@@ -226,9 +291,15 @@ export const itemsOf = (purchases: Purchase[], bySize = false): Item[] =>
     const qty = sorted.reduce((n, p) => n + p.qty, 0);
     const spent = ore(sorted.reduce((n, p) => n + p.amount, 0));
     const days = [...new Set(sorted.map((p) => dayOf(p.date)))];
+    const known = sorted.flatMap((p) => p.category ?? []);
+    const [now, ...before] = sorted
+      .filter((p) => p.sizeKey === sorted[0]!.sizeKey)
+      .map(packPrice);
+    const usual = before.length > 1 ? median(before) : null;
     return {
       key,
       name: commonest(sorted.map((p) => p.name)),
+      category: known.length ? commonest(known) : UNCATEGORIZED,
       sizes: [
         ...new Map(
           sorted.filter((p) => p.size).map((p) => [p.sizeKey, p.size!]),
@@ -241,6 +312,8 @@ export const itemsOf = (purchases: Purchase[], bySize = false): Item[] =>
       price: qty ? ore(spent / qty) : 0,
       last: sorted[0]!.date,
       medianDays: median(days.slice(1).map((d, i) => days[i]! - d)),
+      usual,
+      change: usual ? now! / usual - 1 : null,
       purchases: sorted,
     };
   });

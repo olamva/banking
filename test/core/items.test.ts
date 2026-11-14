@@ -98,6 +98,42 @@ test("a rule renames exact receipt names, and other names lose packaging and sho
   ]);
 });
 
+test("an item takes its category from a rule, then the product group, then Uncategorized", () => {
+  const group = (code: string, name: string) => ({ group: { code, name } });
+  const items = itemsOf(
+    purchasesOf(
+      [
+        txn("7", "2026-10-01T10:00:00Z", [
+          { ...line("Nachochips", 30), ...group("101110", "TEX MEX: CHIPS") },
+          {
+            ...line("Frosne Poteter", 40),
+            ...group("131510", "DYPFRYSTE POTETER (DETALJERT)"),
+          },
+          { ...line("Pizzabunn", 25), ...group("113311", "IKKE I BRUK") },
+          { ...line("Gavekort", 100), ...group("241010", "REMA1000 GAVEKORT") },
+          { ...line("Bananer", 20), ...group("161010", "BANAN") },
+        ]),
+        txn("8", "2026-10-02T10:00:00Z", [
+          line("Bananer", 22),
+          line("Bananer", 21),
+          line("Batterier", 50),
+        ]),
+      ],
+      {},
+      false,
+      { "/^nachochips$/": "Snacks & sweets" },
+    ),
+  );
+  assert.deepEqual(Object.fromEntries(items.map((i) => [i.name, i.category])), {
+    Nachochips: "Snacks & sweets",
+    "Frosne Poteter": "Frozen/Dypfryste poteter",
+    Pizzabunn: "Pantry",
+    Gavekort: "Other/Rema1000 gavekort",
+    Bananer: "Fruit & veg/Banan",
+    Batterier: "Uncategorized",
+  });
+});
+
 test("splits by size when equal sizes are written in different units", () => {
   assert.deepEqual(summary(itemsOf(purchases, true)), [
     "Isbjørn Lite Glutenfri | 1 | 1 | 1 | 190",
@@ -166,6 +202,41 @@ test("the deposit stays in a can price unless the deposit setting removes it", (
     unitPrice(purchasesOf(cans, {}, withoutDeposit)[0]!)!.price.toFixed(2);
   assert.equal(perLitre(false), "75.45");
   assert.equal(perLitre(true), "69.39");
+});
+
+test("compares the latest price with the median of two or more earlier prices of the same size", () => {
+  const changes = itemsOf(
+    purchasesOf([
+      txn("20", "2026-10-01T10:00:00Z", [
+        line("Kaffe", 60, "250 g"),
+        line("Kaffe", 30, "100 g"),
+        line("Smør", 40),
+        line("Ost", 2),
+      ]),
+      txn("21", "2026-10-08T10:00:00Z", [
+        line("Kaffe", 80, "250 g"),
+        line("Smør", 42),
+      ]),
+      txn("22", "2026-10-15T10:00:00Z", [
+        line("Kaffe", 70, "250 g"),
+        line("Smør", 41),
+      ]),
+      txn("23", "2026-10-22T10:00:00Z", [
+        line("Kaffe", 30, "100 g"),
+        line("Kaffe", 140, "250 g", 2),
+        line("Smør", 60, undefined, 2),
+      ]),
+      txn("24", "2026-10-29T10:00:00Z", [
+        line("Kaffe", 36, "100 g"),
+        line("Ost", 100),
+      ]),
+    ]),
+  ).map((i) => [i.name, i.change && Math.round(i.change * 100)]);
+  assert.deepEqual(changes, [
+    ["Kaffe", 20],
+    ["Smør", -27],
+    ["Ost", null],
+  ]);
 });
 
 test("dates purchases in Oslo and measures the usual gap in days", () => {

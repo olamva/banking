@@ -14,6 +14,7 @@ export type ReceiptLine = {
   discounts?: Entry[];
   deposit?: number;
   fee?: boolean;
+  group?: { code: string; name: string };
 };
 
 export type Receipt = {
@@ -40,6 +41,8 @@ type RemaRow = {
   prodtxt2?: string;
   prodtxt3?: string;
   productDescription?: string;
+  productGroupCode?: string;
+  productGroupDescription?: string;
   pieces: number;
   amount: number;
   amountWithoutDeposit: number;
@@ -89,7 +92,10 @@ const UNITS: Record<string, string> = {
   pakk: "pk",
 };
 
-const PACK_SIZES: Record<string, string> = { "7044613876013": "0,5 l × 6" };
+const PACK_SIZES: Record<string, string> = {
+  "7044613876013": "0,5 l × 6",
+  "7030019539799": "0,5 l",
+};
 
 const number = (s: string) => s.replace(".", ",").replace(/ ?[x×] ?/i, " × ");
 
@@ -145,6 +151,14 @@ function remaLine(r: RemaRow): ReceiptLine {
     amount: r.amount,
     ...(discounts.length ? { discounts } : {}),
     ...(deposit ? { deposit } : {}),
+    ...(r.productGroupCode
+      ? {
+          group: {
+            code: r.productGroupCode,
+            name: r.productGroupDescription ?? "",
+          },
+        }
+      : {}),
   };
 }
 

@@ -1,0 +1,9 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "Biggest price changes",
+      "detail": "The Items page shows the items that are now much cheaper or much more expensive than before. Each item compares its latest price with the median price of at least two earlier purchases of the same size. On a large screen, sort the table by Price change to see every item. Select an item to see its purchases."
+    }
+  ]
+}
