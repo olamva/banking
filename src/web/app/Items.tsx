@@ -63,8 +63,16 @@ const fmtQty = (qty: number, unit?: "kg") =>
 const fmtGap = (days: number | null) =>
   days === null ? "" : `${Math.round(days)} days`;
 
-const fmtChange = (change: number | null) =>
-  change === null ? "" : `${change > 0 ? "+" : ""}${fmtPct(change)}`;
+const Change = ({ change }: { change: number | null }) =>
+  change !== null && (
+    <span
+      className={
+        change < 0 ? "text-income" : change > 0 ? "text-destructive" : ""
+      }
+    >
+      {`${change > 0 ? "+" : ""}${fmtPct(change)}`}
+    </span>
+  );
 
 const value = (item: Item, sort: Sort) => item[sort];
 
@@ -261,7 +269,7 @@ const Swings = ({ title, items, onPick }: SwingsProps) => (
             </span>
           </span>
           <span className="shrink-0 font-semibold tabular-nums">
-            {fmtChange(i.change)}
+            <Change change={i.change} />
           </span>
         </button>
       ))
@@ -354,7 +362,7 @@ export const Items = ({ rows, filters, rules, onSearch }: ItemsProps) => {
     fmtQty(i.qty, i.unit),
     fmtNOK(i.spent),
     fmtNOKExact(i.price),
-    fmtChange(i.change),
+    <Change change={i.change} />,
     fmtGap(i.medianDays),
     fmtDate(i.last),
   ]);
@@ -420,7 +428,7 @@ export const Items = ({ rows, filters, rules, onSearch }: ItemsProps) => {
               onPick={setPicked}
             />
             <Swings
-              title="Dearer now"
+              title="More expensive now"
               items={swings
                 .filter((i) => i.change! > 0)
                 .toReversed()
