@@ -1,0 +1,11 @@
+{
+  "id": "861dfc77",
+  "ts": "2026-11-14T13:34:35+00:00",
+  "text": "agent-device fill dropped ':4013' from 'http://127.0.0.1:4013' in an iOS URL text field",
+  "tags": [],
+  "who": "agent",
+  "model": "claude-opus-5-5",
+  "session": "99e648e2",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3-77aa97c8-2385049055eb1ef0",
+  "branch": "t3/web-iphone-feature-parity"
+}

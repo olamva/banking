@@ -7,7 +7,6 @@ struct TrendsView: View {
     @State private var showIncome = false
 
     var body: some View {
-        NavigationStack {
             Group {
                 if let data = store.data {
                     List {
@@ -48,16 +47,12 @@ struct TrendsView: View {
                     }
                     .refreshable { await store.reload() }
                     .navigationDestination(for: Period.self) { YearView(year: $0) }
-                    .navigationDestination(for: CategoryRoute.self) { CategoryView(route: $0) }
-                    .navigationDestination(for: MerchantRoute.self) { MerchantView(name: $0.name) }
-                    .navigationDestination(for: Txn.self) { TxnView(txn: $0) }
                 } else {
                     Loading()
                 }
             }
             .navigationTitle("Trends")
-            .filtering(false)
-        }
+            .navigationBarTitleDisplayMode(.inline)
     }
 }
 

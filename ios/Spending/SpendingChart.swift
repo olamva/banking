@@ -292,6 +292,7 @@ private struct Legend: View {
                         .opacity(on ? 1 : 0.4)
                     }
                     .buttonStyle(.borderless)
+                    .tint(.primary)
                     .accessibilityLabel(mark.name)
                     .accessibilityValue(on ? "Shown" : "Hidden")
                     .accessibilityHint(on ? "Hides the line." : "Shows the line.")
@@ -351,7 +352,7 @@ private struct Plot: View {
                 LineMark(x: .value("Date", dot.x), y: .value("Amount", dot.y), series: .value("Line", dot.line))
                     .foregroundStyle(dot.color.opacity(dot.faint ? 0.45 : 1))
                     .lineStyle(StrokeStyle(lineWidth: dot.dashed ? 1.5 : 2, lineCap: .round, dash: dot.dashed ? [5, 4] : []))
-                if dot.symbol {
+                if dot.symbol || (index == dot.index && !dot.dashed) {
                     PointMark(x: .value("Date", dot.x), y: .value("Amount", dot.y))
                         .foregroundStyle(dot.color)
                         .symbolSize(index == dot.index ? 60 : 22)
@@ -386,7 +387,6 @@ private struct Plot: View {
     private func shows(_ id: String) -> Bool { marks.contains { $0.id == id } }
 
     private var dots: [Dot] {
-        let symbols = model.slots.count <= 36
         var out: [Dot] = []
         func add(_ id: String, _ values: [Double?], _ color: Color, dashed: Bool = false, faint: Bool = false) {
             var start = 0
@@ -394,7 +394,7 @@ private struct Plot: View {
                 guard let value else { continue }
                 if i == 0 || values[i - 1] == nil { start = i }
                 let alone = (i == 0 || values[i - 1] == nil) && (i + 1 >= values.count || values[i + 1] == nil)
-                out.append(Dot(line: "\(id)#\(start)", index: i, x: model.date(i), y: value, color: color, dashed: dashed, faint: faint, symbol: !dashed && (symbols || alone)))
+                out.append(Dot(line: "\(id)#\(start)", index: i, x: model.date(i), y: value, color: color, dashed: dashed, faint: faint, symbol: !dashed && alone))
             }
         }
         if shows("compare") {

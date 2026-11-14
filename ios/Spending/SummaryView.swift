@@ -31,6 +31,15 @@ struct SummaryView: View {
                                 ExcludedNote(excluded: shown.excluded)
                             }
                         }
+                        Section {
+                            NavigationLink {
+                                TrendsView()
+                            } label: {
+                                Label("Trends and years", systemImage: "chart.bar.xaxis")
+                            }
+                        } footer: {
+                            Text("Every month and year on record, without filters.")
+                        }
                     }
                     .contentTransition(.opacity)
                     .animation(.snappy, value: selected.key)

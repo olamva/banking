@@ -53,9 +53,6 @@ struct RootView: View {
                     Tab("Items", systemImage: "basket", value: "items") {
                         ItemsView()
                     }
-                    Tab("Trends", systemImage: "chart.bar.xaxis", value: "trends") {
-                        TrendsView()
-                    }
                     Tab(value: "search", role: .search) {
                         SearchView()
                     }
