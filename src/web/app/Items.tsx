@@ -11,9 +11,15 @@ import {
   nameKey,
   packPrice,
   purchasesOf,
+  topCategory,
   type Item,
 } from "../../core/items.ts";
-import { matchesFilters, type Filters } from "../../core/select.ts";
+import {
+  cycleFilter,
+  matchesFilters,
+  NO_FILTERS,
+  type Filters,
+} from "../../core/select.ts";
 import type { Categorized } from "../../core/types.ts";
 import {
   DataTable,
@@ -23,9 +29,11 @@ import {
   StatTile,
   type Column,
 } from "./Cards.tsx";
+import { HorizontalBars, type BarItem } from "./Charts.tsx";
 import { itemRules, type RulesApi } from "./data.ts";
 import { fmtDate, fmtNOK, fmtNOKExact } from "./format.ts";
 import {
+  CategoryIcon,
   ChangesIcon,
   DropdownIcon,
   Icon,
@@ -33,6 +41,7 @@ import {
   ItemsIcon,
 } from "./icons.ts";
 import { SwitchField } from "./FilterBar.tsx";
+import { Picker } from "./FilterPicker.tsx";
 import { PriceChart, unitText } from "./PriceChart.tsx";
 import { Slip } from "./ReceiptLines.tsx";
 import { SearchBox } from "./SearchBox.tsx";
@@ -46,7 +55,32 @@ import {
 } from "./ui/sheet.tsx";
 
 type Sort =
-  "name" | "count" | "qty" | "spent" | "price" | "medianDays" | "last";
+  | "name"
+  | "category"
+  | "count"
+  | "qty"
+  | "spent"
+  | "price"
+  | "medianDays"
+  | "last";
+
+const subLabel = (pair: string) => pair.slice(pair.indexOf("/") + 1);
+
+const categoryBars = (items: Item[]): BarItem[] =>
+  [...Map.groupBy(items, (i) => topCategory(i.category))]
+    .map(([top, list]) => ({
+      label: top,
+      total: list.reduce((n, i) => n + i.spent, 0),
+      subs: [...Map.groupBy(list, (i) => i.category)]
+        .filter(([pair]) => pair !== top)
+        .map(([pair, subs]) => ({
+          label: subLabel(pair),
+          key: pair,
+          total: subs.reduce((n, i) => n + i.spent, 0),
+        }))
+        .sort((a, b) => b.total - a.total),
+    }))
+    .sort((a, b) => b.total - a.total);
 
 const QTY = new Intl.NumberFormat("nb-NO", { maximumFractionDigits: 3 });
 
@@ -103,6 +137,7 @@ const ItemSheet = ({
               {item.name}
             </SheetTitle>
             <SheetDescription className="mt-1 text-xs">
+              {item.category.replace("/", " · ")} ·{" "}
               {item.sizes.join(" · ") || "No size on the receipt"}
             </SheetDescription>
           </div>
@@ -239,6 +274,10 @@ export const Items = ({ rows, filters, rules, onSearch }: ItemsProps) => {
     .split(/\s+/);
   const [bySize, setBySize] = useState(false);
   const names = itemRules(rules);
+  const categories = itemRules(rules, "item-categories");
+  const [kinds, setKinds] = useState(NO_FILTERS);
+  const pickKind = (value: string, exclude: boolean) =>
+    setKinds((f) => cycleFilter(f, "categories", value, exclude));
   const purchases = useMemo(
     () =>
       purchasesOf(
@@ -252,18 +291,28 @@ export const Items = ({ rows, filters, rules, onSearch }: ItemsProps) => {
         ),
         names,
         filters.withoutDeposit,
+        categories,
       ),
-    [rows, filters, names],
+    [rows, filters, names, categories],
   );
   const items = useMemo(() => itemsOf(purchases, bySize), [purchases, bySize]);
+  const tops = [...new Set(items.map((i) => topCategory(i.category)))].sort();
+  const pairs = [...new Set(items.map((i) => i.category))].filter((c) =>
+    c.includes("/"),
+  );
   const picks = filters.items.map(nameKey);
   const drops = filters.itemsOut.map(nameKey);
-  const shown = items.filter(
-    ({ key, purchases: [first] }) =>
+  const shown = items.filter(({ key, category, purchases: [first] }) => {
+    const kind = [topCategory(category), category];
+    return (
       words.every((w) => key.includes(w)) &&
       (!picks.length || picks.includes(first!.key)) &&
-      !drops.includes(first!.key),
-  );
+      !drops.includes(first!.key) &&
+      (!kinds.categories.length ||
+        kind.some((k) => kinds.categories.includes(k))) &&
+      !kind.some((k) => kinds.categoriesOut.includes(k))
+    );
+  });
   const [sort, setSort] = useState<Sort>("count");
   const [descending, setDescending] = useState(true);
   const [picked, setPicked] = useState<string | null>(null);
@@ -286,7 +335,9 @@ export const Items = ({ rows, filters, rules, onSearch }: ItemsProps) => {
     num,
     className,
     onClick: () => {
-      setDescending(sort === key ? !descending : key !== "name");
+      setDescending(
+        sort === key ? !descending : key !== "name" && key !== "category",
+      );
       setSort(key);
     },
     sort: sort === key ? (descending ? "desc" : "asc") : null,
@@ -304,6 +355,7 @@ export const Items = ({ rows, filters, rules, onSearch }: ItemsProps) => {
         )}
       </span>
     </span>,
+    topCategory(i.category),
     i.count,
     fmtQty(i.qty, i.unit),
     fmtNOK(i.spent),
@@ -319,19 +371,29 @@ export const Items = ({ rows, filters, rules, onSearch }: ItemsProps) => {
 
   return (
     <>
-      <div className="mb-4 flex gap-2">
+      <div className="mb-4 flex flex-wrap gap-2">
         <SearchBox
           value={filters.search}
           onChange={onSearch}
           placeholder="Search items"
           hotkey
-          className="flex-1"
+          className="flex-1 max-sm:basis-full"
+        />
+        <Picker
+          title="Item categories"
+          options={tops}
+          picked={kinds.categories}
+          excluded={kinds.categoriesOut}
+          onToggle={pickKind}
+          subs={(top) => pairs.filter((p) => topCategory(p) === top)}
+          subLabel={subLabel}
+          className="max-sm:flex-1 sm:h-auto sm:self-stretch"
         />
         <SwitchField
           label="Split by size"
           checked={bySize}
           onChange={setBySize}
-          className="h-auto self-stretch"
+          className="max-sm:flex-1 sm:h-auto sm:self-stretch"
         />
       </div>
       <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(min(150px,100%),1fr))] gap-3 max-sm:grid-cols-2">
@@ -354,6 +416,20 @@ export const Items = ({ rows, filters, rules, onSearch }: ItemsProps) => {
           }
           onClose={() => setPicked(null)}
         />
+      )}
+      {shown.length > 0 && (
+        <Panel
+          title="Spend by category"
+          icon={CategoryIcon}
+          description="Select a category to show only its items."
+          className="mb-4"
+        >
+          <HorizontalBars
+            items={categoryBars(shown)}
+            onPick={pickKind}
+            onPickSub={pickKind}
+          />
+        </Panel>
       )}
       {sorted.length > 0 && (
         <Panel
@@ -380,13 +456,14 @@ export const Items = ({ rows, filters, rules, onSearch }: ItemsProps) => {
           <Empty>
             {filters.search
               ? `No items match “${filters.search}”.`
-              : "No items match the item filter."}
+              : "No items match the item or category filter."}
           </Empty>
         ) : (
           <DataTable
             scroll
             columns={[
               sortable("Item", "name"),
+              sortable("Category", "category", false, "max-sm:hidden"),
               sortable("Purchases", "count", true),
               sortable("Quantity", "qty", true, "max-sm:hidden"),
               sortable("Spent", "spent", true),
@@ -403,9 +480,9 @@ export const Items = ({ rows, filters, rules, onSearch }: ItemsProps) => {
         )}
       </Panel>
       <Note icon={InfoIcon} className="mt-4">
-        Items come from store receipts with item lines. Email receipts have no
-        item lines. Select an item to see each purchase and its receipt, or to
-        rename it.
+        Items come from receipts with item lines. The category comes from the
+        product group on a REMA receipt, or from a rule in Item categories.
+        Select an item to see each purchase and its receipt, or to rename it.
       </Note>
     </>
   );
