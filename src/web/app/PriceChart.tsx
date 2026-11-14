@@ -38,28 +38,33 @@ export const PriceChart = ({ lines, onPick }: PriceChartProps) => {
   const [perUnit, setPerUnit] = useState(false);
   const [near, setNear] = useState<Point | null>(null);
 
-  const pers = new Set(
-    lines.flatMap((l) => l.purchases).map((p) => unitPrice(p)?.per),
-  );
-  const per = pers.size === 1 ? [...pers][0] : undefined;
+  const per = [
+    ...Map.groupBy(
+      lines.flatMap((l) => l.purchases).flatMap((p) => unitPrice(p)?.per ?? []),
+      (u) => u,
+    ),
+  ].toSorted((a, b) => b[1].length - a[1].length)[0]?.[0];
   const byUnit = perUnit && per !== undefined;
 
-  const drawn = lines.map((l, k) => {
-    const color = `var(--chart-${(k % 5) + 1})`;
-    return {
-      name: l.name,
-      color,
-      points: l.purchases
-        .toSorted((a, b) => a.date.localeCompare(b.date))
-        .map((p) => ({
-          p,
-          x: dayOf(p.date),
-          y: byUnit ? unitPrice(p)!.price : packPrice(p),
-          name: l.name,
-          color,
-        })),
-    };
-  });
+  const drawn = lines
+    .map((l, k) => {
+      const color = `var(--chart-${(k % 5) + 1})`;
+      return {
+        name: l.name,
+        color,
+        points: l.purchases
+          .filter((p) => !byUnit || unitPrice(p)?.per === per)
+          .toSorted((a, b) => a.date.localeCompare(b.date))
+          .map((p) => ({
+            p,
+            x: dayOf(p.date),
+            y: byUnit ? unitPrice(p)!.price : packPrice(p),
+            name: l.name,
+            color,
+          })),
+      };
+    })
+    .filter((l) => l.points.length);
   const shown = drawn.filter((l) => !hidden.has(l.name));
   const points = shown.flatMap((l) => l.points);
 
