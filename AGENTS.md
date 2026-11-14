@@ -27,14 +27,13 @@ Keep GitHub's required CI check enabled. Keep strict branch updating off.
 Use `pnpm worktree:link` after dependency installation when T3 does not run setup.
 Keep each task's changes in its existing worktree.
 After merge, run `pnpm worktree:cleanup <path> <pr-number> --branch-only --apply` before the final response.
-This prunes remote references, verifies remote deletion, detaches the checkout, and deletes its merged local branch.
-Keep T3 running for branch cleanup. Preserve local files and thread history.
+This waits up to 2 minutes for auto-merge, verifies remote deletion, detaches the checkout, and deletes its merged local branch.
+If a task ends without a PR, and `git status --porcelain` and `git log origin/main..HEAD` show nothing, run `git switch --detach` and then `git branch -d <branch>` in the task worktree.
 Create a new task branch before making further commits in a detached checkout.
-Never remove an active thread's worktree or another task's branch without explicit user authorization.
-Run `pnpm worktree:cleanup <path> <pr-number>` from another checkout to inspect cleanup eligibility.
-Use worktree removal with `--apply` only after the thread finishes and T3 stops.
+T3 setup runs `pnpm worktree:cleanup --merged --apply`. It removes the worktrees of merged PRs and deletes merged `t3/` branches without a worktree.
+Do not remove another task's worktree or branch by hand.
 Preserve thread history. Never edit T3's internal database.
-Never force worktree removal. Preserve uncommitted changes, local data, and commits outside `origin/main`.
+Never force worktree removal. Preserve uncommitted changes, local files other than `data.local`, and commits outside `origin/main`.
 Leave cleanup pending when these conditions prevent removal.
 
 Keep shared `rules/` edits, shared database rebuilds, and deployments separate from concurrent writers.

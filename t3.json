@@ -3,7 +3,7 @@
   "scripts": [
     {
       "name": "Setup Worktree",
-      "command": "pnpm install --frozen-lockfile && pnpm worktree:link",
+      "command": "pnpm install --frozen-lockfile && pnpm worktree:link && (pnpm worktree:cleanup --merged --apply || true)",
       "icon": "configure",
       "runOnWorktreeCreate": true
     }

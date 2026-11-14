@@ -90,7 +90,7 @@ function inspectIgnoredFiles(target: string, main: string) {
     "-z",
   );
   for (const name of ignored.split("\0").filter(Boolean)) {
-    if (name === "node_modules/") continue;
+    if (["node_modules/", "data.local/"].includes(name)) continue;
     const relative = name.replace(/\/$/, "");
     const file = join(target, relative);
     if (
@@ -126,11 +126,6 @@ export function removeBranch(cwd: string, path: string, pr: PullRequest) {
 }
 
 function requireIdle(target: string) {
-  if (process.platform !== "darwin")
-    throw new Error("Automatic activity checks require macOS.");
-  const processes = execFileSync("ps", ["-axo", "args="], { encoding: "utf8" });
-  if (/\/T3 Code[^/]*\.app\/|(?:^|[\s/])t3(?:code)?(?:\s|\/)/m.test(processes))
-    throw new Error("Stop T3 before removing its worktree.");
   const files = spawnSync(
     "lsof",
     ["-n", "-a", "-u", String(process.getuid!()), "-d", "cwd", "-Fn"],
@@ -148,51 +143,111 @@ function requireIdle(target: string) {
     throw new Error("A process still uses the worktree.");
 }
 
+function clean(
+  cwd: string,
+  path: string,
+  pr: PullRequest,
+  apply: boolean,
+  branchOnly: boolean,
+) {
+  const result = inspectWorktree(cwd, path, pr, branchOnly);
+  if (apply && branchOnly) removeBranch(cwd, path, pr);
+  else if (apply) {
+    requireIdle(result.target);
+    removeWorktree(cwd, path, pr);
+  }
+  return { ...result, removed: apply && !branchOnly, branchRemoved: apply };
+}
+
+export function sweep(
+  cwd: string,
+  prs: PullRequest[],
+  apply: boolean,
+  branchOnly: boolean,
+) {
+  const results: object[] = [];
+  for (const entry of git(cwd, "worktree", "list", "--porcelain", "-z")
+    .split("\0\0")
+    .filter(Boolean)) {
+    const [path, head] = entry
+      .split("\0")
+      .map((line) => line.slice(line.indexOf(" ") + 1));
+    const pr = prs.find((pr) => pr.headRefOid === head);
+    if (!pr) continue;
+    try {
+      results.push(clean(cwd, path!, pr, apply, branchOnly));
+    } catch (error) {
+      results.push({ target: path, error: (error as Error).message });
+    }
+  }
+  const orphanBranches = git(
+    cwd,
+    "for-each-ref",
+    "--merged=refs/remotes/origin/main",
+    "--format=%(worktreepath)%(refname:short)",
+    "refs/heads/t3/",
+  )
+    .split("\n")
+    .filter((name) => name.startsWith("t3/"));
+  if (apply && orphanBranches.length)
+    git(cwd, "branch", "-D", ...orphanBranches);
+  return [...results, { orphanBranches }];
+}
+
+const fields = "state,baseRefName,headRefName,headRefOid,mergeCommit,url";
+
 if (
   process.argv[1] &&
   import.meta.url === pathToFileURL(resolve(process.argv[1])).href
 ) {
   try {
-    const [path, number, ...flags] = process.argv.slice(2);
+    const args = process.argv.slice(2);
+    const merged = args[0] === "--merged";
+    const [path, number] = args;
+    const flags = args.slice(merged ? 1 : 2);
     const apply = flags.includes("--apply");
     const branchOnly = flags.includes("--branch-only");
     if (
-      !path ||
-      !/^\d+$/.test(number ?? "") ||
+      (!merged && (!path || !/^\d+$/.test(number ?? ""))) ||
       flags.some((flag) => !["--apply", "--branch-only"].includes(flag)) ||
       new Set(flags).size !== flags.length
     )
       throw new Error(
-        "Use pnpm worktree:cleanup <path> <pr-number> [--branch-only] [--apply].",
+        "Use pnpm worktree:cleanup <path> <pr-number> | --merged [--branch-only] [--apply].",
       );
     const cwd = process.cwd();
+    const gh = (...args: string[]) =>
+      JSON.parse(execFileSync("gh", args, { cwd, encoding: "utf8" }));
+    const view = () =>
+      gh("pr", "view", number!, "--json", `${fields},autoMergeRequest`);
+    let pr = merged ? undefined : view();
+    for (
+      const end = Date.now() + 120_000;
+      pr?.state === "OPEN" && pr.autoMergeRequest && Date.now() < end;
+      pr = view()
+    )
+      await new Promise((done) => setTimeout(done, 5000));
     git(cwd, "fetch", "--prune", "origin");
-    const pr: PullRequest = JSON.parse(
-      execFileSync(
-        "gh",
-        [
-          "pr",
-          "view",
-          number,
-          "--json",
-          "state,baseRefName,headRefName,headRefOid,mergeCommit,url",
-        ],
-        { cwd, encoding: "utf8" },
-      ),
-    );
-    const result = inspectWorktree(cwd, path, pr, branchOnly);
-    if (apply && branchOnly) removeBranch(cwd, path, pr);
-    else if (apply) {
-      requireIdle(result.target);
-      removeWorktree(cwd, path, pr);
-    }
-    console.log(
-      JSON.stringify({
-        ...result,
-        removed: apply && !branchOnly,
-        branchRemoved: apply,
-      }),
-    );
+    const lines = pr
+      ? [clean(cwd, path!, pr, apply, branchOnly)]
+      : sweep(
+          cwd,
+          gh(
+            "pr",
+            "list",
+            "--state",
+            "merged",
+            "--base",
+            "main",
+            "--limit",
+            "1000",
+            "--json",
+            fields,
+          ),
+          apply,
+          branchOnly,
+        );
+    for (const line of lines) console.log(JSON.stringify(line));
   } catch (error) {
     console.error(error instanceof Error ? error.message : "Cleanup fails.");
     process.exitCode = 1;

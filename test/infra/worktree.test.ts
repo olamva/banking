@@ -18,6 +18,7 @@ import {
   inspectWorktree,
   removeBranch,
   removeWorktree,
+  sweep,
 } from "../../infra/worktree-cleanup.ts";
 import { linkWorktree } from "../../infra/worktree-link.ts";
 
@@ -96,6 +97,8 @@ test("cleanup removes only the merged worktree and local branch", (t) => {
   linkWorktree(target);
   mkdirSync(join(target, "node_modules"));
   writeFileSync(join(target, "node_modules", "dependency"), "replaceable");
+  mkdirSync(join(target, "data.local"));
+  writeFileSync(join(target, "data.local", "banking.db"), "replaceable");
   const inspection = inspectWorktree(main, target, pr);
   assert.equal(inspection.head, pr.headRefOid);
   assert.equal(existsSync(target), true);
@@ -107,15 +110,9 @@ test("cleanup removes only the merged worktree and local branch", (t) => {
   assert.equal(git(main, "rev-parse", "HEAD"), pr.mergeCommit.oid);
 });
 
-for (const name of [
-  "tracked",
-  "untracked",
-  "private.key",
-  "data.local/database",
-]) {
+for (const name of ["tracked", "untracked", "private.key"]) {
   test(`cleanup preserves ${name}`, (t) => {
     const { main, target, pr } = fixture(t);
-    if (name.includes("/")) mkdirSync(join(target, "data.local"));
     writeFileSync(join(target, name), "keep");
     assert.throws(() => removeWorktree(main, target, pr), /Preserve/);
     assert.equal(existsSync(join(target, name)), true);
@@ -163,8 +160,7 @@ test("cleanup requires the branch and merge commit in origin main", (t) => {
 
 test("branch cleanup preserves local data and supports later worktree removal", (t) => {
   const { main, target, pr, git } = fixture(t);
-  mkdirSync(join(target, "data.local"));
-  writeFileSync(join(target, "data.local", "database"), "keep");
+  writeFileSync(join(target, "private.key"), "keep");
   git(target, "config", "branch.task.remote", "origin");
   git(target, "config", "branch.task.merge", "refs/heads/task");
   removeBranch(target, target, pr);
@@ -173,9 +169,9 @@ test("branch cleanup preserves local data and supports later worktree removal", 
   assert.equal(git(target, "rev-parse", "HEAD"), pr.headRefOid);
   assert.equal(git(target, "rev-parse", "--abbrev-ref", "HEAD"), "HEAD");
   assert.throws(() => git(main, "config", "--get", "branch.task.remote"));
-  assert.equal(existsSync(join(target, "data.local", "database")), true);
+  assert.equal(existsSync(join(target, "private.key")), true);
   assert.throws(() => removeWorktree(main, target, pr), /Preserve/);
-  rmSync(join(target, "data.local"), { recursive: true });
+  rmSync(join(target, "private.key"));
   removeWorktree(main, target, pr);
   assert.equal(existsSync(target), false);
 });
@@ -199,4 +195,26 @@ test("branch cleanup preserves unmerged commits and changed branch references", 
   git(main, "update-ref", "refs/heads/task", pr.mergeCommit.oid);
   assert.throws(() => removeBranch(target, target, pr), /changed local branch/);
   assert.equal(git(main, "rev-parse", "task"), pr.mergeCommit.oid);
+});
+
+test("sweep cleans merged tasks and merged orphan branches only", (t) => {
+  const { main, target, pr, git } = fixture(t);
+  const open = join(target, "..", "open");
+  git(main, "worktree", "add", "-qb", "t3/open", open);
+  writeFileSync(join(open, "tracked"), "open");
+  git(open, "commit", "-qam", "open");
+  git(main, "branch", "t3/orphan", pr.headRefOid);
+  git(main, "branch", "t3/unmerged", "t3/open");
+
+  const branches = sweep(main, [pr], true, true);
+  assert.deepEqual(branches.at(-1), { orphanBranches: ["t3/orphan"] });
+  assert.equal(git(target, "rev-parse", "--abbrev-ref", "HEAD"), "HEAD");
+  assert.equal(
+    git(main, "branch", "--list", "task", "t3/*", "--format=%(refname:short)"),
+    "t3/open\nt3/unmerged",
+  );
+
+  sweep(main, [pr], true, false);
+  assert.equal(existsSync(target), false);
+  assert.equal(existsSync(open), true);
 });

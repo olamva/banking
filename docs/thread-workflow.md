@@ -5,6 +5,7 @@
 T3 reads `t3.json` and runs setup after worktree creation.
 Setup installs locked dependencies and links `.env`, `data`, and `rules` from the main checkout.
 Setup preserves existing files and refuses incorrect links.
+Setup then cleans the worktrees and branches of merged tasks. See [Cleanup](#cleanup).
 Keep the source paths available in the main checkout.
 
 Keep T3 and the agent running until the PR merges or a decision prevents progress.
@@ -48,10 +49,13 @@ pnpm worktree:cleanup /absolute/worktree/path 123 --branch-only --apply
 ```
 
 Run this step before the final response, while T3 remains open.
-The command detaches the checkout at its existing commit and deletes the verified local branch and its configuration.
+The command waits up to 2 minutes for a pending auto-merge.
+It detaches the checkout at its existing commit and deletes the verified local branch and its configuration.
 It preserves ignored local files and thread history. It refuses uncommitted changes and commits outside `origin/main`.
 It requires remote branch deletion. Fetching prunes obsolete remote references.
 Create a new task branch before making further commits in a detached checkout.
+
+If a task ends without a PR, and `git status --porcelain` and `git log origin/main..HEAD` show nothing, run `git switch --detach` and then `git branch -d <branch>` in the task worktree.
 
 Run worktree inspection from another checkout:
 
@@ -63,25 +67,31 @@ The command fetches origin with pruning and reads the PR from this checkout's Gi
 It requires a merged PR into `main` and an exact match between the branch and PR head.
 It also requires both the branch head and merge commit in `origin/main`.
 It preserves locked worktrees, uncommitted changes, untracked files, and local commits outside `origin/main`.
-It preserves ignored files except `node_modules/` and the three verified setup links.
-It preserves `data.local`, including any local database. Inspect that data separately before cleanup.
+It preserves ignored files except `node_modules/`, `data.local/` and the three verified setup links.
+`data.local` holds a copy of the shared database and build output.
 
-Finish the thread, stop T3, and close terminals and servers that use the worktree.
 Run removal from another checkout:
 
 ```sh
 pnpm worktree:cleanup /absolute/worktree/path 123 --apply
 ```
 
-Removal requires macOS process checks and refuses detected T3 processes or working directories inside the target.
-Keep T3 stopped throughout removal. Do not start another writer during cleanup.
+Removal refuses a worktree that is the working directory of a process.
 Git removes the worktree without force. Removal also accepts a checkout detached by branch cleanup.
 GitHub handles remote branch deletion. The command never deletes another remote branch.
 
+T3 setup runs this sweep for each new worktree:
+
+```sh
+pnpm worktree:cleanup --merged --apply
+```
+
+The sweep applies the same checks to each worktree whose head is the head of a merged PR.
+It also deletes each local `t3/` branch that has no worktree and is in `origin/main`.
+Add `--branch-only` to keep the worktrees. Omit `--apply` to list the changes.
+
 This command does not change T3's thread history or internal database.
 T3 can retain a reference to the removed path. Create a new worktree before resuming that thread.
-Worktree removal during active T3 sessions remains unavailable without a verified thread lifecycle interface.
-No background cleanup service runs.
 
 ## Shared files
 
