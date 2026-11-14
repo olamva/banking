@@ -11,6 +11,7 @@ process.env.DB_FILE = join(dir, "banking.db");
 after(() => rmSync(dir, { recursive: true, force: true }));
 const { rebuildAll } = await import("../../src/core/pipeline.ts");
 const { openDb, queryRange } = await import("../../src/core/db.ts");
+const { purchasesOf } = await import("../../src/core/items.ts");
 
 const put = (path: string, value: unknown) => {
   mkdirSync(join(dir, path, ".."), { recursive: true });
@@ -86,6 +87,7 @@ before(async () => {
       bank("ticket", "2026-10-04", -450, "BILLETTEN.NO"),
       bank("steam", "2026-10-05", -145, "STEAMPOWERED.COM"),
       bank("paypal", "2026-10-06", -90.24, "PAYPAL *LACHYW02"),
+      bank("claude", "2026-10-07", -229, "ANTHROPIC"),
     ],
   });
   put(
@@ -124,6 +126,21 @@ before(async () => {
         "<table><tr><td>Valheim</td>",
         "<td>Subtotal (excl. VAT): 116,00 kr<br>VAT at 25%: 29,00 kr<br>Total: 145,00 kr</td></tr>",
         "<tr><td>Visa:</td><td>145,00 kr</td></tr></table>",
+      ].join(""),
+    ),
+  );
+  put(
+    "data/raw/receipts/gmail/claude.eml",
+    mail(
+      "Anthropic, PBC <invoice@anthropic.com>",
+      "7 Oct 2026 10:00:00 +0200",
+      [
+        "<table>",
+        "<tr><td>Claude Pro</td><td>183,20 kr</td></tr>",
+        "<tr><td>Subtotal</td><td>183,20 kr</td></tr>",
+        "<tr><td>VAT (25%)</td><td>45,80 kr</td></tr>",
+        "<tr><td>Total</td><td>229,00 kr</td></tr>",
+        "</table>",
       ].join(""),
     ),
   );
@@ -443,6 +460,19 @@ test("a mail that prints one item beside the total gives that item the total", (
   assert.deepEqual(mailLines("steam").lines, [["Valheim", 1, 145, 145]]);
 });
 
+test("a mail receipt prints its fees and VAT, but Items leaves them out", () => {
+  assert.deepEqual(mailLines("claude").lines, [
+    ["Claude Pro", 1, 183.2, 183.2],
+    ["VAT (25%)", 1, 45.8, 45.8],
+  ]);
+  assert.deepEqual(
+    purchasesOf(rows.filter((t) => t.id === "power" || t.id === "claude")).map(
+      (p) => p.raw,
+    ),
+    ["KULZ VANNKOKER, SVART", "POINT BRØDRISTER", "Claude Pro"],
+  );
+});
+
 test("a mail in another currency keeps its own total and currency", () => {
   assert.deepEqual(mailLines("paypal"), {
     lines: [["Tip - Thanks for tipping!", 1, 9, 9]],
@@ -456,7 +486,7 @@ test("a mail whose rows do not add up shows no items", () => {
 });
 
 test("a broken or undated receipt file leaves the rest of the rebuild intact", () => {
-  assert.equal(rows.length, 12);
+  assert.equal(rows.length, 13);
   assert.ok(
     errors.mock.calls.some((c) =>
       String(c.arguments[0]).includes("broken.json"),

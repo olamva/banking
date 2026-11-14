@@ -3,7 +3,7 @@
   "highlights": [
     {
       "title": "Items from receipt mails",
-      "detail": "A transaction with a receipt mail now shows the items, discounts, fees and total from the mail as a receipt, under the link to Gmail. The app shows only items that add up to a total in the mail or to the card charge, so it does not guess. A mail in another currency shows its currency next to the total. These items also show on the Items page."
+      "detail": "A transaction with a receipt mail now shows the items, discounts, fees and total from the mail as a receipt, under the link to Gmail. The app shows only items that add up to a total in the mail or to the card charge, so it does not guess. A mail in another currency shows its currency next to the total. These items also show on the Items page, without shipping, fees and VAT."
     }
   ]
 }

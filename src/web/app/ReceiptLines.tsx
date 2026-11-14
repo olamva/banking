@@ -115,7 +115,7 @@ export const Slip = ({
         <span>
           {total(
             lines
-              .filter((l) => l.amount > 0)
+              .filter((l) => l.amount > 0 && !l.fee)
               .map((l) => ({ amount: l.unit ? 1 : l.qty })),
           )}{" "}
           varer

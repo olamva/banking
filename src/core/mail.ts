@@ -10,6 +10,7 @@ type Candidate = {
   total: boolean;
   sub: boolean;
   tax: boolean;
+  fee: boolean;
   skip: boolean;
   currency?: string;
 };
@@ -165,6 +166,8 @@ const SUB =
 const SKIP =
   /\b(mva|vat|tax|moms|merverdiavgift|visa|mastercard|master card|kort|card|paypal|vipps|klarna|apple pay|google pay|wallet|saldo|balance|herav|hvorav|inkl|incl|inclusive|excl|eks|ekskl|betalt|paid|betaling|payment)\b/i;
 const SAVED = /you saved|du sparer|du sparte|besparelse|savings/i;
+const FEE =
+  /\b(frakt\w*|shipping|delivery|levering|porto|\w*gebyr|\w*avgift|fees?|\w*charges?|ekspedisjon|handling|duties|toll|customs)\b/i;
 const HEADING =
   /^(details|description|beskrivelse|items?|vare|varer|varelinjer|produkt|produkter|products?|pris|price|unit price|stykkpris|enhetspris|á pris|produktpris|in-app purchase|unit of price|amount|beløp|antall|ant|qty|quantity|order summary|ordresammendrag|sammendrag|summary|transaksjons\w*|\S*(nummer|number|dato|date)|payment information|betalingsinformasjon|your order|din ordre|din bestilling|kvittering|receipt|invoice|faktura|ordrebekreftelse|order confirmation)$/i;
 const NOT_NAME =
@@ -277,6 +280,7 @@ const totalRow = (): Candidate => ({
   total: true,
   sub: false,
   tax: false,
+  fee: false,
   skip: true,
 });
 
@@ -314,6 +318,7 @@ function candidate(row: Row, store: string): Candidate | null {
     total,
     sub,
     tax,
+    fee: tax || FEE.test(label),
     skip:
       !name ||
       (SKIP.test(label) && wordCount(label) <= 8) ||
@@ -382,6 +387,7 @@ const line = (c: Candidate): ReceiptLine => ({
   qty: c.qty,
   price: c.price ?? Math.round((c.amount / c.qty) * 100) / 100,
   amount: c.amount,
+  ...(c.fee && { fee: true }),
 });
 
 type Items = Pick<Receipt, "lines" | "total" | "currency">;
@@ -407,7 +413,8 @@ function itemsOf(sets: Row[][], store: string, paid: number): Items | null {
       .filter((c) => c.total && c.amount > 0)
       .at(-1);
     const name = t && unpriced(rows);
-    if (name) return items([{ ...t, name, qty: 1, price: t.amount }], t);
+    if (name)
+      return items([{ ...t, name, qty: 1, price: t.amount, fee: false }], t);
   }
   return null;
 }

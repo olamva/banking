@@ -13,6 +13,7 @@ export type ReceiptLine = {
   amount: number;
   discounts?: Entry[];
   deposit?: number;
+  fee?: boolean;
 };
 
 export type Receipt = {
