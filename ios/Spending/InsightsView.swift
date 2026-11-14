@@ -6,18 +6,22 @@ struct InsightsView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if let insights = store.selected?.insights {
+                if store.selected != nil {
                     List {
                         SessionBanner()
-                        if insights.transactionCount == 0 {
-                            ContentUnavailableView("No spending", systemImage: "tray")
+                        if let insights = store.shown?.insights {
+                            if insights.transactionCount == 0 {
+                                ContentUnavailableView("No spending matches the current filters.", systemImage: "tray")
+                            } else {
+                                Figures(insights: insights)
+                                Ranking(title: "Most transactions", rows: insights.topByTransactions) { "\($0.count) txns" }
+                                Ranking(title: "Highest spend", rows: insights.topBySpend) { Money.kr($0.total) }
+                                Expected(rows: insights.expected)
+                                Weekdays(days: insights.weekdays)
+                                Habits(rows: insights.merchants)
+                            }
                         } else {
-                            Figures(insights: insights)
-                            Ranking(title: "Most transactions", rows: insights.topByTransactions) { "\($0.count) txns" }
-                            Ranking(title: "Highest spend", rows: insights.topBySpend) { Money.kr($0.total) }
-                            Expected(rows: insights.expected)
-                            Weekdays(days: insights.weekdays)
-                            Habits(rows: insights.merchants)
+                            Figuring()
                         }
                     }
                     .refreshable { await store.reload() }
@@ -28,8 +32,13 @@ struct InsightsView: View {
                 }
             }
             .periodPicker()
+            .filtering()
         }
     }
+}
+
+private extension View {
+    func merchantDrill(_ merchant: String) -> some View { drill(Drill(axis: .merchants, value: merchant, name: merchant)) }
 }
 
 private struct Figures: View {
@@ -38,6 +47,7 @@ private struct Figures: View {
     var body: some View {
         let busiest = insights.topByTransactions.first
         let favorite = insights.weekdays.max { $0.count < $1.count }
+        let visited = (favorite?.count ?? 0) > 0
         Section {
             Grid(horizontalSpacing: 12, verticalSpacing: 12) {
                 GridRow {
@@ -48,8 +58,8 @@ private struct Figures: View {
                     Tile(title: "Most transactions", value: busiest?.merchant ?? "None", detail: busiest.map { "\($0.count) txns · \(Money.kr($0.total))" })
                     Tile(
                         title: "Favorite card weekday",
-                        value: favorite.map { $0.count > 0 ? $0.weekday : "None" } ?? "None",
-                        detail: favorite.flatMap { $0.count > 0 ? "\($0.count) visits · \(Percent.of($0.share))" : nil }
+                        value: visited ? favorite?.weekday ?? "" : "Not available",
+                        detail: visited ? favorite.map { "\($0.count) merchant visits · \(Percent.of($0.share))" } : "No card purchase dates"
                     )
                 }
             }
@@ -113,6 +123,7 @@ private struct Ranking: View {
                         }
                     }
                 }
+                .merchantDrill(row.merchant)
             }
         }
     }
@@ -139,6 +150,7 @@ private struct Expected: View {
                             Text(row.merchant).lineLimit(1)
                         }
                     }
+                    .merchantDrill(row.merchant)
                 }
             }
         }
@@ -152,7 +164,7 @@ private struct Weekdays: View {
         let most = max(days.map(\.count).max() ?? 1, 1)
         Section("Card visits by weekday") {
             ForEach(days, id: \.weekday) { day in
-                VStack(alignment: .leading, spacing: 6) {
+                let row = VStack(alignment: .leading, spacing: 6) {
                     LabeledContent {
                         Text("\(day.count) · \(Percent.of(day.share))").monospacedDigit()
                     } label: {
@@ -163,7 +175,41 @@ private struct Weekdays: View {
                         .accessibilityHidden(true)
                 }
                 .accessibilityElement(children: .combine)
+                if let merchant = day.topMerchant {
+                    NavigationLink(value: MerchantRoute(name: merchant)) { row }
+                        .merchantDrill(merchant)
+                } else {
+                    row
+                }
             }
+        }
+    }
+}
+
+private enum HabitSort: String, CaseIterable, Identifiable {
+    case count, total, average, favoriteWeekday, medianDays, last
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .count: "Transactions"
+        case .total: "Spent"
+        case .average: "Average"
+        case .favoriteWeekday: "Favorite time"
+        case .medianDays: "Usual return"
+        case .last: "Last card visit"
+        }
+    }
+
+    func ascending(_ a: Habit, _ b: Habit) -> Bool {
+        switch self {
+        case .count: a.count < b.count
+        case .total: a.total < b.total
+        case .average: a.average < b.average
+        case .favoriteWeekday: (a.favoriteWeekday ?? "").localizedCompare(b.favoriteWeekday ?? "") == .orderedAscending
+        case .medianDays: (a.returnPattern?.medianDays ?? -1) < (b.returnPattern?.medianDays ?? -1)
+        case .last: (a.last ?? "") < (b.last ?? "")
         }
     }
 }
@@ -171,10 +217,19 @@ private struct Weekdays: View {
 private struct Habits: View {
     @Environment(Store.self) private var store
     let rows: [Habit]
+    @State private var sort = HabitSort.count
+    @State private var descending = true
 
     var body: some View {
+        let sorted = rows.enumerated().sorted { a, b in
+            let (x, y) = descending ? (b.element, a.element) : (a.element, b.element)
+            if sort.ascending(x, y) { return true }
+            if sort.ascending(y, x) { return false }
+            return a.offset < b.offset
+        }.map(\.element)
         Section {
-            ForEach(rows, id: \.merchant) { row in
+            ForEach(sorted, id: \.merchant) { row in
+                let category = store.data?.label(row.topCategory) ?? row.topCategory
                 NavigationLink(value: MerchantRoute(name: row.merchant)) {
                     HStack(alignment: .top, spacing: 12) {
                         CategoryIcon(category: row.topCategory)
@@ -185,7 +240,7 @@ private struct Habits: View {
                                 Text(Money.kr(row.total)).monospacedDigit()
                             }
                             Group {
-                                Text("\(row.count) txns · \(Money.kr(row.average)) on average · \(store.data?.label(row.topCategory) ?? row.topCategory)")
+                                Text("\(row.count) txns · \(Money.kr(row.average)) on average · \(category)")
                                 Text("Favorite time: \(favorite(row))")
                                 Text("Usual return: \(usual(row))")
                                 Text("Last card visit: \(row.last.map { Day.date($0).shortDay } ?? "None")")
@@ -199,9 +254,41 @@ private struct Habits: View {
                         }
                     }
                 }
+                .drill(
+                    Drill(axis: .merchants, value: row.merchant, name: row.merchant),
+                    Drill(axis: .categories, value: row.topCategory, name: category, hide: false)
+                )
             }
         } header: {
-            Text("Merchant habits")
+            HStack {
+                Text("Merchant habits")
+                Spacer()
+                Menu {
+                    ForEach(HabitSort.allCases) { key in
+                        Button {
+                            if sort == key {
+                                descending.toggle()
+                            } else {
+                                sort = key
+                                descending = true
+                            }
+                        } label: {
+                            if sort == key {
+                                Label(key.label, systemImage: descending ? "chevron.down" : "chevron.up")
+                            } else {
+                                Text(key.label)
+                            }
+                        }
+                    }
+                    Divider()
+                    Button(descending ? "Lowest first" : "Highest first", systemImage: "arrow.up.arrow.down") { descending.toggle() }
+                } label: {
+                    Label(sort.label, systemImage: "arrow.up.arrow.down")
+                        .font(.caption.weight(.semibold))
+                        .textCase(nil)
+                }
+                .accessibilityLabel("Sort merchant habits by \(sort.label)")
+            }
         } footer: {
             Text("The \(rows.count) merchants with the most transactions.")
         }
