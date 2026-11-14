@@ -230,3 +230,65 @@ export const distinctCountries = (txns: Categorized[]): string[] => {
 
 export const distinctAccounts = (txns: Categorized[]): string[] =>
   distinct(txns, (t) => t.account, byLocale);
+
+const REPEATED = [
+  ["merchants", "m"],
+  ["items", "it"],
+  ["accounts", "acct"],
+  ["countries", "co"],
+] as const;
+
+export function filtersToParams(f: Filters, p = new URLSearchParams()) {
+  if (f.categories.length) p.set("cat", f.categories.join(","));
+  if (f.categoriesOut.length) p.set("cat_not", f.categoriesOut.join(","));
+  for (const [axis, name] of REPEATED) {
+    for (const v of f[axis]) p.append(name, v);
+    for (const v of f[AXES[axis]]) p.append(`${name}_not`, v);
+  }
+  if (f.search) p.set("q", f.search);
+  if (f.showExcluded) p.set("excl", "1");
+  return p;
+}
+
+export function filtersFromParams(p: URLSearchParams): Filters {
+  const axis = (
+    values: string[],
+    out: string[],
+    mode: string,
+  ): [string[], string[]] =>
+    p.get(`${mode}_mode`) === "exclude"
+      ? [[], [...out, ...values]]
+      : [values, out];
+  const split = (name: string) => p.get(name)?.split(",").filter(Boolean) ?? [];
+  const repeated = (name: string) => p.getAll(name).filter(Boolean);
+  const [categories, categoriesOut] = axis(
+    split("cat"),
+    split("cat_not"),
+    "cat",
+  );
+  const [merchants, merchantsOut] = axis(repeated("m"), repeated("m_not"), "m");
+  const [accounts, accountsOut] = axis(
+    repeated("acct"),
+    repeated("acct_not"),
+    "acct",
+  );
+  const [countries, countriesOut] = axis(
+    repeated("co"),
+    repeated("co_not"),
+    "co",
+  );
+  return {
+    categories,
+    categoriesOut,
+    merchants,
+    merchantsOut,
+    items: repeated("it"),
+    itemsOut: repeated("it_not"),
+    accounts,
+    accountsOut,
+    countries,
+    countriesOut,
+    search: p.get("q") ?? "",
+    showExcluded: p.get("excl") === "1",
+  };
+}

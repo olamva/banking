@@ -98,17 +98,7 @@ export const txnFields = (
     return [[fieldName(key), text] as [string, string]];
   });
 
-export const bankLabel = (
-  t: Categorized,
-): [name: string, slug: string] | null => {
-  if (t.bankCategory === null) return null;
-  const name = t.bankCategoryName ?? tidy(t.bankCategory);
-  const sub = t.bankSubName ?? (t.bankSub === null ? null : tidy(t.bankSub));
-  return [
-    sub === null ? name : `${name} / ${sub}`,
-    t.bankSub === null ? t.bankCategory : `${t.bankCategory}/${t.bankSub}`,
-  ];
-};
+export { bankLabel } from "../../core/labels.ts";
 
 export const fmtDateTime = (ms: number): string =>
   new Date(ms).toLocaleString("nb-NO", {

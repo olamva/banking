@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { appData, appPeriod } from "../../src/core/app.ts";
+import { NO_FILTERS } from "../../src/core/select.ts";
 import { totals } from "../../src/core/stats.ts";
 import type { Categorized } from "../../src/core/types.ts";
 
@@ -134,4 +135,23 @@ test("each period keeps the insights of its own spending", () => {
   assert.equal(at("2025").insights.transactionCount, 2);
   assert.equal(at("2026").insights.transactionCount, 2);
   assert.equal(at("all").insights.transactionCount, 4);
+});
+
+test("filters narrow a period and its comparison, and keep the excluded note", () => {
+  const kiwi = appPeriod("2026-10", rows, "2026-10-12", {
+    ...NO_FILTERS,
+    merchants: ["Kiwi"],
+  });
+  assert.equal(kiwi.totalOut, 250.45);
+  assert.equal(kiwi.totalIn, 40.2);
+  assert.equal(kiwi.delta?.totalOut, 250.45 - 100.1);
+  assert.deepEqual(kiwi.prev, { from: "2025-10-01", to: "2025-10-12" });
+  assert.deepEqual(kiwi.subscriptions, []);
+  assert.deepEqual(kiwi.excluded, { count: 1, total: 5000 });
+  const none = appPeriod("2026-10", rows, "2026-10-12", {
+    ...NO_FILTERS,
+    merchantsOut: ["Kiwi", "Spotify"],
+  });
+  assert.equal(none.totalOut, 0);
+  assert.equal(none.compared, "this time last year");
 });
