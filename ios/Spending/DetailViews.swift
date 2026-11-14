@@ -7,11 +7,14 @@ struct CategoryView: View {
 
     var body: some View {
         let data = store.data
-        let period = store.lookup(route.period)
+        let current = route.period == store.selected?.key
+        let period = current ? store.shown : store.lookup(route.period)
         let end = String(period?.to.prefix(7) ?? "")
         let start = String(period?.from.prefix(7) ?? "")
         let history = (data?.months ?? []).filter { $0.key <= end }.suffix(12)
-        let txns = (data?.txns ?? []).filter { period?.contains($0) == true && $0.category == route.category && $0.excluded == nil }
+        let txns = (data?.txns ?? []).filter {
+            period?.contains($0) == true && $0.category == route.category && $0.excluded == nil && (!current || store.filters.matches($0))
+        }
         List {
             Section {
                 VStack(alignment: .leading, spacing: 12) {
@@ -48,6 +51,10 @@ struct CategoryView: View {
                     .frame(height: 140)
                 }
                 .padding(.vertical, 6)
+            } footer: {
+                if current && store.filters.changesFigures {
+                    Text("The total and the transactions use the filters. The monthly bars do not.")
+                }
             }
             let subs = period?.subcategories.filter { $0.category == route.category } ?? []
             if subs.count > 1 {

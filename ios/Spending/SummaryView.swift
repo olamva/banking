@@ -249,9 +249,13 @@ private struct Breakdowns: View {
     var body: some View {
         let single = store.filters.categories.count == 1
         if !single, !period.categories.isEmpty {
-            Section("Spending by category") {
+            Section {
                 Donut(period: period)
                 CategoryRows(period: period, shares: period.categories, subs: period.subcategories, income: false)
+            } header: {
+                Text("Spending by category")
+            } footer: {
+                Text("Tap a category to open it. Touch and hold a row to show only it or to hide it.")
             }
         }
         if !single { ChangesSection(period: period) }
@@ -387,11 +391,15 @@ private struct MerchantsSection: View {
 
     var body: some View {
         if !merchants.isEmpty {
-            Section(title) {
+            Section {
                 ForEach(merchants.prefix(10), id: \.counterparty) { MerchantRow(merchant: $0, income: income) }
                 if merchants.count > 10 {
                     NavigationLink("Show all \(merchants.count)") { MerchantList(title: title, income: income) }
                 }
+            } header: {
+                Text(title)
+            } footer: {
+                Text("Touch and hold a merchant to show only it or to hide it.")
             }
         }
     }

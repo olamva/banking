@@ -2,8 +2,16 @@ import SwiftUI
 
 struct TxnView: View {
     @Environment(Store.self) private var store
-    let txn: Txn
+    let initial: Txn
     @State private var ruleFile: RuleFile?
+
+    init(txn: Txn) { initial = txn }
+
+    private var txn: Txn {
+        store.data?.txns.first {
+            $0.date == initial.date && $0.amount == initial.amount && $0.description == initial.description && $0.account == initial.account
+        } ?? initial
+    }
 
     var body: some View {
         List {

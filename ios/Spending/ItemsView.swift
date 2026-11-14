@@ -70,7 +70,7 @@ struct ItemsView: View {
                 }
             }
             .periodPicker()
-            .filtering()
+            .filtering(search: false)
         }
     }
 

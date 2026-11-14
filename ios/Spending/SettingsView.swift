@@ -72,7 +72,7 @@ struct SettingsView: View {
                     }
                 }
                 Section {
-                    if let link = store.link {
+                    if let link = store.link(tab: tab) {
                         ShareLink(item: link) { Label("Share this view as a web link", systemImage: "square.and.arrow.up") }
                     }
                     if let app = appLink {

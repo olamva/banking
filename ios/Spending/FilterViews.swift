@@ -1,7 +1,7 @@
 import SwiftUI
 
 extension View {
-    func filtering(_ filters: Bool = true) -> some View { modifier(Filtering(filters: filters)) }
+    func filtering(_ filters: Bool = true, search: Bool = true) -> some View { modifier(Filtering(filters: filters, search: search)) }
 }
 
 extension AppData {
@@ -21,13 +21,16 @@ extension AppData {
 struct Filtering: ViewModifier {
     @Environment(Store.self) private var store
     let filters: Bool
+    let search: Bool
     @State private var choosing = false
     @State private var settings = false
 
     func body(content: Content) -> some View {
         content
             .safeAreaInset(edge: .top, spacing: 0) {
-                if filters && (!store.filters.isEmpty || store.figuring || store.figureProblem != nil) { FilterChips() }
+                if store.fetchingBank || store.refreshNote != nil || filters && (!store.filters.isEmpty || store.figuring || store.figureProblem != nil) {
+                    FilterChips(filters: filters, search: search)
+                }
             }
             .toolbar {
                 ToolbarItemGroup(placement: .topBarLeading) {
@@ -45,8 +48,37 @@ struct Filtering: ViewModifier {
 
 struct FilterChips: View {
     @Environment(Store.self) private var store
+    let filters: Bool
+    let search: Bool
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if store.fetchingBank {
+                Label {
+                    Text("Refreshing from the bank…")
+                } icon: {
+                    ProgressView().controlSize(.small)
+                }
+                .font(.subheadline)
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+            } else if let note = store.refreshNote {
+                HStack(alignment: .firstTextBaseline) {
+                    Label(note, systemImage: "building.columns").font(.subheadline)
+                    Spacer(minLength: 8)
+                    Button("Close", systemImage: "xmark") { store.refreshNote = nil }
+                        .labelStyle(.iconOnly)
+                        .buttonStyle(.borderless)
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+            }
+            if filters { chips }
+        }
+        .background(.bar)
+    }
+
+    private var chips: some View {
         ScrollView(.horizontal) {
             HStack(spacing: 8) {
                 if store.figuring {
@@ -68,7 +100,7 @@ struct FilterChips: View {
                         chip("\(axis.name): not \(store.data?.filterLabel(axis, value) ?? value)", out: true) { store.filters.remove(axis, value) }
                     }
                 }
-                if !store.filters.search.isEmpty {
+                if search && !store.filters.search.isEmpty {
                     chip("Search: \(store.filters.search)", out: false) { store.filters.search = "" }
                 }
                 if store.filters.showExcluded {
@@ -84,7 +116,6 @@ struct FilterChips: View {
             .padding(.vertical, 8)
         }
         .scrollIndicators(.hidden)
-        .background(.bar)
     }
 
     private func chip(_ text: String, out: Bool, remove: @escaping () -> Void) -> some View {
@@ -300,7 +331,8 @@ struct FilterActions: View {
 
     var body: some View {
         let name = store.data?.filterLabel(axis, value) ?? value
-        Button("Show only \(name)", systemImage: "line.3.horizontal.decrease") { store.filters.only(axis, value) }
+        let sole = store.filters[axis, false] == [value]
+        Button(sole ? "Show all \(axis.title.lowercased())" : "Show only \(name)", systemImage: "line.3.horizontal.decrease") { store.filters.only(axis, value) }
         Button("Hide \(name)", systemImage: "eye.slash") { store.filters.hide(axis, value) }
     }
 }

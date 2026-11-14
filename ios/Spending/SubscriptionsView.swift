@@ -47,7 +47,9 @@ struct SubscriptionsView: View {
     var body: some View {
         let subs = sorted
         List {
-            if subs.isEmpty {
+            if store.shown == nil {
+                ProgressView("Loading")
+            } else if subs.isEmpty {
                 ContentUnavailableView(search.isEmpty ? "No subscriptions" : "No subscriptions match the search", systemImage: "repeat")
             }
             ForEach(subs, id: \.name) { SubscriptionRow(sub: $0) }

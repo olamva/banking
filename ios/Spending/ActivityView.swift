@@ -82,6 +82,10 @@ struct ActivityView: View {
                     .toolbar {
                         if selecting {
                             ToolbarItemGroup(placement: .bottomBar) {
+                                Button("Done") {
+                                    selecting = false
+                                    selection = []
+                                }
                                 Button(selection.isEmpty ? "All \(rows.count)" : "\(selection.count) selected") { selection = [] }
                                     .disabled(selection.isEmpty)
                                 Spacer()
@@ -95,6 +99,7 @@ struct ActivityView: View {
                         BulkSheet(file: file, txns: selection.isEmpty ? rows : rows.filter { selection.contains($0.id) })
                     }
                     .onChange(of: rows.map(\.id)) { _, ids in selection.formIntersection(ids) }
+                    .onChange(of: data.generated) { selection = [] }
                 } else {
                     Loading()
                 }

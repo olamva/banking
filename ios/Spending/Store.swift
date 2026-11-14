@@ -31,11 +31,8 @@ struct RefreshStatus: Decodable {
     static let scheme = "spending"
 
     var data: AppData?
-    var period = UserDefaults.standard.string(forKey: "period") ?? "" {
-        didSet {
-            UserDefaults.standard.set(period, forKey: "period")
-            figures()
-        }
+    var period = "" {
+        didSet { figures() }
     }
     var filters = (UserDefaults.standard.data(forKey: "filters")).flatMap { try? JSONDecoder().decode(Filters.self, from: $0) } ?? Filters() {
         didSet {
@@ -143,9 +140,12 @@ struct RefreshStatus: Decodable {
         await rule("bulk", [("file", file), ("value", value)] + keys.map { ("key", $0) })
     }
 
-    var link: URL? {
+    private static let views = ["activity": "transactions", "insights": "insights", "items": "items"]
+
+    func link(tab: String) -> URL? {
         guard let base else { return nil }
-        return Self.url(base, "", Query.encode((period.isEmpty ? [] : [("p", period)]) + filters.query))
+        let view = Self.views[tab].map { [("view", $0)] } ?? []
+        return Self.url(base, "", Query.encode(view + (period.isEmpty ? [] : [("p", period)]) + filters.query))
     }
 
     func open(_ url: URL) {

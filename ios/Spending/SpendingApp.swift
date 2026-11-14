@@ -12,7 +12,12 @@ struct SpendingApp: App {
                 .environment(store)
                 .task { await store.start() }
                 .onChange(of: phase) { _, now in
-                    if now == .active, store.data != nil, store.signedIn { Task { await store.reload() } }
+                    if now == .active, store.data != nil, store.signedIn {
+                        Task {
+                            await store.reload()
+                            await store.fetchFromBank(start: false)
+                        }
+                    }
                 }
         }
     }
