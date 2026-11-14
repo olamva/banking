@@ -3,8 +3,7 @@ import SwiftUI
 struct TxnView: View {
     @Environment(Store.self) private var store
     let txn: Txn
-    @State private var choosing = false
-    @State private var saved: String?
+    @State private var ruleFile: RuleFile?
 
     var body: some View {
         List {
@@ -39,15 +38,14 @@ struct TxnView: View {
                     }
                 }
             }
-            if txn.remember != nil {
-                Section {
-                    Button("Change category", systemImage: "tag") { choosing = true }
-                    if let saved {
-                        Label("Saved as \(saved).", systemImage: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
-                    }
-                } footer: {
-                    Text("Applies to matching past and future transactions.")
+            Section("Rules") {
+                Button("Category rule…", systemImage: "tag") { ruleFile = .categories }
+                Button("Rename payee…", systemImage: "pencil") { ruleFile = .payees }
+                Button("Mark as family…", systemImage: "person.2") { ruleFile = .family }
+                if txn.recurring {
+                    Button("Not a subscription…", systemImage: "repeat.circle") { ruleFile = .notSubscriptions }
+                } else {
+                    Button("Mark as subscription…", systemImage: "repeat") { ruleFile = .subscriptions }
                 }
             }
             if let receipt = txn.receipt { ReceiptSection(receipt: receipt) }
@@ -57,10 +55,40 @@ struct TxnView: View {
                     LabeledContent("Subcategory", value: store.data?.label(txn.category, sub) ?? sub)
                 }
                 LabeledContent("Account", value: txn.account)
-                if let type = txn.type { LabeledContent("Type", value: type) }
-                if let country = txn.country { LabeledContent("Country", value: country) }
+                if let country = txn.country {
+                    Button { ruleFile = .countries } label: {
+                        LabeledContent("Country") {
+                            HStack(spacing: 6) {
+                                Text(country)
+                                Image(systemName: "pencil").font(.caption)
+                            }
+                        }
+                    }
+                    .tint(.primary)
+                    .accessibilityHint("Opens a country rule.")
+                }
                 if txn.recurring { LabeledContent("Recurring", value: "Yes") }
                 if txn.pending { LabeledContent("Status", value: "Pending") }
+                if let source = txn.source { LabeledContent("Classification", value: source) }
+                if let bank = txn.bank, let name = bank.first {
+                    LabeledContent("Bank category") {
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text(name)
+                            if bank.count > 1 {
+                                Text(bank[1]).font(.caption.monospaced()).foregroundStyle(.secondary)
+                            }
+                        }
+                        .multilineTextAlignment(.trailing)
+                    }
+                }
+                if let original = txn.original, !original.isEmpty {
+                    LabeledContent("Original payee", value: original)
+                }
+                if let remote = txn.remote {
+                    LabeledContent("Recipient account") { Text(remote).monospaced() }
+                }
+                if let type = txn.type { LabeledContent("Type", value: type) }
+                if let reason = txn.excluded { LabeledContent("Reason", value: reason) }
             }
             Section("Bank text") {
                 Text(txn.description)
@@ -74,96 +102,6 @@ struct TxnView: View {
             }
         }
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(isPresented: $choosing) {
-            if let key = txn.remember {
-                RememberView(key: key, current: txn.pair) { saved = $0 }
-            }
-        }
-    }
-}
-
-struct RememberView: View {
-    @Environment(Store.self) private var store
-    @Environment(\.dismiss) private var dismiss
-    let key: String
-    let current: String
-    let onSaved: (String) -> Void
-    @State private var value = ""
-    @State private var query = ""
-    @State private var saving = false
-    @State private var failure: String?
-
-    var body: some View {
-        let matches = store.data?.txns.filter { $0.remember == key } ?? []
-        NavigationStack {
-            List {
-                Section {
-                    Text(key).font(.subheadline.monospaced())
-                    Text("\(matches.count) matching transactions. \(matches.filter { $0.pair != value }.count) category changes.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                } footer: {
-                    Text("Saves a category pattern for this payee. It takes priority over existing category patterns. Exclusions still apply.")
-                }
-                Section("Category") {
-                    ForEach(choices, id: \.pair) { choice in
-                        Button {
-                            value = choice.pair
-                        } label: {
-                            HStack(spacing: 12) {
-                                CategoryIcon(category: String(choice.pair.split(separator: "/").first ?? ""), size: 26)
-                                Text(choice.title)
-                                Spacer()
-                                if value == choice.pair { Image(systemName: "checkmark").foregroundStyle(.green) }
-                            }
-                        }
-                        .tint(.primary)
-                    }
-                }
-            }
-            .searchable(text: $query, prompt: "Categories")
-            .navigationTitle("Change category")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel", systemImage: "xmark") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    if saving {
-                        ProgressView()
-                    } else {
-                        Button("Save", systemImage: "checkmark") { Task { await save() } }
-                            .disabled(value.isEmpty || value == current)
-                    }
-                }
-            }
-            .alert("Save failed", isPresented: .constant(failure != nil)) {
-                Button("OK") { failure = nil }
-            } message: {
-                Text(failure ?? "")
-            }
-        }
-        .onAppear { if value.isEmpty { value = current } }
-        .interactiveDismissDisabled(saving)
-    }
-
-    private var choices: [(pair: String, title: String)] {
-        guard let data = store.data else { return [] }
-        let words = query.lowercased().split(separator: " ")
-        return data.labels.keys
-            .map { (pair: $0, title: data.pairLabel($0)) }
-            .filter { choice in words.allSatisfy { choice.title.lowercased().contains($0) } }
-            .sorted { $0.title < $1.title }
-    }
-
-    private func save() async {
-        saving = true
-        defer { saving = false }
-        if let error = await store.bulk("categories", keys: [key], value: value) {
-            failure = error
-            return
-        }
-        onSaved(store.data?.pairLabel(value) ?? value)
-        dismiss()
+        .sheet(item: $ruleFile) { RuleSheet(file: $0, txn: txn) }
     }
 }
