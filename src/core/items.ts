@@ -138,6 +138,7 @@ export const unitPrice = (
 const receiptPurchases = (
   receipt: Receipt,
   nameOf: (raw: string) => string,
+  withoutDeposit = false,
 ): Purchase[] =>
   [
     ...Map.groupBy(
@@ -157,17 +158,23 @@ const receiptPurchases = (
       store: receipt.store,
       qty: same.reduce((n, l) => n + l.qty, 0),
       unit: same[0]!.unit,
-      amount: ore(same.reduce((n, l) => n + l.amount, 0)),
+      amount: ore(
+        same.reduce(
+          (n, l) => n + l.amount - (withoutDeposit ? (l.deposit ?? 0) : 0),
+          0,
+        ),
+      ),
     };
   });
 
 export const purchasesOf = (
   txns: Categorized[],
   rules: RuleMap = {},
+  withoutDeposit = false,
 ): Purchase[] => {
   const nameOf = namer(rules);
   return txns.flatMap((t) =>
-    t.receipt ? receiptPurchases(t.receipt, nameOf) : [],
+    t.receipt ? receiptPurchases(t.receipt, nameOf, withoutDeposit) : [],
   );
 };
 

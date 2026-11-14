@@ -156,6 +156,18 @@ test("prices each purchase by kilo, litre or piece across pack sizes", () => {
   ]);
 });
 
+test("the deposit stays in a can price unless the deposit setting removes it", () => {
+  const cans = [
+    txn("11", "2026-10-01T10:00:00Z", [
+      { ...line("Isbjørn Lite Glutenfri", 249, "0,33 l × 10"), deposit: 20 },
+    ]),
+  ];
+  const perLitre = (withoutDeposit: boolean) =>
+    unitPrice(purchasesOf(cans, {}, withoutDeposit)[0]!)!.price.toFixed(2);
+  assert.equal(perLitre(false), "75.45");
+  assert.equal(perLitre(true), "69.39");
+});
+
 test("dates purchases in Oslo and measures the usual gap in days", () => {
   const milk = itemsOf(purchases, true).find((i) => i.qty === 4)!;
   assert.deepEqual(

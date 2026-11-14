@@ -251,6 +251,7 @@ export const Items = ({ rows, filters, rules, onSearch }: ItemsProps) => {
           }),
         ),
         names,
+        filters.withoutDeposit,
       ),
     [rows, filters, names],
   );
