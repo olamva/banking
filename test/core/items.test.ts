@@ -166,6 +166,25 @@ test("the item filter keeps receipts by the item name, after rules rename lines"
   assert.deepEqual(ids({ itemsOut: ["tortillachips ost"] }), ["7", "none"]);
 });
 
+test("the item category filter keeps receipts with a line in that category", () => {
+  const rows = withItems(
+    [
+      txn("7", "2026-10-01T10:00:00Z", [line("Tine Lettmelk", 20)]),
+      txn("8", "2026-10-02T10:00:00Z", [line("Ringnes Pils", 32)]),
+      { receipt: undefined, category: "x" } as Categorized,
+    ],
+    {},
+    { "/lettmelk/": "Dairy & eggs/Milk", "/pils/": "Alcohol" },
+  );
+  const ids = (f: Partial<typeof NO_FILTERS>) =>
+    rows
+      .filter((t) => matchesFilters(t, { ...NO_FILTERS, ...f }))
+      .map((t) => t.receipt?.id ?? "none");
+  assert.deepEqual(ids({ kinds: ["Dairy & eggs"] }), ["7"]);
+  assert.deepEqual(ids({ kinds: ["Dairy & eggs/Milk"] }), ["7"]);
+  assert.deepEqual(ids({ kindsOut: ["Alcohol"] }), ["7", "none"]);
+});
+
 test("prices each purchase by kilo, litre or piece across pack sizes", () => {
   const priced = purchasesOf([
     txn("10", "2026-10-01T10:00:00Z", [

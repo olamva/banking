@@ -32,6 +32,8 @@ test("a populated state round-trips, nulls included", () => {
       merchantsOut: ["Meny"],
       items: ["Tine Lettmelk 0,5%"],
       itemsOut: ["Pose"],
+      kinds: ["Dairy & eggs/Milk"],
+      kindsOut: ["Alcohol"],
       accounts: [],
       accountsOut: ["Mastercard Ung"],
       countries: ["Japan", "—"],

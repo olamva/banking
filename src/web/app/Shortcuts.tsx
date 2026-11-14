@@ -17,10 +17,11 @@ export interface Shortcut {
 
 export const MENU_SHORTCUTS: Shortcut[] = [
   { cap: "↑ ↓", what: "Move down the list" },
-  { cap: "Enter", what: "Include, exclude or clear the row" },
-  { cap: "⌘ Enter", what: "Exclude the row" },
+  { cap: "Enter", what: "Include or clear the row" },
+  { cap: "⇧ Enter", what: "Exclude the row" },
   { cap: "→ ←", what: "Open or close a category" },
-  { cap: "Esc", what: "Close the menu" },
+  { cap: "⌫", what: "Go back to all filters, in an empty search" },
+  { cap: "Esc", what: "Close the panel" },
 ];
 
 const typing = (t: EventTarget | null) =>
@@ -97,7 +98,7 @@ export const ShortcutsDialog = ({
       </DialogHeader>
       <Rows shortcuts={shortcuts} />
       <h3 className="text-xs font-medium text-muted-foreground">
-        Inside a filter menu
+        Inside the filter panel
       </h3>
       <Rows shortcuts={MENU_SHORTCUTS} />
     </DialogContent>

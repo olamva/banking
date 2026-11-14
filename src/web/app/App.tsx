@@ -11,13 +11,14 @@ import { bulkFilters, type BulkFile } from "../../core/bulkRules.ts";
 import { withItems } from "../../core/items.ts";
 import { RULE_FILES, type RuleFile } from "../../core/ruleFiles.ts";
 import {
-  NO_FILTERS,
   axisBounds,
+  clearFilters,
   distinctCategories,
   distinctMonths,
   distinctSubcategories,
   distinctYears,
   inRange,
+  matchesFilters,
   period,
   todayOslo,
   type Filters,
@@ -38,7 +39,15 @@ import {
   useTransactions,
   type Theme,
 } from "./data.ts";
-import { FilterBar, SEARCH_VIEWS, type View } from "./FilterBar.tsx";
+import {
+  FilterButton,
+  FilterChips,
+  SEARCH_VIEWS,
+  axisSpecs,
+  activeCount,
+  type View,
+} from "./FilterBar.tsx";
+import type { Scope } from "./FilterPanel.tsx";
 import { setCategoryHues, setLabels } from "./format.ts";
 import { Header, LoadNote, RefreshButton } from "./Header.tsx";
 import { Insights } from "./Insights.tsx";
@@ -59,7 +68,7 @@ import { GRAINS, readUrl, writeUrl, type Grain } from "./url.ts";
 
 const NO_TXNS: Categorized[] = [];
 
-const useNoteToast =(note: string | null, bad: boolean) =>
+const useNoteToast = (note: string | null, bad: boolean) =>
   useEffect(() => {
     if (note === null) return;
     if (bad) toast.error(note, { duration: Infinity, closeButton: true });
@@ -88,6 +97,7 @@ export const App = () => {
   const [ruleFile, setRuleFile] = useState<RuleTab>(initial.ruleFile);
   const [chosen, setChosen] = useState<string | null>(initial.period);
   const [filters, setFilters] = useState<Filters>(initial.filters);
+  const [scope, setScope] = useState<Scope | null>(null);
   const [chosenGrain, setChosenGrain] = useState<Grain>(initial.grain);
   const [theme, onTheme] = useState<Theme>(readTheme);
   const [help, setHelp] = useState(false);
@@ -104,7 +114,11 @@ export const App = () => {
 
   const names = itemRules(rules);
   const loaded = load.status === "ready" ? load.txns : NO_TXNS;
-  const txns = useMemo(() => withItems(loaded, names), [loaded, names]);
+  const kindRules = itemRules(rules, "item-categories");
+  const txns = useMemo(
+    () => withItems(loaded, names, kindRules),
+    [loaded, names, kindRules],
+  );
   const ready = txns.length > 0;
   const months = useMemo(() => distinctMonths(txns), [txns]);
   const years = useMemo(() => distinctYears(txns), [txns]);
@@ -244,16 +258,22 @@ export const App = () => {
     },
     { cap: "G", what: GROUP_SHORTCUT },
     {
+      keys: ["f"],
+      cap: "f",
+      what: "Open the filter panel",
+      run: () => view !== "rules" && setScope("home"),
+    },
+    {
       keys: ["e"],
       cap: "e",
-      what: "Show or hide excluded rows",
+      what: "Show or hide internal transfers",
       run: () => setFilters((f) => ({ ...f, showExcluded: !f.showExcluded })),
     },
     {
       keys: ["r"],
       cap: "r",
-      what: "Reset every filter",
-      run: () => setFilters(NO_FILTERS),
+      what: "Clear every filter",
+      run: () => setFilters(clearFilters),
     },
     {
       keys: ["c"],
@@ -280,7 +300,13 @@ export const App = () => {
     () => txns.filter((t) => inRange(t, p.from, p.to)),
     [txns, p],
   );
-  const options = useFilterOptions(inPeriod, filters, names);
+  const options = useFilterOptions(inPeriod, filters, names, kindRules);
+  const specs = axisSpecs(options);
+  const matching = useMemo(
+    () =>
+      scope ? inPeriod.filter((t) => matchesFilters(t, filters)).length : 0,
+    [scope, inPeriod, filters],
+  );
 
   const views: Record<View, () => ReactNode> = {
     rules: () => (
@@ -317,7 +343,7 @@ export const App = () => {
         rows={inPeriod}
         filters={filters}
         rules={rules}
-        onSearch={(search) => setFilters((f) => ({ ...f, search }))}
+        onFilters={setFilters}
       />
     ),
     transactions: () => (
@@ -367,28 +393,41 @@ export const App = () => {
                   counts={counts}
                 />
               ) : (
-                <PeriodPicker
-                  months={months}
-                  years={years}
-                  period={active}
-                  kind={p.kind}
-                  from={p.from}
-                  to={p.to}
-                  earliest={record.from}
-                  latest={record.to}
-                  onPeriod={setChosen}
-                  onStep={step}
-                  canStep={(by) => nextStep(by) !== undefined}
-                />
+                <>
+                  <PeriodPicker
+                    months={months}
+                    years={years}
+                    period={active}
+                    kind={p.kind}
+                    from={p.from}
+                    to={p.to}
+                    earliest={record.from}
+                    latest={record.to}
+                    onPeriod={setChosen}
+                    onStep={step}
+                    canStep={(by) => nextStep(by) !== undefined}
+                  />
+                  <FilterButton
+                    specs={specs}
+                    filters={filters}
+                    onFilters={setFilters}
+                    scope={scope}
+                    onScope={setScope}
+                    matching={matching}
+                    count={activeCount(specs, filters, view)}
+                    deposit={view === "items"}
+                  />
+                </>
               )
             }
           >
             {view !== "rules" && (
-              <FilterBar
+              <FilterChips
                 view={view}
-                {...options}
+                specs={specs}
                 filters={filters}
                 onFilters={setFilters}
+                onEdit={setScope}
               />
             )}
           </Header>

@@ -76,7 +76,7 @@ export function periodPayload(params: URLSearchParams): Answer {
   return answer(() =>
     appPeriod(
       key,
-      withItems(rows(), itemNames()),
+      withItems(rows(), itemNames(), loadAll()["item-categories"] as RuleMap),
       undefined,
       filtersFromParams(params),
     ),

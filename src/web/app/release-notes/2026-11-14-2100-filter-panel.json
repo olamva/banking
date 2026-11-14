@@ -1,0 +1,17 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "One Filter button",
+      "detail": "One Filter button next to the period replaces the five filter menus and Settings. Search all categories, merchants, items, item categories, accounts and countries in one field, or open one list. Tap a row to include it, and tap the ⊘ button to exclude it. Press f to open the panel."
+    },
+    {
+      "title": "One chip for each filter",
+      "detail": "Each filter type shows as one chip under the period, such as Merchant: Kiwi or Rema 1000. Tap a chip to edit that filter, and tap × to remove it."
+    },
+    {
+      "title": "All filters in one place",
+      "detail": "Show internal transfers is in the Filter panel. On the Items page, Item categories and Include bottle deposit are in the Filter panel too. An item category filter also shows the receipts with that category on the other pages."
+    }
+  ]
+}

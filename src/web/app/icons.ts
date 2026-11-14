@@ -19,6 +19,8 @@ export { Cancel01Icon as CloseIcon } from "@hugeicons/core-free-icons";
 export { ArrowLeft02Icon as BackIcon } from "@hugeicons/core-free-icons";
 export { Edit02Icon as EditIcon } from "@hugeicons/core-free-icons";
 export { FilterResetIcon as ResetFiltersIcon } from "@hugeicons/core-free-icons";
+export { FilterHorizontalIcon as FilterIcon } from "@hugeicons/core-free-icons";
+export { UnavailableIcon as ExcludeIcon } from "@hugeicons/core-free-icons";
 export { KeyboardIcon } from "@hugeicons/core-free-icons";
 export { RefreshIcon } from "@hugeicons/core-free-icons";
 export { Search01Icon as SearchIcon } from "@hugeicons/core-free-icons";

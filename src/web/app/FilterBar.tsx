@@ -1,13 +1,11 @@
+import { Fragment, type ReactNode } from "react";
+import { topCategory } from "../../core/items.ts";
 import type { Axis, Filters } from "../../core/select.ts";
-import {
-  axisPairs,
-  cycleFilter,
-  NO_COUNTRY,
-  NO_FILTERS,
-} from "../../core/select.ts";
-import { Picker } from "./FilterPicker.tsx";
-import { pairLabel, treeLabel } from "./format.ts";
-import { CloseIcon, DropdownIcon, Icon, ResetFiltersIcon } from "./icons.ts";
+import { AXES, clearFilters, NO_COUNTRY } from "../../core/select.ts";
+import { FilterPanel, type AxisSpec, type Scope } from "./FilterPanel.tsx";
+import { categoryLabel, pairLabel, treeLabel } from "./format.ts";
+import { CloseIcon, FilterIcon, Icon } from "./icons.ts";
+import type { useFilterOptions } from "./options.ts";
 import { Badge } from "./ui/badge.tsx";
 import { Button } from "./ui/button.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover.tsx";
@@ -43,244 +41,268 @@ export const SwitchField = ({
   </label>
 );
 
-interface SettingsProps {
+type Options = ReturnType<typeof useFilterOptions>;
+
+export const axisSpecs = (o: Options): AxisSpec[] => {
+  const subsOf = (category: string) =>
+    o.subcategories.filter(
+      (pair) => pair.slice(0, pair.indexOf("/")) === category,
+    );
+  const country = (c: string) => (c === NO_COUNTRY ? "No country" : c);
+  const tree = (c: string) => treeLabel(c, subsOf(c));
+  const specs: Omit<AxisSpec, "uses">[] = [
+    {
+      axis: "categories",
+      name: "Category",
+      plural: "Categories",
+      options: o.categories.toSorted((a, b) => tree(a).localeCompare(tree(b))),
+      label: tree,
+      fullLabel: (c) =>
+        c.includes("/")
+          ? `${categoryLabel(c.slice(0, c.indexOf("/")))} › ${pairLabel(c)}`
+          : tree(c),
+      subs: subsOf,
+      subLabel: pairLabel,
+    },
+    {
+      axis: "merchants",
+      name: "Merchant",
+      plural: "Merchants",
+      options: o.merchants,
+      people: o.people,
+    },
+    { axis: "items", name: "Item", plural: "Items", options: o.items },
+    {
+      axis: "kinds",
+      name: "Item category",
+      plural: "Item categories",
+      options: o.kinds,
+      fullLabel: (k) => k.replace("/", " › "),
+      subs: (top) => o.kindPairs.filter((p) => topCategory(p) === top),
+      subLabel: (k) => k.slice(k.indexOf("/") + 1),
+    },
+    {
+      axis: "accounts",
+      name: "Account",
+      plural: "Accounts",
+      options: o.accounts,
+    },
+    {
+      axis: "countries",
+      name: "Country",
+      plural: "Countries",
+      options: o.countries,
+      label: country,
+      fullLabel: country,
+    },
+  ];
+  return specs.map((s) => ({ ...s, uses: o.uses[s.axis] }));
+};
+
+interface FilterButtonProps {
+  specs: AxisSpec[];
   filters: Filters;
   onFilters: (filters: Filters) => void;
-  className?: string;
+  scope: Scope | null;
+  onScope: (scope: Scope | null) => void;
+  matching: number;
+  count: number;
+  deposit: boolean;
 }
 
-const Settings = ({ filters, onFilters, className }: SettingsProps) => {
-  const count = Number(filters.showExcluded) + Number(filters.withoutDeposit);
-  const rows: [string, boolean, (on: boolean) => Filters][] = [
-    [
-      "Show excluded rows",
-      filters.showExcluded,
-      (showExcluded) => ({ ...filters, showExcluded }),
-    ],
-    [
-      "Include deposit in item prices",
-      !filters.withoutDeposit,
-      (on) => ({ ...filters, withoutDeposit: !on }),
-    ],
-  ];
+export const FilterButton = ({
+  specs,
+  filters,
+  onFilters,
+  scope,
+  onScope,
+  matching,
+  count,
+  deposit,
+}: FilterButtonProps) => {
   return (
-    <Popover>
+    <Popover
+      open={scope !== null}
+      onOpenChange={(open) => onScope(open ? "home" : null)}
+    >
       <PopoverTrigger asChild>
         <Button
           variant="outline"
-          className={cn("justify-between font-normal", className)}
+          aria-label={count ? `Filter, ${count} active` : "Filter"}
+          className="relative shrink-0 after:absolute after:inset-x-0 after:-inset-y-1.5"
         >
-          Settings
+          <Icon icon={FilterIcon} size={15} />
+          Filter
           {count > 0 && (
-            <Badge variant="secondary" className="h-4.5 px-1.5 tabular-nums">
-              {count}
-            </Badge>
+            <Badge className="h-4.5 min-w-4.5 px-1 tabular-nums">{count}</Badge>
           )}
-          <Icon
-            icon={DropdownIcon}
-            size={14}
-            className="text-muted-foreground"
-          />
         </Button>
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className="w-[min(18rem,calc(100vw-1.5rem))] gap-0 p-1"
+        collisionPadding={12}
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        className="max-h-[min(34rem,var(--radix-popover-content-available-height))] w-[min(22rem,calc(100vw-1.5rem))] gap-0 overflow-hidden p-0"
       >
-        {rows.map(([label, checked, next]) => (
-          <label
-            key={label}
-            className="flex cursor-pointer items-center justify-between gap-3 rounded-md px-2 py-2 text-sm hover:bg-muted"
-          >
-            {label}
-            <Switch
-              checked={checked}
-              onCheckedChange={(on) => onFilters(next(on))}
-            />
-          </label>
-        ))}
+        {scope && (
+          <FilterPanel
+            specs={specs}
+            filters={filters}
+            onFilters={onFilters}
+            scope={scope}
+            onScope={onScope}
+            matching={matching}
+            active={count > 0}
+            deposit={deposit}
+          />
+        )}
       </PopoverContent>
     </Popover>
   );
 };
 
-interface FilterBarProps {
-  view: View;
-  categories: string[];
-  subcategories: string[];
-  merchants: string[];
-  items: string[];
-  people: ReadonlySet<string>;
-  accounts: string[];
-  countries: string[];
-  filters: Filters;
-  onFilters: (filters: Filters) => void;
-}
+const CHIP =
+  "inline-flex h-8 max-w-full shrink-0 items-center rounded-full bg-secondary text-sm text-secondary-foreground";
 
-const AXIS_NAME: Record<Axis, string> = {
-  categories: "Category",
-  merchants: "Merchant",
-  items: "Item",
-  accounts: "Account",
-  countries: "Country",
-};
+const CHIP_BODY =
+  "flex h-full min-w-0 items-center gap-1 rounded-l-full pl-3 hover:bg-foreground/5";
 
-interface ChipProps {
-  axis: string;
-  text: string;
-  out?: boolean;
-  onRemove: () => void;
-}
-
-const Chip = ({ axis, text, out, onRemove }: ChipProps) => (
-  <Badge
-    asChild
-    variant={out ? "destructive" : "secondary"}
-    className="h-6 max-w-full cursor-pointer gap-1 pr-0.5 pl-2 font-normal"
+const X = ({ label, onClick }: { label: string; onClick: () => void }) => (
+  <button
+    type="button"
+    aria-label={label}
+    onClick={onClick}
+    className="relative flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground after:absolute after:-inset-1.5 hover:bg-foreground/10 hover:text-foreground"
   >
-    <button
-      type="button"
-      onClick={onRemove}
-      aria-label={`Remove ${out ? "exclusion " : ""}${text}`}
-    >
-      <span className="opacity-70">{axis}:</span>
-      {out && <span className="font-medium">not</span>}
-      <span className={cn("truncate", out && "line-through")}>{text}</span>
-      <span className="flex size-5 shrink-0 items-center justify-center rounded-full opacity-70 group-hover/badge:bg-foreground/10 group-hover/badge:opacity-100">
-        <Icon icon={CloseIcon} size={12} />
-      </span>
-    </button>
-  </Badge>
+    <Icon icon={CloseIcon} size={13} />
+  </button>
 );
 
-export const FilterBar = ({
-  view,
-  categories,
-  subcategories,
-  merchants,
-  items,
-  people,
-  accounts,
-  countries,
-  filters,
-  onFilters,
-}: FilterBarProps) => {
-  const toggle = (key: Axis) => (value: string, exclude: boolean) =>
-    onFilters(cycleFilter(filters, key, value, exclude));
+export const activeCount = (specs: AxisSpec[], f: Filters, view: View) =>
+  specs.reduce((n, s) => n + f[s.axis].length + f[AXES[s.axis]].length, 0) +
+  Number(f.search !== "" && !SEARCH_VIEWS.includes(view)) +
+  Number(f.showExcluded);
 
-  const subsOf = (category: string) =>
-    subcategories.filter(
-      (pair) => pair.slice(0, pair.indexOf("/")) === category,
-    );
+interface AxisChipProps {
+  spec: AxisSpec;
+  filters: Filters;
+  onFilters: (filters: Filters) => void;
+  onEdit: () => void;
+}
 
-  const labelOf = (axis: Axis, value: string) =>
-    axis === "categories"
-      ? value.includes("/")
-        ? pairLabel(value)
-        : treeLabel(value, subsOf(value))
-      : axis === "countries" && value === NO_COUNTRY
-        ? "No country"
-        : value;
-
-  const chips = axisPairs().flatMap(([key, outKey]) => [
-    ...filters[key].map((v) => ({ key, list: key, v, out: false })),
-    ...filters[outKey].map((v) => ({ key, list: outKey, v, out: true })),
-  ]);
-  const searchChip = filters.search !== "" && !SEARCH_VIEWS.includes(view);
-  const dirty =
-    chips.length > 0 ||
-    filters.search !== "" ||
-    filters.showExcluded ||
-    filters.withoutDeposit;
-  const PICKER = "max-sm:flex-1 max-sm:basis-[calc(50%-0.25rem)]";
+const AxisChip = ({ spec, filters, onFilters, onEdit }: AxisChipProps) => {
+  const outKey = AXES[spec.axis];
+  const inn = filters[spec.axis];
+  const out = filters[outKey];
+  const name = spec.fullLabel ?? ((v: string) => v);
+  const words = [...inn, ...out];
+  const sep = (i: number) => (i === 0 ? "" : i < inn.length ? " or " : ", ");
+  const not = (i: number) => i >= inn.length;
+  const parts = words
+    .map((v, i) => `${sep(i)}${not(i) ? "not " : ""}${name(v)}`)
+    .join("");
 
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <Picker
-          title="Categories"
-          options={categories}
-          picked={filters.categories}
-          excluded={filters.categoriesOut}
-          onToggle={toggle("categories")}
-          label={(c) => treeLabel(c, subsOf(c))}
-          subs={subsOf}
-          subLabel={pairLabel}
-          className={PICKER}
+    <span className={CHIP}>
+      <button
+        type="button"
+        onClick={onEdit}
+        aria-label={`${spec.name}: ${parts}. Edit`}
+        className={CHIP_BODY}
+      >
+        <span className="text-muted-foreground">{spec.name}:</span>
+        <span className="truncate">
+          {words.slice(0, 2).map((v, i) => (
+            <Fragment key={v}>
+              {sep(i)}
+              {not(i) && <span className="text-destructive">NOT </span>}
+              {name(v)}
+            </Fragment>
+          ))}
+          {words.length > 2 && ` +${words.length - 2}`}
+        </span>
+      </button>
+      <X
+        label={`Remove every ${spec.name.toLowerCase()} filter`}
+        onClick={() => onFilters({ ...filters, [spec.axis]: [], [outKey]: [] })}
+      />
+    </span>
+  );
+};
+
+const PlainChip = ({
+  children,
+  label,
+  onRemove,
+}: {
+  children: ReactNode;
+  label: string;
+  onRemove: () => void;
+}) => (
+  <span className={CHIP}>
+    <span className="min-w-0 truncate pl-3">{children}</span>
+    <X label={label} onClick={onRemove} />
+  </span>
+);
+
+interface FilterChipsProps {
+  view: View;
+  specs: AxisSpec[];
+  filters: Filters;
+  onFilters: (filters: Filters) => void;
+  onEdit: (axis: Axis) => void;
+}
+
+export const FilterChips = ({
+  view,
+  specs,
+  filters,
+  onFilters,
+  onEdit,
+}: FilterChipsProps) => {
+  const axes = specs.filter(
+    (s) => filters[s.axis].length + filters[AXES[s.axis]].length > 0,
+  );
+  const search = filters.search !== "" && !SEARCH_VIEWS.includes(view);
+  const count = axes.length + Number(search) + Number(filters.showExcluded);
+  if (count === 0) return null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {axes.map((spec) => (
+        <AxisChip
+          key={spec.axis}
+          spec={spec}
+          filters={filters}
+          onFilters={onFilters}
+          onEdit={() => onEdit(spec.axis)}
         />
-        <Picker
-          title="Merchants"
-          options={merchants}
-          picked={filters.merchants}
-          excluded={filters.merchantsOut}
-          onToggle={toggle("merchants")}
-          people={people}
-          className={PICKER}
-        />
-        <Picker
-          title="Items"
-          options={items}
-          picked={filters.items}
-          excluded={filters.itemsOut}
-          onToggle={toggle("items")}
-          className={PICKER}
-        />
-        <Picker
-          title="Accounts"
-          options={accounts}
-          picked={filters.accounts}
-          excluded={filters.accountsOut}
-          onToggle={toggle("accounts")}
-          className={PICKER}
-        />
-        <Picker
-          title="Countries"
-          options={countries}
-          picked={filters.countries}
-          excluded={filters.countriesOut}
-          onToggle={toggle("countries")}
-          label={(c) => (c === NO_COUNTRY ? "No country" : c)}
-          className={PICKER}
-        />
-        <Settings filters={filters} onFilters={onFilters} className={PICKER} />
+      ))}
+      {search && (
+        <PlainChip
+          label="Remove text search"
+          onRemove={() => onFilters({ ...filters, search: "" })}
+        >
+          <span className="text-muted-foreground">Text:</span> “{filters.search}
+          ”
+        </PlainChip>
+      )}
+      {filters.showExcluded && (
+        <PlainChip
+          label="Hide internal transfers"
+          onRemove={() => onFilters({ ...filters, showExcluded: false })}
+        >
+          Internal transfers shown
+        </PlainChip>
+      )}
+      {count > 1 && (
         <Button
           variant="ghost"
-          disabled={!dirty}
-          onClick={() => onFilters(NO_FILTERS)}
-          className={cn(
-            PICKER,
-            "text-muted-foreground",
-            !dirty && "invisible max-sm:hidden",
-          )}
+          onClick={() => onFilters(clearFilters(filters))}
+          className="shrink-0 text-muted-foreground"
         >
-          <Icon icon={ResetFiltersIcon} size={15} />
-          Reset
+          Clear all
         </Button>
-      </div>
-      {(chips.length > 0 || searchChip) && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          {chips.map(({ key, list, v, out }) => (
-            <Chip
-              key={`${key}:${out}:${v}`}
-              axis={AXIS_NAME[key]}
-              text={labelOf(key, v)}
-              out={out}
-              onRemove={() =>
-                onFilters({
-                  ...filters,
-                  [list]: filters[list].filter((x) => x !== v),
-                })
-              }
-            />
-          ))}
-          {searchChip && (
-            <Chip
-              axis="Search"
-              text={filters.search}
-              onRemove={() => onFilters({ ...filters, search: "" })}
-            />
-          )}
-        </div>
       )}
     </div>
   );

@@ -85,7 +85,7 @@ export const PeriodPicker = ({
   };
 
   return (
-    <ButtonGroup className="min-w-0 max-sm:w-full">
+    <ButtonGroup className="min-w-0 max-sm:flex-1">
       <Button
         variant="outline"
         size="icon"

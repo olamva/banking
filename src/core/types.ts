@@ -38,4 +38,5 @@ export type Categorized = Classified & {
   categorySource?: string;
   receipt?: Receipt;
   items?: string[];
+  kinds?: string[];
 };

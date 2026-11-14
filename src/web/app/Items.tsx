@@ -10,7 +10,6 @@ import {
 import {
   cycleFilter,
   matchesFilters,
-  NO_FILTERS,
   type Filters,
 } from "../../core/select.ts";
 import type { Categorized } from "../../core/types.ts";
@@ -27,7 +26,6 @@ import { itemRules, type RulesApi } from "./data.ts";
 import { fmtDate, fmtNOK, fmtNOKExact, fmtPct } from "./format.ts";
 import { CategoryIcon, ChangesIcon, InfoIcon, ItemsIcon } from "./icons.ts";
 import { SwitchField } from "./FilterBar.tsx";
-import { Picker } from "./FilterPicker.tsx";
 import { fmtGap, fmtQty, ItemSheet } from "./ItemSheet.tsx";
 import { PriceChart } from "./PriceChart.tsx";
 import { SearchBox } from "./SearchBox.tsx";
@@ -113,10 +111,10 @@ interface ItemsProps {
   rows: Categorized[];
   filters: Filters;
   rules: RulesApi;
-  onSearch: (search: string) => void;
+  onFilters: (filters: Filters) => void;
 }
 
-export const Items = ({ rows, filters, rules, onSearch }: ItemsProps) => {
+export const Items = ({ rows, filters, rules, onFilters }: ItemsProps) => {
   const words = useDeferredValue(filters.search)
     .toLowerCase()
     .replace(/(\d),(\d)/g, "$1.$2")
@@ -124,9 +122,8 @@ export const Items = ({ rows, filters, rules, onSearch }: ItemsProps) => {
   const [bySize, setBySize] = useState(false);
   const names = itemRules(rules);
   const categories = itemRules(rules, "item-categories");
-  const [kinds, setKinds] = useState(NO_FILTERS);
   const pickKind = (value: string, exclude: boolean) =>
-    setKinds((f) => cycleFilter(f, "categories", value, exclude));
+    onFilters(cycleFilter(filters, "kinds", value, exclude));
   const purchases = useMemo(
     () =>
       purchasesOf(
@@ -136,6 +133,8 @@ export const Items = ({ rows, filters, rules, onSearch }: ItemsProps) => {
             search: "",
             items: [],
             itemsOut: [],
+            kinds: [],
+            kindsOut: [],
           }),
         ),
         names,
@@ -145,10 +144,6 @@ export const Items = ({ rows, filters, rules, onSearch }: ItemsProps) => {
     [rows, filters, names, categories],
   );
   const items = useMemo(() => itemsOf(purchases, bySize), [purchases, bySize]);
-  const tops = [...new Set(items.map((i) => topCategory(i.category)))].sort();
-  const pairs = [...new Set(items.map((i) => i.category))].filter((c) =>
-    c.includes("/"),
-  );
   const picks = filters.items.map(nameKey);
   const drops = filters.itemsOut.map(nameKey);
   const shown = items.filter(({ key, category, purchases: [first] }) => {
@@ -157,9 +152,8 @@ export const Items = ({ rows, filters, rules, onSearch }: ItemsProps) => {
       words.every((w) => key.includes(w)) &&
       (!picks.length || picks.includes(first!.key)) &&
       !drops.includes(first!.key) &&
-      (!kinds.categories.length ||
-        kind.some((k) => kinds.categories.includes(k))) &&
-      !kind.some((k) => kinds.categoriesOut.includes(k))
+      (!filters.kinds.length || kind.some((k) => filters.kinds.includes(k))) &&
+      !kind.some((k) => filters.kindsOut.includes(k))
     );
   });
   const [sort, setSort] = useState<Sort>("count");
@@ -230,26 +224,16 @@ export const Items = ({ rows, filters, rules, onSearch }: ItemsProps) => {
       <div className="mb-4 flex flex-wrap gap-2">
         <SearchBox
           value={filters.search}
-          onChange={onSearch}
+          onChange={(search) => onFilters({ ...filters, search })}
           placeholder="Search items"
           hotkey
-          className="flex-1 max-sm:basis-full"
-        />
-        <Picker
-          title="Item categories"
-          options={tops}
-          picked={kinds.categories}
-          excluded={kinds.categoriesOut}
-          onToggle={pickKind}
-          subs={(top) => pairs.filter((p) => topCategory(p) === top)}
-          subLabel={subLabel}
-          className="max-sm:flex-1 sm:h-auto sm:self-stretch"
+          className="flex-1"
         />
         <SwitchField
           label="Split by size"
           checked={bySize}
           onChange={setBySize}
-          className="max-sm:flex-1 sm:h-auto sm:self-stretch"
+          className="sm:h-auto sm:self-stretch"
         />
       </div>
       <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(min(150px,100%),1fr))] gap-3 max-sm:grid-cols-2">
