@@ -56,6 +56,7 @@ struct CategoryView: View {
                         LabeledContent(data?.label(sub.category, sub.subcategory) ?? "Other") {
                             Text(Money.kr(sub.total)).monospacedDigit()
                         }
+                        .contextMenu { FilterActions(axis: .categories, value: "\(sub.category)/\(sub.subcategory ?? "")") }
                     }
                 }
             }
@@ -67,6 +68,13 @@ struct CategoryView: View {
         }
         .navigationTitle(data?.label(route.category) ?? route.category)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu("Filter", systemImage: "line.3.horizontal.decrease.circle") {
+                    FilterActions(axis: .categories, value: route.category)
+                }
+            }
+        }
     }
 }
 
@@ -121,6 +129,13 @@ struct MerchantView: View {
         }
         .navigationTitle(name)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu("Filter", systemImage: "line.3.horizontal.decrease.circle") {
+                    FilterActions(axis: .merchants, value: name)
+                }
+            }
+        }
     }
 }
 

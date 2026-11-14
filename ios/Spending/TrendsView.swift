@@ -56,6 +56,7 @@ struct TrendsView: View {
                 }
             }
             .navigationTitle("Trends")
+            .filtering(false)
         }
     }
 }

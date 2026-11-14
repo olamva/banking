@@ -12,6 +12,14 @@ struct PeriodPicker: ViewModifier {
             .navigationTitle(selected?.title ?? "Spending")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarTitleMenu {
+                if let today = store.data?.today {
+                    let month = String(today.prefix(7))
+                    let year = String(today.prefix(4))
+                    Button("This month", systemImage: "calendar.day.timeline.left") { store.period = month }
+                        .disabled(store.lookup(month) == nil)
+                    Button("This year", systemImage: "calendar") { store.period = year }
+                        .disabled(store.lookup(year) == nil)
+                }
                 Button("All time", systemImage: "infinity") { store.period = "all" }
                 Button("Custom range", systemImage: "calendar.badge.clock") { choosing = true }
                 Divider()
@@ -108,6 +116,10 @@ struct Loading: View {
                 Text(store.problem?.localizedDescription ?? "Pull to try again.")
             } actions: {
                 Button("Try again") { Task { await store.reload() } }
+                if store.signedIn {
+                    Button("Fetch from the bank") { Task { await store.fetchFromBank() } }
+                        .disabled(store.fetchingBank)
+                }
             }
         }
     }
