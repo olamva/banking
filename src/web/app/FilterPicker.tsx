@@ -101,7 +101,7 @@ export const ValueRow = ({
     <button
       type="button"
       tabIndex={-1}
-      aria-hidden
+      aria-label={out ? `Stop excluding ${text}` : `Exclude ${text}`}
       title={out ? "Stop excluding" : "Exclude"}
       onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => {
@@ -189,7 +189,7 @@ export const PickerList = ({
       (all.length > 1 && kids.some((c) => pinned.includes(c)));
     const openHere = openByDefault !== expanded.has(o);
     const lone = all.length === 1 && !all[0]!.endsWith("/") ? all[0]! : null;
-    const parent = { value: lone && !on(o) ? lone : o, sub: false };
+    const parent = { value: lone && on(lone) ? lone : o, sub: false };
     return kids.length > 0 && openHere && !lone
       ? [parent, ...kids.map((c) => ({ value: c, sub: true }))]
       : [parent];

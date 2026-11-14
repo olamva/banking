@@ -1,6 +1,5 @@
-import { useRef } from "react";
-import type { Axis, Filters } from "../../core/select.ts";
 import type { ReactNode } from "react";
+import type { Axis, Filters } from "../../core/select.ts";
 import { AXES, clearFilters, NO_COUNTRY } from "../../core/select.ts";
 import { FilterPanel, type AxisSpec, type Scope } from "./FilterPanel.tsx";
 import { categoryLabel, pairLabel, treeLabel } from "./format.ts";
@@ -8,12 +7,6 @@ import { CloseIcon, FilterIcon, Icon } from "./icons.ts";
 import type { useFilterOptions } from "./options.ts";
 import { Badge } from "./ui/badge.tsx";
 import { Button } from "./ui/button.tsx";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "./ui/dropdown-menu.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover.tsx";
 import { Switch } from "./ui/switch.tsx";
 import { cn } from "./ui/utils.ts";
@@ -124,7 +117,7 @@ export const FilterButton = ({
         <Button
           variant="outline"
           aria-label={count ? `Filter, ${count} active` : "Filter"}
-          className="shrink-0"
+          className="relative shrink-0 after:absolute after:inset-x-0 after:-inset-y-1.5"
         >
           <Icon icon={FilterIcon} size={15} />
           Filter
@@ -166,119 +159,49 @@ const X = ({ label, onClick }: { label: string; onClick: () => void }) => (
     type="button"
     aria-label={label}
     onClick={onClick}
-    className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
+    className="relative flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground after:absolute after:-inset-1.5 hover:bg-foreground/10 hover:text-foreground"
   >
     <Icon icon={CloseIcon} size={13} />
   </button>
 );
 
-const MAX_SPLIT = 2;
-
-const splits = (spec: AxisSpec, f: Filters) =>
-  f[spec.axis].length + f[AXES[spec.axis]].length <= MAX_SPLIT;
-
-export const chipCount = (specs: AxisSpec[], f: Filters, view: View) =>
-  specs.reduce((n, s) => {
-    const values = f[s.axis].length + f[AXES[s.axis]].length;
-    return n + (values === 0 ? 0 : splits(s, f) ? values : 1);
-  }, 0) +
+export const activeCount = (specs: AxisSpec[], f: Filters, view: View) =>
+  specs.reduce((n, s) => n + f[s.axis].length + f[AXES[s.axis]].length, 0) +
   Number(f.search !== "" && !SEARCH_VIEWS.includes(view)) +
   Number(f.showExcluded);
 
-interface ChipProps {
+interface AxisChipProps {
   spec: AxisSpec;
   filters: Filters;
   onFilters: (filters: Filters) => void;
   onEdit: () => void;
 }
 
-const ValueChip = ({
-  spec,
-  value,
-  filters,
-  onFilters,
-  onEdit,
-}: ChipProps & { value: string }) => {
-  const editing = useRef(false);
-  const outKey = AXES[spec.axis];
-  const out = filters[outKey].includes(value);
-  const text = (spec.fullLabel ?? ((v: string) => v))(value);
-  const without = (list: string[]) => list.filter((v) => v !== value);
-  const remove = () =>
-    onFilters({
-      ...filters,
-      [spec.axis]: without(filters[spec.axis]),
-      [outKey]: without(filters[outKey]),
-    });
-  const flip = () =>
-    onFilters({
-      ...filters,
-      [spec.axis]: out
-        ? [...filters[spec.axis], value]
-        : without(filters[spec.axis]),
-      [outKey]: out ? without(filters[outKey]) : [...filters[outKey], value],
-    });
-
-  return (
-    <span className={CHIP}>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            aria-label={`${spec.name}: ${out ? "not " : ""}${text}. Options`}
-            className={CHIP_BODY}
-          >
-            <span className="text-muted-foreground">{spec.name}:</span>
-            <span className={cn("truncate", out && "text-destructive")}>
-              {out && "not "}
-              {text}
-            </span>
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent
-          className="w-auto *:pointer-coarse:min-h-11"
-          onCloseAutoFocus={(e) => {
-            if (!editing.current) return;
-            editing.current = false;
-            e.preventDefault();
-          }}
-        >
-          <DropdownMenuItem onSelect={flip}>
-            {out ? "Include instead" : "Exclude instead"}
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onSelect={() => {
-              editing.current = true;
-              onEdit();
-            }}
-          >
-            Edit {spec.plural.toLowerCase()}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <X label={`Remove ${text}`} onClick={remove} />
-    </span>
-  );
-};
-
-const AxisChip = ({ spec, filters, onFilters, onEdit }: ChipProps) => {
+const AxisChip = ({ spec, filters, onFilters, onEdit }: AxisChipProps) => {
   const outKey = AXES[spec.axis];
   const inn = filters[spec.axis];
   const out = filters[outKey];
   const name = spec.fullLabel ?? ((v: string) => v);
-  const parts = [...inn.map(name), ...out.map((v) => `not ${name(v)}`)];
+  const words = [...inn.map(name), ...out.map((v) => `not ${name(v)}`)];
+  const join = (list: string[]) =>
+    list.reduce((s, w, i) => `${s}${i < inn.length ? " or " : ", "}${w}`);
+  const parts = join(words);
+  const text =
+    join(words.slice(0, 2)) + (words.length > 2 ? ` +${words.length - 2}` : "");
 
   return (
     <span className={CHIP}>
       <button
         type="button"
         onClick={onEdit}
-        aria-label={`${spec.name}: ${parts.join(", ")}. Edit`}
+        aria-label={`${spec.name}: ${parts}. Edit`}
         className={CHIP_BODY}
       >
         <span className="text-muted-foreground">{spec.name}:</span>
-        <span className="truncate">
-          {parts.slice(0, 2).join(", ")} +{parts.length - 2}
+        <span
+          className={cn("truncate", inn.length === 0 && "text-destructive")}
+        >
+          {text}
         </span>
       </button>
       <X
@@ -319,25 +242,24 @@ export const FilterChips = ({
   onFilters,
   onEdit,
 }: FilterChipsProps) => {
+  const axes = specs.filter(
+    (s) => filters[s.axis].length + filters[AXES[s.axis]].length > 0,
+  );
   const search = filters.search !== "" && !SEARCH_VIEWS.includes(view);
-  const count = chipCount(specs, filters, view);
+  const count = axes.length + Number(search) + Number(filters.showExcluded);
   if (count === 0) return null;
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      {specs.flatMap((spec) => {
-        const chip = {
-          spec,
-          filters,
-          onFilters,
-          onEdit: () => onEdit(spec.axis),
-        };
-        return splits(spec, filters)
-          ? [...filters[spec.axis], ...filters[AXES[spec.axis]]].map((v) => (
-              <ValueChip key={`${spec.axis}:${v}`} {...chip} value={v} />
-            ))
-          : [<AxisChip key={spec.axis} {...chip} />];
-      })}
+      {axes.map((spec) => (
+        <AxisChip
+          key={spec.axis}
+          spec={spec}
+          filters={filters}
+          onFilters={onFilters}
+          onEdit={() => onEdit(spec.axis)}
+        />
+      ))}
       {search && (
         <PlainChip
           label="Remove text search"

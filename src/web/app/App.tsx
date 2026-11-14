@@ -44,7 +44,7 @@ import {
   FilterChips,
   SEARCH_VIEWS,
   axisSpecs,
-  chipCount,
+  activeCount,
   type View,
 } from "./FilterBar.tsx";
 import type { Scope } from "./FilterPanel.tsx";
@@ -411,7 +411,7 @@ export const App = () => {
                     scope={scope}
                     onScope={setScope}
                     matching={matching}
-                    count={chipCount(specs, filters, view)}
+                    count={activeCount(specs, filters, view)}
                   />
                 </>
               )

@@ -7,7 +7,7 @@
     },
     {
       "title": "One chip for each filter",
-      "detail": "Each active filter shows as one chip under the period. Tap a chip to edit it, to switch between include and exclude, or to remove it."
+      "detail": "Each filter type shows as one chip under the period, such as Merchant: Kiwi or Rema 1000. Tap a chip to edit that filter, and tap × to remove it."
     },
     {
       "title": "Settings moved",

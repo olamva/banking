@@ -51,13 +51,14 @@ const valuesOf = (s: AxisSpec, f: Filters) => [
   ...f[AXES[s.axis]],
 ];
 
-const candidates = (s: AxisSpec) => [
-  ...s.options,
-  ...s.options.flatMap((o) => {
-    const kids = s.subs?.(o) ?? [];
-    return kids.length > 1 ? kids.filter((k) => !k.endsWith("/")) : [];
-  }),
-];
+const candidates = (s: AxisSpec, f: Filters) =>
+  s.options.flatMap((o) => {
+    const kids = (s.subs?.(o) ?? []).filter((k) => !k.endsWith("/"));
+    const lone = s.subs?.(o).length === 1 ? kids[0] : undefined;
+    return lone
+      ? [valuesOf(s, f).includes(lone) ? lone : o]
+      : [o, ...(kids.length > 1 ? kids : [])];
+  });
 
 interface HomeProps {
   specs: AxisSpec[];
@@ -123,7 +124,7 @@ const Home = ({
             ? 2
             : 3;
     };
-    return candidates(s)
+    return candidates(s, filters)
       .map((v) => [v, rank(v), s.uses.get(v) ?? 0] as const)
       .filter(([, r]) => r < 3)
       .sort((a, b) => a[1] - b[1] || b[2] - a[2])
@@ -164,11 +165,6 @@ const Home = ({
       <CommandList className="max-h-none min-h-0 flex-1">
         {q === "" ? (
           <>
-            {selected.length > 0 && (
-              <CommandGroup heading="Selected">
-                {selected.map(([s, v]) => row(s, v, s.name))}
-              </CommandGroup>
-            )}
             <CommandGroup heading="Filter by">
               {specs.map((s) => {
                 const count = valuesOf(s, filters).length;
@@ -198,6 +194,11 @@ const Home = ({
                 );
               })}
             </CommandGroup>
+            {selected.length > 0 && (
+              <CommandGroup heading="Selected">
+                {selected.map(([s, v]) => row(s, v, s.name))}
+              </CommandGroup>
+            )}
           </>
         ) : (
           <>
@@ -232,9 +233,12 @@ const Home = ({
             })}
           </>
         )}
-        <CommandEmpty className="py-4 text-xs text-muted-foreground">
-          No match.
-        </CommandEmpty>
+        {q !== "" && (
+          <CommandEmpty className="px-3 py-3 text-left text-xs text-muted-foreground">
+            No category, merchant, item, account or country matches. Use the
+            text search above.
+          </CommandEmpty>
+        )}
       </CommandList>
     </Command>
   );
