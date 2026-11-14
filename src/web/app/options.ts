@@ -2,12 +2,16 @@ import { useMemo } from "react";
 import { itemsOf, purchasesOf } from "../../core/items.ts";
 import type { RuleMap } from "../../core/ruleFiles.ts";
 import {
+  countryOf,
   distinctAccounts,
   distinctCategories,
   distinctCountries,
   distinctMerchants,
   distinctSubcategories,
+  merchantOf,
   personMerchants,
+  subcategoryOf,
+  type Axis,
   type Filters,
 } from "../../core/select.ts";
 import type { Categorized } from "../../core/types.ts";
@@ -53,14 +57,33 @@ export const useFilterOptions = (
     () => withPicked(distinctMerchants(inPeriod), filters.merchants),
     [inPeriod, filters.merchants],
   );
+  const bought = useMemo(
+    () => itemsOf(purchasesOf(inPeriod, names)),
+    [inPeriod, names],
+  );
   const items = useMemo(
     () =>
       withPicked(
-        itemsOf(purchasesOf(inPeriod, names)).map((i) => i.name),
+        bought.map((i) => i.name),
         filters.items,
       ),
-    [inPeriod, names, filters.items],
+    [bought, filters.items],
   );
+  const uses = useMemo((): Record<Axis, ReadonlyMap<string, number>> => {
+    const tally = (of: (t: Categorized) => string[]) => {
+      const n = new Map<string, number>();
+      for (const t of inPeriod)
+        for (const k of of(t)) n.set(k, (n.get(k) ?? 0) + 1);
+      return n;
+    };
+    return {
+      categories: tally((t) => [t.category, subcategoryOf(t)]),
+      merchants: tally((t) => [merchantOf(t)]),
+      items: new Map(bought.map((i) => [i.name, i.count])),
+      accounts: tally((t) => [t.account]),
+      countries: tally((t) => [countryOf(t)]),
+    };
+  }, [inPeriod, bought]);
   const people = useMemo(() => personMerchants(inPeriod), [inPeriod]);
   const accounts = useMemo(
     () => withPicked(distinctAccounts(inPeriod), filters.accounts),
@@ -78,5 +101,6 @@ export const useFilterOptions = (
     people,
     accounts,
     countries,
+    uses,
   };
 };

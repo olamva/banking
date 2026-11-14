@@ -12,6 +12,7 @@ import { withItems } from "../../core/items.ts";
 import { RULE_FILES, type RuleFile } from "../../core/ruleFiles.ts";
 import {
   axisBounds,
+  clearFilters,
   distinctCategories,
   distinctMonths,
   distinctSubcategories,
@@ -43,7 +44,7 @@ import {
   FilterChips,
   SEARCH_VIEWS,
   axisSpecs,
-  clearFilters,
+  chipCount,
   type View,
 } from "./FilterBar.tsx";
 import type { Scope } from "./FilterPanel.tsx";
@@ -410,6 +411,7 @@ export const App = () => {
                     scope={scope}
                     onScope={setScope}
                     matching={matching}
+                    count={chipCount(specs, filters, view)}
                   />
                 </>
               )

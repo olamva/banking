@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   AXES,
+  clearFilters,
   cycleFilter,
   type Axis,
   type Filters,
@@ -36,6 +37,7 @@ export interface AxisSpec {
   subs?: (option: string) => string[];
   subLabel?: (value: string) => string;
   people?: ReadonlySet<string>;
+  uses: ReadonlyMap<string, number>;
 }
 
 export type Scope = Axis | "home";
@@ -111,12 +113,21 @@ const Home = ({
   });
 
   const matches = (s: AxisSpec) => {
-    const name = nameOf(s);
-    const hit = candidates(s).filter((v) => name(v).toLowerCase().includes(q));
-    return [
-      ...hit.filter((v) => name(v).toLowerCase().startsWith(q)),
-      ...hit.filter((v) => !name(v).toLowerCase().startsWith(q)),
-    ];
+    const rank = (v: string) => {
+      const name = nameOf(s)(v).toLowerCase();
+      return name.startsWith(q)
+        ? 0
+        : name.split(/[\s›/-]+/).some((w) => w.startsWith(q))
+          ? 1
+          : name.includes(q)
+            ? 2
+            : 3;
+    };
+    return candidates(s)
+      .map((v) => [v, rank(v), s.uses.get(v) ?? 0] as const)
+      .filter(([, r]) => r < 3)
+      .sort((a, b) => a[1] - b[1] || b[2] - a[2])
+      .map(([v]) => v);
   };
 
   return (
@@ -134,6 +145,22 @@ const Home = ({
         onValueChange={onQuery}
         aria-label="Search filters"
       />
+      {q !== "" && (
+        <button
+          type="button"
+          onClick={() => onSearch(query.trim())}
+          className="mx-1 mt-1 flex min-h-8 items-center gap-2 rounded-sm px-2 text-left text-sm hover:bg-muted pointer-coarse:min-h-11"
+        >
+          <Icon
+            icon={SearchIcon}
+            size={15}
+            className="shrink-0 text-muted-foreground"
+          />
+          <span className="min-w-0 flex-1 truncate">
+            Text contains “{query.trim()}”
+          </span>
+        </button>
+      )}
       <CommandList className="max-h-none min-h-0 flex-1">
         {q === "" ? (
           <>
@@ -178,8 +205,16 @@ const Home = ({
               const hits = matches(s);
               if (hits.length === 0) return null;
               return (
-                <CommandGroup key={s.axis} heading={s.plural}>
-                  {hits.slice(0, TOP).map((v) => row(s, v))}
+                <CommandGroup
+                  key={s.axis}
+                  heading={s.plural}
+                  className="overflow-visible py-0 **:[[cmdk-group-heading]]:sticky **:[[cmdk-group-heading]]:top-0 **:[[cmdk-group-heading]]:z-10 **:[[cmdk-group-heading]]:bg-popover"
+                >
+                  {hits
+                    .slice(0, TOP)
+                    .map((v) =>
+                      row(s, v, s.people?.has(v) ? "Person" : undefined),
+                    )}
                   {hits.length > TOP && (
                     <CommandItem
                       value={`more:${s.axis}`}
@@ -195,22 +230,6 @@ const Home = ({
                 </CommandGroup>
               );
             })}
-            <CommandGroup heading="Text">
-              <CommandItem
-                value="text-search"
-                onSelect={() => onSearch(query.trim())}
-                className={ROW}
-              >
-                <Icon
-                  icon={SearchIcon}
-                  size={15}
-                  className="text-muted-foreground"
-                />
-                <span className="min-w-0 flex-1 truncate">
-                  Names and descriptions with “{query.trim()}”
-                </span>
-              </CommandItem>
-            </CommandGroup>
           </>
         )}
         <CommandEmpty className="py-4 text-xs text-muted-foreground">
@@ -228,6 +247,7 @@ interface FilterPanelProps {
   scope: Scope;
   onScope: (scope: Scope | null) => void;
   matching: number;
+  active: boolean;
 }
 
 export const FilterPanel = ({
@@ -237,7 +257,12 @@ export const FilterPanel = ({
   scope,
   onScope,
   matching,
+  active,
 }: FilterPanelProps) => {
+  const root = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!fine()) root.current?.focus({ preventScroll: true });
+  }, []);
   const [query, setQuery] = useState("");
   const [carried, setCarried] = useState("");
   const spec = specs.find((s) => s.axis === scope);
@@ -246,14 +271,20 @@ export const FilterPanel = ({
   const back = () => onScope("home");
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div
+      ref={root}
+      tabIndex={-1}
+      aria-label="Filters"
+      role="group"
+      className="flex min-h-0 flex-1 flex-col outline-none"
+    >
       {spec && (
         <div className="flex items-center gap-1 border-b p-1">
           <Button
             variant="ghost"
             size="sm"
             onClick={back}
-            className="text-muted-foreground"
+            className="text-muted-foreground pointer-coarse:h-10"
           >
             <Icon icon={BackIcon} size={15} />
             All filters
@@ -313,14 +344,28 @@ export const FilterPanel = ({
       )}
       <div className="border-t px-3 py-2">
         <p className="text-[11px] leading-snug text-muted-foreground">{HINT}</p>
-        <div className="mt-1.5 flex items-center justify-between gap-2">
+        <div className="mt-1.5 flex items-center gap-2">
           <span
             aria-live="polite"
-            className="text-xs text-muted-foreground tabular-nums"
+            className="mr-auto text-xs text-muted-foreground tabular-nums"
           >
             {matching} {matching === 1 ? "transaction" : "transactions"} match
           </span>
-          <Button size="sm" onClick={() => onScope(null)}>
+          {active && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onFilters(clearFilters(filters))}
+              className="text-muted-foreground pointer-coarse:h-10"
+            >
+              Clear all
+            </Button>
+          )}
+          <Button
+            size="sm"
+            onClick={() => onScope(null)}
+            className="pointer-coarse:h-10 pointer-coarse:px-4"
+          >
             Done
           </Button>
         </div>

@@ -189,7 +189,7 @@ export const PickerList = ({
       (all.length > 1 && kids.some((c) => pinned.includes(c)));
     const openHere = openByDefault !== expanded.has(o);
     const lone = all.length === 1 && !all[0]!.endsWith("/") ? all[0]! : null;
-    const parent = { value: lone ?? o, sub: false };
+    const parent = { value: lone && !on(o) ? lone : o, sub: false };
     return kids.length > 0 && openHere && !lone
       ? [parent, ...kids.map((c) => ({ value: c, sub: true }))]
       : [parent];
@@ -326,10 +326,11 @@ export const PickerList = ({
 
 export const HINT = (
   <>
-    Tap a row to include it. Tap{" "}
+    <span className="pointer-coarse:hidden">Click</span>
+    <span className="hidden pointer-coarse:inline">Tap</span>{" "}
     <Icon icon={ExcludeIcon} size={11} className="inline align-[-1px]" /> to
-    exclude it.
-    <span className="pointer-coarse:hidden"> Shift Enter excludes too.</span>
+    exclude a row
+    <span className="pointer-coarse:hidden">, or press Shift Enter</span>.
   </>
 );
 

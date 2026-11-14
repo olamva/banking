@@ -47,6 +47,11 @@ export const NO_FILTERS: Filters = {
   withoutDeposit: false,
 };
 
+export const clearFilters = (f: Filters): Filters => ({
+  ...NO_FILTERS,
+  withoutDeposit: f.withoutDeposit,
+});
+
 export function cycleFilter(
   f: Filters,
   axis: Axis,
