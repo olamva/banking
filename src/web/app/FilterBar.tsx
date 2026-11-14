@@ -199,7 +199,7 @@ const AxisChip = ({ spec, filters, onFilters, onEdit }: AxisChipProps) => {
   const sep = (i: number) => (i === 0 ? "" : i < inn.length ? " or " : ", ");
   const not = (i: number) => i >= inn.length;
   const parts = words
-    .map((v, i) => `${sep(i)}${not(i) ? "Not " : ""}${name(v)}`)
+    .map((v, i) => `${sep(i)}${not(i) ? "not " : ""}${name(v)}`)
     .join("");
 
   return (
@@ -215,7 +215,7 @@ const AxisChip = ({ spec, filters, onFilters, onEdit }: AxisChipProps) => {
           {words.slice(0, 2).map((v, i) => (
             <Fragment key={v}>
               {sep(i)}
-              {not(i) && <span className="text-destructive">Not </span>}
+              {not(i) && <span className="text-destructive">NOT </span>}
               {name(v)}
             </Fragment>
           ))}

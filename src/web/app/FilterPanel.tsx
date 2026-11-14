@@ -152,7 +152,7 @@ const Home = ({
         <button
           type="button"
           onClick={() => onSearch(query.trim())}
-          className="mx-1 mt-1 flex min-h-8 items-center gap-2 rounded-sm px-2 text-left text-sm hover:bg-muted pointer-coarse:min-h-11"
+          className="mx-1 mt-1 flex min-h-8 items-center gap-2 rounded-sm px-2 text-left text-sm hover:bg-muted"
         >
           <Icon
             icon={SearchIcon}
@@ -266,7 +266,7 @@ interface SwitchRowProps {
 
 const SwitchRow = ({ label, tip, checked, onChange }: SwitchRowProps) => {
   const row = (
-    <label className="flex min-h-9 cursor-pointer items-center justify-between gap-3 rounded-sm px-2 text-sm hover:bg-muted/50 pointer-coarse:min-h-11">
+    <label className="flex min-h-8 cursor-pointer items-center justify-between gap-3 rounded-sm px-2 text-sm hover:bg-muted/50">
       {label}
       <Switch checked={checked} onCheckedChange={onChange} />
     </label>

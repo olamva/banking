@@ -38,7 +38,7 @@ export const useExcludeKey = () => {
 };
 
 export const ROW =
-  "gap-2 py-1 pointer-coarse:min-h-11 [&>svg:last-child]:hidden";
+  "gap-2 py-1 [&>svg:last-child]:hidden";
 
 const State = ({ on, out }: { on: boolean; out: boolean }) => (
   <span
@@ -112,7 +112,7 @@ export const ValueRow = ({
           aria-label={out ? `Stop excluding ${text}` : `Exclude ${text}`}
           onClick={() => onToggle(true)}
           className={cn(
-            "flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground/60 hover:bg-destructive/10 hover:text-destructive pointer-coarse:size-10",
+            "flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground/60 hover:bg-destructive/10 hover:text-destructive",
             out && "text-destructive",
           )}
         >
@@ -254,7 +254,7 @@ export const PickerList = ({
             aria-label={`${openHere ? "Hide" : "Show"} ${label(row.value)} subcategories`}
             tabIndex={-1}
             onClick={() => setExpanded((prev) => toggled(prev, row.value))}
-            className="text-muted-foreground pointer-coarse:size-10"
+            className="text-muted-foreground"
           >
             <Icon
               icon={DropdownIcon}
