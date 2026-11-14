@@ -71,19 +71,6 @@ struct ItemsView: View {
             }
             .periodPicker()
             .filtering()
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Menu("Sort", systemImage: "arrow.up.arrow.down") {
-                        Picker("Sort by", selection: Binding(get: { sort }, set: { descending = $0 != .name; sort = $0 })) {
-                            ForEach(ItemSort.allCases) { Text($0.label).tag($0) }
-                        }
-                        Picker("Order", selection: $descending) {
-                            Label("Descending", systemImage: "arrow.down").tag(true)
-                            Label("Ascending", systemImage: "arrow.up").tag(false)
-                        }
-                    }
-                }
-            }
         }
     }
 
@@ -105,6 +92,13 @@ struct ItemsView: View {
             SessionBanner()
             Section {
                 Toggle("Split by size", isOn: $bySize)
+                Picker("Sort by", selection: Binding(get: { sort }, set: { descending = $0 != .name; sort = $0 })) {
+                    ForEach(ItemSort.allCases) { Text($0.label).tag($0) }
+                }
+                Picker("Order", selection: $descending) {
+                    Text("Highest first").tag(true)
+                    Text("Lowest first").tag(false)
+                }
             }
             Section {
                 Grid(horizontalSpacing: 12, verticalSpacing: 12) {

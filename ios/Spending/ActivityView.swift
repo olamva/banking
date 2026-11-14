@@ -29,6 +29,35 @@ struct ActivityView: View {
                         SessionBanner()
                         Section {
                             Figures(rows: rows)
+                            HStack(spacing: 8) {
+                                Menu {
+                                    Picker("Sort by", selection: Binding(get: { sort }, set: { choose($0) })) {
+                                        ForEach(TxnSort.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                                    }
+                                    Picker("Order", selection: $descending) {
+                                        Label("Descending", systemImage: "arrow.down").tag(true)
+                                        Label("Ascending", systemImage: "arrow.up").tag(false)
+                                    }
+                                } label: {
+                                    Label("\(sort.rawValue) \(descending ? "↓" : "↑")", systemImage: "arrow.up.arrow.down")
+                                }
+                                Menu {
+                                    Picker("Show", selection: $sign) {
+                                        ForEach(Sign.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                                    }
+                                } label: {
+                                    Label(sign.rawValue, systemImage: "plusminus")
+                                }
+                                Spacer(minLength: 0)
+                                Button(selecting ? "Done" : "Select") {
+                                    selecting.toggle()
+                                    if !selecting { selection = [] }
+                                }
+                            }
+                            .buttonStyle(.bordered)
+                            .font(.subheadline)
+                            .listRowBackground(Color.clear)
+                            .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 4, trailing: 0))
                         }
                         if sort == .date {
                             ForEach(Dictionary(grouping: rows, by: \.date).sorted { descending ? $0.key > $1.key : $0.key < $1.key }, id: \.key) { day, txns in
@@ -51,24 +80,6 @@ struct ActivityView: View {
                     .navigationDestination(for: MerchantRoute.self) { MerchantView(name: $0.name) }
                     .searchable(text: $store.filters.search, prompt: "Search merchant or description")
                     .toolbar {
-                        ToolbarItem(placement: .topBarTrailing) {
-                            Menu("Sort and show", systemImage: "arrow.up.arrow.down") {
-                                Picker("Show", selection: $sign) {
-                                    ForEach(Sign.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-                                }
-                                Picker("Sort by", selection: Binding(get: { sort }, set: { choose($0) })) {
-                                    ForEach(TxnSort.allCases, id: \.self) { option in
-                                        Label(option.rawValue, systemImage: option == sort ? (descending ? "chevron.down" : "chevron.up") : "").tag(option)
-                                    }
-                                }
-                                Button(descending ? "Descending" : "Ascending", systemImage: descending ? "arrow.down" : "arrow.up") { descending.toggle() }
-                                Divider()
-                                Button(selecting ? "Done selecting" : "Select rows", systemImage: "checkmark.circle") {
-                                    selecting.toggle()
-                                    if !selecting { selection = [] }
-                                }
-                            }
-                        }
                         if selecting {
                             ToolbarItemGroup(placement: .bottomBar) {
                                 Button(selection.isEmpty ? "All \(rows.count)" : "\(selection.count) selected") { selection = [] }
@@ -79,6 +90,7 @@ struct ActivityView: View {
                             }
                         }
                     }
+                    .toolbar(selecting ? .hidden : .visible, for: .tabBar)
                     .sheet(item: $bulk) { file in
                         BulkSheet(file: file, txns: selection.isEmpty ? rows : rows.filter { selection.contains($0.id) })
                     }
@@ -158,14 +170,15 @@ private struct Figures: View {
                 Tile(title: "Income", value: Money.kr(income), tint: .green)
                 Tile(title: "Net", value: Money.kr(income - spent, signed: true), tint: income >= spent ? .green : .red)
             }
-            Text(rows.count == 1 ? "1 row" : "\(rows.count) rows")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-            if !excluded.isEmpty {
-                Text("\(excluded.count) \(excluded.count == 1 ? "transaction" : "transactions") totalling \(Money.kr(excluded.reduce(0) { $0 + abs($1.amount) })) excluded in view (internal transfers, card bill payments).")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+            Group {
+                Text(rows.count == 1 ? "1 row" : "\(rows.count) rows")
+                if !excluded.isEmpty {
+                    Text("\(excluded.count) \(excluded.count == 1 ? "transaction" : "transactions") totalling \(Money.kr(excluded.reduce(0) { $0 + abs($1.amount) })) excluded in view (internal transfers, card bill payments).")
+                }
             }
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 4)
         }
         .listRowBackground(Color.clear)
         .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
