@@ -109,13 +109,13 @@ export const Slip = ({
         amount={receipt.total ?? total(lines)}
         className="text-xs font-semibold"
       >
-        SUM
+        SUM{receipt.currency && ` ${receipt.currency}`}
       </Row>
       <div className="flex justify-between gap-3 text-muted-foreground">
         <span>
           {total(
             lines
-              .filter((l) => l.amount > 0)
+              .filter((l) => l.amount > 0 && !l.fee)
               .map((l) => ({ amount: l.unit ? 1 : l.qty })),
           )}{" "}
           varer
@@ -144,13 +144,13 @@ export const ReceiptLines = ({ receipt }: { receipt: Receipt }) => (
         className="shrink-0 self-center text-muted-foreground"
       />
       Receipt
-      {receipt.source === "gmail" && (
+      {receipt.source === "gmail" && !receipt.lines.length && (
         <span className="font-normal text-muted-foreground">
           {receipt.store} · {fmtDateTime(receipt.at)}
         </span>
       )}
     </h3>
-    {receipt.source === "gmail" ? (
+    {receipt.source === "gmail" && (
       <div className="flex items-center justify-between gap-3 py-2">
         <span className="min-w-0 wrap-break-word">
           {receipt.title || "(no subject)"}
@@ -165,8 +165,9 @@ export const ReceiptLines = ({ receipt }: { receipt: Receipt }) => (
           <Icon icon={ExternalLinkIcon} size={12} />
         </a>
       </div>
-    ) : (
-      <div className="pt-3">
+    )}
+    {!!receipt.lines.length && (
+      <div className={receipt.source === "gmail" ? "pt-1" : "pt-3"}>
         <Slip receipt={receipt} />
       </div>
     )}

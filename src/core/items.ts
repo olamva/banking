@@ -142,7 +142,9 @@ const receiptPurchases = (
 ): Purchase[] =>
   [
     ...Map.groupBy(
-      receipt.lines.filter((l) => l.amount > 0 && !/\bpant\b/i.test(l.name)),
+      receipt.lines.filter(
+        (l) => l.amount > 0 && !l.fee && !/\bpant\b/i.test(l.name),
+      ),
       (l) => `${l.name}\n${sizeKey(l.size)}`,
     ).values(),
   ].map((same) => {
