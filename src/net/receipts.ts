@@ -11,8 +11,10 @@ export type Source = keyof typeof SOURCES;
 export const receiptDir = (source: Source): string =>
   `${DATA_DIR}/raw/receipts/${source}`;
 
-const SEED =
-  process.platform === "darwin" ? "" : " Then run pnpm receipts:seed.";
+const seed = (message: string): string =>
+  process.platform !== "darwin" && /login|\.env/.test(message)
+    ? `${message} Then run pnpm receipts:seed.`
+    : message;
 
 export async function syncReceipts(): Promise<{
   added: number;
@@ -30,7 +32,7 @@ export async function syncReceipts(): Promise<{
     failed: results.flatMap((r, i) =>
       r.status === "rejected"
         ? [
-            `${sources[i]}: ${r.reason instanceof Error ? r.reason.message : r.reason}${SEED}`,
+            `${sources[i]}: ${seed(r.reason instanceof Error ? r.reason.message : String(r.reason))}`,
           ]
         : [],
     ),
