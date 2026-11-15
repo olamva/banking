@@ -5,7 +5,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
-import { fmtNOK, fmtNOKExact, fmtShortDate } from "./format.ts";
+import { fmtNOK, fmtNOKExact } from "./format.ts";
 import {
   DownIcon,
   ExpandIcon,
@@ -41,19 +41,6 @@ export interface Column {
   className?: string;
   phone?: "lead" | "title" | "end" | "meta" | "labeled" | "aside";
 }
-
-export const DateCell = ({
-  date,
-  wide = date,
-}: {
-  date: string;
-  wide?: string;
-}) => (
-  <>
-    <span className="sm:hidden">{fmtShortDate(date)}</span>
-    <span className="max-sm:hidden">{wide}</span>
-  </>
-);
 
 export const highlighting = (e: { detail: number }) =>
   e.detail > 0 && !(window.getSelection()?.isCollapsed ?? true);
@@ -121,7 +108,7 @@ const VIEWPORT = 460;
 const PAGE = 50;
 
 const phoneQuery = window.matchMedia("(max-width: 639px)");
-export const usePhone = () =>
+const usePhone = () =>
   useSyncExternalStore(
     (change) => {
       phoneQuery.addEventListener("change", change);
