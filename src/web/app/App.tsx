@@ -349,6 +349,7 @@ export const App = () => {
     transactions: () => (
       <TransactionsView
         rows={inPeriod}
+        all={txns}
         filters={filters}
         onFilters={setFilters}
         onFile={(txn, file) => setFiling({ txn, file })}

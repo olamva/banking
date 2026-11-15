@@ -53,6 +53,19 @@ test("a cut-off branch reads as the full branch name", () => {
   assert.deepEqual(rows.map(branchFinder(rows)), ["Elgeseter", "Elgeseter"]);
 });
 
+test("a cut-off branch with an extra word reads as the full branch", () => {
+  const rows = [
+    card("Bunnpris", "BUNNPRIS LERKEN TR"),
+    card("Bunnpris", "BUNNPRIS LERKEN, Trondheim, NORWAY"),
+    card("Bunnpris", "Bunnpris Lerkendal"),
+  ];
+  assert.deepEqual(rows.map(branchFinder(rows)), [
+    "Lerkendal",
+    "Lerkendal",
+    "Lerkendal",
+  ]);
+});
+
 test("a company form is not a branch", () => {
   const rows = [
     card("Sesam", "Sesam AS"),

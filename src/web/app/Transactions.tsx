@@ -248,6 +248,7 @@ export const SubscriptionsCard = ({
 
 interface TransactionsCardProps {
   txns: Categorized[];
+  all?: Categorized[];
   search: string;
   onSearch: (search: string) => void;
   onMerchant: (merchant: string, meta: boolean) => void;
@@ -259,6 +260,7 @@ interface TransactionsCardProps {
 
 export const TransactionsCard = ({
   txns,
+  all,
   search,
   onSearch,
   onMerchant,
@@ -293,8 +295,7 @@ export const TransactionsCard = ({
     () => shortDateSizes(txns.map((t) => t.date)),
     [txns],
   );
-  const { branches, sizes: branchSizes } = useBranches(txns);
-  const byCategory = groupBy === "Category";
+  const branches = useBranches(all ?? txns);
 
   return (
     <Panel
@@ -363,13 +364,13 @@ export const TransactionsCard = ({
               : []),
             head("Date", "date", {
               min: true,
-              sizer: groupBy === "Day" ? undefined : dateSizes,
+              sizer: dateSizes,
               phone: "meta",
             }),
             head("Merchant / description", "merchant", { phone: "title" }),
             head("Category", "subcategory", {
               min: true,
-              sizer: byCategory ? branchSizes : subcategorySizes,
+              sizer: subcategorySizes,
               phone: "meta",
             }),
             head("Account", "account", { min: true, phone: "aside" }),
@@ -392,7 +393,13 @@ export const TransactionsCard = ({
               : []),
             groupBy !== "Day" && fmtShortDate(t.date),
             <span className="inline-flex items-center gap-1">
-              <PickCell label={merchantOf(t)} onPick={onMerchant} />
+              <PickCell
+                label={
+                  (groupBy === "Merchant" && branches.get(t)) || merchantOf(t)
+                }
+                value={merchantOf(t)}
+                onPick={onMerchant}
+              />
               {t.receipt && (
                 <Icon
                   icon={ReceiptIcon}
@@ -409,16 +416,12 @@ export const TransactionsCard = ({
                 </Badge>
               )}
             </span>,
-            byCategory ? (
-              (branches.get(t) ?? false)
-            ) : (
-              <PickCell
-                label={rowLabel(t.category, t.subcategory)}
-                value={subcategoryOf(t)}
-                color={categoryColor(t.category)}
-                onPick={onCategory}
-              />
-            ),
+            <PickCell
+              label={rowLabel(t.category, t.subcategory)}
+              value={subcategoryOf(t)}
+              color={categoryColor(t.category)}
+              onPick={onCategory}
+            />,
             accountCell(t, onAccount),
             <span className={cn("font-semibold", t.amount > 0 && "text-good")}>
               {fmtNOKExact(t.amount)}

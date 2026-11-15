@@ -57,10 +57,5 @@ export const GroupBySelect = ({ value, onChange }: GroupBySelectProps) => (
 export const useBranches = (txns: Categorized[]) =>
   useMemo(() => {
     const branchOf = branchFinder(txns);
-    const branches = new Map(txns.map((t) => [t, branchOf(t)]));
-    const longest = [...branches.values()].reduce<string>(
-      (a, b) => (b && b.length > a.length ? b : a),
-      "",
-    );
-    return { branches, sizes: [longest] };
+    return new Map(txns.map((t) => [t, branchOf(t)]));
   }, [txns]);

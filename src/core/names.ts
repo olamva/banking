@@ -82,15 +82,15 @@ export function branchFinder(
     const branch = rawBranch(t);
     if (!branch) return null;
     const options = [...(known.get(t.counterparty!) ?? [])];
-    const size = branch.split(" ").length;
-    return (
+    const short =
       options
         .filter((b) => branch.startsWith(`${b} `))
-        .sort((a, b) => a.length - b.length)[0] ??
+        .sort((a, b) => a.length - b.length)[0] ?? branch;
+    const size = short.split(" ").length;
+    return (
       options
-        .filter((b) => b.startsWith(branch) && b.split(" ").length === size)
-        .sort((a, b) => b.length - a.length)[0] ??
-      branch
+        .filter((b) => b.startsWith(short) && b.split(" ").length === size)
+        .sort((a, b) => b.length - a.length)[0] ?? short
     );
   };
 }

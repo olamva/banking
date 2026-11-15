@@ -11,6 +11,7 @@ import { TransactionsCard } from "./Transactions.tsx";
 
 interface TransactionsViewProps {
   rows: Categorized[];
+  all: Categorized[];
   filters: Filters;
   onFilters: Dispatch<SetStateAction<Filters>>;
   onFile: (txn: Categorized, file: RuleFile) => void;
@@ -19,6 +20,7 @@ interface TransactionsViewProps {
 
 export const TransactionsView = ({
   rows,
+  all,
   filters,
   onFilters,
   onFile,
@@ -39,6 +41,7 @@ export const TransactionsView = ({
       </div>
       <TransactionsCard
         txns={shown}
+        all={all}
         search={filters.search}
         onSearch={(search) => onFilters((current) => ({ ...current, search }))}
         onMerchant={pick(onFilters, "merchants")}
