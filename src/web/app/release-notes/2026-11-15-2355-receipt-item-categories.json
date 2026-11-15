@@ -1,0 +1,11 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Receipts mark item categories",
+      "detail": "A receipt now also marks the items that your item category filter found.",
+      "area": "receipts",
+      "kind": "fixed"
+    }
+  ]
+}

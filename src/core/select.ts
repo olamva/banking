@@ -1,4 +1,4 @@
-import { nameKey } from "./items.ts";
+import { nameKey, topCategory } from "./items.ts";
 import type { Categorized } from "./types.ts";
 
 export type Filters = {
@@ -132,8 +132,9 @@ export const searchesItem = (key: string, search: string): boolean =>
     .split(" ")
     .every((w) => key.includes(w));
 
-export const markedItem = (key: string, f: Filters): boolean =>
+export const markedItem = (key: string, f: Filters, kind = ""): boolean =>
   f.items.some((i) => nameKey(i) === key) ||
+  f.kinds.some((k) => k === kind || k === topCategory(kind)) ||
   (!!f.search && searchesItem(key, f.search));
 
 export type PeriodKind = "month" | "year" | "recent" | "all" | "custom";
