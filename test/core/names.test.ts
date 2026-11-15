@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { branchFinder, countryOf, makeCleaner } from "../../src/core/names.ts";
+import {
+  branchFinder,
+  branchRule,
+  countryOf,
+  makeCleaner,
+} from "../../src/core/names.ts";
 
 const card = (counterparty: string, originalCounterparty: string) => ({
   counterparty,
@@ -21,6 +26,19 @@ test("a branch rule beats the branch the code reads", () => {
     "/^bunnpris moholt/": "Moholt",
   });
   assert.deepEqual(rows.map(branch), ["Munkegata", "Prinse", "Moholt"]);
+});
+
+test("a row with no branch rule has no ruled branch, even when one is guessed", () => {
+  const rule = branchRule({
+    "bunnpris munkeg": "Munkegaten",
+    "online linj": "Online",
+  });
+  assert.equal(rule(card("Bunnpris", "BUNNPRIS MUNKEG TR")), "Munkegaten");
+  assert.equal(rule(card("Online", "ONLINE LINJEFO")), null);
+  assert.equal(
+    rule(card("Sesam", "Sesam AS ELGESETERGT. TRONDHEIM")),
+    undefined,
+  );
 });
 
 test("a branch rule that names the merchant leaves no branch", () => {

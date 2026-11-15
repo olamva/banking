@@ -297,7 +297,7 @@ export const TransactionsCard = ({
     () => shortDateSizes(txns.map((t) => t.date)),
     [txns],
   );
-  const branches = useBranches(all ?? txns, branchRules);
+  const { branches, ruled } = useBranches(all ?? txns, branchRules);
 
   return (
     <Panel
@@ -402,6 +402,11 @@ export const TransactionsCard = ({
                 value={merchantOf(t)}
                 onPick={onMerchant}
               />
+              {groupBy !== "Merchant" && ruled.get(t) && (
+                <span className="truncate text-muted-foreground">
+                  {ruled.get(t)}
+                </span>
+              )}
               {t.receipt && (
                 <Icon
                   icon={ReceiptIcon}

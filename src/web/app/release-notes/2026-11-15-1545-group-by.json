@@ -3,7 +3,7 @@
   "highlights": [
     {
       "title": "Group transactions",
-      "detail": "Use the Group by menu next to the sort menu. Group the list by day, month, category, merchant or account, or turn grouping off. Day is the default. Each group shows its total. In a merchant group, a card purchase shows the shop branch, such as Lerkendal or Elgeseter, in place of the repeated merchant name."
+      "detail": "Use the Group by menu next to the sort menu. Group the list by day, month, category, merchant or account, or turn grouping off. Day is the default. Each group shows its total. In a merchant group, a card purchase shows the shop branch, such as Lerkendal or Elgeseter, in place of the repeated merchant name. In other groups, a known branch shows in gray after the merchant name."
     },
     {
       "title": "Tidier lists",

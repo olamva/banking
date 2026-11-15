@@ -40,14 +40,28 @@ const COMPANY_FORM = /^(as|asa|ab|da|ans|nuf|ltd|inc)$/i;
 
 const wordKey = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
 
-export function branchFinder(
-  txns: (Parameters<typeof haystackOf>[0] & { typeText: string | null })[],
-  rules: Record<string, string> = {},
-): (t: (typeof txns)[number]) => string | null {
+export function branchRule(
+  rules: Record<string, string>,
+): (t: Parameters<typeof haystackOf>[0]) => string | null | undefined {
   const ruled = Object.entries(rules).map(([pattern, value]) => ({
     matches: compile(pattern, "rules/branches.json"),
     value,
   }));
+  return (t) => {
+    const haystack = haystackOf(t);
+    const hit = ruled.find((r) => r.matches(haystack));
+    if (!hit) return undefined;
+    return wordKey(hit.value) === wordKey(t.counterparty ?? "")
+      ? null
+      : hit.value;
+  };
+}
+
+export function branchFinder(
+  txns: (Parameters<typeof haystackOf>[0] & { typeText: string | null })[],
+  rules: Record<string, string> = {},
+): (t: (typeof txns)[number]) => string | null {
+  const rule = branchRule(rules);
   const clean = makeCleaner(txns.flatMap((t) => t.originalCounterparty || []));
   const named = (raw: string) => {
     if (!raw.includes(",")) return clean(raw);
@@ -82,12 +96,8 @@ export function branchFinder(
       );
   }
   return (t) => {
-    const haystack = haystackOf(t);
-    const hit = ruled.find((r) => r.matches(haystack));
-    if (hit)
-      return wordKey(hit.value) === wordKey(t.counterparty ?? "")
-        ? null
-        : hit.value;
+    const named = rule(t);
+    if (named !== undefined) return named;
     const branch = rawBranch(t);
     if (!branch) return null;
     const options = [...(known.get(t.counterparty!) ?? [])];
