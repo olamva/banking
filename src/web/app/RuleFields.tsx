@@ -8,6 +8,7 @@ import {
 import { merchantOf } from "../../core/select.ts";
 import type { Categorized } from "../../core/types.ts";
 import { AMOUNT_SIZE_EXACT, DataTable, DateCell } from "./DataTable.tsx";
+import { useAccountCell } from "./Transactions.tsx";
 import type { RulesApi } from "./data.ts";
 import {
   categoryColor,
@@ -131,6 +132,7 @@ interface MatchTableProps {
 
 export const MatchTable = ({ txns, loading }: MatchTableProps) => {
   const [selected, setSelected] = useState<Categorized | null>(null);
+  const accountCell = useAccountCell(txns);
 
   return (
     <div
@@ -158,7 +160,7 @@ export const MatchTable = ({ txns, loading }: MatchTableProps) => {
           <span style={{ color: categoryColor(txn.category) }}>
             {rowLabel(txn.category, txn.subcategory)}
           </span>,
-          txn.account,
+          accountCell(txn),
           fmtNOKExact(txn.amount),
         ])}
       />

@@ -13,6 +13,7 @@ import {
   DateCell,
   PickCell,
   highlighting,
+  usePhone,
   type Column,
 } from "./DataTable.tsx";
 import {
@@ -22,9 +23,52 @@ import {
   fmtNOKExact,
   rowLabel,
 } from "./format.ts";
-import { Icon, ReceiptIcon, RecurringIcon, TransactionsIcon } from "./icons.ts";
+import {
+  CardIcon,
+  Icon,
+  ReceiptIcon,
+  RecurringIcon,
+  TransactionsIcon,
+} from "./icons.ts";
 import { SearchBox } from "./SearchBox.tsx";
 import { TxnDialog } from "./TxnDialog.tsx";
+
+export const useAccountCell = (txns: Categorized[]) => {
+  const phone = usePhone();
+  const main = useMemo(() => {
+    const groups = Object.groupBy(
+      txns.filter((t) => !t.card),
+      (t) => t.account,
+    );
+    return Object.keys(groups).sort(
+      (a, b) => groups[b]!.length - groups[a]!.length,
+    )[0];
+  }, [txns]);
+  return (
+    t: Categorized,
+    onPick?: (account: string, meta: boolean) => void,
+  ) => {
+    if (phone && t.account === main) return false;
+    const mark = phone && t.card && (
+      <Icon
+        icon={CardIcon}
+        size={15}
+        aria-hidden={false}
+        role="img"
+        aria-label={t.account}
+        className="h-4.5"
+      />
+    );
+    return onPick ? (
+      <PickCell label={t.account} onPick={onPick}>
+        {mark}
+      </PickCell>
+    ) : (
+      mark || t.account
+    );
+  };
+};
+
 const useSort = <T, S extends Record<string, (a: T, b: T) => number>>(
   items: T[],
   sorts: S,
@@ -205,6 +249,7 @@ export const TransactionsCard = ({
   onBulk,
 }: TransactionsCardProps) => {
   const { sorted, head } = useTxnSort(txns);
+  const accountCell = useAccountCell(txns);
   const [open, setOpen] = useState<Categorized | null>(null);
   const [selected, setSelected] = useState<Set<Categorized>>(new Set());
   const picked = txns.filter((t) => selected.has(t));
@@ -317,7 +362,7 @@ export const TransactionsCard = ({
               color={categoryColor(t.category)}
               onPick={onCategory}
             />,
-            <PickCell label={t.account} onPick={onAccount} />,
+            accountCell(t, onAccount),
             <span className={t.amount > 0 ? "text-good" : undefined}>
               {fmtNOKExact(t.amount)}
             </span>,

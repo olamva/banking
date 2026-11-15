@@ -63,6 +63,7 @@ interface PickCellProps {
   value?: string;
   color?: string;
   onPick: (value: string, meta: boolean) => void;
+  children?: ReactNode;
 }
 
 export const PickCell = ({
@@ -70,6 +71,7 @@ export const PickCell = ({
   value = label,
   color,
   onPick,
+  children,
 }: PickCellProps) => (
   <button
     type="button"
@@ -80,7 +82,7 @@ export const PickCell = ({
     style={color ? { color } : undefined}
     className="text-left underline-offset-2 hover:underline"
   >
-    {label}
+    {children || label}
   </button>
 );
 
@@ -119,7 +121,7 @@ const VIEWPORT = 460;
 const PAGE = 50;
 
 const phoneQuery = window.matchMedia("(max-width: 639px)");
-const usePhone = () =>
+export const usePhone = () =>
   useSyncExternalStore(
     (change) => {
       phoneQuery.addEventListener("change", change);
