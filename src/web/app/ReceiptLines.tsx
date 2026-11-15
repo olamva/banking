@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import { isBought } from "../../core/items.ts";
 import type { Receipt, ReceiptLine, Entry } from "../../core/receipts.ts";
 import { fmtDateTime } from "./format.ts";
@@ -83,6 +83,7 @@ interface ItemProps {
 }
 
 const Item = ({ line, marked, onItem }: ItemProps) => {
+  const [open, setOpen] = useState(false);
   const body = <ItemBody line={line} />;
   if (!onItem)
     return (
@@ -94,8 +95,14 @@ const Item = ({ line, marked, onItem }: ItemProps) => {
       </div>
     );
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger
+        asChild
+        onPointerDown={(e) => {
+          if (e.pointerType !== "mouse") e.preventDefault();
+        }}
+        onClick={() => setOpen(true)}
+      >
         <Button
           variant="ghost"
           data-marked={marked || undefined}
