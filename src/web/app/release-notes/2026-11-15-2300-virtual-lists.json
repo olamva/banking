@@ -1,0 +1,11 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Fast long lists",
+      "detail": "Each list draws only the rows near the screen. You can drag the scroll bar to the oldest row.",
+      "area": "app",
+      "kind": "improved"
+    }
+  ]
+}
