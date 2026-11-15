@@ -3,11 +3,15 @@
   "highlights": [
     {
       "title": "Item receipts and names",
-      "detail": "Select an item to open its details. Select a purchase to see the full receipt with the item marked. Rename an item there. Give two items the same name to show them as one item, such as a product that changed its size. Item names no longer show packaging words, and REMA's own brand shows as REMA 1000."
+      "detail": "Open a purchase to see its receipt. Rename an item, or give two items one name to merge them.",
+      "area": "items",
+      "kind": "new"
     },
     {
       "title": "Items on phones",
-      "detail": "On a phone, the item list shows the name, the size, the number of purchases and the amount spent. The item details show the other numbers."
+      "detail": "On a phone, the item list shows the name, size, purchase count and amount spent.",
+      "area": "items",
+      "kind": "improved"
     }
   ]
 }

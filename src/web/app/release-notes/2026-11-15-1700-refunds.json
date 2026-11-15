@@ -3,15 +3,21 @@
   "highlights": [
     {
       "title": "Refunds lower your spending",
-      "detail": "Money back, such as a return or a flatmate's share of the rent, now lowers spending in its own category. Spent shows the amount after refunds."
+      "detail": "Money back, such as a return, lowers spending in its own category. Spent shows the net amount.",
+      "area": "overview",
+      "kind": "improved"
     },
     {
       "title": "Income is only income",
-      "detail": "Income now counts only salary, money from family, student loans and interest."
+      "detail": "Income counts only salary, money from family, student loans and interest.",
+      "area": "overview",
+      "kind": "fixed"
     },
     {
       "title": "Refunds by merchant",
-      "detail": "A new panel on Overview shows who paid money back."
+      "detail": "A new panel on Overview shows who paid money back.",
+      "area": "overview",
+      "kind": "new"
     }
   ]
 }

@@ -3,7 +3,9 @@
   "highlights": [
     {
       "title": "Automatic bank and receipt refresh",
-      "detail": "Refresh also fetches new Rema, Trumf and Gmail receipts. The site refreshes itself just after midnight and on the first visit of each day."
+      "detail": "Refresh fetches new Rema, Trumf and Gmail receipts. The site also refreshes each day by itself.",
+      "area": "app",
+      "kind": "improved"
     }
   ]
 }

@@ -3,7 +3,9 @@
   "highlights": [
     {
       "title": "Faster first load",
-      "detail": "The dashboard opens faster after a pause. Refresh also finishes faster."
+      "detail": "The dashboard opens faster after a pause. Refresh also finishes faster.",
+      "area": "app",
+      "kind": "improved"
     }
   ]
 }

@@ -3,7 +3,9 @@
   "highlights": [
     {
       "title": "Bought items",
-      "detail": "The new Items view lists each item from your store receipts. Search for an item to see how often you buy it, how much you spend, the usual gap between purchases and each purchase. The same product from different stores is one item. Use Split by size to show each size on its own row."
+      "detail": "The new Items view lists each item from your receipts. It shows how often you buy it and the spend.",
+      "area": "items",
+      "kind": "new"
     }
   ]
 }

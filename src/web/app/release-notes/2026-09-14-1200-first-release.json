@@ -3,15 +3,21 @@
   "highlights": [
     {
       "title": "A clear view of your spending",
-      "detail": "Compare periods, follow category trends, and inspect the transactions behind every total."
+      "detail": "Compare periods, follow category trends, and inspect the transactions behind every total.",
+      "area": "overview",
+      "kind": "new"
     },
     {
       "title": "Transaction and rule tools",
-      "detail": "Search transactions, edit classifications in bulk, and restore earlier rule versions from one place."
+      "detail": "Search transactions, edit classifications in bulk, and restore earlier rule versions.",
+      "area": "rules",
+      "kind": "new"
     },
     {
       "title": "Release notes in the app",
-      "detail": "Open Release notes from the page footer to see the important features in each release."
+      "detail": "Open Release notes from the page footer to see the important features.",
+      "area": "app",
+      "kind": "new"
     }
   ]
 }

@@ -3,11 +3,15 @@
   "highlights": [
     {
       "title": "Spending insights",
-      "detail": "Open Insights to see your top merchants, card visits by weekday, and when each merchant usually returns."
+      "detail": "Insights shows top merchants, card visits by weekday, and when each merchant usually returns.",
+      "area": "overview",
+      "kind": "new"
     },
     {
       "title": "Merchant habits table",
-      "detail": "Sort merchants by visits, spend, and timing. Category cells use the same colors as the transaction tables."
+      "detail": "Sort merchants by visits, spend and timing. Category cells use the same colors as the tables.",
+      "area": "overview",
+      "kind": "new"
     }
   ]
 }
