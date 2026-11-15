@@ -3,6 +3,7 @@ import { test } from "node:test";
 import {
   axisBounds,
   inRange,
+  markedItem,
   matchesFilters,
   NO_FILTERS,
   period,
@@ -106,6 +107,18 @@ test("matchesFilters: search finds a receipt by an item name", () => {
   });
   assert.equal(matchesFilters(t, { ...NO_FILTERS, search: "Tine Lett" }), true);
   assert.equal(matchesFilters(t, { ...NO_FILTERS, search: "fløte" }), false);
+});
+
+test("markedItem marks the receipt items that the search or item filter found", () => {
+  const key = "lett melk tine";
+  assert.equal(markedItem(key, NO_FILTERS), false);
+  assert.equal(markedItem(key, { ...NO_FILTERS, search: "Tine Lett" }), true);
+  assert.equal(markedItem(key, { ...NO_FILTERS, search: "rema" }), false);
+  assert.equal(
+    markedItem(key, { ...NO_FILTERS, items: ["Tine Lett Melk"] }),
+    true,
+  );
+  assert.equal(markedItem(key, { ...NO_FILTERS, items: ["Tine"] }), false);
 });
 
 test("matchesFilters: excluded rows are hidden unless showExcluded, and no other filter overrides it", () => {

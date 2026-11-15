@@ -1,0 +1,17 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "See the matching receipt items",
+      "detail": "A receipt marks the items that your search or item filter found, and scrolls to them.",
+      "area": "receipts",
+      "kind": "improved"
+    },
+    {
+      "title": "Back to the transaction",
+      "detail": "Item details that you open from a receipt have a button that goes back to the transaction.",
+      "area": "receipts",
+      "kind": "new"
+    }
+  ]
+}

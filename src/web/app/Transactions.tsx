@@ -223,6 +223,9 @@ interface TransactionsCardProps {
   info?: ReactNode;
   all?: Categorized[];
   branchRules?: RuleMap;
+  open: Categorized | null;
+  marked?: string[];
+  onOpen: (txn: Categorized | null) => void;
   onMerchant: (merchant: string, meta: boolean) => void;
   onCategory: (category: string, meta: boolean) => void;
   onAccount: (account: string, meta: boolean) => void;
@@ -240,6 +243,9 @@ export const TransactionsCard = ({
   info,
   all,
   branchRules,
+  open,
+  marked,
+  onOpen,
   onMerchant,
   onCategory,
   onAccount,
@@ -274,7 +280,6 @@ export const TransactionsCard = ({
     [bySort, grouping, by],
   );
   const accountCell = useAccountCell(txns);
-  const [open, setOpen] = useState<Categorized | null>(null);
   const [selected, setSelected] = useState<Set<Categorized>>(new Set());
   const picked = txns.filter((t) => selected.has(t));
   if (picked.length !== selected.size) setSelected(new Set(picked));
@@ -309,7 +314,7 @@ export const TransactionsCard = ({
       ) : (
         <DataTable
           list
-          onRow={(i) => setOpen(sorted[i] ?? null)}
+          onRow={(i) => onOpen(sorted[i] ?? null)}
           controls={<GroupBySelect value={groupBy} onChange={onGroup} />}
           group={
             grouping
@@ -420,16 +425,17 @@ export const TransactionsCard = ({
       {open && (
         <TxnDialog
           txn={open}
-          onClose={() => setOpen(null)}
+          marked={marked}
+          onClose={() => onOpen(null)}
           {...(onItem && {
             onItem: (raw, action) => {
-              setOpen(null);
+              onOpen(null);
               onItem(open, raw, action);
             },
           })}
           {...(onFile && {
             onFile: (file) => {
-              setOpen(null);
+              onOpen(null);
               onFile(open, file);
             },
           })}
