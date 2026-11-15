@@ -2,7 +2,6 @@ import type { ReactNode, RefObject } from "react";
 import type { Load, Refresh } from "./data.ts";
 import { ErrorIcon, Icon, LoadingIcon, RefreshIcon } from "./icons.ts";
 import { Button } from "./ui/button.tsx";
-import { Card, CardContent, CardHeader } from "./ui/card.tsx";
 import {
   Empty,
   EmptyContent,
@@ -79,34 +78,28 @@ export const Header = ({
 );
 
 const TileSkeleton = () => (
-  <Card size="sm">
-    <CardHeader className="gap-2">
-      <Skeleton className="h-3 w-16" />
-      <Skeleton className="h-7 w-32" />
-    </CardHeader>
-  </Card>
+  <div className="flex flex-col gap-2">
+    <Skeleton className="h-3 w-16" />
+    <Skeleton className="h-7 w-32" />
+  </div>
 );
 
 const PanelSkeleton = ({ height }: { height: string }) => (
-  <Card>
-    <CardHeader>
-      <Skeleton className="h-4 w-40" />
-    </CardHeader>
-    <CardContent>
-      <Skeleton className={cn("w-full", height)} />
-    </CardContent>
-  </Card>
+  <div className="flex flex-col gap-3 border-t pt-4">
+    <Skeleton className="h-4 w-40" />
+    <Skeleton className={cn("w-full", height)} />
+  </div>
 );
 
 const PageSkeleton = () => (
-  <div aria-busy="true" aria-label="Loading" className="space-y-4">
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+  <div aria-busy="true" aria-label="Loading" className="space-y-8">
+    <div className="grid grid-cols-2 gap-x-10 gap-y-5 sm:grid-cols-3">
       <TileSkeleton />
       <TileSkeleton />
       <TileSkeleton />
     </div>
     <PanelSkeleton height="h-56" />
-    <div className="grid gap-4 md:grid-cols-2">
+    <div className="grid gap-x-10 gap-y-8 md:grid-cols-2">
       <PanelSkeleton height="h-48" />
       <PanelSkeleton height="h-48" />
     </div>

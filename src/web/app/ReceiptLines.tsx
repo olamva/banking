@@ -8,7 +8,6 @@ import {
   ExternalLinkIcon,
   FilterIcon,
   Icon,
-  ReceiptIcon,
   type IconSvgElement,
 } from "./icons.ts";
 import { Button } from "./ui/button.tsx";
@@ -164,7 +163,7 @@ export const Slip = ({ receipt, marked, onItem }: SlipProps) => {
   const lines = merged(receipt.lines);
   const saved = total(lines.flatMap((l) => l.discounts ?? []));
   return (
-    <div className="mx-auto max-w-[380px] rounded-md border border-border bg-background px-4 py-3 font-mono text-[11px] leading-relaxed tabular-nums">
+    <div className="mx-auto max-w-[380px] font-mono text-[11px] leading-relaxed tabular-nums">
       <div className="text-center font-semibold uppercase">{receipt.store}</div>
       <div className="text-center text-muted-foreground">
         {fmtDateTime(receipt.at)}
@@ -213,16 +212,11 @@ export const ReceiptLines = ({
   receipt,
   onItem,
 }: Pick<SlipProps, "receipt" | "onItem">) => (
-  <section className="mb-4 text-xs">
-    <h3 className="flex flex-wrap items-baseline gap-x-1.5 border-b border-border pb-1.5 font-semibold">
-      <Icon
-        icon={ReceiptIcon}
-        size={14}
-        className="shrink-0 self-center text-muted-foreground"
-      />
+  <section className="text-xs">
+    <h3 className="flex flex-wrap items-baseline gap-x-1.5 border-b pb-1.5 font-medium text-muted-foreground">
       Receipt
       {receipt.source === "gmail" && !receipt.lines.length && (
-        <span className="font-normal text-muted-foreground">
+        <span className="font-normal">
           {receipt.store} · {fmtDateTime(receipt.at)}
         </span>
       )}

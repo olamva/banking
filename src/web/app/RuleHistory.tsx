@@ -70,7 +70,7 @@ export const History = ({ file, rules }: HistoryProps) => {
   const ahead = Math.max(here, 0);
 
   return (
-    <section className="flex max-h-115 min-w-0 flex-col rounded-xl bg-card p-4 ring-1 ring-foreground/10 lg:sticky lg:top-(--header-bottom) lg:max-h-[calc(100dvh-var(--header-bottom)-1.5rem)]">
+    <section className="flex max-h-115 min-w-0 flex-col border-t pt-4 lg:sticky lg:top-(--header-bottom) lg:max-h-[calc(100dvh-var(--header-bottom)-1.5rem)]">
       <div className="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2">
         <h3 className="flex items-center gap-2 text-sm font-medium">
           <Icon

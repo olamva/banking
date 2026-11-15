@@ -380,7 +380,10 @@ export const TransactionsCard = ({
                 />
               )}
               {t.isPending && (
-                <Badge variant="outline" className="border-dashed">
+                <Badge
+                  variant="outline"
+                  className="border-dashed border-muted-foreground/60"
+                >
                   Pending
                 </Badge>
               )}

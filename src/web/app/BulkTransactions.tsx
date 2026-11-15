@@ -93,10 +93,7 @@ export const BulkTransactions = ({
             </DialogTitle>
           </div>
           {saved ? (
-            <div
-              role="status"
-              className="rounded-lg border bg-muted/40 p-4 text-sm"
-            >
+            <div role="status" className="border-y py-4 text-sm">
               <p className="font-semibold">
                 {rename ? "Payee names saved." : "Categories saved."}
               </p>
@@ -198,7 +195,7 @@ const BulkPreview = ({
   const names = [...new Set(selected.map(merchantOf))];
   return (
     <>
-      <div className="rounded-lg border bg-muted/40 p-3">
+      <div>
         <p className="mb-2 text-xs text-muted-foreground">
           {names.length} payee name(s) → one {rename ? "name" : "category"}
         </p>
@@ -278,7 +275,7 @@ const BulkPreview = ({
         )}
       </div>
       <div
-        className="flex flex-wrap gap-x-5 gap-y-2 rounded-lg border p-3 text-sm tabular-nums"
+        className="flex flex-wrap gap-x-5 gap-y-2 border-y py-3 text-sm tabular-nums"
         aria-live="polite"
       >
         <span>

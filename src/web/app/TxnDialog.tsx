@@ -58,6 +58,8 @@ const SHOWN_ABOVE = [
 
 const ROW = "flex items-baseline justify-between gap-4 py-2";
 
+const HEADING = "border-b pb-1.5 text-xs font-medium text-muted-foreground";
+
 export const TxnDialog = ({ txn, onClose, onFile, onItem }: TxnDialogProps) => {
   const bank = bankLabel(txn);
 
@@ -110,19 +112,20 @@ export const TxnDialog = ({ txn, onClose, onFile, onItem }: TxnDialogProps) => {
               )}
               {txn.isRecurring && <Badge variant="secondary">Recurring</Badge>}
               {txn.isPending && (
-                <Badge variant="outline" className="border-dashed">
+                <Badge
+                  variant="outline"
+                  className="border-dashed border-muted-foreground/60"
+                >
                   Pending
                 </Badge>
               )}
             </div>
           )}
         </SheetHeader>
-        <div className="space-y-5 p-4">
+        <div className="space-y-6 p-4">
           {onFile && (
             <section>
-              <h3 className="mb-2 text-xs font-medium text-muted-foreground">
-                Rules
-              </h3>
+              <h3 className={`mb-3 ${HEADING}`}>Rules</h3>
               <div className="flex flex-wrap gap-1.5">
                 {[
                   ...TXN_RULE_ACTIONS,
@@ -146,40 +149,43 @@ export const TxnDialog = ({ txn, onClose, onFile, onItem }: TxnDialogProps) => {
           {txn.receipt && (
             <ReceiptLines receipt={txn.receipt} onItem={onItem} />
           )}
-          <dl className="divide-y text-xs">
-            {txn.categorySource && (
-              <div className={ROW}>
-                <dt className="shrink-0 text-muted-foreground">
-                  Classification
-                </dt>
-                <dd className="min-w-0 text-right">{txn.categorySource}</dd>
-              </div>
-            )}
-            {bank && (
-              <div className={ROW}>
-                <dt className="shrink-0 text-muted-foreground">
-                  Bank category
-                </dt>
-                <dd className="min-w-0 text-right">
-                  <div className="text-sm wrap-break-word">{bank[0]}</div>
-                  <div className="font-mono text-[11px] break-all text-muted-foreground">
-                    {bank[1]}
-                  </div>
-                </dd>
-              </div>
-            )}
-            {txnFields(txn, SHOWN_ABOVE).map(([name, value]) => (
-              <div key={name} className={ROW}>
-                <dt className="shrink-0 text-muted-foreground">{name}</dt>
-                <dd
-                  className={`min-w-0 text-right ${name === ID_FIELD ? "truncate" : "wrap-break-word"}`}
-                  title={name === ID_FIELD ? value : undefined}
-                >
-                  {value}
-                </dd>
-              </div>
-            ))}
-          </dl>
+          <section>
+            <h3 className={HEADING}>Details</h3>
+            <dl className="divide-y text-xs">
+              {txn.categorySource && (
+                <div className={ROW}>
+                  <dt className="shrink-0 text-muted-foreground">
+                    Classification
+                  </dt>
+                  <dd className="min-w-0 text-right">{txn.categorySource}</dd>
+                </div>
+              )}
+              {bank && (
+                <div className={ROW}>
+                  <dt className="shrink-0 text-muted-foreground">
+                    Bank category
+                  </dt>
+                  <dd className="min-w-0 text-right">
+                    <div className="text-sm wrap-break-word">{bank[0]}</div>
+                    <div className="font-mono text-[11px] break-all text-muted-foreground">
+                      {bank[1]}
+                    </div>
+                  </dd>
+                </div>
+              )}
+              {txnFields(txn, SHOWN_ABOVE).map(([name, value]) => (
+                <div key={name} className={ROW}>
+                  <dt className="shrink-0 text-muted-foreground">{name}</dt>
+                  <dd
+                    className={`min-w-0 text-right ${name === ID_FIELD ? "truncate" : "wrap-break-word"}`}
+                    title={name === ID_FIELD ? value : undefined}
+                  >
+                    {value}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </section>
         </div>
       </SheetContent>
     </Sheet>

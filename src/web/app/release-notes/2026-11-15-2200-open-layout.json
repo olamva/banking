@@ -1,0 +1,23 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "Sections without cards",
+      "detail": "Overview and Rules group their sections with lines and space instead of boxes.",
+      "area": "app",
+      "kind": "improved"
+    },
+    {
+      "title": "Cleaner transaction details",
+      "detail": "The details panel shows the receipt without a box and gives each section a heading.",
+      "area": "transactions",
+      "kind": "improved"
+    },
+    {
+      "title": "Visible Pending tag",
+      "detail": "The Pending tag has a clear dashed edge.",
+      "area": "transactions",
+      "kind": "fixed"
+    }
+  ]
+}

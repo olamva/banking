@@ -264,7 +264,7 @@ export const RulesView = ({
       {data === null ? (
         <Loading />
       ) : (
-        <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="grid min-w-0 items-start gap-x-10 gap-y-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
           <Panel
             title={RULE_LABEL[file]}
             description={`${entries.length} rule(s)`}
