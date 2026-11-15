@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { SOURCES } from "../src/net/receipts.ts";
-import { secretGet } from "../src/net/token.ts";
+import { secretDelete, secretGet } from "../src/net/token.ts";
 
 const host = process.env.BANKING_SSH || "banking";
 const DIR = "/srv/banking/secrets";
@@ -34,6 +34,7 @@ try {
       );
       console.error(`${name} -> ${host}`);
     }
+    if (source === "coop" && secretGet(source)) secretDelete(source);
   }
 } catch (e) {
   console.error(e instanceof Error ? e.message : e);

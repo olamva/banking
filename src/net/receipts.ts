@@ -13,8 +13,13 @@ export const receiptDir = (source: Source): string =>
 
 const seed = (message: string): string =>
   process.platform !== "darwin" && /login|\.env/.test(message)
-    ? `${message} Then run pnpm receipts:seed.`
+    ? `${message.replace(/\.?$/, ".")} Then run pnpm receipts:seed.`
     : message;
+
+const failure = (source: Source, reason: unknown): string => {
+  const m = seed(reason instanceof Error ? reason.message : String(reason));
+  return m.toLowerCase().startsWith(source) ? m : `${source}: ${m}`;
+};
 
 export async function syncReceipts(): Promise<{
   added: number;
@@ -30,11 +35,7 @@ export async function syncReceipts(): Promise<{
       0,
     ),
     failed: results.flatMap((r, i) =>
-      r.status === "rejected"
-        ? [
-            `${sources[i]}: ${seed(r.reason instanceof Error ? r.reason.message : String(r.reason))}`,
-          ]
-        : [],
+      r.status === "rejected" ? [failure(sources[i], r.reason)] : [],
     ),
   };
 }

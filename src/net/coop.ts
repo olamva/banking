@@ -91,6 +91,7 @@ export async function login(): Promise<void> {
 
 export async function sync(dir: string): Promise<number> {
   const stored = secretGet("coop");
+  if (!stored && process.platform === "darwin") return 0;
   if (!stored) throw new Error("No Coop login. Run: pnpm receipts login coop");
   const { refreshToken, deviceId } = JSON.parse(stored) as Session;
   const headers = {

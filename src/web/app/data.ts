@@ -17,7 +17,12 @@ const msg = (e: unknown): string =>
 
 const getJson = async <T>(url: string, init?: RequestInit): Promise<T> => {
   const r = await fetch(url, init);
-  if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
+  if (!r.ok)
+    throw new Error(
+      r.headers.get("content-type")?.includes("html")
+        ? `The server did not answer (${r.status}). Try again in a minute.`
+        : `${r.status} ${await r.text()}`,
+    );
   return (await r.json()) as T;
 };
 

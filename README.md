@@ -55,7 +55,7 @@ pnpm receipts login coop            # password and SMS code in a Chrome window. 
 pnpm receipts rema                  # new receipts to data/raw/receipts/rema/
 pnpm receipts trumf                 # needs TRUMF_COOKIE, the Cookie header of a logged-in trumf.no page
 pnpm receipts gmail                 # receipt mail to data/raw/receipts/gmail/ as .eml files
-pnpm receipts coop                  # Coop app receipts to data/raw/receipts/coop/
+pnpm receipts coop                  # Coop app receipts to data/raw/receipts/coop/. Skipped after the seed
                                     # a sync with new receipts rebuilds data/banking.db
                                     # Refresh runs all four. These commands fetch one source
 pnpm receipts:seed                  # copy the receipt logins to the hosted site
@@ -170,7 +170,7 @@ The SB1 values arrive last, because the developer portal wants a redirect before
 7. Register a **second SpareBank 1 client** in the developer portal. The BankID login runs on this machine, so the redirect is a localhost URL. Use a port that the first client does not use.
 8. Put the four SB1 values in `infra/terraform.tfvars` and run `infra/oracle/configure.sh` again.
 9. Run `pnpm seed:site`. The token goes to the VM instead of the keychain. Do not use `pnpm sb1 login`, which reads `.env` and would put the token of this machine on the site.
-10. Run `pnpm receipts login rema`, `pnpm receipts login gmail` and `pnpm receipts login coop`, and fill in the receipt values in `.env`. Then run `pnpm receipts:seed`. For each source in `src/net/receipts.ts`, it copies the keychain login named after the source and each `.env` value whose name starts with the source in capitals and `_`, such as `REMA_SUBSCRIPTION_KEY` or `TRUMF_COOKIE`. The copies go to `/srv/banking/secrets/` on the VM. Run it again when the site reports an expired receipt login. Coop replaces its login token at each use, so the Mac and the site cannot share one Coop login. After the seed, run `pnpm receipts login coop` again before you run `pnpm receipts coop` on the Mac.
+10. Run `pnpm receipts login rema`, `pnpm receipts login gmail` and `pnpm receipts login coop`, and fill in the receipt values in `.env`. Then run `pnpm receipts:seed`. For each source in `src/net/receipts.ts`, it copies the keychain login named after the source and each `.env` value whose name starts with the source in capitals and `_`, such as `REMA_SUBSCRIPTION_KEY` or `TRUMF_COOKIE`. The copies go to `/srv/banking/secrets/` on the VM. Run it again when the site reports an expired receipt login. Coop keeps one live login, and a new login ends the earlier one. Only the site fetches Coop receipts. The seed moves the Coop login from the keychain to the VM, and the Mac then skips Coop. A Coop login on the Mac ends the login on the site, so run `pnpm receipts:seed` directly after it.
 11. Open the site and press Refresh.
 
 SB1 rotates the refresh token on every exchange, so two processes on one chain invalidate each other. The second client gives the site an independent chain.
