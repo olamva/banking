@@ -6,6 +6,7 @@ import type { RulesApi } from "./data.ts";
 import { rowLabel, splitPair } from "./format.ts";
 import { FIELD, MatchTable, CategoryInput } from "./RuleFields.tsx";
 import { Button } from "./ui/button.tsx";
+import { Input } from "./ui/input.tsx";
 import {
   Dialog,
   DialogContent,
@@ -215,7 +216,7 @@ const BulkPreview = ({
       <label className="block space-y-1 text-sm">
         <span>{rename ? "New payee name" : "New category"}</span>
         {rename ? (
-          <input
+          <Input
             autoFocus
             className={`${FIELD} w-full`}
             value={value}

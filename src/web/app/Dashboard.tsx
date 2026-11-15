@@ -1,4 +1,9 @@
-import { Fragment, type Dispatch, type SetStateAction } from "react";
+import {
+  Fragment,
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+} from "react";
 import {
   AXES,
   axisBounds,
@@ -23,7 +28,7 @@ import {
   type SubscriptionGroup,
 } from "../../core/stats.ts";
 import type { Categorized } from "../../core/types.ts";
-import { Empty, Note, Panel, StatTile, deltaInfo } from "./Cards.tsx";
+import { Empty, InfoTip, Note, Panel, StatTile, deltaInfo } from "./Cards.tsx";
 import { DivergingBars, HorizontalBars } from "./Charts.tsx";
 import { GROUP_LABEL, useChartGroup, type Group } from "./chartGroup.ts";
 import type { RulesApi } from "./data.ts";
@@ -49,17 +54,19 @@ const CARD_GRID =
 const CARD_GRID_3 =
   "grid grid-cols-[repeat(auto-fit,minmax(min(300px,100%),1fr))] gap-4 [&>*:last-child:nth-child(3n+1)]:col-span-full";
 
-interface ExcludedNoteProps {
+interface ExcludedInfoProps {
   excluded: ExcludedSummary;
-  where: string;
+  shown: boolean;
 }
 
-export const ExcludedNote = ({ excluded, where }: ExcludedNoteProps) =>
-  excluded.count === 0 ? null : (
-    <Note icon={InfoIcon} className="mt-4">
-      {excluded.count} transaction(s) totalling {fmtNOK(excluded.total)}{" "}
-      excluded {where} (internal transfers, card bill payments).
-    </Note>
+export const ExcludedInfo = ({ excluded, shown }: ExcludedInfoProps) =>
+  shown || excluded.count === 0 ? null : (
+    <InfoTip label="About internal transfers" className="-my-1">
+      {excluded.count} {excluded.count === 1 ? "transaction" : "transactions"}{" "}
+      for {fmtNOK(excluded.total)} in this period are internal transfers or card
+      bill payments. They are not counted. Turn on Show internal transfers in
+      Filter to see them.
+    </InfoTip>
   );
 
 type SetFilters = Dispatch<SetStateAction<Filters>>;
@@ -116,6 +123,7 @@ interface TotalsProps {
   prev: Stats;
   yearly: ReturnType<typeof yearStats> | null;
   vsLabel?: string;
+  info?: ReactNode;
 }
 
 // Spent and Income each hide when that side of the period is empty. Net needs
@@ -140,7 +148,7 @@ const tileSub = (
     .filter(Boolean)
     .join(" · ") || undefined;
 
-const Totals = ({ stats, prev, yearly, vsLabel }: TotalsProps) => (
+const Totals = ({ stats, prev, yearly, vsLabel, info }: TotalsProps) => (
   <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(min(150px,100%),1fr))] gap-3 max-sm:grid-cols-2 max-sm:[&>*:last-child:nth-child(odd)]:col-span-full">
     {TILES.map(([key, label, goodIfUp]) =>
       (
@@ -154,6 +162,7 @@ const Totals = ({ stats, prev, yearly, vsLabel }: TotalsProps) => (
               label={label}
               value={fmtNOK(stats[key])}
               sub={tileSub(key, stats, yearly)}
+              info={key === "totalOut" && info}
               vs={vsLabel}
               delta={
                 vsLabel ? deltaInfo(stats[key], prev[key], goodIfUp) : undefined
@@ -328,12 +337,7 @@ export const Dashboard = ({
   const { by, offered: groupsOffered, top, setGroup } = useChartGroup(shown);
 
   if (shown.length === 0)
-    return (
-      <>
-        <Empty>No transactions match the current filters.</Empty>
-        <ExcludedNote excluded={totals(all).excluded} where="in this period" />
-      </>
-    );
+    return <Empty>No transactions match the current filters.</Empty>;
 
   const vs =
     p.prev && txns.some((t) => inRange(t, p.prev!.from, p.prev!.to))
@@ -401,7 +405,18 @@ export const Dashboard = ({
 
   return (
     <>
-      <Totals stats={stats} prev={prev} yearly={yearly} vsLabel={vs?.label} />
+      <Totals
+        stats={stats}
+        prev={prev}
+        yearly={yearly}
+        vsLabel={vs?.label}
+        info={
+          <ExcludedInfo
+            excluded={totals(all).excluded}
+            shown={filters.showExcluded}
+          />
+        }
+      />
 
       {byItem && (
         <Note icon={InfoIcon} className="-mt-1 mb-4">
@@ -462,8 +477,6 @@ export const Dashboard = ({
       />
 
       {!byItem && items}
-
-      <ExcludedNote excluded={totals(all).excluded} where="in this period" />
     </>
   );
 };

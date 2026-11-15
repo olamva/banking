@@ -2,8 +2,10 @@
   "bump": "minor",
   "highlights": [
     {
-      "title": "Spending by merchant and category over time",
-      "detail": "The spending chart groups by merchant or by category. It draws one line for each of the top five. Select a name in the legend to hide or show its line. Press G to go to the next grouping."
+      "title": "Chart by merchant or category",
+      "detail": "The spending chart groups by merchant or category. It shows one line for each of the top five.",
+      "area": "overview",
+      "kind": "new"
     }
   ]
 }

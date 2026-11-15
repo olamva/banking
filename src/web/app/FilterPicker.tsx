@@ -105,18 +105,19 @@ export const ValueRow = ({
     {children}
     <Tooltip>
       <TooltipTrigger asChild>
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="icon"
           tabIndex={-1}
           aria-label={out ? `Stop excluding ${text}` : `Exclude ${text}`}
           onClick={() => onToggle(true)}
           className={cn(
-            "flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground/60 hover:bg-destructive/10 hover:text-destructive",
+            "text-muted-foreground/60 hover:bg-destructive/10 hover:text-destructive dark:hover:bg-destructive/10",
             out && "text-destructive",
           )}
         >
           <Icon icon={ExcludeIcon} size={15} />
-        </button>
+        </Button>
       </TooltipTrigger>
       <TooltipContent side="left">
         {out ? "Stop excluding" : "Exclude"}
@@ -143,6 +144,7 @@ export interface PickerListProps {
   subs?: (option: string) => string[];
   subLabel?: (value: string) => string;
   people?: ReadonlySet<string>;
+  uses?: ReadonlyMap<string, number>;
   query?: string;
   onBack?: () => void;
 }
@@ -157,9 +159,12 @@ export const PickerList = ({
   subs,
   subLabel = (v) => v,
   people,
+  uses = new Map(),
   query: initialQuery = "",
   onBack,
 }: PickerListProps) => {
+  const byUse = (list: string[]) =>
+    list.toSorted((a, b) => (uses.get(b) ?? 0) - (uses.get(a) ?? 0));
   const [query, setQuery] = useState(initialQuery);
   const [kind, setKind] = useState<Kind>("all");
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
@@ -170,11 +175,12 @@ export const PickerList = ({
   const on = (v: string) => picked.includes(v) || excluded.includes(v);
 
   const q = query.trim().toLowerCase();
+  const ranked = byUse(options);
   const listed =
     !people || kind === "all"
-      ? options
-      : options.filter((o) => people.has(o) === (kind === "people") || on(o));
-  const childrenOf = (o: string) => subs?.(o) ?? [];
+      ? ranked
+      : ranked.filter((o) => people.has(o) === (kind === "people") || on(o));
+  const childrenOf = (o: string) => byUse(subs?.(o) ?? []);
   const hits = (name: string) => name.toLowerCase().includes(q);
 
   const shown = q

@@ -141,6 +141,19 @@ test("matchesFilters: excluded rows are hidden unless showExcluded, and no other
   );
 });
 
+test("matchesFilters: withReceipt keeps only rows with a receipt", () => {
+  const plain = txn({ id: "1", amount: -50 });
+  const shop = txn({
+    id: "2",
+    amount: -50,
+    receipt: { source: "rema", id: "r", at: 0, store: "REMA", lines: [] },
+  });
+  const only = { ...NO_FILTERS, withReceipt: true };
+  assert.equal(matchesFilters(plain, only), false);
+  assert.equal(matchesFilters(shop, only), true);
+  assert.equal(matchesFilters(plain, NO_FILTERS), true);
+});
+
 test("matchesFilters: several categories at once, and none means all", () => {
   const groceries = txn({ id: "1", amount: -100, category: "dagligvarer" });
   const transport = txn({ id: "2", amount: -50, category: "transport" });

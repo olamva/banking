@@ -8,7 +8,9 @@ import { GroupIcon, Icon } from "./icons.ts";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "./ui/select.tsx";
@@ -46,11 +48,14 @@ export const GroupBySelect = ({ value, onChange }: GroupBySelectProps) => (
       <SelectValue />
     </SelectTrigger>
     <SelectContent position="popper" align="end">
-      {[...Object.keys(TXN_GROUPS), "None"].map((g) => (
-        <SelectItem key={g} value={g}>
-          {g}
-        </SelectItem>
-      ))}
+      <SelectGroup>
+        <SelectLabel>Group by</SelectLabel>
+        {[...Object.keys(TXN_GROUPS), "None"].map((g) => (
+          <SelectItem key={g} value={g}>
+            {g}
+          </SelectItem>
+        ))}
+      </SelectGroup>
     </SelectContent>
   </Select>
 );

@@ -303,6 +303,23 @@ test("compares the latest price with the median of two or more earlier prices of
   ]);
 });
 
+test("a checkout discount lowers the amount spent but not the price change", () => {
+  const [coffee] = itemsOf(
+    purchasesOf([
+      txn("30", "2026-10-01T10:00:00Z", [line("Kaffe", 60, "250 g")]),
+      txn("31", "2026-10-08T10:00:00Z", [line("Kaffe", 60, "250 g")]),
+      txn("32", "2026-10-15T10:00:00Z", [
+        {
+          ...line("Kaffe", 42, "250 g"),
+          discounts: [{ label: "Kaffe 30%", amount: 18 }],
+        },
+      ]),
+    ]),
+  );
+  assert.equal(coffee!.change, 0);
+  assert.equal(coffee!.spent, 162);
+});
+
 test("dates purchases in Oslo and measures the usual gap in days", () => {
   const milk = itemsOf(purchases, true).find((i) => i.qty === 4)!;
   assert.deepEqual(

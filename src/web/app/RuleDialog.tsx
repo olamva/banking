@@ -20,9 +20,11 @@ import {
 } from "./RuleFields.tsx";
 import { RULE_LABEL, RULE_NOTE } from "./ruleMeta.ts";
 import { Button } from "./ui/button.tsx";
+import { Input } from "./ui/input.tsx";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -118,7 +120,7 @@ const PatternDialog = ({
             <div className="grid gap-3 sm:grid-cols-3">
               <label className="flex flex-col gap-1.5 text-xs font-medium">
                 Payment type
-                <input
+                <Input
                   value={type}
                   onChange={(e) => setType(e.target.value)}
                   placeholder={txn.typeText ?? "Any"}
@@ -132,15 +134,17 @@ const PatternDialog = ({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="any">Any</SelectItem>
-                    <SelectItem value="out">Money out</SelectItem>
-                    <SelectItem value="in">Money in</SelectItem>
+                    <SelectGroup>
+                      <SelectItem value="any">Any</SelectItem>
+                      <SelectItem value="out">Money out</SelectItem>
+                      <SelectItem value="in">Money in</SelectItem>
+                    </SelectGroup>
                   </SelectContent>
                 </Select>
               </label>
               <label className="flex flex-col gap-1.5 text-xs font-medium">
                 Recipient account
-                <input
+                <Input
                   value={account}
                   onChange={(e) => setAccount(e.target.value)}
                   placeholder={txn.remoteAccountNumber ?? "Any"}
@@ -174,7 +178,7 @@ const PatternDialog = ({
                   dropUp
                 />
               ) : (
-                <input
+                <Input
                   value={value}
                   onChange={(e) => setValue(e.target.value)}
                   className={`${FIELD} font-normal`}

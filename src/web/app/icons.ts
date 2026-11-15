@@ -6,6 +6,9 @@ export type { IconSvgElement } from "@hugeicons/react";
 export const Icon = (props: React.ComponentProps<typeof HugeiconsIcon>) =>
   createElement(HugeiconsIcon, { "aria-hidden": true, ...props });
 
+export { TagsIcon as ItemCategoryIcon } from "@hugeicons/core-free-icons";
+export { Globe02Icon as CountryIcon } from "@hugeicons/core-free-icons";
+export { ArrowDataTransferHorizontalIcon as TransferIcon } from "@hugeicons/core-free-icons";
 export { ArrowDown02Icon as DownIcon } from "@hugeicons/core-free-icons";
 export { ArrowRight02Icon as FlatIcon } from "@hugeicons/core-free-icons";
 export { ArrowUp02Icon as UpIcon } from "@hugeicons/core-free-icons";

@@ -2,8 +2,10 @@
   "bump": "minor",
   "highlights": [
     {
-      "title": "Add the dashboard to your home screen",
-      "detail": "Install the dashboard from the browser menu. It opens in its own window with the dollar icon."
+      "title": "Add the app to your home screen",
+      "detail": "Install the dashboard from the browser menu. It opens in its own window.",
+      "area": "app",
+      "kind": "new"
     }
   ]
 }

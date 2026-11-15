@@ -1,16 +1,26 @@
-import { useDeferredValue, type Dispatch, type SetStateAction } from "react";
+import {
+  useDeferredValue,
+  useMemo,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import type { BulkFile } from "../../core/bulkRules.ts";
-import type { RuleFile, RuleMap } from "../../core/ruleFiles.ts";
+import { itemsOf, nameKey, purchasesOf } from "../../core/items.ts";
+import type { RuleFile } from "../../core/ruleFiles.ts";
 import { matchesFilters, type Filters } from "../../core/select.ts";
 import { totals } from "../../core/stats.ts";
 import type { Categorized } from "../../core/types.ts";
-import { ExcludedNote, pick } from "./Dashboard.tsx";
+import { ExcludedInfo, pick } from "./Dashboard.tsx";
+import { mapRules, type RulesApi } from "./data.ts";
+import { ItemSheet } from "./ItemSheet.tsx";
+import type { ItemAction } from "./ReceiptLines.tsx";
 import { TransactionsCard } from "./Transactions.tsx";
 
 interface TransactionsViewProps {
   rows: Categorized[];
   all: Categorized[];
-  branchRules: RuleMap;
+  rules: RulesApi;
   filters: Filters;
   onFilters: Dispatch<SetStateAction<Filters>>;
   onFile: (txn: Categorized, file: RuleFile) => void;
@@ -20,7 +30,7 @@ interface TransactionsViewProps {
 export const TransactionsView = ({
   rows,
   all,
-  branchRules,
+  rules,
   filters,
   onFilters,
   onFile,
@@ -30,20 +40,64 @@ export const TransactionsView = ({
   const shown = rows.filter((txn) =>
     matchesFilters(txn, { ...filters, search }),
   );
+  const names = mapRules(rules, "items");
+  const kinds = mapRules(rules, "item-categories");
+  const [picked, setPicked] = useState<string | null>(null);
+  const items = useMemo(
+    () =>
+      picked
+        ? itemsOf(purchasesOf(all, names, filters.withoutDeposit, kinds))
+        : [],
+    [picked, all, names, kinds, filters.withoutDeposit],
+  );
+  const item = items.find((i) => i.key === picked);
+
+  const onItem = (txn: Categorized, raw: string, action: ItemAction) => {
+    const bought = purchasesOf([txn], names).find((p) => p.raw === raw);
+    if (!bought) return;
+    if (action === "details") return setPicked(bought.key);
+    const other = (list: string[]) =>
+      list.filter((v) => nameKey(v) !== bought.key);
+    onFilters((f) =>
+      action === "only"
+        ? { ...f, items: [bought.name], itemsOut: other(f.itemsOut) }
+        : {
+            ...f,
+            items: other(f.items),
+            itemsOut: [...other(f.itemsOut), bought.name],
+          },
+    );
+  };
 
   return (
     <>
       <TransactionsCard
         txns={shown}
+        info={
+          <ExcludedInfo
+            excluded={totals(rows).excluded}
+            shown={filters.showExcluded}
+          />
+        }
         all={all}
-        branchRules={branchRules}
+        branchRules={mapRules(rules, "branches")}
         onMerchant={pick(onFilters, "merchants")}
         onCategory={pick(onFilters, "categories")}
         onAccount={pick(onFilters, "accounts")}
+        onItem={onItem}
         onFile={onFile}
         onBulk={onBulk}
       />
-      <ExcludedNote excluded={totals(rows).excluded} where="in view" />
+      {item && (
+        <ItemSheet
+          key={item.key}
+          item={item}
+          names={items.map((i) => i.name)}
+          rules={rules}
+          onRename={(name) => setPicked(nameKey(name))}
+          onClose={() => setPicked(null)}
+        />
+      )}
     </>
   );
 };

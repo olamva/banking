@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import type { BulkFile } from "../../core/bulkRules.ts";
 import { BulkCheckbox, BulkSelectAll, BulkToolbar } from "./BulkToolbar.tsx";
 import type { RuleFile, RuleMap } from "../../core/ruleFiles.ts";
@@ -23,6 +23,7 @@ import {
   shortDateSizes,
 } from "./format.ts";
 import { CardIcon, Icon, ReceiptIcon, RecurringIcon } from "./icons.ts";
+import type { ItemAction } from "./ReceiptLines.tsx";
 import { TxnDialog } from "./TxnDialog.tsx";
 import { GroupBySelect, TXN_GROUPS, useBranches } from "./TxnGroups.tsx";
 import { Badge } from "./ui/badge.tsx";
@@ -218,22 +219,26 @@ export const SubscriptionsCard = ({
 
 interface TransactionsCardProps {
   txns: Categorized[];
+  info?: ReactNode;
   all?: Categorized[];
   branchRules?: RuleMap;
   onMerchant: (merchant: string, meta: boolean) => void;
   onCategory: (category: string, meta: boolean) => void;
   onAccount: (account: string, meta: boolean) => void;
+  onItem?: (txn: Categorized, raw: string, action: ItemAction) => void;
   onFile?: (txn: Categorized, file: RuleFile) => void;
   onBulk?: (txns: Categorized[], file: BulkFile) => void;
 }
 
 export const TransactionsCard = ({
   txns,
+  info,
   all,
   branchRules,
   onMerchant,
   onCategory,
   onAccount,
+  onItem,
   onFile,
   onBulk,
 }: TransactionsCardProps) => {
@@ -268,8 +273,9 @@ export const TransactionsCard = ({
   return (
     <section className="min-w-0">
       <div className="mb-2 flex min-h-8 flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground tabular-nums">
+        <p className="flex items-center gap-0.5 text-sm text-muted-foreground tabular-nums">
           {txns.length} {txns.length === 1 ? "transaction" : "transactions"}
+          {info}
         </p>
         {onBulk && (
           <BulkToolbar
@@ -396,6 +402,12 @@ export const TransactionsCard = ({
         <TxnDialog
           txn={open}
           onClose={() => setOpen(null)}
+          {...(onItem && {
+            onItem: (raw, action) => {
+              setOpen(null);
+              onItem(open, raw, action);
+            },
+          })}
           {...(onFile && {
             onFile: (file) => {
               setOpen(null);

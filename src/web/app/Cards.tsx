@@ -5,11 +5,14 @@ import {
   ExpandIcon,
   FlatIcon,
   Icon,
+  InfoIcon,
   LoadingIcon,
   UpIcon,
   type IconSvgElement,
 } from "./icons.ts";
 import { Badge } from "./ui/badge.tsx";
+import { Button } from "./ui/button.tsx";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover.tsx";
 import {
   Card,
   CardAction,
@@ -44,6 +47,34 @@ export const Note = ({ icon, className = "", children }: NoteProps) => (
   </p>
 );
 
+interface InfoTipProps {
+  label: string;
+  className?: string;
+  children: ReactNode;
+}
+
+export const InfoTip = ({ label, className, children }: InfoTipProps) => (
+  <Popover>
+    <PopoverTrigger asChild>
+      <Button
+        variant="ghost"
+        size="icon-xs"
+        aria-label={label}
+        className={cn("text-muted-foreground", className)}
+      >
+        <Icon icon={InfoIcon} size={14} />
+      </Button>
+    </PopoverTrigger>
+    <PopoverContent
+      align="start"
+      collisionPadding={12}
+      className="text-xs leading-relaxed font-normal text-muted-foreground"
+    >
+      {children}
+    </PopoverContent>
+  </Popover>
+);
+
 export const Caret = ({ open }: { open: boolean }) => (
   <Icon
     icon={ExpandIcon}
@@ -63,6 +94,7 @@ interface PanelProps {
   title: ReactNode;
   icon?: IconSvgElement;
   description?: ReactNode;
+  info?: ReactNode;
   action?: ReactNode;
   className?: string;
   children: ReactNode;
@@ -72,6 +104,7 @@ export const Panel = ({
   title,
   icon,
   description,
+  info,
   action,
   className,
   children,
@@ -87,6 +120,7 @@ export const Panel = ({
           />
         )}
         {title}
+        {info && <InfoTip label="More information">{info}</InfoTip>}
       </CardTitle>
       {description && (
         <CardDescription className="text-xs">{description}</CardDescription>
@@ -143,13 +177,24 @@ interface StatTileProps {
   delta?: Delta;
   vs?: string;
   sub?: string;
+  info?: ReactNode;
 }
 
-export const StatTile = ({ label, value, delta, vs, sub }: StatTileProps) => (
+export const StatTile = ({
+  label,
+  value,
+  delta,
+  vs,
+  sub,
+  info,
+}: StatTileProps) => (
   <Card className="min-w-0 gap-1.5 py-3.5 [--card-spacing:--spacing(3.5)] sm:[--card-spacing:--spacing(4)]">
     <CardHeader>
       <CardDescription className="flex min-h-5 items-center justify-between gap-2 text-xs">
-        <span className="truncate">{label}</span>
+        <span className="flex min-w-0 items-center gap-0.5">
+          <span className="truncate">{label}</span>
+          {info}
+        </span>
         {delta?.pct != null && (
           <Badge variant="outline" className={cn("gap-0.5", deltaTone(delta))}>
             <DeltaIcon delta={delta} />

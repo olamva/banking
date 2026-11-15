@@ -1,6 +1,28 @@
+export const AREAS = {
+  transactions: "Transactions",
+  overview: "Overview",
+  items: "Items",
+  receipts: "Receipts",
+  filters: "Filters",
+  rules: "Rules",
+  iphone: "iPhone",
+  app: "Whole app",
+} as const;
+
+export const KINDS = {
+  new: "New",
+  improved: "Improved",
+  fixed: "Fixed",
+} as const;
+
+export type Area = keyof typeof AREAS;
+export type Kind = keyof typeof KINDS;
+
 export interface Highlight {
   title: string;
   detail: string;
+  area: Area;
+  kind: Kind;
 }
 
 export type Bump = "major" | "minor" | "patch";
@@ -13,10 +35,13 @@ export interface Note {
 export interface Release {
   version: string;
   date: string;
+  bump: Bump;
   highlights: Highlight[];
 }
 
 export const BUMPS: Bump[] = ["major", "minor", "patch"];
+
+export const LIMITS = { highlights: 3, title: 40, detail: 100 };
 
 export const NOTE_NAME = /^(\d{4}-\d{2}-\d{2})-\d{4}-[a-z0-9-]+\.json$/;
 
@@ -33,6 +58,7 @@ export function versioned(notes: Record<string, Note>): Release[] {
       return {
         version: version.join("."),
         date: name.slice(0, 10),
+        bump,
         highlights,
       };
     })

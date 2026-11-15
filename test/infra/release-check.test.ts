@@ -1,11 +1,22 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { releaseProblems } from "../../infra/release-check.ts";
-import { versioned, type Bump } from "../../src/web/app/releaseNotes.ts";
+import {
+  versioned,
+  type Bump,
+  type Highlight,
+} from "../../src/web/app/releaseNotes.ts";
 
-const note = (bump: Bump = "minor") => ({
+const HIGHLIGHT: Highlight = {
+  title: "Title",
+  detail: "Detail",
+  area: "items",
+  kind: "new",
+};
+
+const note = (bump: Bump = "minor", highlights = [HIGHLIGHT]) => ({
   bump,
-  highlights: [{ title: "Title", detail: "Detail" }],
+  highlights,
 });
 
 const FIRST = "2026-09-14-1200-first.json";
@@ -58,6 +69,24 @@ test("a release needs a dated name, a bump and highlights", () => {
       { "2026-09-23-0900-x.json": { ...note(), highlights: [] } },
       [],
     ).length,
+    1,
+  );
+});
+
+test("a release keeps its text short and tags each highlight", () => {
+  const problems = (...highlights: Highlight[]) =>
+    releaseProblems({ "2026-09-23-0900-x.json": note("minor", highlights) }, [])
+      .length;
+  assert.equal(problems(HIGHLIGHT, HIGHLIGHT, HIGHLIGHT), 0);
+  assert.equal(problems(HIGHLIGHT, HIGHLIGHT, HIGHLIGHT, HIGHLIGHT), 1);
+  assert.equal(problems({ ...HIGHLIGHT, title: "t".repeat(41) }), 1);
+  assert.equal(problems({ ...HIGHLIGHT, detail: "d".repeat(101) }), 1);
+  assert.equal(
+    problems({ ...HIGHLIGHT, area: "kitchen" as Highlight["area"] }),
+    1,
+  );
+  assert.equal(
+    problems({ ...HIGHLIGHT, kind: "huge" as Highlight["kind"] }),
     1,
   );
 });

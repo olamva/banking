@@ -13,7 +13,22 @@ import {
   useExcludeKey,
   ValueRow,
 } from "./FilterPicker.tsx";
-import { BackIcon, ExpandIcon, Icon, SearchIcon } from "./icons.ts";
+import {
+  AccountIcon,
+  BackIcon,
+  CategoryIcon,
+  CounterpartyIcon,
+  CountryIcon,
+  ExpandIcon,
+  Icon,
+  ItemCategoryIcon,
+  ItemsIcon,
+  ReceiptIcon,
+  RefundIcon,
+  SearchIcon,
+  TransferIcon,
+  type IconSvgElement,
+} from "./icons.ts";
 import { Badge } from "./ui/badge.tsx";
 import { Button } from "./ui/button.tsx";
 import {
@@ -41,6 +56,15 @@ export interface AxisSpec {
 }
 
 export type Scope = Axis | "home";
+
+const AXIS_ICON: Record<Axis, IconSvgElement> = {
+  categories: CategoryIcon,
+  merchants: CounterpartyIcon,
+  items: ItemsIcon,
+  kinds: ItemCategoryIcon,
+  accounts: AccountIcon,
+  countries: CountryIcon,
+};
 
 const TOP = 5;
 
@@ -149,10 +173,10 @@ const Home = ({
         aria-label="Search filters"
       />
       {q !== "" && (
-        <button
-          type="button"
+        <Button
+          variant="ghost"
           onClick={() => onSearch(query.trim())}
-          className="mx-1 mt-1 flex min-h-8 items-center gap-2 rounded-sm px-2 text-left text-sm hover:bg-muted"
+          className="mx-1 mt-1 justify-start gap-2 rounded-sm px-2 text-left font-normal"
         >
           <Icon
             icon={SearchIcon}
@@ -162,7 +186,7 @@ const Home = ({
           <span className="min-w-0 flex-1 truncate">
             Text contains “{query.trim()}”
           </span>
-        </button>
+        </Button>
       )}
       <CommandList className="max-h-none min-h-0 flex-1">
         {q === "" ? (
@@ -177,6 +201,11 @@ const Home = ({
                     onSelect={() => onScope(s.axis)}
                     className={ROW}
                   >
+                    <Icon
+                      icon={AXIS_ICON[s.axis]}
+                      size={15}
+                      className="text-muted-foreground"
+                    />
                     <span className="flex-1">{s.plural}</span>
                     {count > 0 && (
                       <Badge
@@ -259,15 +288,17 @@ interface FilterPanelProps {
 
 interface SwitchRowProps {
   label: string;
+  icon: IconSvgElement;
   tip?: string;
   checked: boolean;
   onChange: (checked: boolean) => void;
 }
 
-const SwitchRow = ({ label, tip, checked, onChange }: SwitchRowProps) => {
+const SwitchRow = ({ label, icon, tip, checked, onChange }: SwitchRowProps) => {
   const row = (
-    <label className="flex min-h-8 cursor-pointer items-center justify-between gap-3 rounded-sm px-2 text-sm hover:bg-muted/50">
-      {label}
+    <label className="flex min-h-8 cursor-pointer items-center gap-2 rounded-sm px-2 text-sm hover:bg-muted/50">
+      <Icon icon={icon} size={15} className="text-muted-foreground" />
+      <span className="flex-1">{label}</span>
       <Switch checked={checked} onCheckedChange={onChange} />
     </label>
   );
@@ -321,7 +352,12 @@ export const FilterPanel = ({
             <Icon icon={BackIcon} size={15} />
             All filters
           </Button>
-          <span className="ml-auto pr-2 text-sm font-medium">
+          <span className="ml-auto flex items-center gap-1.5 pr-2 text-sm font-medium">
+            <Icon
+              icon={AXIS_ICON[spec.axis]}
+              size={15}
+              className="text-muted-foreground"
+            />
             {spec.plural}
           </span>
         </div>
@@ -338,6 +374,7 @@ export const FilterPanel = ({
           subs={spec.subs}
           subLabel={spec.subLabel}
           people={spec.people}
+          uses={spec.uses}
           query={carried}
           onBack={back}
         />
@@ -360,15 +397,25 @@ export const FilterPanel = ({
             <div className="mx-1 mb-1 border-t pt-1">
               <SwitchRow
                 label="Show internal transfers"
+                icon={TransferIcon}
                 tip="Moves between your accounts, card bills and funds"
                 checked={filters.showExcluded}
                 onChange={(showExcluded) =>
                   onFilters({ ...filters, showExcluded })
                 }
               />
+              <SwitchRow
+                label="Only with receipts"
+                icon={ReceiptIcon}
+                checked={filters.withReceipt}
+                onChange={(withReceipt) =>
+                  onFilters({ ...filters, withReceipt })
+                }
+              />
               {deposit && (
                 <SwitchRow
                   label="Include bottle deposit"
+                  icon={RefundIcon}
                   checked={!filters.withoutDeposit}
                   onChange={(on) =>
                     onFilters({ ...filters, withoutDeposit: !on })

@@ -3,7 +3,15 @@
   "highlights": [
     {
       "title": "Receipts on transactions",
-      "detail": "A transaction shows its receipt when one matches. Rema 1000 and Trumf receipts look like the till slip, with sizes, unit prices, offers, deposit and payment. A receipt mail opens in Gmail. A small receipt mark shows which rows have one."
+      "detail": "A transaction shows its matching receipt. Rema 1000 and Trumf receipts look like the till slip.",
+      "area": "receipts",
+      "kind": "new"
+    },
+    {
+      "title": "Receipt mark on rows",
+      "detail": "A small receipt mark shows which rows have a receipt. A receipt mail opens in Gmail.",
+      "area": "receipts",
+      "kind": "new"
     }
   ]
 }

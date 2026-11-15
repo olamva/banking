@@ -113,16 +113,58 @@ const PageSkeleton = () => (
   </div>
 );
 
+const ROW_WIDTHS = ["w-32", "w-44", "w-28", "w-52", "w-36", "w-24", "w-40"];
+
+const ListSkeleton = () => (
+  <div aria-busy="true" aria-label="Loading">
+    <div className="mb-2 flex min-h-8 items-center">
+      <Skeleton className="h-4 w-28" />
+    </div>
+    <div className="flex items-center gap-2 pb-2">
+      <Skeleton className="h-4 w-20" />
+      <Skeleton className="ml-auto h-7 w-20" />
+      <Skeleton className="h-7 w-24" />
+    </div>
+    <div className="border-t">
+      {[4, 3, 5].map((rows, g) => (
+        <div key={g}>
+          <div className="flex items-center gap-2 border-b pt-3 pb-2">
+            <Skeleton className="h-3 w-28" />
+            <Skeleton className="ml-auto h-3 w-16" />
+          </div>
+          {Array.from({ length: rows }, (_, r) => (
+            <div
+              key={r}
+              className="flex min-h-12 flex-col justify-center gap-1.5 border-b border-border/70 py-3 last:border-b-0 sm:min-h-10 sm:flex-row sm:items-center sm:gap-6 sm:py-2"
+            >
+              <div className="flex items-center gap-3 sm:contents">
+                <Skeleton
+                  className={cn("h-4 sm:order-1", ROW_WIDTHS[(g + r) % 7])}
+                />
+                <Skeleton className="ml-auto h-4 w-20 sm:order-4 sm:ml-0" />
+              </div>
+              <Skeleton className="h-3 w-24 sm:order-2 sm:ml-auto sm:h-4" />
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
 export const LoadNote = ({
   load,
   count,
   refresh,
+  list,
 }: {
   load: Load;
   count: number;
   refresh: Refresh;
+  list: boolean;
 }) => {
-  if (load.status === "loading") return <PageSkeleton />;
+  if (load.status === "loading")
+    return list ? <ListSkeleton /> : <PageSkeleton />;
   if (load.status === "error")
     return (
       <Empty>

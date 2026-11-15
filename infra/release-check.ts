@@ -3,7 +3,10 @@ import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
+  AREAS,
   BUMPS,
+  KINDS,
+  LIMITS,
   NOTE_NAME,
   versioned,
   type Note,
@@ -27,9 +30,29 @@ function noteProblems(name: string, note: Note): string[] {
     problems.push(`${name} needs a bump of major, minor or patch.`);
   if (
     !note.highlights?.length ||
-    note.highlights.some((h) => !h.title.trim() || !h.detail.trim())
+    note.highlights.some((h) => !h.title?.trim() || !h.detail?.trim())
   )
     problems.push(`${name} needs highlights with text.`);
+  if ((note.highlights?.length ?? 0) > LIMITS.highlights)
+    problems.push(`${name} has more than ${LIMITS.highlights} highlights.`);
+  for (const h of note.highlights ?? []) {
+    if (h.title?.length > LIMITS.title)
+      problems.push(
+        `${name}: "${h.title}" is over ${LIMITS.title} characters.`,
+      );
+    if (h.detail?.length > LIMITS.detail)
+      problems.push(
+        `${name}: the detail of "${h.title}" is over ${LIMITS.detail} characters.`,
+      );
+    if (!(h.area in AREAS))
+      problems.push(
+        `${name}: "${h.title}" needs an area of ${Object.keys(AREAS).join(", ")}.`,
+      );
+    if (!(h.kind in KINDS))
+      problems.push(
+        `${name}: "${h.title}" needs a kind of ${Object.keys(KINDS).join(", ")}.`,
+      );
+  }
   return problems;
 }
 

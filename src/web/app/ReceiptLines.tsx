@@ -1,7 +1,25 @@
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
+import { isBought } from "../../core/items.ts";
 import type { Receipt, ReceiptLine, Entry } from "../../core/receipts.ts";
 import { fmtDateTime } from "./format.ts";
-import { ExternalLinkIcon, Icon, ReceiptIcon } from "./icons.ts";
+import {
+  ChangesIcon,
+  ExcludeIcon,
+  ExternalLinkIcon,
+  FilterIcon,
+  Icon,
+  ReceiptIcon,
+  type IconSvgElement,
+} from "./icons.ts";
+import { Button } from "./ui/button.tsx";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu.tsx";
 
 const ORE = new Intl.NumberFormat("nb-NO", {
   minimumFractionDigits: 2,
@@ -41,22 +59,73 @@ const Row = ({
   className?: string;
   children: ReactNode;
 }) => (
-  <div className={`flex items-baseline gap-2 ${className}`}>
+  <span className={`flex items-baseline gap-2 ${className}`}>
     <span className="min-w-0 flex-1 wrap-break-word">{children}</span>
     <span className="w-16 shrink-0 text-right">{ORE.format(amount)}</span>
-  </div>
+  </span>
 );
 
 const Rule = () => (
   <div className="my-2 border-t border-dashed border-muted-foreground/60" />
 );
 
-const Item = ({ line, marked }: { line: ReceiptLine; marked: boolean }) => (
-  <div
-    data-marked={marked || undefined}
-    className={`py-0.5 ${marked ? "-mx-1.5 rounded-sm bg-muted px-1.5 font-semibold" : ""}`}
-  >
-    <div className="uppercase wrap-break-word">{line.name}</div>
+export type ItemAction = "details" | "only" | "hide";
+
+const ITEM_ACTIONS: [ItemAction, string, IconSvgElement][] = [
+  ["details", "Item details", ChangesIcon],
+  ["only", "Filter by this item", FilterIcon],
+  ["hide", "Exclude this item", ExcludeIcon],
+];
+
+interface ItemProps {
+  line: ReceiptLine;
+  marked: boolean;
+  onItem?: (raw: string, action: ItemAction) => void;
+}
+
+const Item = ({ line, marked, onItem }: ItemProps) => {
+  const body = <ItemBody line={line} />;
+  if (!onItem)
+    return (
+      <div
+        data-marked={marked || undefined}
+        className={`py-0.5 ${marked ? "-mx-1.5 rounded-sm bg-muted px-1.5 font-semibold" : ""}`}
+      >
+        {body}
+      </div>
+    );
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          className="-mx-1.5 flex h-auto w-[calc(100%+0.75rem)] flex-col items-stretch gap-0 rounded-sm px-1.5 py-0.5 text-left text-[length:inherit] leading-[inherit] font-normal whitespace-normal active:not-aria-[haspopup]:translate-y-0"
+        >
+          {body}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-56">
+        <DropdownMenuLabel className="truncate">{line.name}</DropdownMenuLabel>
+        {ITEM_ACTIONS.map(([action, label, icon]) => (
+          <Fragment key={action}>
+            {action === "hide" && <DropdownMenuSeparator />}
+            <DropdownMenuItem
+              variant={action === "hide" ? "destructive" : "default"}
+              onSelect={() => onItem(line.name, action)}
+            >
+              <Icon icon={icon} size={15} />
+              {label}
+            </DropdownMenuItem>
+          </Fragment>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
+const ItemBody = ({ line }: { line: ReceiptLine }) => (
+  <>
+    <span className="block uppercase wrap-break-word">{line.name}</span>
     <Row
       amount={line.amount + total(line.discounts ?? []) - (line.deposit ?? 0)}
       className="pl-3"
@@ -82,16 +151,16 @@ const Item = ({ line, marked }: { line: ReceiptLine; marked: boolean }) => (
         Pant
       </Row>
     )}
-  </div>
+  </>
 );
 
-export const Slip = ({
-  receipt,
-  marked,
-}: {
+interface SlipProps {
   receipt: Receipt;
   marked?: string;
-}) => {
+  onItem?: ItemProps["onItem"];
+}
+
+export const Slip = ({ receipt, marked, onItem }: SlipProps) => {
   const lines = merged(receipt.lines);
   const saved = total(lines.flatMap((l) => l.discounts ?? []));
   return (
@@ -102,7 +171,12 @@ export const Slip = ({
       </div>
       <Rule />
       {lines.map((l, i) => (
-        <Item key={i} line={l} marked={l.name === marked} />
+        <Item
+          key={i}
+          line={l}
+          marked={l.name === marked}
+          {...(isBought(l) && { onItem })}
+        />
       ))}
       <Rule />
       <Row
@@ -135,7 +209,10 @@ export const Slip = ({
   );
 };
 
-export const ReceiptLines = ({ receipt }: { receipt: Receipt }) => (
+export const ReceiptLines = ({
+  receipt,
+  onItem,
+}: Pick<SlipProps, "receipt" | "onItem">) => (
   <section className="mb-4 text-xs">
     <h3 className="flex flex-wrap items-baseline gap-x-1.5 border-b border-border pb-1.5 font-semibold">
       <Icon
@@ -155,20 +232,21 @@ export const ReceiptLines = ({ receipt }: { receipt: Receipt }) => (
         <span className="min-w-0 wrap-break-word">
           {receipt.title || "(no subject)"}
         </span>
-        <a
-          href={`https://mail.google.com/mail/u/0/#all/${receipt.id}`}
-          target="_blank"
-          rel="noreferrer"
-          className="flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 text-muted-foreground hover:bg-muted hover:text-foreground hover:underline"
-        >
-          Open in Gmail
-          <Icon icon={ExternalLinkIcon} size={12} />
-        </a>
+        <Button variant="outline" size="sm" asChild>
+          <a
+            href={`https://mail.google.com/mail/u/0/#all/${receipt.id}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Open in Gmail
+            <Icon icon={ExternalLinkIcon} size={12} />
+          </a>
+        </Button>
       </div>
     )}
     {!!receipt.lines.length && (
       <div className={receipt.source === "gmail" ? "pt-1" : "pt-3"}>
-        <Slip receipt={receipt} />
+        <Slip receipt={receipt} onItem={onItem} />
       </div>
     )}
   </section>

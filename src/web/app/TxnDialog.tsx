@@ -11,7 +11,7 @@ import {
   txnFields,
 } from "./format.ts";
 import { CategoryIcon, EditIcon, Icon } from "./icons.ts";
-import { ReceiptLines } from "./ReceiptLines.tsx";
+import { ReceiptLines, type ItemAction } from "./ReceiptLines.tsx";
 import { Badge } from "./ui/badge.tsx";
 import { Button } from "./ui/button.tsx";
 import {
@@ -26,6 +26,7 @@ interface TxnDialogProps {
   txn: Categorized;
   onClose: () => void;
   onFile?: (file: RuleFile) => void;
+  onItem?: (raw: string, action: ItemAction) => void;
 }
 
 const TXN_RULE_ACTIONS: [RuleFile, string][] = [
@@ -57,7 +58,7 @@ const SHOWN_ABOVE = [
 
 const ROW = "flex items-baseline justify-between gap-4 py-2";
 
-export const TxnDialog = ({ txn, onClose, onFile }: TxnDialogProps) => {
+export const TxnDialog = ({ txn, onClose, onFile, onItem }: TxnDialogProps) => {
   const bank = bankLabel(txn);
 
   return (
@@ -142,7 +143,9 @@ export const TxnDialog = ({ txn, onClose, onFile }: TxnDialogProps) => {
               </div>
             </section>
           )}
-          {txn.receipt && <ReceiptLines receipt={txn.receipt} />}
+          {txn.receipt && (
+            <ReceiptLines receipt={txn.receipt} onItem={onItem} />
+          )}
           <dl className="divide-y text-xs">
             {txn.categorySource && (
               <div className={ROW}>

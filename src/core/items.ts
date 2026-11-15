@@ -15,6 +15,7 @@ export type Purchase = {
   qty: number;
   unit?: "kg";
   amount: number;
+  discount: number;
   category?: string;
 };
 
@@ -217,8 +218,12 @@ const ore = (n: number) => Math.round(n * 100) / 100;
 export const packPrice = (p: Purchase): number =>
   p.qty ? p.amount / p.qty : p.amount;
 
+export const shelfPrice = (p: Purchase): number =>
+  packPrice({ ...p, amount: p.amount + p.discount });
+
 export const unitPrice = (
   p: Purchase,
+  priceOf: (p: Purchase) => number = packPrice,
 ): { price: number; per: "kg" | "l" | "stk" } | null => {
   if (p.unit) return null;
   const parts = p.sizeKey.split(" · ");
@@ -228,11 +233,14 @@ export const unitPrice = (
     parts.map((s) => s.match(/^([\d.]+) (g|l)$/)).find(Boolean) ?? [];
   const content = Number(amount) * count * (base === "g" ? 0.001 : 1);
   return amount
-    ? { price: packPrice(p) / content, per: base === "g" ? "kg" : "l" }
+    ? { price: priceOf(p) / content, per: base === "g" ? "kg" : "l" }
     : pk
-      ? { price: packPrice(p) / count, per: "stk" }
+      ? { price: priceOf(p) / count, per: "stk" }
       : null;
 };
+
+export const isBought = (l: ReceiptLine): boolean =>
+  l.amount > 0 && !l.fee && !/\bpant\b/i.test(l.name);
 
 const receiptPurchases = (
   receipt: Receipt,
@@ -243,9 +251,7 @@ const receiptPurchases = (
 ): Purchase[] =>
   [
     ...Map.groupBy(
-      receipt.lines.filter(
-        (l) => l.amount > 0 && !l.fee && !/\bpant\b/i.test(l.name),
-      ),
+      receipt.lines.filter(isBought),
       (l) => `${l.name}\n${sizeKey(l.size)}`,
     ).values(),
   ].map((same) => {
@@ -268,6 +274,11 @@ const receiptPurchases = (
           (n, l) => n + l.amount - (withoutDeposit ? (l.deposit ?? 0) : 0),
           0,
         ),
+      ),
+      discount: ore(
+        same
+          .flatMap((l) => l.discounts ?? [])
+          .reduce((n, d) => n + d.amount, 0),
       ),
       ...(category ? { category } : {}),
     };
@@ -367,7 +378,7 @@ export const itemsOf = (purchases: Purchase[], bySize = false): Item[] =>
     const days = [...new Set(sorted.map((p) => dayOf(p.date)))];
     const [now, ...before] = sorted
       .filter((p) => p.sizeKey === sorted[0]!.sizeKey)
-      .map(packPrice);
+      .map(shelfPrice);
     const usual = before.length > 1 ? median(before) : null;
     return {
       key,

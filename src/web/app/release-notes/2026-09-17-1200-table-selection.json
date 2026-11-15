@@ -3,7 +3,9 @@
   "highlights": [
     {
       "title": "Selection in the table header",
-      "detail": "Select all transactions from the table header. Clear the selection from the selected-count control."
+      "detail": "Select all transactions from the table header. Clear the selection from the count control.",
+      "area": "transactions",
+      "kind": "improved"
     }
   ]
 }
