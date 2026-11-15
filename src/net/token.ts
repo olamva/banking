@@ -54,6 +54,15 @@ export function secretSet(name: string, secret: string): void {
   ]);
 }
 
+export const secretDelete = (name: string): void =>
+  void execFileSync("security", [
+    "delete-generic-password",
+    "-s",
+    KEYCHAIN_SERVICE,
+    "-a",
+    name,
+  ]);
+
 export function secretGet(name: string): string | null {
   try {
     return (
