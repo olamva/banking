@@ -3,6 +3,7 @@ import { type CategoryDelta } from "../../core/stats.ts";
 import { Caret, Empty } from "./Cards.tsx";
 import { fmtNOK, toggled, useWidth } from "./format.ts";
 import { ExpandIcon, Icon } from "./icons.ts";
+import { cn } from "./ui/utils.ts";
 
 interface TipState {
   x: number;
@@ -101,7 +102,7 @@ export const HorizontalBars = ({
           <span className="flex h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-muted">
             <span
               className={`h-full min-w-0.5 rounded-full ${TONE[tone][depth ? 1 : 0]}`}
-              style={{ width: `${(item.total / maxVal) * 100}%` }}
+              style={{ width: `${(Math.max(item.total, 0) / maxVal) * 100}%` }}
             />
           </span>
           {item.count ? (
@@ -109,7 +110,12 @@ export const HorizontalBars = ({
               {item.count}×
             </span>
           ) : null}
-          <span className="w-20 shrink-0 text-right font-medium tabular-nums">
+          <span
+            className={cn(
+              "w-20 shrink-0 text-right font-medium tabular-nums",
+              item.total < 0 && "text-income",
+            )}
+          >
             {fmtNOK(item.total)}
           </span>
         </span>

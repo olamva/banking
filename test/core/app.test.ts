@@ -62,7 +62,7 @@ test("a month reconciles with the totals of its rows to the øre", () => {
 
 test("the current month compares with the same days last year", () => {
   assert.equal(october.compared, "this time last year");
-  assert.equal(october.delta?.totalOut, 349.45 - 100.1);
+  assert.equal(october.delta?.totalOut, 209.15);
 });
 
 test("the day series runs to today and ends on the month totals", () => {
@@ -84,8 +84,9 @@ test("all time sums each month, and an empty month counts as zero", () => {
 test("a custom range keeps only its own days", () => {
   const range = appPeriod("2026-10-01..2026-10-05", rows, "2026-10-12");
   assert.equal(range.kind, "custom");
-  assert.equal(range.totalOut, 250.45);
-  assert.equal(range.totalIn, 40.2);
+  assert.equal(range.totalOut, 210.25);
+  assert.equal(range.refunded, 40.2);
+  assert.equal(range.totalIn, 0);
   assert.equal(range.compared, null);
 });
 
@@ -123,7 +124,7 @@ test("only counted rows with an imported payee offer a category pattern", () => 
 test("the month compares categories with the period before it", () => {
   assert.deepEqual(
     october.changes.map((d) => [d.category, d.current, d.previous]),
-    [["dagligvarer", 349.45, 100.1]],
+    [["dagligvarer", 309.25, 100.1]],
   );
   assert.deepEqual(
     october.accounts.map((a) => a.account),
@@ -142,9 +143,9 @@ test("filters narrow a period and its comparison, and keep the excluded note", (
     ...NO_FILTERS,
     merchants: ["Kiwi"],
   });
-  assert.equal(kiwi.totalOut, 250.45);
-  assert.equal(kiwi.totalIn, 40.2);
-  assert.equal(kiwi.delta?.totalOut, 250.45 - 100.1);
+  assert.equal(kiwi.totalOut, 210.25);
+  assert.equal(kiwi.totalIn, 0);
+  assert.equal(kiwi.delta?.totalOut, 110.15);
   assert.deepEqual(kiwi.prev, { from: "2025-10-01", to: "2025-10-12" });
   assert.deepEqual(kiwi.subscriptions, []);
   assert.deepEqual(kiwi.excluded, { count: 1, total: 5000 });

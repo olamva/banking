@@ -43,10 +43,12 @@ export type MonthStats = {
   month: string;
   totalIn: number;
   totalOut: number;
+  refunded: number;
   net: number;
   categories: CategoryTotal[];
   subcategories: SubcategoryTotal[];
   topCounterparties: CounterpartyTotal[];
+  topRefundCounterparties: CounterpartyTotal[];
   incomeCategories: CategoryTotal[];
   incomeSubcategories: SubcategoryTotal[];
   topIncomeCounterparties: CounterpartyTotal[];
@@ -63,10 +65,27 @@ export type MonthSummary = Totals & { month: string };
 
 const toCents = (amount: number) => Math.round(amount * 100);
 const fromCents = (cents: number) => cents / 100;
+
+const INCOME = new Set([
+  "innskudd",
+  "annet_lan_og_gjeld/studielan",
+  "diverse/renter_innskudd",
+]);
+
+export type Flow = "in" | "out" | "refund";
+
+export const flowOf = (t: Categorized): Flow =>
+  t.amount < 0
+    ? "out"
+    : INCOME.has(t.category) ||
+        INCOME.has(`${t.category}/${t.subcategory ?? ""}`)
+      ? "in"
+      : "refund";
 const byDate = (a: Categorized, b: Categorized) => a.date.localeCompare(b.date);
 
 // Largest-remainder rounding. The basis points sum to 10000, so shares sum to 1.
-function allocateShares(parts: number[]): number[] {
+function allocateShares(signed: number[]): number[] {
+  const parts = signed.map((p) => Math.max(p, 0));
   const total = parts.reduce((sum, p) => sum + p, 0);
   if (total <= 0) return parts.map(() => 0);
   const scale = 10000;
@@ -83,7 +102,7 @@ function allocateShares(parts: number[]): number[] {
 function slices(
   byKey: Map<string, number>,
 ): { key: string; total: number; share: number }[] {
-  const keys = [...byKey.keys()];
+  const keys = [...byKey.keys()].filter((k) => byKey.get(k) !== 0);
   const cents = keys.map((k) => byKey.get(k)!);
   const shares = allocateShares(cents);
   return keys
@@ -158,6 +177,7 @@ type SideAgg = {
 type CentsAgg = {
   in: SideAgg;
   out: SideAgg;
+  refundCents: number;
   excludedCount: number;
   excludedCents: number;
 };
@@ -176,6 +196,7 @@ function aggregateCents(txns: Categorized[]): CentsAgg {
   const agg: CentsAgg = {
     in: emptySide(),
     out: emptySide(),
+    refundCents: 0,
     excludedCount: 0,
     excludedCents: 0,
   };
@@ -187,12 +208,14 @@ function aggregateCents(txns: Categorized[]): CentsAgg {
       continue;
     }
     if (cents === 0) continue;
-    const side = cents > 0 ? agg.in : agg.out;
-    const mag = Math.abs(cents);
-    side.cents += mag;
-    bump(side.categoryCents, t.category, mag);
-    bump(side.subCents, SUB_KEY(t.category, t.subcategory), mag);
-    bump(side.accountCents, t.account, mag);
+    const flow = flowOf(t);
+    const side = flow === "in" ? agg.in : agg.out;
+    const signed = flow === "in" ? cents : -cents;
+    if (flow === "refund") agg.refundCents += cents;
+    side.cents += signed;
+    bump(side.categoryCents, t.category, signed);
+    bump(side.subCents, SUB_KEY(t.category, t.subcategory), signed);
+    bump(side.accountCents, t.account, signed);
   }
   return agg;
 }
@@ -200,46 +223,40 @@ function aggregateCents(txns: Categorized[]): CentsAgg {
 export type Totals = {
   totalIn: number;
   totalOut: number;
+  refunded: number;
   net: number;
   excluded: ExcludedSummary;
 };
 
 export function totals(txns: Categorized[]): Totals {
-  let incoming = 0;
-  let outgoing = 0;
-  let excluded = 0;
-  let count = 0;
-  for (const t of txns) {
-    const cents = toCents(t.amount);
-    if (t.excluded) {
-      count++;
-      excluded += Math.abs(cents);
-    } else if (cents > 0) incoming += cents;
-    else outgoing -= cents;
-  }
+  const agg = aggregateCents(txns);
   return {
-    totalIn: fromCents(incoming),
-    totalOut: fromCents(outgoing),
-    net: fromCents(incoming - outgoing),
-    excluded: { count, total: fromCents(excluded) },
+    totalIn: fromCents(agg.in.cents),
+    totalOut: fromCents(agg.out.cents),
+    refunded: fromCents(agg.refundCents),
+    net: fromCents(agg.in.cents - agg.out.cents),
+    excluded: { count: agg.excludedCount, total: fromCents(agg.excludedCents) },
   };
 }
 
 function topCounterparties(
   txns: Categorized[],
-  dir: "in" | "out",
+  dir: Flow,
   limit = 25,
 ): CounterpartyTotal[] {
   const byCp = new Map<string, { cents: number; count: number }>();
   for (const t of txns) {
-    if (t.excluded || t.counterparty === null) continue;
-    if (dir === "out" ? t.amount >= 0 : t.amount <= 0) continue;
+    if (t.excluded || t.counterparty === null || t.amount === 0) continue;
+    const flow = flowOf(t);
+    const netted = dir === "out" && flow === "refund";
+    if (flow !== dir && !netted) continue;
     const entry = byCp.get(t.counterparty) ?? { cents: 0, count: 0 };
-    entry.cents += Math.abs(toCents(t.amount));
-    entry.count++;
+    entry.cents += (netted ? -1 : 1) * Math.abs(toCents(t.amount));
+    if (!netted) entry.count++;
     byCp.set(t.counterparty, entry);
   }
   return [...byCp.entries()]
+    .filter(([, { cents }]) => cents > 0)
     .map(([counterparty, { cents, count }]) => ({
       counterparty,
       total: fromCents(cents),
@@ -280,10 +297,12 @@ export function monthStats(
     month,
     totalIn: fromCents(agg.in.cents),
     totalOut: fromCents(agg.out.cents),
+    refunded: fromCents(agg.refundCents),
     net: fromCents(agg.in.cents - agg.out.cents),
     categories: categoriesFromCents(agg.out.categoryCents),
     subcategories: subcategoriesFromCents(agg.out.subCents),
     topCounterparties: topCounterparties(txns, "out"),
+    topRefundCounterparties: topCounterparties(txns, "refund"),
     incomeCategories: categoriesFromCents(agg.in.categoryCents),
     incomeSubcategories: subcategoriesFromCents(agg.in.subCents),
     topIncomeCounterparties: topCounterparties(txns, "in"),
@@ -357,7 +376,9 @@ export function topSpendGroups(
   key: (t: Categorized) => string | null,
   limit = 5,
 ): { name: string; txns: Categorized[] }[] {
-  const spend = txns.filter((t) => !t.excluded && t.amount < 0);
+  const spend = txns.filter(
+    (t) => !t.excluded && t.amount !== 0 && flowOf(t) !== "in",
+  );
   return [...Map.groupBy(spend, key)]
     .flatMap(([name, txns]) =>
       name === null ? [] : [{ name, txns, total: totals(txns).totalOut }],

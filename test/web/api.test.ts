@@ -159,8 +159,9 @@ test("rebuild applies rules before names and preserves money through the payload
   const trip = rows.find((r) => r.id === "trip")!;
   assert.deepEqual([trip.country, trip.category], ["Japan", "reise"]);
   assert.deepEqual(totals(rows), {
-    totalIn: 20.1,
-    totalOut: 130.3,
+    totalIn: 0,
+    totalOut: 110.2,
+    refunded: 20.1,
     net: -110.2,
     excluded: { count: 2, total: 1000 },
   });
@@ -296,9 +297,9 @@ test("the app period applies the web filter params and refuses an unknown period
   const all = JSON.parse(get("p=2026-07").body);
   const daily = JSON.parse(get("p=2026-07&acct=Daily").body);
   const notCard = JSON.parse(get("p=2026-07&acct_not=Card").body);
-  assert.equal(all.totalOut, 130.3);
-  assert.equal(daily.totalOut, 100.25);
-  assert.equal(daily.totalIn, 20.1);
+  assert.equal(all.totalOut, 110.2);
+  assert.equal(daily.totalOut, 80.15);
+  assert.equal(daily.totalIn, 0);
   assert.deepEqual(
     notCard.accounts.map((a: { account: string }) => a.account),
     ["Daily"],
