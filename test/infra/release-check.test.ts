@@ -36,11 +36,21 @@ test("a PR without a release fails unless it is exempt", () => {
   assert.deepEqual(releaseProblems(base, [FIRST], true), []);
 });
 
-test("a new release that sorts before the newest one fails", () => {
+test("a new release between the oldest and the newest one fails", () => {
+  const LAST = "2026-09-20-1200-last.json";
   assert.equal(
-    releaseProblems({ ...base, "2026-09-13-0900-early.json": note() }, [FIRST])
-      .length,
+    releaseProblems(
+      { ...base, [LAST]: note(), "2026-09-15-0900-between.json": note() },
+      [FIRST, LAST],
+    ).length,
     1,
+  );
+});
+
+test("a new release before the oldest one passes", () => {
+  assert.deepEqual(
+    releaseProblems({ ...base, "2026-09-13-0900-early.json": note() }, [FIRST]),
+    [],
   );
 });
 

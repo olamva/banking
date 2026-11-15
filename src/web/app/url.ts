@@ -15,8 +15,13 @@ export type UrlState = {
   ruleFile: RuleTab;
   period: string | null;
   grain: Grain;
+  group: string;
+  sort: string;
   filters: Filters;
 };
+
+export const DEFAULT_GROUP = "Day";
+export const DEFAULT_SORT = "-date";
 
 const VIEWS: View[] = ["transactions", "overview", "rules"];
 const ALL_GRAINS: Grain[] = ["running", "day", "month"];
@@ -38,6 +43,8 @@ export const toParams = (s: UrlState): string => {
   if (s.view === "rules") p.set("tab", s.ruleFile);
   if (s.period) p.set("p", s.period);
   if (s.grain !== grainsFor(s.period)[0]) p.set("g", s.grain);
+  if (s.group !== DEFAULT_GROUP) p.set("group", s.group);
+  if (s.sort !== DEFAULT_SORT) p.set("sort", s.sort);
   return filtersToParams(s.filters, p).toString();
 };
 
@@ -48,6 +55,8 @@ export const fromParams = (p: URLSearchParams): UrlState => ({
   grain:
     ALL_GRAINS.find((g) => g === p.get("g")) ??
     grainsFor(p.get("p") || null)[0]!,
+  group: p.get("group") || DEFAULT_GROUP,
+  sort: p.get("sort") ?? DEFAULT_SORT,
   filters: filtersFromParams(p),
 });
 

@@ -1,0 +1,17 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "The dashboard online",
+      "detail": "Open the dashboard away from home. Google sign-in protects it.",
+      "area": "app",
+      "kind": "new"
+    },
+    {
+      "title": "Refresh from the page",
+      "detail": "The Refresh button gets new transactions from the bank.",
+      "area": "app",
+      "kind": "new"
+    }
+  ]
+}

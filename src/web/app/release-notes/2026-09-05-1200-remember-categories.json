@@ -1,0 +1,17 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "Remember a category",
+      "detail": "Remember the category of a transaction. Past and future payments with the same payee get it.",
+      "area": "transactions",
+      "kind": "new"
+    },
+    {
+      "title": "A faster page",
+      "detail": "The page does less repeated work, and shortcuts respond faster.",
+      "area": "app",
+      "kind": "improved"
+    }
+  ]
+}

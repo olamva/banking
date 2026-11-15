@@ -1,0 +1,23 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "More periods",
+      "detail": "Pick a month inside its year, or set a custom date range.",
+      "area": "filters",
+      "kind": "new"
+    },
+    {
+      "title": "Income breakdowns",
+      "detail": "Income cards show where money comes from, beside the spending cards.",
+      "area": "overview",
+      "kind": "new"
+    },
+    {
+      "title": "Keyboard shortcuts",
+      "detail": "Keys change the view and the period. A dialog lists all shortcuts.",
+      "area": "app",
+      "kind": "new"
+    }
+  ]
+}

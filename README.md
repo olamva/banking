@@ -104,7 +104,7 @@ Never share the dashboard. It holds every transaction you have, and so does a sc
 Add each release as one file in `src/web/app/release-notes/`.
 Name it with the Oslo date and time and a short title, such as `2026-11-11-1530-coop-receipts.json`.
 Set `bump` to `major`, `minor` or `patch`. The app computes each version from the bumps in name order.
-A new file must sort after every file on `main`.
+A new file must sort after every file on `main`, or before every file to record earlier history.
 Give each release one to three `highlights`. Each highlight has a `title`, a `detail`, an `area` and a `kind`.
 Keep the `title` to 40 characters and the `detail` to 100 characters. Write one sentence where possible.
 Set `area` to `transactions`, `overview`, `items`, `receipts`, `filters`, `rules`, `iphone` or `app`.

@@ -12,8 +12,22 @@ const DEFAULT: UrlState = {
   ruleFile: "categories",
   period: null,
   grain: "running",
+  group: "Day",
+  sort: "-date",
   filters: NO_FILTERS,
 };
+
+test("the table grouping and sort ride along, and only when not the default", () => {
+  const state: UrlState = { ...DEFAULT, group: "Merchant", sort: "amount" };
+  assert.equal(toParams(state), "group=Merchant&sort=amount");
+  assert.deepEqual(fromParams(new URLSearchParams(toParams(state))), state);
+  const unsorted: UrlState = { ...DEFAULT, sort: "" };
+  assert.equal(toParams(unsorted), "sort=");
+  assert.deepEqual(
+    fromParams(new URLSearchParams(toParams(unsorted))),
+    unsorted,
+  );
+});
 
 test("the untouched page has no query string at all", () => {
   assert.equal(toParams(DEFAULT), "");
@@ -25,6 +39,8 @@ test("a populated state round-trips, nulls included", () => {
     ruleFile: "categories",
     grain: "month",
     period: "2026",
+    group: "Category",
+    sort: "-amount",
     filters: {
       categories: ["dagligvarer", "transport"],
       categoriesOut: ["dagligvarer/andre_dagligvarer"],

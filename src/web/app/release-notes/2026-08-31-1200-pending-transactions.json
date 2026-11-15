@@ -1,0 +1,23 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "Pending transactions",
+      "detail": "Reserved payments show in the table before they book.",
+      "area": "transactions",
+      "kind": "new"
+    },
+    {
+      "title": "Rules from a transaction",
+      "detail": "Make a rule from the actions on a transaction.",
+      "area": "rules",
+      "kind": "new"
+    },
+    {
+      "title": "Rule match preview",
+      "detail": "A rule shows the transactions that it matches.",
+      "area": "rules",
+      "kind": "new"
+    }
+  ]
+}

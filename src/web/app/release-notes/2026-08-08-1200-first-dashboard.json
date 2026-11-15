@@ -1,0 +1,23 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "A spending dashboard",
+      "detail": "The page shows income, spending and categories from your bank and card accounts.",
+      "area": "overview",
+      "kind": "new"
+    },
+    {
+      "title": "A sortable transaction table",
+      "detail": "Sort each column. Click a chart bar to filter the table.",
+      "area": "transactions",
+      "kind": "new"
+    },
+    {
+      "title": "Subscriptions",
+      "detail": "A card lists recurring payments.",
+      "area": "overview",
+      "kind": "new"
+    }
+  ]
+}

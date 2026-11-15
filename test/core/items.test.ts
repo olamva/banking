@@ -187,6 +187,30 @@ test("splits by size when equal sizes are written in different units", () => {
   ]);
 });
 
+test("each size of an item keeps the category of the whole item", () => {
+  const cafe = (id: string) => ({
+    ...txn(id, "2026-10-01T10:00:00Z", [line("Cola", 40, "0,5 l")]),
+    category: "kafe_og_restaurant",
+  });
+  const split = itemsOf(
+    purchasesOf([
+      cafe("12"),
+      cafe("13"),
+      txn("14", "2026-10-02T10:00:00Z", [
+        {
+          ...line("Cola", 30, "1,5 l"),
+          group: { code: "151010", name: "BRUS" },
+        },
+      ]),
+    ]),
+    true,
+  );
+  assert.deepEqual(
+    split.map((i) => i.category),
+    ["Eating out", "Eating out"],
+  );
+});
+
 test("the item filter keeps receipts by the item name, after rules rename lines", () => {
   const rows = withItems(
     [

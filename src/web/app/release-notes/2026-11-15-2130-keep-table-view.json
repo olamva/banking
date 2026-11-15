@@ -1,0 +1,11 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Grouping and sort stay",
+      "detail": "The transaction list keeps its grouping and sort after a refresh or a change of view.",
+      "area": "transactions",
+      "kind": "improved"
+    }
+  ]
+}
