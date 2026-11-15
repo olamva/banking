@@ -3,6 +3,7 @@ import { type CategoryDelta } from "../../core/stats.ts";
 import { Caret, Empty } from "./Cards.tsx";
 import { fmtNOK, toggled, useWidth } from "./format.ts";
 import { ExpandIcon, Icon } from "./icons.ts";
+import { Button } from "./ui/button.tsx";
 import { cn } from "./ui/utils.ts";
 
 interface TipState {
@@ -133,14 +134,15 @@ export const HorizontalBars = ({
     const shared =
       "flex h-7 min-w-0 flex-1 items-center gap-3 rounded-md px-1.5 text-xs";
     return pick ? (
-      <button
+      <Button
         type="button"
+        variant="ghost"
         onClick={(e) => pick(id, e.metaKey)}
-        className={`${shared} hover:bg-muted/70`}
+        className={`${shared} justify-start font-normal whitespace-normal hover:bg-muted/70`}
         {...tip}
       >
         {row}
-      </button>
+      </Button>
     ) : (
       <div className={shared} {...tip}>
         {row}
@@ -159,15 +161,16 @@ export const HorizontalBars = ({
             <div key={id} className="flex flex-col">
               <div className="flex items-center">
                 {subs.length > 0 ? (
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
                     onClick={() => toggle(id)}
                     aria-expanded={expanded}
                     aria-label={`${expanded ? "Hide" : "Show"} ${item.label} breakdown`}
-                    className="relative flex h-7 w-4 shrink-0 items-center justify-center text-muted-foreground before:absolute before:-inset-2 before:content-[''] hover:text-foreground"
+                    className="relative flex h-7 w-4 rounded-none p-0 text-muted-foreground before:absolute before:-inset-2 before:content-[''] hover:bg-transparent hover:text-foreground aria-expanded:bg-transparent"
                   >
                     <Caret open={expanded} />
-                  </button>
+                  </Button>
                 ) : (
                   <span className="w-4 shrink-0" />
                 )}
@@ -190,11 +193,12 @@ export const HorizontalBars = ({
           then leave a "Show less" that closes nothing. A list of nine keeps no
           button in either state. */}
       {items.length > max && (
-        <button
+        <Button
           type="button"
+          variant="ghost"
           onClick={() => setShowAll((s) => !s)}
           aria-expanded={showAll}
-          className="mt-1 flex h-7 w-full items-center justify-center gap-1 rounded-md text-xs text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+          className="mt-1 flex h-7 w-full gap-1 rounded-md text-xs font-normal text-muted-foreground hover:bg-muted/70 hover:text-foreground aria-expanded:bg-transparent aria-expanded:hover:bg-muted/70"
         >
           <Icon
             icon={ExpandIcon}
@@ -202,7 +206,7 @@ export const HorizontalBars = ({
             className={`transition-transform ${showAll ? "-rotate-90" : "rotate-90"}`}
           />
           {showAll ? "Show less" : `Show ${hidden} more`}
-        </button>
+        </Button>
       )}
       {node}
     </>

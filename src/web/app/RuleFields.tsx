@@ -28,7 +28,9 @@ import {
 } from "./icons.ts";
 import { TxnDialog } from "./TxnDialog.tsx";
 import { Button } from "./ui/button.tsx";
+import { Input } from "./ui/input.tsx";
 import { Popover, PopoverAnchor, PopoverContent } from "./ui/popover.tsx";
+import { Textarea } from "./ui/textarea.tsx";
 import { cn } from "./ui/utils.ts";
 
 export const KEY_LABEL: Record<RuleFile, string> = {
@@ -59,11 +61,10 @@ export const VALUE_LABEL: Record<RuleFile, string> = {
   "not-subscriptions": "",
 };
 
-export const FIELD =
-  "min-h-8 min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-sm leading-5 outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30";
+export const FIELD = "min-h-8 py-1.5 text-sm leading-5";
 
 export const CELL =
-  "min-w-0 rounded-md border border-transparent bg-transparent px-2 py-1 text-[13px] leading-5 outline-none transition-colors hover:border-input focus-visible:border-ring focus-visible:bg-background focus-visible:ring-3 focus-visible:ring-ring/50";
+  "h-auto min-h-0 rounded-md border-transparent bg-transparent px-2 py-1 text-[13px] leading-5 hover:border-input focus-visible:bg-background md:text-[13px] dark:bg-transparent dark:focus-visible:bg-background";
 
 interface RemoveButtonProps {
   onClick: () => void;
@@ -101,7 +102,7 @@ export const PatternField = ({
   onKeyDown,
   ...props
 }: React.ComponentProps<"textarea">) => (
-  <textarea
+  <Textarea
     rows={1}
     spellCheck={false}
     onChange={(e) => {
@@ -117,7 +118,7 @@ export const PatternField = ({
       if (form) form.requestSubmit();
       else e.currentTarget.blur();
     }}
-    className={`field-sizing-content resize-none wrap-anywhere ${className}`}
+    className={`min-h-0 resize-none wrap-anywhere ${className}`}
     {...props}
   />
 );
@@ -233,14 +234,15 @@ const PatternMatchNote = ({ pattern, txns, haystacks }: MatchNoteProps) => {
             `Matches ${matches.length} transaction(s) on record.`)}
       </div>
       {!loading && !result?.error && matches.length > 0 && (
-        <button
+        <Button
           type="button"
+          variant="link"
           onClick={() => setOpen(!open)}
           aria-expanded={open}
-          className="mt-1 ml-4.5 text-xs font-medium text-foreground underline-offset-2 hover:underline"
+          className="mt-1 ml-4.5 h-auto rounded-none p-0 text-xs text-foreground underline-offset-2"
         >
           {open ? "Hide" : "Show"} matching transactions
-        </button>
+        </Button>
       )}
       {open && <MatchTable txns={matches} loading={loading} />}
     </div>
@@ -296,7 +298,7 @@ export const CategoryInput = ({
     <Popover open={open && shown.length > 0}>
       <PopoverAnchor asChild>
         <div className="relative min-w-0 flex-1 basis-40">
-          <input
+          <Input
             value={value}
             aria-label={label}
             placeholder={label}
@@ -346,9 +348,10 @@ export const CategoryInput = ({
         className="max-h-72 w-(--radix-popover-trigger-width) min-w-56 gap-0 overflow-y-auto p-1"
       >
         {shown.map((pair, i) => (
-          <button
+          <Button
             key={pair}
             type="button"
+            variant="ghost"
             ref={
               i === active
                 ? (el) => el?.scrollIntoView({ block: "nearest" })
@@ -357,15 +360,15 @@ export const CategoryInput = ({
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => choose(pair)}
             className={cn(
-              "block w-full rounded-md px-2 py-1.5 text-left text-xs",
-              i === active ? "bg-muted" : "hover:bg-muted",
+              "h-auto w-full flex-col items-stretch justify-start gap-0 rounded-md px-2 py-1.5 text-left text-xs font-normal",
+              i === active && "bg-muted",
             )}
           >
             <span className="block truncate font-mono">{pair}</span>
             <span className="block truncate text-muted-foreground">
               {pairLabel(pair)}
             </span>
-          </button>
+          </Button>
         ))}
       </PopoverContent>
     </Popover>
@@ -400,7 +403,7 @@ export const Entry = ({ file, entryKey, value, rules }: EntryProps) => (
       className={`${CELL} flex-1 basis-40 font-mono`}
     />
     {value !== null && (
-      <input
+      <Input
         key={`${entryKey}=${value}`}
         defaultValue={value}
         aria-label={VALUE_LABEL[file]}
@@ -473,7 +476,7 @@ export const AddForm = ({
               className={FIELD}
             />
           ) : (
-            <input
+            <Input
               value={value}
               onChange={(e) => setValue(e.target.value)}
               placeholder={VALUE_LABEL[file]}

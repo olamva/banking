@@ -24,6 +24,7 @@ import {
 } from "./ruleMeta.ts";
 import { Badge } from "./ui/badge.tsx";
 import { Button } from "./ui/button.tsx";
+import { Input } from "./ui/input.tsx";
 import {
   Select,
   SelectContent,
@@ -47,7 +48,7 @@ import {
 import { History } from "./RuleHistory.tsx";
 
 const GROUP_FIELD =
-  "min-w-20 max-w-full flex-1 bg-transparent px-2 py-1 font-mono text-xs outline-none";
+  "h-auto min-h-0 w-auto min-w-20 max-w-full flex-1 rounded-none border-0 bg-transparent px-2 py-1 font-mono text-xs focus-visible:ring-0 md:text-xs dark:bg-transparent";
 
 const GROUPED = new Set<RuleTab>([
   "categories",
@@ -97,7 +98,7 @@ const GroupEntry = ({ file, value, keys, pairs, rules }: GroupEntryProps) => {
           className={CELL}
         />
       ) : (
-        <input
+        <Input
           value={next}
           aria-label={VALUE_LABEL[file]}
           onChange={(e) => setNext(e.target.value)}
@@ -154,28 +155,30 @@ const GroupEntry = ({ file, value, keys, pairs, rules }: GroupEntryProps) => {
               aria-label={`New ${KEY_LABEL[file]}`}
               className={GROUP_FIELD}
             />
-            <button
+            <Button
               type="submit"
+              variant="ghost"
               // Keep the focus in the field, or the blur above collapses the
               // form before the click lands.
               onMouseDown={(e) => e.preventDefault()}
               disabled={!pattern.trim() || rules.busy}
-              className="shrink-0 rounded px-2 text-xs text-muted-foreground disabled:opacity-40"
+              className="h-auto shrink-0 rounded px-2 py-0 text-xs font-normal text-muted-foreground disabled:opacity-40"
             >
               Add
-            </button>
+            </Button>
           </form>
         ) : (
-          <button
+          <Button
             type="button"
+            variant="ghost"
             onClick={() => setAdding(true)}
             disabled={rules.busy}
             aria-label={`Add ${KEY_LABEL[file]}`}
             title={`Add ${KEY_LABEL[file]}`}
-            className="relative rounded-md border border-dashed px-2 py-1.5 text-muted-foreground before:absolute before:-inset-1 hover:border-ring hover:text-foreground"
+            className="relative h-auto rounded-md border-dashed border-border px-2 py-1.5 text-muted-foreground before:absolute before:-inset-1 hover:border-ring hover:bg-transparent hover:text-foreground"
           >
             <Icon icon={AddedIcon} size={12} />
-          </button>
+          </Button>
         )}
       </div>
     </li>

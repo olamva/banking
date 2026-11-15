@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { Mark } from "./SpendLines.tsx";
+import { Toggle } from "./ui/toggle.tsx";
 interface ChartLegendProps {
   income: boolean;
   spend: boolean;
@@ -40,15 +41,14 @@ const Dash = ({
 );
 
 export const LegendKey = ({ on, onToggle, name, children }: LegendKeyProps) => (
-  <button
-    type="button"
-    onClick={onToggle}
-    aria-pressed={on}
+  <Toggle
+    pressed={on}
+    onPressedChange={onToggle}
     title={`${on ? "Hide" : "Show"} ${name}`}
-    className={`inline-flex items-center gap-1.5 rounded-sm hover:text-foreground ${on ? "" : "opacity-40"}`}
+    className={`h-auto min-w-0 gap-1.5 rounded-sm p-0 text-xs font-normal whitespace-normal hover:bg-transparent hover:text-foreground aria-pressed:bg-transparent data-[state=on]:bg-transparent ${on ? "" : "opacity-40"}`}
   >
     {children}
-  </button>
+  </Toggle>
 );
 
 export const ChartLegend = ({
