@@ -21,8 +21,8 @@ expire_soon_profiles() {
     [[ "$(profile_field "$f" Entitlements.application-identifier)" == *".$bundle" ]] || continue
     exp="$(date -j -u -f '%Y-%m-%dT%H:%M:%SZ' "$(profile_field "$f" ExpirationDate)" +%s)"
     if (( exp - $(date +%s) < 5 * 86400 )); then
-      say "profile $(basename "$f") expires within 5 days. Removing it so Xcode makes a new one"
-      rm "$f"
+      say "profile $(basename "$f") expires within 5 days. Moving it aside so Xcode makes a new one"
+      mv "$f" "$state/expiring/"
     fi
   done
 }
@@ -47,12 +47,23 @@ server_txt() {
   [[ ! -f "$repo/infra/terraform.tfvars" ]] || sed -n 's/^ *custom_domain *= *"\(.*\)"/https:\/\/\1/p' "$repo/infra/terraform.tfvars" > "$1/ios/Spending/server.txt"
 }
 
+build() {
+  xcodebuild -quiet -project "$repo/ios/Spending.xcodeproj" -scheme Spending -configuration Release \
+    -destination generic/platform=iOS -derivedDataPath "$state/build" -allowProvisioningUpdates build
+}
+
 install() {
+  rm -rf "$state/expiring"
+  mkdir -p "$state/expiring"
   expire_soon_profiles
   server_txt "$repo"
   say "building $(git -C "$repo" rev-parse --short HEAD)"
-  xcodebuild -quiet -project "$repo/ios/Spending.xcodeproj" -scheme Spending -configuration Release \
-    -destination generic/platform=iOS -derivedDataPath "$state/build" -allowProvisioningUpdates build
+  build || {
+    say "Xcode could not make a new profile. Sign in at Xcode > Settings > Accounts. Building with the old profile"
+    osascript -e 'display notification "Sign in at Xcode > Settings > Accounts" with title "Spending profile not renewed"'
+    mv "$state/expiring/"*.mobileprovision "$profiles/"
+    build
+  }
   local key device
   key="$(profile_field "$app/embedded.mobileprovision" UUID) $(profile_field "$app/embedded.mobileprovision" ExpirationDate) $(git -C "$repo" rev-parse HEAD)"
   if [[ "${1:-}" != --force && "$key" == "$(cat "$state/installed" 2>/dev/null)" ]]; then
