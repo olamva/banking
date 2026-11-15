@@ -1,0 +1,23 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "People and businesses",
+      "detail": "The merchant filter shows people and businesses in separate lists.",
+      "area": "filters",
+      "kind": "new"
+    },
+    {
+      "title": "Include and exclude together",
+      "detail": "One filter can include some values and exclude others.",
+      "area": "filters",
+      "kind": "improved"
+    },
+    {
+      "title": "Clean payee names",
+      "detail": "Payee names are easy to read. Each card row shows the country of the payment.",
+      "area": "transactions",
+      "kind": "improved"
+    }
+  ]
+}
