@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, type ComponentProps, type ReactNode } from "react";
 import type { RuleFile } from "../../core/ruleFiles.ts";
-import { Caret } from "./Cards.tsx";
 import { merchantOf } from "../../core/select.ts";
 import type { Categorized } from "../../core/types.ts";
+import { Caret } from "./Cards.tsx";
 import {
   ID_FIELD,
   bankLabel,
@@ -12,7 +12,7 @@ import {
   rowLabel,
   txnFields,
 } from "./format.ts";
-import { CategoryIcon, EditIcon, Icon } from "./icons.ts";
+import { CardIcon, EditIcon, Icon } from "./icons.ts";
 import { ReceiptLines, type ItemAction } from "./ReceiptLines.tsx";
 import { Badge } from "./ui/badge.tsx";
 import { Button } from "./ui/button.tsx";
@@ -22,12 +22,19 @@ import {
   CollapsibleTrigger,
 } from "./ui/collapsible.tsx";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu.tsx";
+import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
 } from "./ui/sheet.tsx";
+import { cn } from "./ui/utils.ts";
 
 interface TxnDialogProps {
   txn: Categorized;
@@ -37,21 +44,18 @@ interface TxnDialogProps {
   onItem?: (raw: string, action: ItemAction) => void;
 }
 
-const TXN_RULE_ACTIONS: [RuleFile, string][] = [
-  ["categories", "Category rule…"],
-  ["payees", "Rename payee…"],
-  ["family", "Mark as family…"],
-];
-
 const SHOWN_ABOVE = [
   "date",
   "amount",
+  "description",
   "counterparty",
   "country",
   "account",
+  "typeText",
   "category",
   "subcategory",
   "excluded",
+  "reason",
   "isSubscription",
   "isRecurring",
   "isPending",
@@ -66,20 +70,42 @@ const SHOWN_ABOVE = [
 
 const ROW = "flex items-baseline justify-between gap-4 py-2";
 
-const HEADING = "border-b pb-1.5 text-xs font-medium text-muted-foreground";
+interface FactProps {
+  label: string;
+  sub?: ReactNode;
+  edit?: ReactNode;
+  children: ReactNode;
+}
 
-const BASIC = new Set(["Description", "Type", "Excluded because"]);
-
-const field = ([name, value]: [string, string]) => (
-  <div key={name} className={ROW}>
-    <dt className="shrink-0 text-muted-foreground">{name}</dt>
-    <dd
-      className={`min-w-0 text-right ${name === ID_FIELD ? "truncate" : "wrap-break-word"}`}
-      title={name === ID_FIELD ? value : undefined}
-    >
-      {value}
+const Fact = ({ label, sub, edit, children }: FactProps) => (
+  <div className="flex min-h-12 items-center gap-3 py-2">
+    <dt className="w-24 shrink-0 text-xs text-muted-foreground">{label}</dt>
+    <dd className="min-w-0 flex-1">
+      <div className="wrap-break-word">{children}</div>
+      {sub && (
+        <div className="text-xs wrap-break-word text-muted-foreground">
+          {sub}
+        </div>
+      )}
     </dd>
+    {edit}
   </div>
+);
+
+const EditButton = ({
+  label,
+  ...props
+}: { label: string } & Omit<ComponentProps<typeof Button>, "children">) => (
+  <Button
+    variant="ghost"
+    size="icon-sm"
+    aria-label={label}
+    title={label}
+    className="shrink-0 text-muted-foreground"
+    {...props}
+  >
+    <Icon icon={EditIcon} size={15} />
+  </Button>
 );
 
 export const TxnDialog = ({
@@ -92,63 +118,36 @@ export const TxnDialog = ({
   const bank = bankLabel(txn);
   const fields = txnFields(txn, SHOWN_ABOVE);
   const [advanced, setAdvanced] = useState(false);
+  const edit = (file: RuleFile, label: string) =>
+    onFile && <EditButton label={label} onClick={() => onFile(file)} />;
 
   return (
     <Sheet open onOpenChange={(o) => !o && onClose()}>
       <SheetContent
         onOpenAutoFocus={(e) => {
-          const line = document.querySelector("[data-marked]");
-          if (!line) return;
           e.preventDefault();
-          line.scrollIntoView({ block: "center" });
+          (e.currentTarget as HTMLElement).focus();
+          document
+            .querySelector("[data-marked]")
+            ?.scrollIntoView({ block: "center" });
         }}
-        className="gap-0 overflow-y-auto data-[side=right]:w-full data-[side=right]:sm:max-w-md"
+        className="gap-0 overflow-y-auto outline-none data-[side=right]:w-full data-[side=right]:sm:max-w-md"
       >
-        <SheetHeader className="gap-3 border-b pr-12">
-          <div className="min-w-0">
-            <SheetTitle className="truncate text-lg font-semibold">
-              {merchantOf(txn)}
-            </SheetTitle>
-            <SheetDescription className="mt-1 flex flex-wrap items-center gap-x-1.5 text-xs">
-              <span
-                className="font-medium"
-                style={{ color: categoryColor(txn.category) }}
-              >
-                {rowLabel(txn.category, txn.subcategory)}
-              </span>
-              <span aria-hidden>·</span>
-              <span>{txn.account}</span>
-              <span aria-hidden>·</span>
-              <span>{fmtDate(txn.date)}</span>
-            </SheetDescription>
-          </div>
+        <SheetHeader className="gap-0 px-5 pt-5 pr-12 pb-6">
+          <SheetTitle className="truncate text-base font-medium">
+            {merchantOf(txn)}
+          </SheetTitle>
           <div
-            className={`text-3xl font-semibold tracking-tight tabular-nums ${txn.amount > 0 ? "text-good" : ""}`}
+            className={cn(
+              "mt-1 text-4xl font-semibold tracking-tight tabular-nums",
+              txn.amount > 0 && "text-good",
+            )}
           >
             {fmtNOKExact(txn.amount)}
           </div>
-          {(txn.excluded ||
-            txn.isSubscription ||
-            txn.isRecurring ||
-            txn.isPending ||
-            txn.country) && (
-            <div className="flex flex-wrap gap-1.5">
-              {txn.country &&
-                (onFile ? (
-                  <Badge variant="outline" asChild>
-                    <button type="button" onClick={() => onFile("countries")}>
-                      {txn.country}
-                      <Icon icon={EditIcon} size={11} />
-                    </button>
-                  </Badge>
-                ) : (
-                  <Badge variant="outline">{txn.country}</Badge>
-                ))}
-              {txn.excluded && <Badge variant="secondary">Excluded</Badge>}
-              {txn.isSubscription && (
-                <Badge variant="secondary">Subscription</Badge>
-              )}
-              {txn.isRecurring && <Badge variant="secondary">Recurring</Badge>}
+          <SheetDescription asChild>
+            <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
+              <span className="mr-1">{fmtDate(txn.date)}</span>
               {txn.isPending && (
                 <Badge
                   variant="outline"
@@ -157,33 +156,86 @@ export const TxnDialog = ({
                   Pending
                 </Badge>
               )}
+              {txn.isRecurring && <Badge variant="secondary">Recurring</Badge>}
+              {txn.excluded && <Badge variant="secondary">Excluded</Badge>}
             </div>
-          )}
+          </SheetDescription>
         </SheetHeader>
-        <div className="space-y-6 p-4">
-          {onFile && (
-            <section>
-              <h3 className={`mb-3 ${HEADING}`}>Rules</h3>
-              <div className="flex flex-wrap gap-1.5">
-                {[
-                  ...TXN_RULE_ACTIONS,
-                  txn.isSubscription
-                    ? (["not-subscriptions", "Not a subscription…"] as const)
-                    : (["subscriptions", "Mark as subscription…"] as const),
-                ].map(([file, label]) => (
-                  <Button
-                    key={file}
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onFile(file)}
-                  >
-                    <Icon icon={CategoryIcon} size={14} />
-                    {label}
-                  </Button>
-                ))}
-              </div>
-            </section>
-          )}
+        <div className="space-y-8 px-5 pb-8">
+          <dl className="divide-y border-y text-sm">
+            <Fact
+              label="Payee"
+              sub={
+                txn.description !== merchantOf(txn) && (
+                  <span className="font-mono text-[11px]">
+                    {txn.description}
+                  </span>
+                )
+              }
+              edit={edit("payees", "Rename payee")}
+            >
+              {merchantOf(txn)}
+            </Fact>
+            <Fact
+              label="Category"
+              sub={txn.categorySource && `From ${txn.categorySource}`}
+              edit={
+                onFile && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <EditButton label="Change category" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onSelect={() => onFile("categories")}>
+                        Category rule…
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => onFile("family")}>
+                        Mark as family…
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )
+              }
+            >
+              <span
+                className="font-medium"
+                style={{ color: categoryColor(txn.category) }}
+              >
+                {rowLabel(txn.category, txn.subcategory)}
+              </span>
+            </Fact>
+            <Fact label="Account">
+              <span className="inline-flex items-center gap-1.5">
+                {txn.card && (
+                  <Icon
+                    icon={CardIcon}
+                    size={14}
+                    className="text-muted-foreground"
+                  />
+                )}
+                {txn.account}
+              </span>
+            </Fact>
+            {txn.country && (
+              <Fact label="Country" edit={edit("countries", "Change country")}>
+                {txn.country}
+              </Fact>
+            )}
+            {txn.typeText && <Fact label="Type">{txn.typeText}</Fact>}
+            <Fact
+              label="Subscription"
+              edit={
+                txn.isSubscription
+                  ? edit("not-subscriptions", "Not a subscription")
+                  : edit("subscriptions", "Mark as subscription")
+              }
+            >
+              {txn.isSubscription ? "Yes" : "No"}
+            </Fact>
+            {txn.excluded && txn.reason && (
+              <Fact label="Excluded">{txn.reason}</Fact>
+            )}
+          </dl>
           {txn.receipt && (
             <ReceiptLines
               receipt={txn.receipt}
@@ -191,50 +243,49 @@ export const TxnDialog = ({
               onItem={onItem}
             />
           )}
-          <section>
-            <h3 className={HEADING}>Details</h3>
-            <dl className="divide-y text-xs">
-              {txn.categorySource && (
-                <div className={ROW}>
-                  <dt className="shrink-0 text-muted-foreground">
-                    Classification
-                  </dt>
-                  <dd className="min-w-0 text-right">{txn.categorySource}</dd>
-                </div>
-              )}
-              {fields.filter(([name]) => BASIC.has(name)).map(field)}
-            </dl>
-            <Collapsible open={advanced} onOpenChange={setAdvanced}>
-              <CollapsibleTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="mt-2 -ml-2 text-xs text-muted-foreground aria-expanded:bg-transparent"
-                >
-                  <Caret open={advanced} />
-                  Advanced
-                </Button>
-              </CollapsibleTrigger>
-              <CollapsibleContent asChild>
-                <dl className="divide-y border-t text-xs">
-                  {bank && (
-                    <div className={ROW}>
-                      <dt className="shrink-0 text-muted-foreground">
-                        Bank category
-                      </dt>
-                      <dd className="min-w-0 text-right">
-                        <div className="text-sm wrap-break-word">{bank[0]}</div>
-                        <div className="font-mono text-[11px] break-all text-muted-foreground">
-                          {bank[1]}
-                        </div>
-                      </dd>
-                    </div>
-                  )}
-                  {fields.filter(([name]) => !BASIC.has(name)).map(field)}
-                </dl>
-              </CollapsibleContent>
-            </Collapsible>
-          </section>
+          <Collapsible open={advanced} onOpenChange={setAdvanced}>
+            <CollapsibleTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="-ml-2 text-xs text-muted-foreground aria-expanded:bg-transparent"
+              >
+                <Caret open={advanced} />
+                Advanced
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent asChild>
+              <dl className="mt-1 divide-y border-t text-xs">
+                {bank && (
+                  <div className={ROW}>
+                    <dt className="shrink-0 text-muted-foreground">
+                      Bank category
+                    </dt>
+                    <dd className="min-w-0 text-right">
+                      <div className="wrap-break-word">{bank[0]}</div>
+                      <div className="font-mono text-[11px] break-all text-muted-foreground">
+                        {bank[1]}
+                      </div>
+                    </dd>
+                  </div>
+                )}
+                {fields.map(([name, value]) => (
+                  <div key={name} className={ROW}>
+                    <dt className="shrink-0 text-muted-foreground">{name}</dt>
+                    <dd
+                      className={cn(
+                        "min-w-0 text-right",
+                        name === ID_FIELD ? "truncate" : "wrap-break-word",
+                      )}
+                      title={name === ID_FIELD ? value : undefined}
+                    >
+                      {value}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </CollapsibleContent>
+          </Collapsible>
         </div>
       </SheetContent>
     </Sheet>
