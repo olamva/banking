@@ -6,8 +6,8 @@
       "detail": "Use the Group by menu next to the sort menu. Group the list by day, month, category, merchant or account, or turn grouping off. Day is the default. Each group shows its total."
     },
     {
-      "title": "Calmer lists",
-      "detail": "Group headers and pending rows have no background shade. A pending row shows a Pending tag. The text in each group header is easier to read."
+      "title": "Tidier lists",
+      "detail": "On a wide screen, the date, category and other details line up in columns next to the amount. Group headers and pending rows have no background shade. A pending row shows a Pending tag."
     }
   ]
 }

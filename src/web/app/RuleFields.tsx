@@ -16,6 +16,7 @@ import {
   fmtNOKExact,
   pairLabel,
   rowLabel,
+  shortDateSizes,
 } from "./format.ts";
 import {
   CloseIcon,
@@ -142,9 +143,21 @@ export const MatchTable = ({ txns, loading }: MatchTableProps) => {
         list
         onRow={(i) => setSelected(txns[i] ?? null)}
         columns={[
-          { label: "Date", min: true, phone: "meta" },
+          {
+            label: "Date",
+            min: true,
+            sizer: shortDateSizes(txns.map((t) => t.date)),
+            phone: "meta",
+          },
           { label: "Merchant / description", phone: "title" },
-          { label: "Category", min: true, phone: "meta" },
+          {
+            label: "Category",
+            min: true,
+            sizer: [
+              ...new Set(txns.map((t) => rowLabel(t.category, t.subcategory))),
+            ],
+            phone: "meta",
+          },
           { label: "Account", min: true, phone: "aside" },
           {
             label: "Amount",

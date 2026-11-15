@@ -22,6 +22,7 @@ import {
   fmtNOKExact,
   fmtShortDate,
   rowLabel,
+  shortDateSizes,
 } from "./format.ts";
 import {
   CardIcon,
@@ -132,6 +133,7 @@ const TXN_SORTS = {
 const useTxnSort = (txns: Categorized[]) =>
   useSort(txns, TXN_SORTS, "date", ["merchant", "subcategory", "account"]);
 
+const upper = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const TXN_GROUPS: Record<
   string,
   {
@@ -140,8 +142,12 @@ const TXN_GROUPS: Record<
     time?: boolean;
   }
 > = {
-  Day: { of: (t) => t.date, label: fmtDay, time: true },
-  Month: { of: (t) => t.date.slice(0, 7), label: fmtMonth, time: true },
+  Day: { of: (t) => t.date, label: (d) => upper(fmtDay(d)), time: true },
+  Month: {
+    of: (t) => t.date.slice(0, 7),
+    label: (m) => upper(fmtMonth(m)),
+    time: true,
+  },
   Category: { of: (t) => t.category, label: categoryLabel },
   Merchant: { of: merchantOf, label: (key) => key },
   Account: { of: (t) => t.account, label: (key) => key },
@@ -189,6 +195,14 @@ export const SubscriptionsCard = ({
     () => [...new Set(groups.map((g) => categoryLabel(g.category)))],
     [groups],
   );
+  const lastSizes = useMemo(
+    () => shortDateSizes(groups.map((g) => g.last)),
+    [groups],
+  );
+  const countSizes = useMemo(
+    () => [String(Math.max(...groups.map((g) => g.count)))],
+    [groups],
+  );
 
   if (groups.length === 0) return null;
 
@@ -221,6 +235,7 @@ export const SubscriptionsCard = ({
             head("Charges", "count", {
               num: true,
               min: true,
+              sizer: countSizes,
               phone: "labeled",
             }),
             head("Per month", "latest", {
@@ -235,7 +250,11 @@ export const SubscriptionsCard = ({
               sizer: AMOUNT_SIZE,
               phone: "labeled",
             }),
-            head("Last", "last", { min: true, phone: "labeled" }),
+            head("Last", "last", {
+              min: true,
+              sizer: lastSizes,
+              phone: "labeled",
+            }),
           ]}
           rows={sorted.map((g) => [
             <PickCell label={g.name} onPick={onMerchant} />,
@@ -299,6 +318,10 @@ export const TransactionsCard = ({
     () => [...new Set(txns.map((t) => rowLabel(t.category, t.subcategory)))],
     [txns],
   );
+  const dateSizes = useMemo(
+    () => shortDateSizes(txns.map((t) => t.date)),
+    [txns],
+  );
 
   return (
     <Panel
@@ -337,7 +360,7 @@ export const TransactionsCard = ({
                 aria-label="Group by"
                 className="text-xs"
               >
-                <Icon icon={GroupIcon} />
+                <Icon icon={GroupIcon} className="max-sm:hidden" />
                 <SelectValue />
               </SelectTrigger>
               <SelectContent position="popper" align="end">
@@ -383,7 +406,11 @@ export const TransactionsCard = ({
                   },
                 ]
               : []),
-            head("Date", "date", { min: true, phone: "meta" }),
+            head("Date", "date", {
+              min: true,
+              sizer: dateSizes,
+              phone: "meta",
+            }),
             head("Merchant / description", "merchant", { phone: "title" }),
             head("Category", "subcategory", {
               min: true,
