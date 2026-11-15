@@ -7,7 +7,7 @@ import {
 } from "../../core/ruleFiles.ts";
 import { merchantOf } from "../../core/select.ts";
 import type { Categorized } from "../../core/types.ts";
-import { AMOUNT_SIZE_EXACT, DataTable } from "./Cards.tsx";
+import { AMOUNT_SIZE_EXACT, DataTable } from "./DataTable.tsx";
 import type { RulesApi } from "./data.ts";
 import {
   categoryColor,
@@ -140,15 +140,16 @@ export const MatchTable = ({ txns, loading }: MatchTableProps) => {
         scroll
         onRow={(i) => setSelected(txns[i] ?? null)}
         columns={[
-          { label: "Date", min: true },
-          { label: "Merchant / description" },
-          { label: "Category", min: true },
-          { label: "Account", min: true },
+          { label: "Date", min: true, phone: "meta" },
+          { label: "Merchant / description", phone: "title" },
+          { label: "Category", min: true, phone: "meta" },
+          { label: "Account", min: true, phone: "meta" },
           {
             label: "Amount",
             num: true,
             min: true,
             sizer: AMOUNT_SIZE_EXACT,
+            phone: "end",
           },
         ]}
         rows={txns.map((txn) => [

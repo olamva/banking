@@ -2,15 +2,8 @@ import { useMemo, useState, type ReactNode } from "react";
 import { spendingInsights, type MerchantHabit } from "../../core/insights.ts";
 import { matchesFilters, todayOslo, type Filters } from "../../core/select.ts";
 import type { Categorized } from "../../core/types.ts";
-import {
-  DataTable,
-  Empty,
-  Note,
-  Panel,
-  PickCell,
-  StatTile,
-  type Column,
-} from "./Cards.tsx";
+import { Empty, Note, Panel, StatTile } from "./Cards.tsx";
+import { DataTable, PickCell, type Column } from "./DataTable.tsx";
 import {
   categoryColor,
   categoryLabel,
@@ -83,33 +76,31 @@ const WeekdayCard = ({ insights, onMerchant }: WeekdayCardProps) => {
   const maximum = Math.max(...insights.weekdays.map((day) => day.count), 1);
   return (
     <Panel title="Card visits by weekday" icon={MonthlyIcon}>
-      <div className="overflow-x-auto">
-        <div className="min-w-115 space-y-1">
-          {insights.weekdays.map((day) => (
-            <div
-              key={day.weekday}
-              className="grid grid-cols-[72px_1fr_82px_150px] items-center gap-2 text-xs"
-            >
-              <span>{day.weekday}</span>
-              <span className="flex h-4 items-center">
-                <span
-                  className="h-2 min-w-0.5 rounded-full bg-chart-1"
-                  style={{ width: `${(day.count / maximum) * 100}%` }}
-                />
-              </span>
-              <span className="text-right font-medium tabular-nums">
-                {day.count} · {fmtPct(day.share)}
-              </span>
-              <span className="truncate text-muted-foreground">
-                {day.topMerchant ? (
-                  <PickCell label={day.topMerchant} onPick={onMerchant} />
-                ) : (
-                  "No visits"
-                )}
-              </span>
-            </div>
-          ))}
-        </div>
+      <div className="space-y-1 max-sm:space-y-2">
+        {insights.weekdays.map((day) => (
+          <div
+            key={day.weekday}
+            className="grid grid-cols-[72px_1fr_82px] items-center gap-x-2 text-xs sm:grid-cols-[72px_1fr_82px_150px]"
+          >
+            <span>{day.weekday}</span>
+            <span className="flex h-4 items-center">
+              <span
+                className="h-2 min-w-0.5 rounded-full bg-chart-1"
+                style={{ width: `${(day.count / maximum) * 100}%` }}
+              />
+            </span>
+            <span className="text-right font-medium tabular-nums">
+              {day.count} · {fmtPct(day.share)}
+            </span>
+            <span className="truncate text-muted-foreground max-sm:col-span-2 max-sm:col-start-2">
+              {day.topMerchant ? (
+                <PickCell label={day.topMerchant} onPick={onMerchant} />
+              ) : (
+                "No visits"
+              )}
+            </span>
+          </div>
+        ))}
       </div>
     </Panel>
   );
@@ -213,20 +204,26 @@ export const Insights = ({
       setDescending(true);
     }
   };
-  const sortable = (label: string, key: MerchantSort, num = false): Column => ({
+  const sortable = (
+    label: string,
+    key: MerchantSort,
+    num = false,
+    phone?: Column["phone"],
+  ): Column => ({
     label,
     num,
+    phone,
     onClick: () => changeSort(key),
     sort: sort === key ? (descending ? "desc" : "asc") : null,
   });
-  const columns = [
-    { label: "Merchant" },
-    sortable("Transactions", "count", true),
-    sortable("Spent", "total", true),
+  const columns: Column[] = [
+    { label: "Merchant", phone: "title" },
+    sortable("Transactions", "count", true, "labeled"),
+    sortable("Spent", "total", true, "end"),
     sortable("Average", "average", true),
-    sortable("Favorite time", "favoriteWeekday"),
-    { label: "Main category" },
-    sortable("Usual return", "medianDays", true),
+    sortable("Favorite time", "favoriteWeekday", false, "labeled"),
+    { label: "Main category", phone: "meta" },
+    sortable("Usual return", "medianDays", true, "labeled"),
     sortable("Last card visit", "last"),
     { label: "Expected next" },
   ];

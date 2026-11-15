@@ -5,16 +5,15 @@ import type { RuleFile } from "../../core/ruleFiles.ts";
 import { merchantOf, subcategoryOf } from "../../core/select.ts";
 import type { SubscriptionGroup } from "../../core/stats.ts";
 import type { Categorized } from "../../core/types.ts";
+import { Empty, Panel } from "./Cards.tsx";
 import {
   AMOUNT_SIZE,
   AMOUNT_SIZE_EXACT,
   DataTable,
-  Empty,
-  Panel,
   PickCell,
   highlighting,
   type Column,
-} from "./Cards.tsx";
+} from "./DataTable.tsx";
 import {
   categoryColor,
   categoryLabel,
@@ -139,20 +138,30 @@ export const SubscriptionsCard = ({
         <DataTable
           scroll
           columns={[
-            head("Subscription", "name"),
-            head("Category", "category", { min: true, sizer: categorySizes }),
-            head("Charges", "count", { num: true, min: true }),
+            head("Subscription", "name", { phone: "title" }),
+            head("Category", "category", {
+              min: true,
+              sizer: categorySizes,
+              phone: "meta",
+            }),
+            head("Charges", "count", {
+              num: true,
+              min: true,
+              phone: "labeled",
+            }),
             head("Per month", "latest", {
               num: true,
               min: true,
               sizer: AMOUNT_SIZE,
+              phone: "end",
             }),
             head("Total", "total", {
               num: true,
               min: true,
               sizer: AMOUNT_SIZE,
+              phone: "labeled",
             }),
-            head("Last", "last", { min: true }),
+            head("Last", "last", { min: true, phone: "labeled" }),
           ]}
           rows={sorted.map((g) => [
             <PickCell label={g.name} onPick={onMerchant} />,
@@ -252,20 +261,23 @@ export const TransactionsCard = ({
                       />
                     ),
                     min: true,
+                    phone: "lead" as const,
                   },
                 ]
               : []),
-            head("Date", "date", { min: true }),
-            head("Merchant / description", "merchant"),
+            head("Date", "date", { min: true, phone: "meta" }),
+            head("Merchant / description", "merchant", { phone: "title" }),
             head("Category", "subcategory", {
               min: true,
               sizer: subcategorySizes,
+              phone: "meta",
             }),
-            head("Account", "account", { min: true }),
+            head("Account", "account", { min: true, phone: "meta" }),
             head("Amount", "amount", {
               num: true,
               min: true,
               sizer: AMOUNT_SIZE_EXACT,
+              phone: "end",
             }),
           ]}
           rows={sorted.map((t) => [
