@@ -5,7 +5,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
-import { fmtNOK, fmtNOKExact, fmtShortDate } from "./format.ts";
+import { fmtNOK, fmtNOKExact } from "./format.ts";
 import {
   DownIcon,
   ExpandIcon,
@@ -15,8 +15,14 @@ import {
   SortableIcon,
   UpIcon,
 } from "./icons.ts";
+import { Caret } from "./Cards.tsx";
 import { Button } from "./ui/button.tsx";
 import { ButtonGroup } from "./ui/button-group.tsx";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "./ui/collapsible.tsx";
 import {
   Select,
   SelectContent,
@@ -51,19 +57,6 @@ export interface Column {
   phone?: "lead" | "title" | "end" | "meta" | "labeled" | "aside";
 }
 
-export const DateCell = ({
-  date,
-  wide = date,
-}: {
-  date: string;
-  wide?: string;
-}) => (
-  <>
-    <span className="sm:hidden">{fmtShortDate(date)}</span>
-    <span className="max-sm:hidden">{wide}</span>
-  </>
-);
-
 export const highlighting = (e: { detail: number }) =>
   e.detail > 0 && !(window.getSelection()?.isCollapsed ?? true);
 
@@ -82,24 +75,25 @@ export const PickCell = ({
   onPick,
   children,
 }: PickCellProps) => (
-  <button
-    type="button"
+  <Button
+    variant="link"
     onClick={(e) => {
       e.stopPropagation();
       if (!highlighting(e)) onPick(value, e.metaKey);
     }}
     style={color ? { color } : undefined}
-    className="text-left underline-offset-2 hover:underline"
+    className="h-auto justify-start rounded-none p-0 text-left text-[length:inherit] font-normal text-inherit underline-offset-2 active:not-aria-[haspopup]:translate-y-0"
   >
     {children || label}
-  </button>
+  </Button>
 );
 
 const SortHeader = ({ c }: { c: Column }) => (
-  <button
-    type="button"
+  <Button
+    variant="ghost"
+    size="xs"
     onClick={c.onClick}
-    className="inline-flex items-center gap-1 font-medium text-muted-foreground hover:text-foreground"
+    className="h-auto px-0 text-muted-foreground hover:bg-transparent dark:hover:bg-transparent"
   >
     {c.label}
     <Icon
@@ -110,10 +104,9 @@ const SortHeader = ({ c }: { c: Column }) => (
             ? SortDescIcon
             : SortableIcon
       }
-      size={13}
-      className={cn("shrink-0", !c.sort && "opacity-40")}
+      className={cn(!c.sort && "opacity-40")}
     />
-  </button>
+  </Button>
 );
 
 interface DataTableProps {
@@ -122,6 +115,12 @@ interface DataTableProps {
   scroll?: boolean;
   onRow?: (index: number) => void;
   rowClassName?: (index: number) => string;
+  list?: boolean;
+  group?: {
+    of: (index: number) => string;
+    label: (key: string) => ReactNode;
+    total: (indices: number[]) => ReactNode;
+  };
 }
 
 const WINDOW_OVER = 80;
@@ -130,7 +129,7 @@ const VIEWPORT = 460;
 const PAGE = 50;
 
 const phoneQuery = window.matchMedia("(max-width: 639px)");
-export const usePhone = () =>
+const usePhone = () =>
   useSyncExternalStore(
     (change) => {
       phoneQuery.addEventListener("change", change);
@@ -139,7 +138,7 @@ export const usePhone = () =>
     () => phoneQuery.matches,
   );
 
-const PhoneSort = ({ columns }: { columns: Column[] }) => {
+const ListSort = ({ columns }: { columns: Column[] }) => {
   const sortable = columns.filter((c) => c.onClick && c.phone);
   const current = sortable.find((c) => c.sort);
   const lead = columns.find((c) => c.phone === "lead")?.header;
@@ -186,89 +185,132 @@ const PhoneSort = ({ columns }: { columns: Column[] }) => {
   );
 };
 
-const PhoneList = ({ columns, rows, onRow, rowClassName }: DataTableProps) => {
+const List = ({
+  columns,
+  rows,
+  onRow,
+  rowClassName,
+  group,
+}: DataTableProps) => {
   const [limit, setLimit] = useState(PAGE);
+  const [closed, setClosed] = useState<Set<string>>(new Set());
   const slot = (row: ReactNode[], ...phone: Column["phone"][]) =>
     row.flatMap((cell, j) =>
       phone.includes(columns[j]?.phone) && cell !== false
         ? [{ cell, c: columns[j]! }]
         : [],
     );
+  const days = group && Map.groupBy(rows.keys(), group.of);
+  const hasAside = columns.some((c) => c.phone === "aside");
+  const toggle = (key: string) =>
+    setClosed((s) => new Set(s.symmetricDifference(new Set([key]))));
+  const shown = [...rows.keys()].slice(0, limit);
 
-  return (
-    <div>
-      <PhoneSort columns={columns} />
-      <ul className="-mx-(--card-spacing) border-t">
-        {rows.slice(0, limit).map((row, i) => {
-          const meta = slot(row, "meta");
-          const labeled = slot(row, "labeled");
-          const aside = slot(row, "aside");
-          return (
-            <li
-              key={i}
-              onClick={onRow && ((e) => !highlighting(e) && onRow(i))}
+  const item = (i: number) => {
+    const row = rows[i]!;
+    const meta = slot(row, "meta");
+    const labeled = slot(row, "labeled");
+    const aside = slot(row, "aside");
+    return (
+      <li
+        key={i}
+        onClick={onRow && ((e) => !highlighting(e) && onRow(i))}
+        className={cn(
+          "flex min-h-12 items-start gap-3 border-b border-border/70 px-(--card-spacing) py-3 tabular-nums last:border-b-0 sm:min-h-10 sm:items-center sm:py-2",
+          onRow && "cursor-pointer hover:bg-muted/60 active:bg-muted/60",
+          rowClassName?.(i),
+        )}
+      >
+        {slot(row, "lead").map(({ cell }, k) => (
+          <span key={k} className="pt-0.5 sm:pt-0">
+            {cell}
+          </span>
+        ))}
+        <div className="min-w-0 flex-1 sm:flex sm:items-center sm:gap-6">
+          <div className="flex items-baseline gap-3 text-[15px] leading-5 sm:contents sm:text-sm">
+            <div
               className={cn(
-                "flex min-h-12 items-start gap-3 border-b border-border/70 px-(--card-spacing) py-3 tabular-nums last:border-b-0",
-                onRow && "cursor-pointer active:bg-muted/60",
-                rowClassName?.(i),
+                "min-w-0 flex-1 truncate sm:order-1",
+                onRow && "pointer-events-none",
               )}
             >
-              {slot(row, "lead").map(({ cell }, k) => (
-                <span key={k} className="pt-0.5">
-                  {cell}
-                </span>
-              ))}
-              <div className="min-w-0 flex-1">
-                <div className="flex items-baseline gap-3 text-[15px] leading-5">
-                  <div
-                    className={cn(
-                      "min-w-0 flex-1 truncate",
-                      onRow && "pointer-events-none",
-                    )}
-                  >
-                    {slot(row, "title").map(({ cell }) => cell)}
-                  </div>
-                  {slot(row, "end").map(({ cell }, k) => (
-                    <span key={k} className="shrink-0 font-semibold">
-                      {cell}
-                    </span>
-                  ))}
-                </div>
-                {meta.length + labeled.length + aside.length > 0 && (
-                  <div className="mt-1 flex items-start gap-3 text-[13px] leading-4.5 text-muted-foreground">
-                    <div className="flex min-w-0 flex-1 flex-wrap gap-x-3">
-                      {meta.length > 0 && (
-                        <span className="inline-flex flex-wrap gap-x-1">
-                          {meta.map(({ cell }, k) => (
-                            <span
-                              key={k}
-                              className="inline-flex gap-1 not-first:before:text-muted-foreground/60 not-first:before:content-['·']"
-                            >
-                              {cell}
-                            </span>
-                          ))}
-                        </span>
-                      )}
-                      {labeled.map(({ cell, c }, k) => (
-                        <span key={k} className="inline-flex gap-1">
-                          <span className="text-muted-foreground/70">
-                            {c.label}
-                          </span>
-                          {cell}
-                        </span>
-                      ))}
-                    </div>
-                    {aside.map(({ cell }, k) => (
-                      <span key={k} className="flex shrink-0">
+              {slot(row, "title").map(({ cell }) => cell)}
+            </div>
+            {slot(row, "end").map(({ cell }, k) => (
+              <span
+                key={k}
+                className="shrink-0 font-semibold sm:order-4 sm:w-28 sm:text-right"
+              >
+                {cell}
+              </span>
+            ))}
+          </div>
+          {meta.length + labeled.length + aside.length > 0 && (
+            <div className="mt-1 flex items-start gap-3 text-[13px] leading-4.5 text-muted-foreground sm:contents">
+              <div className="flex min-w-0 flex-1 flex-wrap gap-x-3 sm:order-2">
+                {meta.length > 0 && (
+                  <span className="inline-flex flex-wrap gap-x-1">
+                    {meta.map(({ cell }, k) => (
+                      <span
+                        key={k}
+                        className="inline-flex gap-1 not-first:before:text-muted-foreground/60 not-first:before:content-['·']"
+                      >
                         {cell}
                       </span>
                     ))}
-                  </div>
+                  </span>
                 )}
+                {labeled.map(({ cell, c }, k) => (
+                  <span key={k} className="inline-flex gap-1">
+                    <span className="text-muted-foreground/70">{c.label}</span>
+                    {cell}
+                  </span>
+                ))}
               </div>
-            </li>
-          );
-        })}
+              {hasAside && (
+                <span className="flex shrink-0 sm:order-3 sm:w-28">
+                  {aside.map(({ cell }) => cell)}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      </li>
+    );
+  };
+
+  return (
+    <div>
+      <ListSort columns={columns} />
+      <ul className="-mx-(--card-spacing) border-t">
+        {group
+          ? [...Map.groupBy(shown, group.of)].map(([key, indices]) => (
+              <Collapsible
+                key={key}
+                asChild
+                open={!closed.has(key)}
+                onOpenChange={() => toggle(key)}
+              >
+                <li>
+                  <CollapsibleTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      className="h-auto w-full justify-start gap-2 rounded-none border-b bg-muted/50 px-(--card-spacing) pt-4 pb-1.5 text-xs text-muted-foreground aria-expanded:bg-muted/50"
+                    >
+                      <Caret open={!closed.has(key)} />
+                      {group.label(key)}
+                      <span className="ml-auto tabular-nums">
+                        {group.total(days!.get(key)!)}
+                      </span>
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent asChild>
+                    <ul>{indices.map(item)}</ul>
+                  </CollapsibleContent>
+                </li>
+              </Collapsible>
+            ))
+          : shown.map(item)}
       </ul>
       {rows.length > limit && (
         <Button
@@ -394,9 +436,12 @@ const WideTable = ({
   );
 };
 
-export const DataTable = (props: DataTableProps) =>
-  usePhone() && props.columns.some((c) => c.phone === "title") ? (
-    <PhoneList {...props} />
+export const DataTable = (props: DataTableProps) => {
+  const phone = usePhone();
+  return (props.list || phone) &&
+    props.columns.some((c) => c.phone === "title") ? (
+    <List {...props} />
   ) : (
     <WideTable {...props} />
   );
+};

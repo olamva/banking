@@ -7,12 +7,12 @@ import {
 } from "../../core/ruleFiles.ts";
 import { merchantOf } from "../../core/select.ts";
 import type { Categorized } from "../../core/types.ts";
-import { AMOUNT_SIZE_EXACT, DataTable, DateCell } from "./DataTable.tsx";
+import { AMOUNT_SIZE_EXACT, DataTable } from "./DataTable.tsx";
 import { useAccountCell } from "./Transactions.tsx";
 import type { RulesApi } from "./data.ts";
 import {
   categoryColor,
-  fmtDate,
+  fmtShortDate,
   fmtNOKExact,
   pairLabel,
   rowLabel,
@@ -139,7 +139,7 @@ export const MatchTable = ({ txns, loading }: MatchTableProps) => {
       className={`mt-2 rounded-lg border bg-card px-3 py-1 transition-opacity ${loading ? "pointer-events-none opacity-70" : ""}`}
     >
       <DataTable
-        scroll
+        list
         onRow={(i) => setSelected(txns[i] ?? null)}
         columns={[
           { label: "Date", min: true, phone: "meta" },
@@ -155,13 +155,13 @@ export const MatchTable = ({ txns, loading }: MatchTableProps) => {
           },
         ]}
         rows={txns.map((txn) => [
-          <DateCell date={txn.date} wide={fmtDate(txn.date)} />,
+          fmtShortDate(txn.date),
           merchantOf(txn),
           <span style={{ color: categoryColor(txn.category) }}>
             {rowLabel(txn.category, txn.subcategory)}
           </span>,
           accountCell(txn),
-          fmtNOKExact(txn.amount),
+          <span className="font-semibold">{fmtNOKExact(txn.amount)}</span>,
         ])}
       />
       {selected && (

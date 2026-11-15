@@ -10,17 +10,16 @@ import {
   AMOUNT_SIZE,
   AMOUNT_SIZE_EXACT,
   DataTable,
-  DateCell,
   PickCell,
-  highlighting,
-  usePhone,
   type Column,
 } from "./DataTable.tsx";
 import {
   categoryColor,
   categoryLabel,
   fmtNOK,
+  fmtDay,
   fmtNOKExact,
+  fmtShortDate,
   rowLabel,
 } from "./format.ts";
 import {
@@ -32,9 +31,9 @@ import {
 } from "./icons.ts";
 import { SearchBox } from "./SearchBox.tsx";
 import { TxnDialog } from "./TxnDialog.tsx";
+import { cn } from "./ui/utils.ts";
 
 export const useAccountCell = (txns: Categorized[]) => {
-  const phone = usePhone();
   const main = useMemo(() => {
     const groups = Object.groupBy(
       txns.filter((t) => !t.card),
@@ -48,8 +47,8 @@ export const useAccountCell = (txns: Categorized[]) => {
     t: Categorized,
     onPick?: (account: string, meta: boolean) => void,
   ) => {
-    if (phone && t.account === main) return false;
-    const mark = phone && t.card && (
+    if (t.account === main) return false;
+    const mark = t.card && (
       <Icon
         icon={CardIcon}
         size={15}
@@ -59,12 +58,16 @@ export const useAccountCell = (txns: Categorized[]) => {
         className="block h-4.5"
       />
     );
-    return onPick ? (
-      <PickCell label={t.account} onPick={onPick}>
-        {mark}
-      </PickCell>
-    ) : (
-      mark || t.account
+    return (
+      <span className="inline-flex align-middle text-muted-foreground">
+        {onPick ? (
+          <PickCell label={t.account} onPick={onPick}>
+            {mark}
+          </PickCell>
+        ) : (
+          mark || t.account
+        )}
+      </span>
     );
   };
 };
@@ -87,6 +90,7 @@ const useSort = <T, S extends Record<string, (a: T, b: T) => number>>(
 
   return {
     sorted,
+    by,
     head: (label: string, key: K, extra?: Partial<Column>): Column => ({
       label,
       ...extra,
@@ -181,7 +185,7 @@ export const SubscriptionsCard = ({
         <Empty>No subscriptions match the search.</Empty>
       ) : (
         <DataTable
-          scroll
+          list
           columns={[
             head("Subscription", "name", { phone: "title" }),
             head("Category", "category", {
@@ -219,7 +223,7 @@ export const SubscriptionsCard = ({
             g.count,
             fmtNOK(g.latest),
             fmtNOK(g.total),
-            <DateCell date={g.last} />,
+            fmtShortDate(g.last),
           ])}
         />
       )}
@@ -248,7 +252,7 @@ export const TransactionsCard = ({
   onFile,
   onBulk,
 }: TransactionsCardProps) => {
-  const { sorted, head } = useTxnSort(txns);
+  const { sorted, head, by } = useTxnSort(txns);
   const accountCell = useAccountCell(txns);
   const [open, setOpen] = useState<Categorized | null>(null);
   const [selected, setSelected] = useState<Set<Categorized>>(new Set());
@@ -288,8 +292,23 @@ export const TransactionsCard = ({
         <Empty>No transactions match the current filters.</Empty>
       ) : (
         <DataTable
-          scroll
+          list
           onRow={(i) => setOpen(sorted[i] ?? null)}
+          group={
+            by === "date"
+              ? {
+                  of: (i) => sorted[i]!.date,
+                  label: fmtDay,
+                  total: (indices) =>
+                    fmtNOKExact(
+                      Math.round(
+                        indices.reduce((s, i) => s + sorted[i]!.amount, 0) *
+                          100,
+                      ) / 100,
+                    ),
+                }
+              : undefined
+          }
           rowClassName={(i) =>
             `${sorted[i]?.isPending ? "striped" : ""} ${selected.has(sorted[i]!) ? "bg-muted" : ""}`
           }
@@ -336,13 +355,7 @@ export const TransactionsCard = ({
                   />,
                 ]
               : []),
-            <button
-              type="button"
-              onClick={(e) => !highlighting(e) && setOpen(t)}
-              className="text-left text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-            >
-              <DateCell date={t.date} />
-            </button>,
+            by !== "date" && fmtShortDate(t.date),
             <span className="inline-flex items-center gap-1">
               <PickCell label={merchantOf(t)} onPick={onMerchant} />
               {t.receipt && (
@@ -363,7 +376,7 @@ export const TransactionsCard = ({
               onPick={onCategory}
             />,
             accountCell(t, onAccount),
-            <span className={t.amount > 0 ? "text-good" : undefined}>
+            <span className={cn("font-semibold", t.amount > 0 && "text-good")}>
               {fmtNOKExact(t.amount)}
             </span>,
           ])}
