@@ -1,0 +1,11 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "A new view opens at the top",
+      "detail": "A change to another view now starts at the top, not at the scroll position of the last view.",
+      "area": "app",
+      "kind": "fixed"
+    }
+  ]
+}
