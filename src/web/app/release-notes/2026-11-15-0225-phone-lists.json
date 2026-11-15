@@ -1,0 +1,13 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "Lists on the phone",
+      "detail": "On a phone, each table shows as a list. Each row shows the name and the amount on the first line. The date, category, account and other details are on the second line. You do not scroll sideways, and the page scrolls as one."
+    },
+    {
+      "title": "Sort and load more",
+      "detail": "Pick a sort field and the order in the control above each list. Each list shows 50 rows. Tap Show more at the bottom to see the next rows."
+    }
+  ]
+}

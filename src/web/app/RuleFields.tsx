@@ -7,11 +7,12 @@ import {
 } from "../../core/ruleFiles.ts";
 import { merchantOf } from "../../core/select.ts";
 import type { Categorized } from "../../core/types.ts";
-import { AMOUNT_SIZE_EXACT, DataTable } from "./Cards.tsx";
+import { AMOUNT_SIZE_EXACT, DataTable } from "./DataTable.tsx";
+import { useAccountCell } from "./Transactions.tsx";
 import type { RulesApi } from "./data.ts";
 import {
   categoryColor,
-  fmtDate,
+  fmtShortDate,
   fmtNOKExact,
   pairLabel,
   rowLabel,
@@ -131,34 +132,36 @@ interface MatchTableProps {
 
 export const MatchTable = ({ txns, loading }: MatchTableProps) => {
   const [selected, setSelected] = useState<Categorized | null>(null);
+  const accountCell = useAccountCell(txns);
 
   return (
     <div
       className={`mt-2 rounded-lg border bg-card px-3 py-1 transition-opacity ${loading ? "pointer-events-none opacity-70" : ""}`}
     >
       <DataTable
-        scroll
+        list
         onRow={(i) => setSelected(txns[i] ?? null)}
         columns={[
-          { label: "Date", min: true },
-          { label: "Merchant / description" },
-          { label: "Category", min: true },
-          { label: "Account", min: true },
+          { label: "Date", min: true, phone: "meta" },
+          { label: "Merchant / description", phone: "title" },
+          { label: "Category", min: true, phone: "meta" },
+          { label: "Account", min: true, phone: "aside" },
           {
             label: "Amount",
             num: true,
             min: true,
             sizer: AMOUNT_SIZE_EXACT,
+            phone: "end",
           },
         ]}
         rows={txns.map((txn) => [
-          fmtDate(txn.date),
+          fmtShortDate(txn.date),
           merchantOf(txn),
           <span style={{ color: categoryColor(txn.category) }}>
             {rowLabel(txn.category, txn.subcategory)}
           </span>,
-          txn.account,
-          fmtNOKExact(txn.amount),
+          accountCell(txn),
+          <span className="font-semibold">{fmtNOKExact(txn.amount)}</span>,
         ])}
       />
       {selected && (

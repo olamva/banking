@@ -13,10 +13,11 @@ import {
   type Filters,
 } from "../../core/select.ts";
 import type { Categorized } from "../../core/types.ts";
-import { DataTable, Empty, Note, Panel, type Column } from "./Cards.tsx";
+import { Empty, Note, Panel } from "./Cards.tsx";
+import { DataTable, type Column } from "./DataTable.tsx";
 import { HorizontalBars, type BarItem } from "./Charts.tsx";
 import { itemRules, type RulesApi } from "./data.ts";
-import { fmtDate, fmtNOK, fmtNOKExact, fmtPct } from "./format.ts";
+import { fmtNOK, fmtNOKExact, fmtPct, fmtShortDate } from "./format.ts";
 import {
   CategoryIcon,
   ChangesIcon,
@@ -183,11 +184,11 @@ export const Items = ({
     label: string,
     key: Sort,
     num = false,
-    className?: string,
+    phone?: Column["phone"],
   ): Column => ({
     label,
     num,
-    className,
+    phone,
     onClick: () => {
       setDescending(
         sort === key ? !descending : key !== "name" && key !== "category",
@@ -198,25 +199,23 @@ export const Items = ({
   });
 
   const tableRows: ReactNode[][] = sorted.map((i) => [
-    <span className="block max-w-[calc(100vw-15rem)] truncate sm:max-w-96">
+    <span className="block truncate sm:max-w-96">
       {i.name}
-      <span className="text-muted-foreground max-sm:block max-sm:min-h-4 max-sm:truncate max-sm:text-xs">
-        {i.sizes.length > 0 && (
-          <>
-            <span className="max-sm:hidden"> · </span>
-            {i.sizes.length > 1 ? `${i.sizes.length} sizes` : i.sizes[0]}
-          </>
-        )}
-      </span>
+      {i.sizes.length > 0 && (
+        <span className="text-muted-foreground">
+          {" · "}
+          {i.sizes.length > 1 ? `${i.sizes.length} sizes` : i.sizes[0]}
+        </span>
+      )}
     </span>,
     topCategory(i.category),
     i.count,
     fmtQty(i.qty, i.unit),
     fmtNOK(i.spent),
     fmtNOKExact(i.price),
-    <Change change={i.change} />,
+    i.change !== null && <Change change={i.change} />,
     fmtGap(i.medianDays),
-    fmtDate(i.last),
+    fmtShortDate(i.last),
   ]);
 
   const swings = shown
@@ -314,15 +313,15 @@ export const Items = ({
           <DataTable
             scroll
             columns={[
-              sortable("Item", "name"),
-              sortable("Category", "category", false, "max-sm:hidden"),
-              sortable("Purchases", "count", true),
-              sortable("Quantity", "qty", true, "max-sm:hidden"),
-              sortable("Spent", "spent", true),
-              sortable("Average price", "price", true, "max-sm:hidden"),
-              sortable("Price change", "change", true, "max-sm:hidden"),
-              sortable("Usual gap", "medianDays", true, "max-sm:hidden"),
-              sortable("Last bought", "last", false, "max-sm:hidden"),
+              sortable("Item", "name", false, "title"),
+              sortable("Category", "category", false, "meta"),
+              sortable("Purchases", "count", true, "labeled"),
+              sortable("Quantity", "qty", true),
+              sortable("Spent", "spent", true, "end"),
+              sortable("Average price", "price", true),
+              sortable("Price change", "change", true, "labeled"),
+              sortable("Usual gap", "medianDays", true),
+              sortable("Last bought", "last", false, "labeled"),
             ]}
             rows={tableRows}
             onRow={(index) => setPicked(sorted[index]!.key)}
