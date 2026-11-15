@@ -38,8 +38,9 @@ import {
   CounterpartyIcon,
   InfoIcon,
   MonthlyIcon,
+  RefundIcon,
 } from "./icons.ts";
-import { ToggleGroup, ToggleGroupItem } from "./ui/toggle-group.tsx";
+import { ChoiceToggle } from "./ChoiceToggle.tsx";
 import type { Grain } from "./url.ts";
 
 const CARD_GRID =
@@ -108,39 +109,6 @@ const GRAIN_LABEL: Record<Grain, string> = {
   month: "Per month",
 };
 
-interface ChoiceToggleProps<T extends string> {
-  value: T;
-  offered: T[];
-  labels: Record<T, string>;
-  name: string;
-  onChange: (value: T) => void;
-}
-
-const ChoiceToggle = <T extends string>({
-  value,
-  offered,
-  labels,
-  name,
-  onChange,
-}: ChoiceToggleProps<T>) =>
-  offered.length < 2 ? null : (
-    <ToggleGroup
-      type="single"
-      variant="outline"
-      size="sm"
-      spacing={0}
-      value={value}
-      onValueChange={(v) => v && onChange(v as T)}
-      aria-label={name}
-    >
-      {offered.map((v) => (
-        <ToggleGroupItem key={v} value={v} className="px-2 text-xs">
-          {labels[v]}
-        </ToggleGroupItem>
-      ))}
-    </ToggleGroup>
-  );
-
 type Stats = ReturnType<typeof monthStats>;
 
 interface TotalsProps {
@@ -158,20 +126,34 @@ const TILES = [
   ["net", "Net", true],
 ] as const;
 
+const tileSub = (
+  key: (typeof TILES)[number][0],
+  stats: Stats,
+  yearly: TotalsProps["yearly"],
+) =>
+  [
+    key === "totalOut" && stats.refunded > 0
+      ? `after ${fmtNOK(stats.refunded)} refunded`
+      : "",
+    yearly ? `${fmtNOK(yearly.averageMonth[key])} / month` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ") || undefined;
+
 const Totals = ({ stats, prev, yearly, vsLabel }: TotalsProps) => (
   <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(min(150px,100%),1fr))] gap-3 max-sm:grid-cols-2 max-sm:[&>*:last-child:nth-child(odd)]:col-span-full">
     {TILES.map(([key, label, goodIfUp]) =>
-      (key === "net" ? stats.totalIn > 0 && stats.totalOut > 0 : stats[key] > 0)
+      (
+        key === "net"
+          ? stats.totalIn > 0 && stats.totalOut !== 0
+          : stats[key] !== 0
+      )
         ? [
             <StatTile
               key={key}
               label={label}
               value={fmtNOK(stats[key])}
-              sub={
-                yearly
-                  ? `${fmtNOK(yearly.averageMonth[key])} / month`
-                  : undefined
-              }
+              sub={tileSub(key, stats, yearly)}
               vs={vsLabel}
               delta={
                 vsLabel ? deltaInfo(stats[key], prev[key], goodIfUp) : undefined
@@ -233,6 +215,7 @@ const Breakdowns = ({
   const cps = cpBars(stats.topCounterparties);
   const inCats = catBars(stats.incomeCategories, stats.incomeSubcategories);
   const inCps = cpBars(stats.topIncomeCounterparties);
+  const refunds = cpBars(stats.topRefundCounterparties);
   const deltas = visibleDeltas(stats.categoryDeltas).map((d) => ({
     ...d,
     category: categoryLabel(d.category),
@@ -278,6 +261,20 @@ const Breakdowns = ({
             {cps.length > 0 && (
               <Panel title={`${side} by merchant`} icon={CounterpartyIcon}>
                 <HorizontalBars items={cps} onPick={onMerchant} tone={tone} />
+              </Panel>
+            )}
+
+            {tone === "spend" && refunds.length > 0 && (
+              <Panel
+                title="Refunds by merchant"
+                icon={RefundIcon}
+                description="Money back that lowers spending in its category."
+              >
+                <HorizontalBars
+                  items={refunds}
+                  onPick={onMerchant}
+                  tone="income"
+                />
               </Panel>
             )}
           </Fragment>
