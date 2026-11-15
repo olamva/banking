@@ -9,6 +9,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, afterEach, beforeEach, mock, test } from "node:test";
+import { setTimeout as later } from "node:timers/promises";
 import { totals } from "../../src/core/stats.ts";
 import type { Categorized } from "../../src/core/types.ts";
 import { haystackOf, ruleKey } from "../../src/core/match.ts";
@@ -216,6 +217,7 @@ test("rules copied in after the last rebuild reach the payload before the next a
   await rebuildAll();
   const category = () => readRows().find((t) => t.id === "purchase")!.category;
   assert.equal(category(), "food");
+  await later(50);
   put("rules/categories.json", { shop: "home/furniture" });
   await fresh();
   assert.equal(category(), "home");
