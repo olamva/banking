@@ -138,37 +138,41 @@ const PhoneSort = ({ columns }: { columns: Column[] }) => {
   return (
     <div className="flex items-center gap-3 pb-2">
       {lead && (
-        <label className="flex min-h-10 items-center gap-3 text-xs text-muted-foreground">
+        <label className="flex h-8 items-center gap-3 text-xs text-muted-foreground">
           {lead}
           Select all
         </label>
       )}
       {sortable.length > 0 && (
-        <div className="ml-auto flex h-10 items-center rounded-full bg-muted text-xs font-medium">
-          <select
-            aria-label="Sort by"
-            value={current?.label ?? ""}
-            onChange={(e) =>
-              sortable.find((c) => c.label === e.target.value)?.onClick?.()
-            }
-            className={cn(
-              "h-10 appearance-none bg-transparent pl-4 outline-none",
-              current ? "pr-1" : "pr-4",
-            )}
-          >
-            {!current && <option value="">Sort</option>}
-            {sortable.map((c) => (
-              <option key={c.label} value={c.label}>
-                {c.label}
-              </option>
-            ))}
-          </select>
+        <div className="ml-auto flex items-center text-xs text-muted-foreground">
+          <label className="relative flex h-8 items-center gap-1 rounded-md px-2 hover:bg-muted has-focus-visible:ring-2 has-focus-visible:ring-ring">
+            Sort by
+            <span className="font-medium text-foreground">
+              {current?.label ?? "None"}
+            </span>
+            <Icon icon={ExpandIcon} size={12} className="rotate-90" />
+            <select
+              aria-label="Sort by"
+              value={current?.label ?? ""}
+              onChange={(e) =>
+                sortable.find((c) => c.label === e.target.value)?.onClick?.()
+              }
+              className="absolute inset-0 cursor-pointer appearance-none opacity-0"
+            >
+              {!current && <option value="">None</option>}
+              {sortable.map((c) => (
+                <option key={c.label} value={c.label}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </label>
           {current && (
             <button
               type="button"
               onClick={current.onClick}
               aria-label={`Sorted ${current.sort === "asc" ? "ascending" : "descending"}. Change the order`}
-              className="inline-flex size-10 items-center justify-center text-muted-foreground"
+              className="inline-flex size-8 items-center justify-center rounded-md hover:bg-muted hover:text-foreground"
             >
               <Icon
                 icon={current.sort === "asc" ? UpIcon : DownIcon}
