@@ -19,6 +19,7 @@ import {
   visibleDeltas,
   yearStats,
   type ExcludedSummary,
+  type SeriesPoint,
   type SubscriptionGroup,
 } from "../../core/stats.ts";
 import type { Categorized } from "../../core/types.ts";
@@ -296,6 +297,11 @@ const Breakdowns = ({
   );
 };
 
+const alignTo = (series: SeriesPoint[], compare: SeriesPoint[], p: Period) =>
+  p.kind === "recent"
+    ? compare.map((c, i) => ({ ...c, at: series[i]?.at ?? c.at }))
+    : compare;
+
 interface DashboardProps {
   txns: Categorized[];
   all: Categorized[];
@@ -361,7 +367,7 @@ export const Dashboard = ({
   };
 
   const series = build(shown, from, to);
-  const compare = vs ? build(previous, vs.from, vs.to) : [];
+  const compare = vs ? alignTo(series, build(previous, vs.from, vs.to), p) : [];
 
   const single = filters.categories.length === 1;
 

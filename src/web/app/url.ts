@@ -31,7 +31,7 @@ const ALL_GRAINS: Grain[] = ["running", "day", "month"];
 export const GRAINS: Record<PeriodKind, Grain[]> = {
   month: ["running", "day"],
   year: ["running", "month"],
-  recent: ["running", "day", "month"],
+  recent: ["running", "day"],
   all: ["month"],
   custom: ["running", "day", "month"],
 };

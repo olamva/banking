@@ -1,0 +1,21 @@
+{
+  "bump": "major",
+  "highlights": [
+    {
+      "title": "Transactions is the start page",
+      "detail": "The app opens on Transactions. The list fills the page without a card around it, and the three totals moved to Overview."
+    },
+    {
+      "title": "One Overview page",
+      "detail": "Dashboard, Insights and Items are now one page. It shows the totals, the chart, the categories, the merchants, the subscriptions and the items from your receipts. Insights panels that showed unreliable numbers from few visits are gone. The account panels are gone too."
+    },
+    {
+      "title": "Search everywhere",
+      "detail": "One search box in the top bar searches every page. It finds merchants, descriptions and items on receipts. Press / or ⌘F to use it."
+    },
+    {
+      "title": "Rolling periods",
+      "detail": "The period picker has the last 7, 30, 90 and 365 days. Each compares with the same number of days before it."
+    }
+  ]
+}
