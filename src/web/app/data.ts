@@ -370,8 +370,12 @@ export const useHideOnScroll = (
   reset: unknown,
 ): boolean => {
   const [hidden, setHidden] = useState(false);
+  const idle = useRef(true);
 
-  useEffect(() => setHidden(false), [reset]);
+  useEffect(() => {
+    setHidden(false);
+    idle.current = true;
+  }, [reset]);
 
   useEffect(() => {
     const element = header.current;
@@ -392,15 +396,22 @@ export const useHideOnScroll = (
 
   useEffect(() => {
     let last = window.scrollY;
+    const inputs = ["touchstart", "wheel", "keydown"] as const;
+    const wake = () => (idle.current = false);
     const onScroll = () => {
       const y = window.scrollY;
       const height = header.current?.offsetHeight ?? 0;
-      const held = !!header.current?.querySelector("[data-state=open]");
+      const held =
+        idle.current || !!header.current?.querySelector("[data-state=open]");
       setHidden((was) => !held && headerHidden(y, last, was, height));
       if (held || Math.abs(y - last) >= 8) last = y;
     };
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    for (const e of inputs) window.addEventListener(e, wake, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      for (const e of inputs) window.removeEventListener(e, wake);
+    };
   }, [header]);
 
   return hidden;

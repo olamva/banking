@@ -1,0 +1,11 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "The header stays after a tap filter",
+      "detail": "The header no longer disappears after you tap a merchant or category to filter on a phone.",
+      "area": "iphone",
+      "kind": "fixed"
+    }
+  ]
+}
