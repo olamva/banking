@@ -116,6 +116,7 @@ interface DataTableProps {
   onRow?: (index: number) => void;
   rowClassName?: (index: number) => string;
   list?: boolean;
+  controls?: ReactNode;
   group?: {
     of: (index: number) => string;
     label: (key: string) => ReactNode;
@@ -138,11 +139,14 @@ const usePhone = () =>
     () => phoneQuery.matches,
   );
 
-const ListSort = ({ columns }: { columns: Column[] }) => {
+const ListSort = ({
+  columns,
+  controls,
+}: Pick<DataTableProps, "columns" | "controls">) => {
   const sortable = columns.filter((c) => c.onClick && c.phone);
   const current = sortable.find((c) => c.sort);
   const lead = columns.find((c) => c.phone === "lead")?.header;
-  if (!lead && sortable.length === 0) return null;
+  if (!lead && sortable.length === 0 && !controls) return null;
   return (
     <div className="flex items-center gap-3 pb-2">
       {lead && (
@@ -151,8 +155,10 @@ const ListSort = ({ columns }: { columns: Column[] }) => {
           Select all
         </label>
       )}
+      <span className="ml-auto" />
+      {controls}
       {sortable.length > 0 && (
-        <ButtonGroup className="ml-auto">
+        <ButtonGroup>
           <Select
             value={current?.label ?? ""}
             onValueChange={(label) =>
@@ -191,6 +197,7 @@ const List = ({
   onRow,
   rowClassName,
   group,
+  controls,
 }: DataTableProps) => {
   const [limit, setLimit] = useState(PAGE);
   const [closed, setClosed] = useState<Set<string>>(new Set());
@@ -281,7 +288,7 @@ const List = ({
 
   return (
     <div>
-      <ListSort columns={columns} />
+      <ListSort columns={columns} controls={controls} />
       <ul className="-mx-(--card-spacing) border-t">
         {group
           ? [...Map.groupBy(shown, group.of)].map(([key, indices]) => (

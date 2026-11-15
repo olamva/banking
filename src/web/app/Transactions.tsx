@@ -18,12 +18,14 @@ import {
   categoryLabel,
   fmtNOK,
   fmtDay,
+  fmtMonth,
   fmtNOKExact,
   fmtShortDate,
   rowLabel,
 } from "./format.ts";
 import {
   CardIcon,
+  GroupIcon,
   Icon,
   ReceiptIcon,
   RecurringIcon,
@@ -32,6 +34,13 @@ import {
 import { SearchBox } from "./SearchBox.tsx";
 import { TxnDialog } from "./TxnDialog.tsx";
 import { Badge } from "./ui/badge.tsx";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select.tsx";
 import { cn } from "./ui/utils.ts";
 
 export const useAccountCell = (txns: Categorized[]) => {
@@ -122,6 +131,21 @@ const TXN_SORTS = {
 
 const useTxnSort = (txns: Categorized[]) =>
   useSort(txns, TXN_SORTS, "date", ["merchant", "subcategory", "account"]);
+
+const TXN_GROUPS: Record<
+  string,
+  {
+    of: (t: Categorized) => string;
+    label: (key: string) => string;
+    time?: boolean;
+  }
+> = {
+  Day: { of: (t) => t.date, label: fmtDay, time: true },
+  Month: { of: (t) => t.date.slice(0, 7), label: fmtMonth, time: true },
+  Category: { of: (t) => t.category, label: categoryLabel },
+  Merchant: { of: merchantOf, label: (key) => key },
+  Account: { of: (t) => t.account, label: (key) => key },
+};
 
 const GROUP_SORTS = {
   name: (a: SubscriptionGroup, b: SubscriptionGroup) =>
@@ -253,7 +277,18 @@ export const TransactionsCard = ({
   onFile,
   onBulk,
 }: TransactionsCardProps) => {
-  const { sorted, head, by } = useTxnSort(txns);
+  const { sorted: bySort, head, by } = useTxnSort(txns);
+  const [groupBy, setGroupBy] = useState("Day");
+  const grouping = TXN_GROUPS[groupBy];
+  const sorted = useMemo(
+    () =>
+      grouping?.time && by !== "date"
+        ? bySort.toSorted((a, b) =>
+            grouping.of(b).localeCompare(grouping.of(a)),
+          )
+        : bySort,
+    [bySort, grouping, by],
+  );
   const accountCell = useAccountCell(txns);
   const [open, setOpen] = useState<Categorized | null>(null);
   const [selected, setSelected] = useState<Set<Categorized>>(new Set());
@@ -295,11 +330,30 @@ export const TransactionsCard = ({
         <DataTable
           list
           onRow={(i) => setOpen(sorted[i] ?? null)}
+          controls={
+            <Select value={groupBy} onValueChange={setGroupBy}>
+              <SelectTrigger
+                size="sm"
+                aria-label="Group by"
+                className="text-xs"
+              >
+                <Icon icon={GroupIcon} />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent position="popper" align="end">
+                {[...Object.keys(TXN_GROUPS), "None"].map((g) => (
+                  <SelectItem key={g} value={g}>
+                    {g}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          }
           group={
-            by === "date"
+            grouping
               ? {
-                  of: (i) => sorted[i]!.date,
-                  label: fmtDay,
+                  of: (i) => grouping.of(sorted[i]!),
+                  label: grouping.label,
                   total: (indices) =>
                     fmtNOKExact(
                       Math.round(
@@ -310,9 +364,7 @@ export const TransactionsCard = ({
                 }
               : undefined
           }
-          rowClassName={(i) =>
-            selected.has(sorted[i]!) ? "bg-muted" : ""
-          }
+          rowClassName={(i) => (selected.has(sorted[i]!) ? "bg-muted" : "")}
           columns={[
             ...(onBulk
               ? [
@@ -356,7 +408,7 @@ export const TransactionsCard = ({
                   />,
                 ]
               : []),
-            by !== "date" && fmtShortDate(t.date),
+            groupBy !== "Day" && fmtShortDate(t.date),
             <span className="inline-flex items-center gap-1">
               <PickCell label={merchantOf(t)} onPick={onMerchant} />
               {t.receipt && (

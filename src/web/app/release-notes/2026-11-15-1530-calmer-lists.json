@@ -1,9 +1,0 @@
-{
-  "bump": "patch",
-  "highlights": [
-    {
-      "title": "Calmer lists",
-      "detail": "Day headers and pending rows have no background shade. A pending row shows a Pending tag. The date in each day header is easier to read."
-    }
-  ]
-}

@@ -13,6 +13,7 @@ export { ArrowUp02Icon as UpIcon } from "@hugeicons/core-free-icons";
 export { ArrowDown01Icon as SortDescIcon } from "@hugeicons/core-free-icons";
 export { ArrowUp01Icon as SortAscIcon } from "@hugeicons/core-free-icons";
 export { ArrowUpDownIcon as SortableIcon } from "@hugeicons/core-free-icons";
+export { LayerIcon as GroupIcon } from "@hugeicons/core-free-icons";
 
 export { ArrowDown01Icon as DropdownIcon } from "@hugeicons/core-free-icons";
 export { Cancel01Icon as CloseIcon } from "@hugeicons/core-free-icons";

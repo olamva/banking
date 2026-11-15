@@ -131,6 +131,13 @@ export const fmtShortDate = (date: string): string =>
 export const fmtDay = (date: string): string =>
   `${new Date(`${date}T00:00:00Z`).toLocaleDateString("nb-NO", { weekday: "long", timeZone: "UTC" })} ${fmtShortDate(date)}`;
 
+export const fmtMonth = (month: string): string =>
+  new Date(`${month}-01T00:00:00Z`).toLocaleDateString("nb-NO", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+
 export const monthLabel = (month: string): string => {
   const [y, m] = month.split("-").map(Number);
   return new Date(Date.UTC(y!, m! - 1, 1)).toLocaleDateString("nb-NO", {
