@@ -3,7 +3,9 @@
   "highlights": [
     {
       "title": "Sizes on mail items",
-      "detail": "Mail receipts show a size such as 3 stk or 1,5 l apart from the item name, as store receipts do."
+      "detail": "Mail receipts show a size such as 1,5 l apart from the item name, as store receipts do.",
+      "area": "receipts",
+      "kind": "improved"
     }
   ]
 }
