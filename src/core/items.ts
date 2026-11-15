@@ -15,6 +15,7 @@ export type Purchase = {
   qty: number;
   unit?: "kg";
   amount: number;
+  discount: number;
   category?: string;
 };
 
@@ -176,6 +177,9 @@ const ore = (n: number) => Math.round(n * 100) / 100;
 export const packPrice = (p: Purchase): number =>
   p.qty ? p.amount / p.qty : p.amount;
 
+export const shelfPrice = (p: Purchase): number =>
+  packPrice({ ...p, amount: p.amount + p.discount });
+
 export const unitPrice = (
   p: Purchase,
 ): { price: number; per: "kg" | "l" | "stk" } | null => {
@@ -193,6 +197,9 @@ export const unitPrice = (
       : null;
 };
 
+export const isBought = (l: ReceiptLine): boolean =>
+  l.amount > 0 && !l.fee && !/\bpant\b/i.test(l.name);
+
 const receiptPurchases = (
   receipt: Receipt,
   nameOf: (raw: string) => string,
@@ -201,9 +208,7 @@ const receiptPurchases = (
 ): Purchase[] =>
   [
     ...Map.groupBy(
-      receipt.lines.filter(
-        (l) => l.amount > 0 && !l.fee && !/\bpant\b/i.test(l.name),
-      ),
+      receipt.lines.filter(isBought),
       (l) => `${l.name}\n${sizeKey(l.size)}`,
     ).values(),
   ].map((same) => {
@@ -225,6 +230,11 @@ const receiptPurchases = (
           (n, l) => n + l.amount - (withoutDeposit ? (l.deposit ?? 0) : 0),
           0,
         ),
+      ),
+      discount: ore(
+        same
+          .flatMap((l) => l.discounts ?? [])
+          .reduce((n, d) => n + d.amount, 0),
       ),
       ...(category ? { category } : {}),
     };
@@ -302,7 +312,7 @@ export const itemsOf = (purchases: Purchase[], bySize = false): Item[] =>
     const known = sorted.flatMap((p) => p.category ?? []);
     const [now, ...before] = sorted
       .filter((p) => p.sizeKey === sorted[0]!.sizeKey)
-      .map(packPrice);
+      .map(shelfPrice);
     const usual = before.length > 1 ? median(before) : null;
     return {
       key,

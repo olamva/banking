@@ -2,8 +2,8 @@ import { useDeferredValue, useMemo, useState, type ReactNode } from "react";
 import {
   itemsOf,
   nameKey,
-  packPrice,
   purchasesOf,
+  shelfPrice,
   topCategory,
   type Item,
 } from "../../core/items.ts";
@@ -13,20 +13,15 @@ import {
   type Filters,
 } from "../../core/select.ts";
 import type { Categorized } from "../../core/types.ts";
-import { Empty, Note, Panel } from "./Cards.tsx";
+import { Empty, InfoTip, Panel } from "./Cards.tsx";
 import { DataTable, type Column } from "./DataTable.tsx";
 import { HorizontalBars, type BarItem } from "./Charts.tsx";
 import { mapRules, type RulesApi } from "./data.ts";
 import { fmtNOK, fmtNOKExact, fmtPct, fmtShortDate } from "./format.ts";
-import {
-  CategoryIcon,
-  ChangesIcon,
-  Icon,
-  InfoIcon,
-  ItemsIcon,
-} from "./icons.ts";
+import { CategoryIcon, ChangesIcon, Icon, ItemsIcon } from "./icons.ts";
 import { SwitchField } from "./FilterBar.tsx";
 import { fmtGap, fmtQty, ItemSheet } from "./ItemSheet.tsx";
+import { Button } from "./ui/button.tsx";
 import { cn } from "./ui/utils.ts";
 
 const MIN_SWING = 0.05;
@@ -86,23 +81,23 @@ const Swings = ({ title, items, onPick }: SwingsProps) => (
       <p className="py-1.5 text-xs text-muted-foreground">None</p>
     ) : (
       items.map((i) => (
-        <button
+        <Button
           key={i.key}
-          type="button"
+          variant="ghost"
           onClick={() => onPick(i.key)}
-          className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-md px-2 py-1.5 text-left text-xs hover:bg-muted/70"
+          className="-mx-2 h-auto w-[calc(100%+1rem)] justify-start gap-3 rounded-md px-2 py-1.5 text-left text-xs font-normal"
         >
           <span className="min-w-0 flex-1">
             <span className="block truncate">{i.name}</span>
             <span className="block truncate text-[11px] text-muted-foreground">
-              {fmtNOKExact(packPrice(i.purchases[0]!))}, usually{" "}
+              {fmtNOKExact(shelfPrice(i.purchases[0]!))}, usually{" "}
               {fmtNOKExact(i.usual!)}
             </span>
           </span>
           <span className="shrink-0 font-semibold tabular-nums">
             <Change change={i.change} />
           </span>
-        </button>
+        </Button>
       ))
     )}
   </section>
@@ -151,10 +146,14 @@ export const Items = ({
       ),
     [rows, filters, search, names, categories],
   );
-  const items = useMemo(() => itemsOf(purchases, bySize), [purchases, bySize]);
+  const whole = useMemo(() => itemsOf(purchases), [purchases]);
+  const items = useMemo(
+    () => (bySize ? itemsOf(purchases, true) : whole),
+    [purchases, bySize, whole],
+  );
   const picks = filters.items.map(nameKey);
   const drops = filters.itemsOut.map(nameKey);
-  const shown = items.filter(({ key, category, purchases: list }) => {
+  const keep = ({ key, category, purchases: list }: Item) => {
     const kind = [topCategory(category), category];
     const first = list[0];
     return (
@@ -165,11 +164,12 @@ export const Items = ({
       (!filters.kinds.length || kind.some((k) => filters.kinds.includes(k))) &&
       !kind.some((k) => filters.kindsOut.includes(k))
     );
-  });
+  };
+  const shown = items.filter(keep);
   const [sort, setSort] = useState<Sort>("count");
   const [descending, setDescending] = useState(true);
   const [picked, setPicked] = useState<string | null>(null);
-  const open = items.find((i) => i.key === picked);
+  const open = [...items, ...whole].find((i) => i.key === picked);
 
   const sorted = shown.toSorted((a, b) => {
     const [x, y] = [value(a, sort), value(b, sort)];
@@ -218,7 +218,8 @@ export const Items = ({
     fmtShortDate(i.last),
   ]);
 
-  const swings = shown
+  const swings = whole
+    .filter(keep)
     .filter((i) => i.change !== null && Math.abs(i.change) >= MIN_SWING)
     .toSorted((a, b) => a.change! - b.change!);
 
@@ -235,6 +236,12 @@ export const Items = ({
         <h2 className="flex items-center gap-2 text-sm font-semibold">
           <Icon icon={ItemsIcon} size={16} className="text-muted-foreground" />
           Items from receipts
+          <InfoTip label="About items from receipts">
+            Items come from receipts with item lines. The category comes from
+            the product group on a REMA receipt, or from a rule in Item
+            categories. Select an item to see each purchase, its price over time
+            and its receipt, or to rename it.
+          </InfoTip>
         </h2>
         <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
           {receipts} {receipts === 1 ? "receipt" : "receipts"} · {bought}{" "}
@@ -271,7 +278,8 @@ export const Items = ({
             <Panel
               title="Biggest price changes"
               icon={ChangesIcon}
-              description="The latest price against the median of earlier purchases of the same size. Changes under 5% are left out."
+              description="The latest price against the usual price."
+              info="The usual price is the median of earlier purchases of the same size. Both prices are shelf prices, so discounts at checkout, such as app offers, do not count. Changes under 5% are left out."
             >
               <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
                 <Swings
@@ -331,12 +339,6 @@ export const Items = ({
           />
         )}
       </Panel>
-      <Note icon={InfoIcon} className="mt-4">
-        Items come from receipts with item lines. The category comes from the
-        product group on a REMA receipt, or from a rule in Item categories.
-        Select an item to see each purchase, its price over time and its
-        receipt, or to rename it.
-      </Note>
     </section>
   );
 };

@@ -26,7 +26,9 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "./ui/select.tsx";
@@ -82,7 +84,7 @@ export const PickCell = ({
       if (!highlighting(e)) onPick(value, e.metaKey);
     }}
     style={color ? { color } : undefined}
-    className="h-auto justify-start rounded-none p-0 text-left text-[length:inherit] font-normal text-inherit underline-offset-2 active:not-aria-[haspopup]:translate-y-0"
+    className="h-auto justify-start rounded-none p-0 text-left text-[length:inherit] font-normal text-inherit underline-offset-2 active:not-aria-[haspopup]:translate-y-0 has-[svg]:-m-1 has-[svg]:rounded-md has-[svg]:p-1 has-[svg]:hover:bg-muted has-[svg]:hover:text-foreground"
   >
     {children || label}
   </Button>
@@ -169,11 +171,14 @@ const ListSort = ({
               <SelectValue placeholder="Sort" />
             </SelectTrigger>
             <SelectContent position="popper" align="end">
-              {sortable.map((c) => (
-                <SelectItem key={c.label} value={c.label}>
-                  {c.label}
-                </SelectItem>
-              ))}
+              <SelectGroup>
+                <SelectLabel>Sort by</SelectLabel>
+                {sortable.map((c) => (
+                  <SelectItem key={c.label} value={c.label}>
+                    {c.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
             </SelectContent>
           </Select>
           <Button
@@ -248,7 +253,7 @@ const List = ({
             <div
               className={cn(
                 "min-w-0 flex-1 truncate sm:order-1",
-                onRow && "pointer-events-none",
+                onRow && "max-sm:pointer-events-none",
               )}
             >
               {slot(row, "title").map(({ cell }) => cell)}

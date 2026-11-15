@@ -40,6 +40,7 @@ test("a populated state round-trips, nulls included", () => {
       countriesOut: ["Norway"],
       search: "rema",
       showExcluded: true,
+      withReceipt: true,
       withoutDeposit: true,
     },
   };

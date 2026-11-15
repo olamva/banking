@@ -329,7 +329,7 @@ export const App = () => {
       <TransactionsView
         rows={inPeriod}
         all={txns}
-        branchRules={mapRules(rules, "branches")}
+        rules={rules}
         filters={filters}
         onFilters={setFilters}
         onFile={(txn, file) => setFiling({ txn, file })}
@@ -341,7 +341,12 @@ export const App = () => {
     ready || shownView === "rules" ? (
       views[shownView]()
     ) : (
-      <LoadNote load={load} count={txns.length} refresh={refresh} />
+      <LoadNote
+        load={load}
+        count={txns.length}
+        refresh={refresh}
+        list={shownView === "transactions"}
+      />
     );
 
   return (

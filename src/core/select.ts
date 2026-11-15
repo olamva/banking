@@ -16,6 +16,7 @@ export type Filters = {
   countriesOut: string[];
   search: string;
   showExcluded: boolean;
+  withReceipt: boolean;
   withoutDeposit: boolean;
 };
 
@@ -49,6 +50,7 @@ export const NO_FILTERS: Filters = {
   countriesOut: [],
   search: "",
   showExcluded: false,
+  withReceipt: false,
   withoutDeposit: false,
 };
 
@@ -107,6 +109,7 @@ const shown = (
 
 export function matchesFilters(t: Categorized, f: Filters): boolean {
   if (t.excluded && !f.showExcluded) return false;
+  if (f.withReceipt && !t.receipt) return false;
   if (!shown(f.categories, f.categoriesOut, [t.category, subcategoryOf(t)]))
     return false;
   if (!shown(f.merchants, f.merchantsOut, [merchantOf(t)])) return false;
@@ -292,6 +295,7 @@ export function filtersToParams(f: Filters, p = new URLSearchParams()) {
   }
   if (f.search) p.set("q", f.search);
   if (f.showExcluded) p.set("excl", "1");
+  if (f.withReceipt) p.set("rcpt", "1");
   if (f.withoutDeposit) p.set("pant", "0");
   return p;
 }
@@ -338,6 +342,7 @@ export function filtersFromParams(p: URLSearchParams): Filters {
     countriesOut,
     search: p.get("q") ?? "",
     showExcluded: p.get("excl") === "1",
+    withReceipt: p.get("rcpt") === "1",
     withoutDeposit: p.get("pant") === "0",
   };
 }

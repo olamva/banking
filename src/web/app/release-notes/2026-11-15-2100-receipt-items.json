@@ -1,0 +1,23 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "Act on receipt items",
+      "detail": "Select an item on a receipt to see its details or to show or hide transactions with it.",
+      "area": "receipts",
+      "kind": "new"
+    },
+    {
+      "title": "Only with receipts",
+      "detail": "A new switch in Filter shows only transactions that have a receipt.",
+      "area": "filters",
+      "kind": "new"
+    },
+    {
+      "title": "Fairer price changes",
+      "detail": "Price changes compare shelf prices. Discounts at checkout, such as app offers, do not count.",
+      "area": "items",
+      "kind": "improved"
+    }
+  ]
+}

@@ -158,26 +158,34 @@ export const FilterButton = ({
   );
 };
 
-const CHIP =
-  "inline-flex h-8 max-w-full shrink-0 items-center rounded-full bg-secondary text-sm text-secondary-foreground";
+const Chip = ({ children }: { children: ReactNode }) => (
+  <Badge
+    variant="secondary"
+    className="h-8 max-w-full gap-0 overflow-visible rounded-full p-0 text-sm font-normal transition-colors has-[[data-chip=body]:hover]:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_6%)]"
+  >
+    {children}
+  </Badge>
+);
 
 const CHIP_BODY =
-  "flex h-full min-w-0 items-center gap-1 rounded-l-full pl-3 hover:bg-foreground/5";
+  "h-full min-w-0 shrink justify-start gap-1 rounded-none py-0 pr-1 pl-3 font-normal hover:bg-transparent active:not-aria-[haspopup]:translate-y-0 dark:hover:bg-transparent";
 
 const X = ({ label, onClick }: { label: string; onClick: () => void }) => (
-  <button
-    type="button"
+  <Button
+    variant="ghost"
+    size="icon-xs"
     aria-label={label}
     onClick={onClick}
-    className="relative flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground after:absolute after:-inset-1.5 hover:bg-foreground/10 hover:text-foreground"
+    className="relative mr-1.5 size-5 rounded-full text-muted-foreground after:absolute after:-inset-2 hover:bg-foreground/10 dark:hover:bg-foreground/15"
   >
-    <Icon icon={CloseIcon} size={13} />
-  </button>
+    <Icon icon={CloseIcon} size={12} />
+  </Button>
 );
 
 export const activeCount = (specs: AxisSpec[], f: Filters) =>
   specs.reduce((n, s) => n + f[s.axis].length + f[AXES[s.axis]].length, 0) +
-  Number(f.showExcluded);
+  Number(f.showExcluded) +
+  Number(f.withReceipt);
 
 interface AxisChipProps {
   spec: AxisSpec;
@@ -199,9 +207,10 @@ const AxisChip = ({ spec, filters, onFilters, onEdit }: AxisChipProps) => {
     .join("");
 
   return (
-    <span className={CHIP}>
-      <button
-        type="button"
+    <Chip>
+      <Button
+        variant="ghost"
+        data-chip="body"
         onClick={onEdit}
         aria-label={`${spec.name}: ${parts}. Edit`}
         className={CHIP_BODY}
@@ -217,12 +226,12 @@ const AxisChip = ({ spec, filters, onFilters, onEdit }: AxisChipProps) => {
           ))}
           {words.length > 2 && ` +${words.length - 2}`}
         </span>
-      </button>
+      </Button>
       <X
         label={`Remove every ${spec.name.toLowerCase()} filter`}
         onClick={() => onFilters({ ...filters, [spec.axis]: [], [outKey]: [] })}
       />
-    </span>
+    </Chip>
   );
 };
 
@@ -235,10 +244,10 @@ const PlainChip = ({
   label: string;
   onRemove: () => void;
 }) => (
-  <span className={CHIP}>
-    <span className="min-w-0 truncate pl-3">{children}</span>
+  <Chip>
+    <span className="min-w-0 truncate pr-1 pl-3">{children}</span>
     <X label={label} onClick={onRemove} />
-  </span>
+  </Chip>
 );
 
 interface FilterChipsProps {
@@ -257,7 +266,8 @@ export const FilterChips = ({
   const axes = specs.filter(
     (s) => filters[s.axis].length + filters[AXES[s.axis]].length > 0,
   );
-  const count = axes.length + Number(filters.showExcluded);
+  const count =
+    axes.length + Number(filters.showExcluded) + Number(filters.withReceipt);
   if (count === 0) return null;
 
   return (
@@ -277,6 +287,14 @@ export const FilterChips = ({
           onRemove={() => onFilters({ ...filters, showExcluded: false })}
         >
           Internal transfers shown
+        </PlainChip>
+      )}
+      {filters.withReceipt && (
+        <PlainChip
+          label="Show transactions without a receipt"
+          onRemove={() => onFilters({ ...filters, withReceipt: false })}
+        >
+          With receipts
         </PlainChip>
       )}
       {count > 1 && (

@@ -6,6 +6,7 @@ import { DropdownIcon, Icon } from "./icons.ts";
 import { PriceChart, unitText } from "./PriceChart.tsx";
 import { Slip } from "./ReceiptLines.tsx";
 import { Button } from "./ui/button.tsx";
+import { Input } from "./ui/input.tsx";
 import {
   Sheet,
   SheetContent,
@@ -114,12 +115,12 @@ export const ItemSheet = ({
               Name
             </label>
             <div className="flex gap-2">
-              <input
+              <Input
                 id="item-name"
                 value={name}
                 list="item-names"
                 onChange={(e) => setName(e.target.value)}
-                className="min-h-8 min-w-0 flex-1 rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+                className="min-w-0 flex-1"
               />
               <Button
                 type="submit"
@@ -145,11 +146,11 @@ export const ItemSheet = ({
             <ul className="divide-y text-[13px]">
               {item.purchases.map((p, i) => (
                 <li key={i}>
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
                     aria-expanded={shown === i}
                     onClick={() => setShown(shown === i ? null : i)}
-                    className="flex w-full items-center gap-3 py-2 text-left hover:bg-muted/60"
+                    className="-mx-2 h-auto w-[calc(100%+1rem)] justify-start gap-3 rounded-md px-2 py-2 text-left text-[13px] font-normal whitespace-normal aria-expanded:bg-transparent"
                   >
                     <span className="min-w-0 flex-1">
                       <span className="block truncate">
@@ -173,7 +174,7 @@ export const ItemSheet = ({
                       size={14}
                       className={`shrink-0 text-muted-foreground transition-transform ${shown === i ? "rotate-180" : ""}`}
                     />
-                  </button>
+                  </Button>
                   {shown === i && (
                     <div className="pb-3">
                       <Slip receipt={p.receipt} marked={p.raw} />

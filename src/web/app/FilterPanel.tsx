@@ -149,10 +149,10 @@ const Home = ({
         aria-label="Search filters"
       />
       {q !== "" && (
-        <button
-          type="button"
+        <Button
+          variant="ghost"
           onClick={() => onSearch(query.trim())}
-          className="mx-1 mt-1 flex min-h-8 items-center gap-2 rounded-sm px-2 text-left text-sm hover:bg-muted"
+          className="mx-1 mt-1 justify-start gap-2 rounded-sm px-2 text-left font-normal"
         >
           <Icon
             icon={SearchIcon}
@@ -162,7 +162,7 @@ const Home = ({
           <span className="min-w-0 flex-1 truncate">
             Text contains “{query.trim()}”
           </span>
-        </button>
+        </Button>
       )}
       <CommandList className="max-h-none min-h-0 flex-1">
         {q === "" ? (
@@ -338,6 +338,7 @@ export const FilterPanel = ({
           subs={spec.subs}
           subLabel={spec.subLabel}
           people={spec.people}
+          uses={spec.uses}
           query={carried}
           onBack={back}
         />
@@ -364,6 +365,13 @@ export const FilterPanel = ({
                 checked={filters.showExcluded}
                 onChange={(showExcluded) =>
                   onFilters({ ...filters, showExcluded })
+                }
+              />
+              <SwitchRow
+                label="Only with receipts"
+                checked={filters.withReceipt}
+                onChange={(withReceipt) =>
+                  onFilters({ ...filters, withReceipt })
                 }
               />
               {deposit && (
