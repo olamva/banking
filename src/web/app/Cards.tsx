@@ -91,7 +91,11 @@ export const Panel = ({
       {description && (
         <CardDescription className="text-xs">{description}</CardDescription>
       )}
-      {action && <CardAction>{action}</CardAction>}
+      {action && (
+        <CardAction className="@max-sm/card-header:col-start-1 @max-sm/card-header:row-span-1 @max-sm/card-header:row-start-auto @max-sm/card-header:mt-1 @max-sm/card-header:justify-self-start">
+          {action}
+        </CardAction>
+      )}
     </CardHeader>
     <CardContent className="flex min-w-0 flex-1 flex-col">
       {children}
