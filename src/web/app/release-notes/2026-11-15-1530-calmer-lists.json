@@ -1,0 +1,9 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Calmer lists",
+      "detail": "Categories show in gray with a small color dot. Only income amounts are green. Day headers are shorter, and the date is easier to read."
+    }
+  ]
+}
