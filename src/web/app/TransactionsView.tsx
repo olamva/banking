@@ -48,18 +48,21 @@ export const TransactionsView = ({
   const names = mapRules(rules, "items");
   const kinds = mapRules(rules, "item-categories");
   const [picked, setPicked] = useState<string | null>(null);
-  const items = useMemo(
-    () =>
-      picked
-        ? itemsOf(purchasesOf(all, names, filters.withoutDeposit, kinds))
-        : [],
-    [picked, all, names, kinds, filters.withoutDeposit],
-  );
-  const item = items.find((i) => i.key === picked);
   const [open, setOpen] = useState<Categorized | null>(null);
   const [back, setBack] = useState<Categorized | null>(null);
+  const needed = !!picked || (!!open && filters.kinds.length > 0);
+  const items = useMemo(
+    () =>
+      needed
+        ? itemsOf(purchasesOf(all, names, filters.withoutDeposit, kinds))
+        : [],
+    [needed, all, names, kinds, filters.withoutDeposit],
+  );
+  const item = items.find((i) => i.key === picked);
   const marked = purchasesOf(open ? [open] : [], names)
-    .filter((p) => markedItem(p.key, filters))
+    .filter((p) =>
+      markedItem(p.key, filters, items.find((i) => i.key === p.key)?.category),
+    )
     .map((p) => p.raw);
 
   const onItem = (txn: Categorized, raw: string, action: ItemAction) => {

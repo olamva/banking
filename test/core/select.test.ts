@@ -109,6 +109,16 @@ test("matchesFilters: search finds a receipt by an item name", () => {
   assert.equal(matchesFilters(t, { ...NO_FILTERS, search: "fløte" }), false);
 });
 
+test("markedItem marks the receipt items whose category the item category filter found", () => {
+  const key = "lett melk tine";
+  const kinds = (k: string[]) => ({ ...NO_FILTERS, kinds: k });
+  assert.equal(markedItem(key, kinds(["meieri"]), "meieri/melk"), true);
+  assert.equal(markedItem(key, kinds(["meieri/melk"]), "meieri/melk"), true);
+  assert.equal(markedItem(key, kinds(["meieri/ost"]), "meieri/melk"), false);
+  assert.equal(markedItem(key, kinds(["frukt"]), "meieri/melk"), false);
+  assert.equal(markedItem(key, kinds(["meieri"])), false);
+});
+
 test("markedItem marks the receipt items that the search or item filter found", () => {
   const key = "lett melk tine";
   assert.equal(markedItem(key, NO_FILTERS), false);
