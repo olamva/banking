@@ -1,0 +1,11 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Receipts scroll on a phone",
+      "detail": "A drag on a receipt item now scrolls the page. Only a tap opens the item menu.",
+      "area": "receipts",
+      "kind": "fixed"
+    }
+  ]
+}
