@@ -366,8 +366,9 @@ const itemCategory = (list: Purchase[]): string => {
 
 const dayOf = (date: string) => Date.parse(`${date}T00:00:00Z`) / 864e5;
 
-export const itemsOf = (purchases: Purchase[], bySize = false): Item[] =>
-  [
+export const itemsOf = (purchases: Purchase[], bySize = false): Item[] => {
+  const kinds = Map.groupBy(purchases, (p) => p.key);
+  return [
     ...Map.groupBy(purchases, (p) =>
       bySize ? `${p.key}\n${p.sizeKey}` : p.key,
     ),
@@ -383,7 +384,7 @@ export const itemsOf = (purchases: Purchase[], bySize = false): Item[] =>
     return {
       key,
       name: commonest(sorted.map((p) => p.name)),
-      category: itemCategory(sorted),
+      category: itemCategory(kinds.get(sorted[0]!.key)!),
       sizes: [
         ...new Map(
           sorted.filter((p) => p.size).map((p) => [p.sizeKey, p.size!]),
@@ -401,3 +402,4 @@ export const itemsOf = (purchases: Purchase[], bySize = false): Item[] =>
       purchases: sorted,
     };
   });
+};
