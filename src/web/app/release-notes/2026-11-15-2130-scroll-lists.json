@@ -1,0 +1,11 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Lists load as you scroll",
+      "detail": "Each list loads the next rows when you scroll near the end. You do not tap Show more.",
+      "area": "app",
+      "kind": "fixed"
+    }
+  ]
+}

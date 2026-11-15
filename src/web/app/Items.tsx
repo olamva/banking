@@ -166,6 +166,7 @@ export const Items = ({
     );
   };
   const shown = items.filter(keep);
+  const kept = whole.filter(keep);
   const [sort, setSort] = useState<Sort>("count");
   const [descending, setDescending] = useState(true);
   const [picked, setPicked] = useState<string | null>(null);
@@ -218,14 +219,13 @@ export const Items = ({
     fmtShortDate(i.last),
   ]);
 
-  const swings = whole
-    .filter(keep)
+  const swings = kept
     .filter((i) => i.change !== null && Math.abs(i.change) >= MIN_SWING)
     .toSorted((a, b) => a.change! - b.change!);
 
-  const bought = shown.reduce((n, i) => n + i.count, 0);
+  const bought = kept.reduce((n, i) => n + i.count, 0);
   const receipts = new Set(
-    shown.flatMap((i) => i.purchases.map((p) => p.receipt)),
+    kept.flatMap((i) => i.purchases.map((p) => p.receipt)),
   ).size;
 
   if (items.length === 0) return null;
@@ -246,7 +246,7 @@ export const Items = ({
         <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
           {receipts} {receipts === 1 ? "receipt" : "receipts"} · {bought}{" "}
           {bought === 1 ? "purchase" : "purchases"} ·{" "}
-          {fmtNOK(shown.reduce((n, i) => n + i.spent, 0))}
+          {fmtNOK(kept.reduce((n, i) => n + i.spent, 0))}
         </p>
       </div>
       {open && (
@@ -261,7 +261,7 @@ export const Items = ({
           onClose={() => setPicked(null)}
         />
       )}
-      {shown.length > 0 && (
+      {kept.length > 0 && (
         <div className={cn(grid, "mb-4")}>
           <Panel
             title="Spending by item category"
@@ -269,7 +269,7 @@ export const Items = ({
             description="Select a category to show only its items."
           >
             <HorizontalBars
-              items={categoryBars(shown)}
+              items={categoryBars(kept)}
               onPick={pickKind}
               onPickSub={pickKind}
             />

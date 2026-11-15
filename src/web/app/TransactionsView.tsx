@@ -25,6 +25,10 @@ interface TransactionsViewProps {
   onFilters: Dispatch<SetStateAction<Filters>>;
   onFile: (txn: Categorized, file: RuleFile) => void;
   onBulk: (txns: Categorized[], file: BulkFile) => void;
+  group: string;
+  onGroup: (group: string) => void;
+  sort: string;
+  onSort: (sort: string) => void;
 }
 
 export const TransactionsView = ({
@@ -35,6 +39,7 @@ export const TransactionsView = ({
   onFilters,
   onFile,
   onBulk,
+  ...table
 }: TransactionsViewProps) => {
   const search = useDeferredValue(filters.search);
   const shown = rows.filter((txn) =>
@@ -98,6 +103,7 @@ export const TransactionsView = ({
         onItem={onItem}
         onFile={onFile}
         onBulk={onBulk}
+        {...table}
       />
       {item && (
         <ItemSheet

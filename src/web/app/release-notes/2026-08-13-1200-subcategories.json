@@ -1,0 +1,23 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "Subcategories",
+      "detail": "Open a category into the subcategories that the bank sends.",
+      "area": "filters",
+      "kind": "new"
+    },
+    {
+      "title": "Transaction details",
+      "detail": "Open a row to see every field on the transaction.",
+      "area": "transactions",
+      "kind": "new"
+    },
+    {
+      "title": "Trend lines",
+      "detail": "The chart fits a trend line to spending and income and shows the annual growth.",
+      "area": "overview",
+      "kind": "new"
+    }
+  ]
+}

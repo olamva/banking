@@ -71,13 +71,15 @@ export const useAccountCell = (txns: Categorized[]) => {
 const useSort = <T, S extends Record<string, (a: T, b: T) => number>>(
   items: T[],
   sorts: S,
-  initial: keyof S & string,
+  [sort, setSort]: [string, (sort: string) => void],
   ascFirst: (keyof S & string)[] = [],
 ) => {
   type K = keyof S & string;
   const firstAsc = (key: K) => ascFirst.includes(key);
-  const [by, setBy] = useState<K | null>(initial);
-  const [asc, setAsc] = useState(firstAsc(initial));
+  const key = sort.replace(/^-/, "");
+  const by = Object.hasOwn(sorts, key) ? (key as K) : null;
+  const asc = !sort.startsWith("-");
+  const order = (key: K, up: boolean) => (up ? key : `-${key}`);
   const sorted = useMemo(
     () =>
       by ? [...items].sort((a, b) => (asc ? 1 : -1) * sorts[by](a, b)) : items,
@@ -92,11 +94,13 @@ const useSort = <T, S extends Record<string, (a: T, b: T) => number>>(
       ...extra,
       sort: by === key ? (asc ? "asc" : "desc") : null,
       onClick: () =>
-        by !== key
-          ? (setBy(key), setAsc(firstAsc(key)))
-          : asc === firstAsc(key)
-            ? setAsc(!asc)
-            : setBy(null),
+        setSort(
+          by !== key
+            ? order(key, firstAsc(key))
+            : asc === firstAsc(key)
+              ? order(key, !asc)
+              : "",
+        ),
     }),
   };
 };
@@ -114,9 +118,6 @@ const TXN_SORTS = {
     a.account.localeCompare(b.account),
   amount: (a: Categorized, b: Categorized) => a.amount - b.amount,
 };
-
-const useTxnSort = (txns: Categorized[]) =>
-  useSort(txns, TXN_SORTS, "date", ["merchant", "subcategory", "account"]);
 
 const GROUP_SORTS = {
   name: (a: SubscriptionGroup, b: SubscriptionGroup) =>
@@ -141,7 +142,7 @@ export const SubscriptionsCard = ({
   onMerchant,
   onCategory,
 }: SubscriptionsCardProps) => {
-  const { sorted, head } = useSort(groups, GROUP_SORTS, "total", [
+  const { sorted, head } = useSort(groups, GROUP_SORTS, useState("-total"), [
     "name",
     "category",
   ]);
@@ -231,6 +232,10 @@ interface TransactionsCardProps {
   onItem?: (txn: Categorized, raw: string, action: ItemAction) => void;
   onFile?: (txn: Categorized, file: RuleFile) => void;
   onBulk?: (txns: Categorized[], file: BulkFile) => void;
+  group: string;
+  onGroup: (group: string) => void;
+  sort: string;
+  onSort: (sort: string) => void;
 }
 
 export const TransactionsCard = ({
@@ -247,9 +252,23 @@ export const TransactionsCard = ({
   onItem,
   onFile,
   onBulk,
+  group,
+  onGroup,
+  sort,
+  onSort,
 }: TransactionsCardProps) => {
-  const { sorted: bySort, head, by } = useTxnSort(txns);
-  const [groupBy, setGroupBy] = useState("Day");
+  const {
+    sorted: bySort,
+    head,
+    by,
+  } = useSort(
+    txns,
+    TXN_SORTS,
+    [sort, onSort],
+    ["merchant", "subcategory", "account"],
+  );
+  const groupBy =
+    Object.hasOwn(TXN_GROUPS, group) || group === "None" ? group : "Day";
   const grouping = TXN_GROUPS[groupBy];
   const sorted = useMemo(
     () =>
@@ -296,7 +315,7 @@ export const TransactionsCard = ({
         <DataTable
           list
           onRow={(i) => onOpen(sorted[i] ?? null)}
-          controls={<GroupBySelect value={groupBy} onChange={setGroupBy} />}
+          controls={<GroupBySelect value={groupBy} onChange={onGroup} />}
           group={
             grouping
               ? {

@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -8,7 +9,6 @@ import {
 import { fmtNOK, fmtNOKExact } from "./format.ts";
 import {
   DownIcon,
-  ExpandIcon,
   Icon,
   SortAscIcon,
   SortDescIcon,
@@ -206,6 +206,16 @@ const List = ({
 }: DataTableProps) => {
   const [limit, setLimit] = useState(PAGE);
   const [closed, setClosed] = useState<Set<string>>(new Set());
+  const more = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!more.current) return;
+    const io = new IntersectionObserver(
+      ([e]) => e?.isIntersecting && setLimit((l) => l + PAGE),
+      { rootMargin: "800px" },
+    );
+    io.observe(more.current);
+    return () => io.disconnect();
+  }, [limit, rows.length]);
   const slot = (row: ReactNode[], ...phone: Column["phone"][]) =>
     row.flatMap((cell, j) =>
       phone.includes(columns[j]?.phone) && cell !== false
@@ -338,16 +348,7 @@ const List = ({
             ))
           : shown.map(item)}
       </ul>
-      {rows.length > limit && (
-        <Button
-          variant="ghost"
-          onClick={() => setLimit(limit + PAGE)}
-          className="mt-1 w-full text-muted-foreground"
-        >
-          <Icon icon={ExpandIcon} className="rotate-90" />
-          Show {Math.min(PAGE, rows.length - limit)} more
-        </Button>
-      )}
+      {rows.length > limit && <div ref={more} />}
     </div>
   );
 };
