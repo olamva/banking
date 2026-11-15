@@ -24,6 +24,7 @@ import {
 
 interface TxnDialogProps {
   txn: Categorized;
+  marked?: string[];
   onClose: () => void;
   onFile?: (file: RuleFile) => void;
   onItem?: (raw: string, action: ItemAction) => void;
@@ -58,12 +59,26 @@ const SHOWN_ABOVE = [
 
 const ROW = "flex items-baseline justify-between gap-4 py-2";
 
-export const TxnDialog = ({ txn, onClose, onFile, onItem }: TxnDialogProps) => {
+export const TxnDialog = ({
+  txn,
+  marked,
+  onClose,
+  onFile,
+  onItem,
+}: TxnDialogProps) => {
   const bank = bankLabel(txn);
 
   return (
     <Sheet open onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="gap-0 overflow-y-auto data-[side=right]:w-full data-[side=right]:sm:max-w-md">
+      <SheetContent
+        onOpenAutoFocus={(e) => {
+          const line = document.querySelector("[data-marked]");
+          if (!line) return;
+          e.preventDefault();
+          line.scrollIntoView({ block: "center" });
+        }}
+        className="gap-0 overflow-y-auto data-[side=right]:w-full data-[side=right]:sm:max-w-md"
+      >
         <SheetHeader className="gap-3 border-b pr-12">
           <div className="min-w-0">
             <SheetTitle className="truncate text-lg font-semibold">
@@ -144,7 +159,11 @@ export const TxnDialog = ({ txn, onClose, onFile, onItem }: TxnDialogProps) => {
             </section>
           )}
           {txn.receipt && (
-            <ReceiptLines receipt={txn.receipt} onItem={onItem} />
+            <ReceiptLines
+              receipt={txn.receipt}
+              marked={marked}
+              onItem={onItem}
+            />
           )}
           <dl className="divide-y text-xs">
             {txn.categorySource && (

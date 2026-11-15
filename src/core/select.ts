@@ -121,12 +121,20 @@ export function matchesFilters(t: Categorized, f: Filters): boolean {
   if (f.search) {
     const q = f.search.toLowerCase();
     const hay = (t.description + " " + (t.counterparty ?? "")).toLowerCase();
-    const words = nameKey(q).split(" ");
-    const item = t.items?.some((k) => words.every((w) => k.includes(w)));
+    const item = t.items?.some((k) => searchesItem(k, f.search));
     if (!hay.includes(q) && !item) return false;
   }
   return true;
 }
+
+export const searchesItem = (key: string, search: string): boolean =>
+  nameKey(search)
+    .split(" ")
+    .every((w) => key.includes(w));
+
+export const markedItem = (key: string, f: Filters): boolean =>
+  f.items.some((i) => nameKey(i) === key) ||
+  (!!f.search && searchesItem(key, f.search));
 
 export type PeriodKind = "month" | "year" | "recent" | "all" | "custom";
 

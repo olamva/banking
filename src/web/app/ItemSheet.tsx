@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { itemPattern, packPrice, type Item } from "../../core/items.ts";
 import type { RulesApi } from "./data.ts";
 import { fmtDate, fmtNOKExact } from "./format.ts";
-import { DropdownIcon, Icon } from "./icons.ts";
+import { BackIcon, DropdownIcon, Icon } from "./icons.ts";
 import { PriceChart, unitText } from "./PriceChart.tsx";
 import { Slip } from "./ReceiptLines.tsx";
 import { Button } from "./ui/button.tsx";
@@ -28,6 +28,7 @@ interface ItemSheetProps {
   names: string[];
   rules: RulesApi;
   onRename: (name: string) => void;
+  onBack?: () => void;
   onClose: () => void;
 }
 
@@ -36,6 +37,7 @@ export const ItemSheet = ({
   names,
   rules,
   onRename,
+  onBack,
   onClose,
 }: ItemSheetProps) => {
   const [name, setName] = useState(item.name);
@@ -62,6 +64,17 @@ export const ItemSheet = ({
         className="gap-0 overflow-y-auto data-[side=right]:w-full data-[side=right]:sm:max-w-md"
       >
         <SheetHeader className="gap-3 border-b pr-12">
+          {onBack && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onBack}
+              className="-ml-2 self-start text-muted-foreground"
+            >
+              <Icon icon={BackIcon} size={14} />
+              Transaction
+            </Button>
+          )}
           <div className="min-w-0">
             <SheetTitle className="text-lg font-semibold wrap-break-word">
               {item.name}
@@ -177,7 +190,7 @@ export const ItemSheet = ({
                   </Button>
                   {shown === i && (
                     <div className="pb-3">
-                      <Slip receipt={p.receipt} marked={p.raw} />
+                      <Slip receipt={p.receipt} marked={[p.raw]} />
                     </div>
                   )}
                 </li>

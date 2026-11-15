@@ -99,7 +99,8 @@ const Item = ({ line, marked, onItem }: ItemProps) => {
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
-          className="-mx-1.5 flex h-auto w-[calc(100%+0.75rem)] flex-col items-stretch gap-0 rounded-sm px-1.5 py-0.5 text-left text-[length:inherit] leading-[inherit] font-normal whitespace-normal active:not-aria-[haspopup]:translate-y-0"
+          data-marked={marked || undefined}
+          className={`-mx-1.5 flex h-auto w-[calc(100%+0.75rem)] flex-col items-stretch gap-0 rounded-sm px-1.5 py-0.5 text-left text-[length:inherit] leading-[inherit] whitespace-normal active:not-aria-[haspopup]:translate-y-0 ${marked ? "bg-muted font-semibold" : "font-normal"}`}
         >
           {body}
         </Button>
@@ -156,7 +157,7 @@ const ItemBody = ({ line }: { line: ReceiptLine }) => (
 
 interface SlipProps {
   receipt: Receipt;
-  marked?: string;
+  marked?: string[];
   onItem?: ItemProps["onItem"];
 }
 
@@ -174,7 +175,7 @@ export const Slip = ({ receipt, marked, onItem }: SlipProps) => {
         <Item
           key={i}
           line={l}
-          marked={l.name === marked}
+          marked={!!marked?.includes(l.name)}
           {...(isBought(l) && { onItem })}
         />
       ))}
@@ -209,10 +210,7 @@ export const Slip = ({ receipt, marked, onItem }: SlipProps) => {
   );
 };
 
-export const ReceiptLines = ({
-  receipt,
-  onItem,
-}: Pick<SlipProps, "receipt" | "onItem">) => (
+export const ReceiptLines = ({ receipt, marked, onItem }: SlipProps) => (
   <section className="mb-4 text-xs">
     <h3 className="flex flex-wrap items-baseline gap-x-1.5 border-b border-border pb-1.5 font-semibold">
       <Icon
@@ -246,7 +244,7 @@ export const ReceiptLines = ({
     )}
     {!!receipt.lines.length && (
       <div className={receipt.source === "gmail" ? "pt-1" : "pt-3"}>
-        <Slip receipt={receipt} onItem={onItem} />
+        <Slip receipt={receipt} marked={marked} onItem={onItem} />
       </div>
     )}
   </section>
