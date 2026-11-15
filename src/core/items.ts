@@ -223,6 +223,7 @@ export const shelfPrice = (p: Purchase): number =>
 
 export const unitPrice = (
   p: Purchase,
+  priceOf: (p: Purchase) => number = packPrice,
 ): { price: number; per: "kg" | "l" | "stk" } | null => {
   if (p.unit) return null;
   const parts = p.sizeKey.split(" · ");
@@ -232,9 +233,9 @@ export const unitPrice = (
     parts.map((s) => s.match(/^([\d.]+) (g|l)$/)).find(Boolean) ?? [];
   const content = Number(amount) * count * (base === "g" ? 0.001 : 1);
   return amount
-    ? { price: packPrice(p) / content, per: base === "g" ? "kg" : "l" }
+    ? { price: priceOf(p) / content, per: base === "g" ? "kg" : "l" }
     : pk
-      ? { price: packPrice(p) / count, per: "stk" }
+      ? { price: priceOf(p) / count, per: "stk" }
       : null;
 };
 

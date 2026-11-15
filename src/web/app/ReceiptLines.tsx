@@ -1,13 +1,23 @@
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { isBought } from "../../core/items.ts";
 import type { Receipt, ReceiptLine, Entry } from "../../core/receipts.ts";
 import { fmtDateTime } from "./format.ts";
-import { ExternalLinkIcon, Icon, ReceiptIcon } from "./icons.ts";
+import {
+  ChangesIcon,
+  ExcludeIcon,
+  ExternalLinkIcon,
+  FilterIcon,
+  Icon,
+  ReceiptIcon,
+  type IconSvgElement,
+} from "./icons.ts";
 import { Button } from "./ui/button.tsx";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu.tsx";
 
@@ -61,10 +71,10 @@ const Rule = () => (
 
 export type ItemAction = "details" | "only" | "hide";
 
-const ITEM_ACTIONS: [ItemAction, string][] = [
-  ["details", "Item details"],
-  ["only", "Show transactions with this item"],
-  ["hide", "Hide transactions with this item"],
+const ITEM_ACTIONS: [ItemAction, string, IconSvgElement][] = [
+  ["details", "Item details", ChangesIcon],
+  ["only", "Filter by this item", FilterIcon],
+  ["hide", "Exclude this item", ExcludeIcon],
 ];
 
 interface ItemProps {
@@ -94,14 +104,19 @@ const Item = ({ line, marked, onItem }: ItemProps) => {
           {body}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-auto">
-        {ITEM_ACTIONS.map(([action, label]) => (
-          <DropdownMenuItem
-            key={action}
-            onSelect={() => onItem(line.name, action)}
-          >
-            {label}
-          </DropdownMenuItem>
+      <DropdownMenuContent align="start" className="w-56">
+        <DropdownMenuLabel className="truncate">{line.name}</DropdownMenuLabel>
+        {ITEM_ACTIONS.map(([action, label, icon]) => (
+          <Fragment key={action}>
+            {action === "hide" && <DropdownMenuSeparator />}
+            <DropdownMenuItem
+              variant={action === "hide" ? "destructive" : "default"}
+              onSelect={() => onItem(line.name, action)}
+            >
+              <Icon icon={icon} size={15} />
+              {label}
+            </DropdownMenuItem>
+          </Fragment>
         ))}
       </DropdownMenuContent>
     </DropdownMenu>

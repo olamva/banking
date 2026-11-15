@@ -15,7 +15,7 @@
     },
     {
       "title": "Fairer price changes",
-      "detail": "Price changes compare shelf prices. Discounts at checkout, such as app offers, do not count.",
+      "detail": "Price changes ignore discounts at checkout, such as app offers. The price chart can hide them too.",
       "area": "items",
       "kind": "improved"
     }

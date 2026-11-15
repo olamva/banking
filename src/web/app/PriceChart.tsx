@@ -1,5 +1,10 @@
 import { useState } from "react";
-import { packPrice, unitPrice, type Purchase } from "../../core/items.ts";
+import {
+  packPrice,
+  shelfPrice,
+  unitPrice,
+  type Purchase,
+} from "../../core/items.ts";
 import { LegendKey } from "./ChartLegend.tsx";
 import { useTooltip } from "./Charts.tsx";
 import { SwitchField } from "./FilterBar.tsx";
@@ -26,8 +31,8 @@ type Point = { p: Purchase; x: number; y: number; name: string; color: string };
 
 const dayOf = (date: string) => Date.parse(`${date}T00:00:00Z`) / 864e5;
 
-export const unitText = (p: Purchase) => {
-  const u = unitPrice(p);
+export const unitText = (p: Purchase, priceOf = packPrice) => {
+  const u = unitPrice(p, priceOf);
   return u ? `${fmtNOKExact(u.price)}/${u.per}` : "";
 };
 
@@ -36,7 +41,10 @@ export const PriceChart = ({ lines, onPick }: PriceChartProps) => {
   const { show, hide, node } = useTooltip();
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
   const [perUnit, setPerUnit] = useState(false);
+  const [shelf, setShelf] = useState(false);
   const [near, setNear] = useState<Point | null>(null);
+  const discounted = lines.some((l) => l.purchases.some((p) => p.discount));
+  const priceOf = shelf ? shelfPrice : packPrice;
 
   const per = [
     ...Map.groupBy(
@@ -58,7 +66,7 @@ export const PriceChart = ({ lines, onPick }: PriceChartProps) => {
           .map((p) => ({
             p,
             x: dayOf(p.date),
-            y: byUnit ? unitPrice(p)!.price : packPrice(p),
+            y: byUnit ? unitPrice(p, priceOf)!.price : priceOf(p),
             name: l.name,
             color,
           })),
@@ -158,10 +166,17 @@ export const PriceChart = ({ lines, onPick }: PriceChartProps) => {
           {fmtDate(at.p.date)} · {at.p.store}
         </span>
         <span>
-          {[at.p.size, fmtNOKExact(packPrice(at.p)), unitText(at.p)]
+          {[at.p.size, fmtNOKExact(priceOf(at.p)), unitText(at.p, priceOf)]
             .filter(Boolean)
             .join(" · ")}
         </span>
+        {at.p.discount > 0 && (
+          <span className="text-muted-foreground">
+            {shelf
+              ? `Paid ${fmtNOKExact(packPrice(at.p))} after discount`
+              : `Before discount ${fmtNOKExact(shelfPrice(at.p))}`}
+          </span>
+        )}
       </div>,
     );
   };
@@ -191,20 +206,29 @@ export const PriceChart = ({ lines, onPick }: PriceChartProps) => {
               </LegendKey>
             ))}
         </div>
-        {per && (
-          <SwitchField
-            label={`Per ${per}`}
-            checked={perUnit}
-            onChange={setPerUnit}
-          />
-        )}
+        <div className="flex flex-wrap gap-2">
+          {discounted && (
+            <SwitchField
+              label="Without discounts"
+              checked={shelf}
+              onChange={setShelf}
+            />
+          )}
+          {per && (
+            <SwitchField
+              label={`Per ${per}`}
+              checked={perUnit}
+              onChange={setPerUnit}
+            />
+          )}
+        </div>
       </div>
       <svg
         width={width}
         height={height}
         viewBox={`0 0 ${width} ${height}`}
         role="img"
-        aria-label={`Price for each purchase${byUnit ? ` per ${per}` : ""}`}
+        aria-label={`Price for each purchase${byUnit ? ` per ${per}` : ""}${shelf ? " without discounts" : ""}`}
         className="cursor-pointer"
         onPointerDown={track}
         onPointerMove={track}
