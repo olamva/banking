@@ -1,0 +1,23 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Refunds stay inside the chart",
+      "detail": "A merchant or category line that goes below zero now stays inside the chart.",
+      "area": "overview",
+      "kind": "fixed"
+    },
+    {
+      "title": "The header stays after filters",
+      "detail": "The header no longer disappears after you close the filter panel on a phone.",
+      "area": "iphone",
+      "kind": "fixed"
+    },
+    {
+      "title": "Custom dates fit on a phone",
+      "detail": "The two date fields of a custom range no longer overlap on an iPhone.",
+      "area": "iphone",
+      "kind": "fixed"
+    }
+  ]
+}
