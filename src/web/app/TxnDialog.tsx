@@ -1,4 +1,6 @@
+import { useState } from "react";
 import type { RuleFile } from "../../core/ruleFiles.ts";
+import { Caret } from "./Cards.tsx";
 import { merchantOf } from "../../core/select.ts";
 import type { Categorized } from "../../core/types.ts";
 import {
@@ -14,6 +16,11 @@ import { CategoryIcon, EditIcon, Icon } from "./icons.ts";
 import { ReceiptLines, type ItemAction } from "./ReceiptLines.tsx";
 import { Badge } from "./ui/badge.tsx";
 import { Button } from "./ui/button.tsx";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "./ui/collapsible.tsx";
 import {
   Sheet,
   SheetContent,
@@ -61,6 +68,20 @@ const ROW = "flex items-baseline justify-between gap-4 py-2";
 
 const HEADING = "border-b pb-1.5 text-xs font-medium text-muted-foreground";
 
+const BASIC = new Set(["Description", "Type", "Excluded because"]);
+
+const field = ([name, value]: [string, string]) => (
+  <div key={name} className={ROW}>
+    <dt className="shrink-0 text-muted-foreground">{name}</dt>
+    <dd
+      className={`min-w-0 text-right ${name === ID_FIELD ? "truncate" : "wrap-break-word"}`}
+      title={name === ID_FIELD ? value : undefined}
+    >
+      {value}
+    </dd>
+  </div>
+);
+
 export const TxnDialog = ({
   txn,
   marked,
@@ -69,6 +90,8 @@ export const TxnDialog = ({
   onItem,
 }: TxnDialogProps) => {
   const bank = bankLabel(txn);
+  const fields = txnFields(txn, SHOWN_ABOVE);
+  const [advanced, setAdvanced] = useState(false);
 
   return (
     <Sheet open onOpenChange={(o) => !o && onClose()}>
@@ -179,31 +202,38 @@ export const TxnDialog = ({
                   <dd className="min-w-0 text-right">{txn.categorySource}</dd>
                 </div>
               )}
-              {bank && (
-                <div className={ROW}>
-                  <dt className="shrink-0 text-muted-foreground">
-                    Bank category
-                  </dt>
-                  <dd className="min-w-0 text-right">
-                    <div className="text-sm wrap-break-word">{bank[0]}</div>
-                    <div className="font-mono text-[11px] break-all text-muted-foreground">
-                      {bank[1]}
-                    </div>
-                  </dd>
-                </div>
-              )}
-              {txnFields(txn, SHOWN_ABOVE).map(([name, value]) => (
-                <div key={name} className={ROW}>
-                  <dt className="shrink-0 text-muted-foreground">{name}</dt>
-                  <dd
-                    className={`min-w-0 text-right ${name === ID_FIELD ? "truncate" : "wrap-break-word"}`}
-                    title={name === ID_FIELD ? value : undefined}
-                  >
-                    {value}
-                  </dd>
-                </div>
-              ))}
+              {fields.filter(([name]) => BASIC.has(name)).map(field)}
             </dl>
+            <Collapsible open={advanced} onOpenChange={setAdvanced}>
+              <CollapsibleTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mt-2 -ml-2 text-xs text-muted-foreground aria-expanded:bg-transparent"
+                >
+                  <Caret open={advanced} />
+                  Advanced
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent asChild>
+                <dl className="divide-y border-t text-xs">
+                  {bank && (
+                    <div className={ROW}>
+                      <dt className="shrink-0 text-muted-foreground">
+                        Bank category
+                      </dt>
+                      <dd className="min-w-0 text-right">
+                        <div className="text-sm wrap-break-word">{bank[0]}</div>
+                        <div className="font-mono text-[11px] break-all text-muted-foreground">
+                          {bank[1]}
+                        </div>
+                      </dd>
+                    </div>
+                  )}
+                  {fields.filter(([name]) => !BASIC.has(name)).map(field)}
+                </dl>
+              </CollapsibleContent>
+            </Collapsible>
           </section>
         </div>
       </SheetContent>

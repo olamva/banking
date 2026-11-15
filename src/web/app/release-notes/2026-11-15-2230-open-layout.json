@@ -9,7 +9,7 @@
     },
     {
       "title": "Cleaner transaction details",
-      "detail": "The details panel shows the receipt without a box and gives each section a heading.",
+      "detail": "The details panel is darker and keeps the raw bank fields under Advanced.",
       "area": "transactions",
       "kind": "improved"
     },

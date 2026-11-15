@@ -164,7 +164,7 @@ export const Slip = ({ receipt, marked, onItem }: SlipProps) => {
   const lines = merged(receipt.lines);
   const saved = total(lines.flatMap((l) => l.discounts ?? []));
   return (
-    <div className="mx-auto max-w-[380px] font-mono text-[11px] leading-relaxed tabular-nums">
+    <div className="mx-auto max-w-[380px] rounded-md border border-border bg-background px-4 py-3 font-mono text-[11px] leading-relaxed tabular-nums">
       <div className="text-center font-semibold uppercase">{receipt.store}</div>
       <div className="text-center text-muted-foreground">
         {fmtDateTime(receipt.at)}
