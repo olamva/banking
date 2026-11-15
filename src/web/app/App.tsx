@@ -97,6 +97,8 @@ export const App = () => {
   const [filters, setFilters] = useState<Filters>(initial.filters);
   const [scope, setScope] = useState<Scope | null>(null);
   const [chosenGrain, setChosenGrain] = useState<Grain>(initial.grain);
+  const [group, setGroup] = useState(initial.group);
+  const [sort, setSort] = useState(initial.sort);
   const [theme, onTheme] = useState<Theme>(readTheme);
   const [help, setHelp] = useState(false);
   const [releases, setReleases] = useState(false);
@@ -164,8 +166,9 @@ export const App = () => {
   const grain = grains.includes(chosenGrain) ? chosenGrain : grains[0]!;
 
   useEffect(
-    () => writeUrl({ view, ruleFile, period: chosen, grain, filters }),
-    [view, ruleFile, chosen, grain, filters],
+    () =>
+      writeUrl({ view, ruleFile, period: chosen, grain, group, sort, filters }),
+    [view, ruleFile, chosen, grain, group, sort, filters],
   );
 
   const steps = p.kind === "month" ? months : p.kind === "year" ? years : [];
@@ -334,6 +337,10 @@ export const App = () => {
         onFilters={setFilters}
         onFile={(txn, file) => setFiling({ txn, file })}
         onBulk={(selected, file) => setBulk({ selected, all: txns, file })}
+        group={group}
+        onGroup={setGroup}
+        sort={sort}
+        onSort={setSort}
       />
     ),
   };
