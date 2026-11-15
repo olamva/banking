@@ -311,4 +311,5 @@ if (process.argv[1] === import.meta.filename) {
   // reach it.
   server.listen(port, "127.0.0.1", () => console.error(`listening on ${port}`));
   autoRefresh();
+  process.on("SIGTERM", () => process.exit(0));
 }
