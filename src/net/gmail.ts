@@ -9,7 +9,7 @@ import { env, secretGet, secretSet } from "./token.ts";
 
 const API = "https://gmail.googleapis.com/gmail/v1/users/me";
 const QUERY =
-  '{category:purchases category:reservations subject:kvittering subject:receipt subject:ordrebekreftelse subject:"order confirmation"}';
+  '{category:purchases category:reservations subject:kvittering subject:kvitteringen subject:receipt subject:ordrebekreftelse subject:"order confirmation"}';
 
 async function postToken(params: Record<string, string>) {
   const res = await fetch("https://oauth2.googleapis.com/token", {

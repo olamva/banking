@@ -40,6 +40,7 @@ export { RepeatIcon as RecurringIcon } from "@hugeicons/core-free-icons";
 export { Store01Icon as CounterpartyIcon } from "@hugeicons/core-free-icons";
 export { Wallet01Icon as AccountIcon } from "@hugeicons/core-free-icons";
 export { CreditCardIcon as CardIcon } from "@hugeicons/core-free-icons";
+export { MoneyReceive01Icon as RefundIcon } from "@hugeicons/core-free-icons";
 
 export { Undo02Icon as UndoIcon } from "@hugeicons/core-free-icons";
 export { Redo02Icon as RedoIcon } from "@hugeicons/core-free-icons";
@@ -53,7 +54,6 @@ export { ArrowLeft01Icon as PrevIcon } from "@hugeicons/core-free-icons";
 export { ArrowRight01Icon as NextIcon } from "@hugeicons/core-free-icons";
 export { Calendar03Icon as CalendarIcon } from "@hugeicons/core-free-icons";
 export { DashboardSquare01Icon as DashboardIcon } from "@hugeicons/core-free-icons";
-export { AnalyticsUpIcon as InsightsIcon } from "@hugeicons/core-free-icons";
 export { ShoppingBasket01Icon as ItemsIcon } from "@hugeicons/core-free-icons";
 export { FileEditIcon as RulesIcon } from "@hugeicons/core-free-icons";
 export { News01Icon as ReleaseIcon } from "@hugeicons/core-free-icons";

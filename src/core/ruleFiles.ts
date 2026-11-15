@@ -45,7 +45,7 @@ export const FILE_LABEL: Record<RuleFile, string> = {
 
 export const RULE_NOTE: Record<RuleFile, string> = {
   categories:
-    "Pattern to category, unless an exclusion applies. Add a payment type, direction or recipient account to narrow a rule. A rule with more conditions wins.",
+    "Pattern to category, unless an exclusion applies. Add a payment type, direction or recipient account to narrow a rule, or limit it to one transaction. A rule with more conditions wins.",
   giro: "Pattern to category, on a lump only. A giro or a plain Overførsel, never an instant payment.",
   payees:
     "Pattern to the name on the page. A rename can never move money, so this file is safe to edit.",

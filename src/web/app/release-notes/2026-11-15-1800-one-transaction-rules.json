@@ -1,0 +1,9 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "A category rule for one transaction",
+      "detail": "Tick Only this transaction in a category rule to change the category of that one row. The rule matches its date and amount, so other purchases from the same merchant keep their category."
+    }
+  ]
+}

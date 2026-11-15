@@ -27,7 +27,7 @@ import type { Categorized } from "../../core/types.ts";
 import { AppSidebar, VIEWS, VIEW_LABEL } from "./AppSidebar.tsx";
 import { BulkTransactions } from "./BulkTransactions.tsx";
 import { GROUP_SHORTCUT } from "./chartGroup.ts";
-import { Dashboard, pick } from "./Dashboard.tsx";
+import { Dashboard } from "./Dashboard.tsx";
 import {
   THEMES,
   mapRules,
@@ -42,7 +42,6 @@ import {
 import {
   FilterButton,
   FilterChips,
-  SEARCH_VIEWS,
   axisSpecs,
   activeCount,
   type View,
@@ -50,8 +49,6 @@ import {
 import type { Scope } from "./FilterPanel.tsx";
 import { setCategoryHues, setLabels } from "./format.ts";
 import { Header, LoadNote, RefreshButton } from "./Header.tsx";
-import { Insights } from "./Insights.tsx";
-import { Items } from "./Items.tsx";
 import { useFilterOptions } from "./options.ts";
 import { PeriodPicker } from "./PeriodPicker.tsx";
 import { ReleaseNotesDialog } from "./Releases.tsx";
@@ -59,6 +56,7 @@ import { guessedCount, useChecks } from "./Checks.tsx";
 import { RULE_TABS, entriesOf, type RuleTab } from "./ruleMeta.ts";
 import { FileDialog } from "./RuleDialog.tsx";
 import { RuleFileSelect, RulesView } from "./Rules.tsx";
+import { SearchBox } from "./SearchBox.tsx";
 import { ShortcutsDialog, useShortcuts, type Shortcut } from "./Shortcuts.tsx";
 import { TransactionsView } from "./TransactionsView.tsx";
 import { SidebarInset, SidebarProvider } from "./ui/sidebar.tsx";
@@ -155,7 +153,9 @@ export const App = () => {
 
   const offered = [...months, ...years, "all"];
   const active =
-    chosen && (offered.includes(chosen) || period(chosen).kind === "custom")
+    chosen &&
+    (offered.includes(chosen) ||
+      ["custom", "recent"].includes(period(chosen).kind))
       ? chosen
       : (months[months.length - 1] ?? "all");
   const p = useMemo(() => period(active), [active]);
@@ -167,12 +167,6 @@ export const App = () => {
     () => writeUrl({ view, ruleFile, period: chosen, grain, filters }),
     [view, ruleFile, chosen, grain, filters],
   );
-
-  const changeView = (next: View) => {
-    if (SEARCH_VIEWS.includes(view) && next !== view)
-      setFilters((f) => ({ ...f, search: "" }));
-    setView(next);
-  };
 
   const steps = p.kind === "month" ? months : p.kind === "year" ? years : [];
   const nextStep = (by: number) => steps[steps.indexOf(active) + by];
@@ -206,7 +200,7 @@ export const App = () => {
       keys: [String(i + 1)],
       cap: String(i + 1),
       what: VIEW_LABEL[v],
-      run: () => changeView(v),
+      run: () => setView(v),
     })),
     {
       keys: ["ArrowLeft"],
@@ -291,7 +285,7 @@ export const App = () => {
       },
     },
     { cap: "⌘ B", what: "Show or hide the sidebar" },
-    { cap: "/ ⌘F", what: "Search transactions or items" },
+    { cap: "/ ⌘F", what: "Search merchants and items" },
     { keys: ["?"], cap: "?", what: "This list", run: () => setHelp(true) },
   ];
   useShortcuts(shortcuts);
@@ -318,32 +312,17 @@ export const App = () => {
         checks={checks}
       />
     ),
-    dashboard: () => (
+    overview: () => (
       <Dashboard
         txns={txns}
         all={inPeriod}
         filters={filters}
         onFilters={setFilters}
+        rules={rules}
         period={p}
         grain={grain}
         offered={grains}
         onGrain={setChosenGrain}
-      />
-    ),
-    insights: () => (
-      <Insights
-        rows={inPeriod}
-        filters={filters}
-        onMerchant={pick(setFilters, "merchants")}
-        onCategory={pick(setFilters, "categories")}
-      />
-    ),
-    items: () => (
-      <Items
-        rows={inPeriod}
-        filters={filters}
-        rules={rules}
-        onFilters={setFilters}
       />
     ),
     transactions: () => (
@@ -372,7 +351,7 @@ export const App = () => {
       >
         <AppSidebar
           view={view}
-          onView={changeView}
+          onView={setView}
           ruleFile={ruleFile}
           onRuleFile={setRuleFile}
           counts={counts}
@@ -416,8 +395,15 @@ export const App = () => {
                     scope={scope}
                     onScope={setScope}
                     matching={matching}
-                    count={activeCount(specs, filters, view)}
-                    deposit={view === "items"}
+                    count={activeCount(specs, filters)}
+                    deposit={view === "overview"}
+                  />
+                  <SearchBox
+                    hotkey
+                    value={filters.search}
+                    onChange={(search) => setFilters((f) => ({ ...f, search }))}
+                    placeholder="Search merchants and items"
+                    className="max-sm:order-last max-sm:basis-full sm:w-64 lg:w-80"
                   />
                 </>
               )
@@ -425,7 +411,6 @@ export const App = () => {
           >
             {view !== "rules" && (
               <FilterChips
-                view={view}
                 specs={specs}
                 filters={filters}
                 onFilters={setFilters}

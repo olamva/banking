@@ -49,11 +49,14 @@ export type Conditions = {
   type?: string;
   direction?: "in" | "out";
   account?: string;
+  date?: string;
+  amount?: string;
 };
 
 type Facts = Parameters<typeof haystackOf>[0] & {
   typeText: string | null;
   amount: number;
+  date: string;
 };
 
 export type Rule = {
@@ -61,11 +64,20 @@ export type Rule = {
   matches: (t: Facts, haystack?: string) => boolean;
 };
 
-const FIELDS = ["pattern", "type", "direction", "account"];
+const FIELDS = ["pattern", "type", "direction", "account", "date", "amount"];
 
-export const ruleKey = ({ pattern, type, direction, account }: Conditions) =>
-  type || direction || account
-    ? JSON.stringify({ pattern, type, direction, account })
+const cents = (amount: number) => Math.round(amount * 100);
+
+export const ruleKey = ({
+  pattern,
+  type,
+  direction,
+  account,
+  date,
+  amount,
+}: Conditions) =>
+  type || direction || account || date || amount
+    ? JSON.stringify({ pattern, type, direction, account, date, amount })
     : pattern;
 
 export function readRule(key: string, source: string): Conditions {
@@ -82,22 +94,29 @@ export function readRule(key: string, source: string): Conditions {
       ([k, v]) => FIELDS.includes(k) && typeof v === "string" && v.trim(),
     ) &&
     [undefined, "in", "out"].includes((value as Conditions).direction) &&
+    /^(\d{4}-\d{2}-\d{2})?$/.test((value as Conditions).date ?? "") &&
+    /^(-?\d+\.\d{2})?$/.test((value as Conditions).amount ?? "") &&
     ruleKey(value as Conditions) === key;
   if (!ok) throw new Error(`${source}: ${key} is not a valid rule`);
   return value as Conditions;
 }
 
 export function compileRule(key: string, source: string): Rule {
-  const { pattern, type, direction, account } = readRule(key, source);
+  const { pattern, type, direction, account, date, amount } = readRule(
+    key,
+    source,
+  );
   const text = compile(pattern, source);
   const kind = type === undefined ? null : compile(type, source);
   const sign = direction === undefined ? 0 : direction === "in" ? 1 : -1;
   return {
-    weight: [type, direction, account].filter(Boolean).length,
+    weight: [type, direction, account, date, amount].filter(Boolean).length,
     matches: (t, haystack = haystackOf(t)) =>
       text(haystack) &&
       (!kind || kind((t.typeText ?? "").toLowerCase())) &&
       (!sign || Math.sign(t.amount) === sign) &&
-      (!account || t.remoteAccountNumber === account),
+      (!account || t.remoteAccountNumber === account) &&
+      (!date || t.date === date) &&
+      (!amount || cents(t.amount) === cents(Number(amount))),
   };
 }

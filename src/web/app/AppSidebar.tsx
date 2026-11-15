@@ -4,8 +4,6 @@ import {
   DarkThemeIcon,
   DashboardIcon,
   Icon,
-  InsightsIcon,
-  ItemsIcon,
   KeyboardIcon,
   LightThemeIcon,
   ReleaseIcon,
@@ -48,18 +46,14 @@ import {
 } from "./ui/sidebar.tsx";
 
 export const VIEW_LABEL: Record<View, string> = {
-  dashboard: "Dashboard",
   transactions: "Transactions",
-  insights: "Insights",
-  items: "Items",
+  overview: "Overview",
   rules: "Rules",
 };
 
 export const VIEWS: [View, typeof DashboardIcon][] = [
-  ["dashboard", DashboardIcon],
   ["transactions", TransactionsIcon],
-  ["insights", InsightsIcon],
-  ["items", ItemsIcon],
+  ["overview", DashboardIcon],
   ["rules", RulesIcon],
 ];
 
@@ -105,7 +99,7 @@ export const AppSidebar = ({
             <SidebarMenuButton
               size="lg"
               onClick={() => {
-                onView("dashboard");
+                onView("transactions");
                 close();
               }}
               tooltip="Spending"

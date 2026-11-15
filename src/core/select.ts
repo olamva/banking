@@ -118,12 +118,14 @@ export function matchesFilters(t: Categorized, f: Filters): boolean {
   if (f.search) {
     const q = f.search.toLowerCase();
     const hay = (t.description + " " + (t.counterparty ?? "")).toLowerCase();
-    if (!hay.includes(q)) return false;
+    const words = nameKey(q).split(" ");
+    const item = t.items?.some((k) => words.every((w) => k.includes(w)));
+    if (!hay.includes(q) && !item) return false;
   }
   return true;
 }
 
-export type PeriodKind = "month" | "year" | "all" | "custom";
+export type PeriodKind = "month" | "year" | "recent" | "all" | "custom";
 
 export type Period = {
   kind: PeriodKind;
@@ -137,6 +139,14 @@ const monthBounds = (m: string) => ({ from: `${m}-01`, to: `${m}-31` });
 const yearBounds = (y: number) => ({ from: `${y}-01-01`, to: `${y}-12-31` });
 
 const CUSTOM = /^(\d{4}-\d{2}-\d{2})?\.\.(\d{4}-\d{2}-\d{2})?$/;
+const RECENT = /^([1-9]\d{0,3})d$/;
+
+export const RECENT_DAYS = [7, 30, 90, 365];
+
+const shiftDay = (day: string, by: number): string =>
+  new Date(Date.parse(`${day}T00:00:00Z`) + by * 86_400_000)
+    .toISOString()
+    .slice(0, 10);
 
 export const todayOslo = (): string =>
   new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Oslo" });
@@ -165,6 +175,21 @@ export function period(p: string, now = todayOslo()): Period {
           }
         : { ...yearBounds(y - 1), label: "last year" };
     return { kind: "year", ...yearBounds(y), label: p, prev };
+  }
+  const recent = RECENT.exec(p);
+  if (recent) {
+    const days = Number(recent[1]);
+    return {
+      kind: "recent",
+      from: shiftDay(now, 1 - days),
+      to: now,
+      label: `Last ${days} days`,
+      prev: {
+        from: shiftDay(now, 1 - 2 * days),
+        to: shiftDay(now, -days),
+        label: `the ${days} days before`,
+      },
+    };
   }
   const range = CUSTOM.exec(p);
   if (range) {

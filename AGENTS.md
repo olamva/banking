@@ -83,10 +83,12 @@ Instant and card payments are peer payments. Giro and plain `Overførsel` transa
 Use `rules/giro.json` to assign meaning to lumps. The payment type describes movement, not purpose.
 Keep `remoteAccountNumber` on `Txn` and in override matching. It distinguishes unrelated bills from the same payee.
 
-Split income and spending by sign, never category.
-Use `exclude.ts` to remove income from totals, and preserve the netting invariant.
-Keep refunds as income within their spending categories. Show them in `Income by category`.
-Reconcile both totals to the øre.
+Count every negative row as spending.
+Count a positive row as income only when its category is in `INCOME` in `src/core/stats.ts`.
+Count every other positive row as a refund. Subtract it from spending in its own category.
+Let a category show a negative net when its refunds are larger than its spending.
+Use `exclude.ts` to remove internal transfers from totals, and preserve the netting invariant.
+Keep the net equal to the sum of all counted rows. Reconcile income, spending and refunds to the øre.
 
 Preserve this `categorize` precedence:
 
@@ -100,6 +102,7 @@ Preserve this `categorize` precedence:
 
 Keep `rules/categories.json` independent of line order. Reordering must never change a row's category.
 Keep one category rule type. A key with more conditions wins over a key with fewer conditions.
+Target one transaction with the `date` and `amount` conditions, never with a transaction ID.
 Fix collisions between different categories by narrowing patterns, never by changing the matcher or line order.
 Use `rebuild` to report collisions and suggested patterns. Leave collisions within the same category alone.
 

@@ -22,14 +22,7 @@ import {
   rowLabel,
   shortDateSizes,
 } from "./format.ts";
-import {
-  CardIcon,
-  Icon,
-  ReceiptIcon,
-  RecurringIcon,
-  TransactionsIcon,
-} from "./icons.ts";
-import { SearchBox } from "./SearchBox.tsx";
+import { CardIcon, Icon, ReceiptIcon, RecurringIcon } from "./icons.ts";
 import { TxnDialog } from "./TxnDialog.tsx";
 import { GroupBySelect, TXN_GROUPS, useBranches } from "./TxnGroups.tsx";
 import { Badge } from "./ui/badge.tsx";
@@ -147,18 +140,7 @@ export const SubscriptionsCard = ({
   onMerchant,
   onCategory,
 }: SubscriptionsCardProps) => {
-  const [search, setSearch] = useState("");
-  const shown = useMemo(() => {
-    const q = search.toLowerCase();
-    return q
-      ? groups.filter(
-          (g) =>
-            g.name.toLowerCase().includes(q) ||
-            categoryLabel(g.category).toLowerCase().includes(q),
-        )
-      : groups;
-  }, [groups, search]);
-  const { sorted, head } = useSort(shown, GROUP_SORTS, "total", [
+  const { sorted, head } = useSort(groups, GROUP_SORTS, "total", [
     "name",
     "category",
   ]);
@@ -182,66 +164,54 @@ export const SubscriptionsCard = ({
       title="Subscriptions & recurring"
       description={`${groups.length} found in this period`}
       icon={RecurringIcon}
-      action={
-        <SearchBox
-          value={search}
-          onChange={setSearch}
-          placeholder="Search subscriptions…"
-          className="w-40 sm:w-56"
-        />
-      }
     >
-      {sorted.length === 0 ? (
-        <Empty>No subscriptions match the search.</Empty>
-      ) : (
-        <DataTable
-          list
-          columns={[
-            head("Subscription", "name", { phone: "title" }),
-            head("Category", "category", {
-              min: true,
-              sizer: categorySizes,
-              phone: "meta",
-            }),
-            head("Charges", "count", {
-              num: true,
-              min: true,
-              sizer: countSizes,
-              phone: "labeled",
-            }),
-            head("Per month", "latest", {
-              num: true,
-              min: true,
-              sizer: AMOUNT_SIZE,
-              phone: "end",
-            }),
-            head("Total", "total", {
-              num: true,
-              min: true,
-              sizer: AMOUNT_SIZE,
-              phone: "labeled",
-            }),
-            head("Last", "last", {
-              min: true,
-              sizer: lastSizes,
-              phone: "labeled",
-            }),
-          ]}
-          rows={sorted.map((g) => [
-            <PickCell label={g.name} onPick={onMerchant} />,
-            <PickCell
-              label={categoryLabel(g.category)}
-              value={g.category}
-              color={categoryColor(g.category)}
-              onPick={onCategory}
-            />,
-            g.count,
-            fmtNOK(g.latest),
-            fmtNOK(g.total),
-            fmtShortDate(g.last),
-          ])}
-        />
-      )}
+      <DataTable
+        list
+        columns={[
+          head("Subscription", "name", { phone: "title" }),
+          head("Category", "category", {
+            min: true,
+            sizer: categorySizes,
+            phone: "meta",
+          }),
+          head("Charges", "count", {
+            num: true,
+            min: true,
+            sizer: countSizes,
+            phone: "labeled",
+          }),
+          head("Per month", "latest", {
+            num: true,
+            min: true,
+            sizer: AMOUNT_SIZE,
+            phone: "end",
+          }),
+          head("Total", "total", {
+            num: true,
+            min: true,
+            sizer: AMOUNT_SIZE,
+            phone: "labeled",
+          }),
+          head("Last", "last", {
+            min: true,
+            sizer: lastSizes,
+            phone: "labeled",
+          }),
+        ]}
+        rows={sorted.map((g) => [
+          <PickCell label={g.name} onPick={onMerchant} />,
+          <PickCell
+            label={categoryLabel(g.category)}
+            value={g.category}
+            color={categoryColor(g.category)}
+            onPick={onCategory}
+          />,
+          g.count,
+          fmtNOK(g.latest),
+          fmtNOK(g.total),
+          fmtShortDate(g.last),
+        ])}
+      />
     </Panel>
   );
 };
@@ -250,8 +220,6 @@ interface TransactionsCardProps {
   txns: Categorized[];
   all?: Categorized[];
   branchRules?: RuleMap;
-  search: string;
-  onSearch: (search: string) => void;
   onMerchant: (merchant: string, meta: boolean) => void;
   onCategory: (category: string, meta: boolean) => void;
   onAccount: (account: string, meta: boolean) => void;
@@ -263,8 +231,6 @@ export const TransactionsCard = ({
   txns,
   all,
   branchRules,
-  search,
-  onSearch,
   onMerchant,
   onCategory,
   onAccount,
@@ -300,29 +266,19 @@ export const TransactionsCard = ({
   const { branches, ruled } = useBranches(all ?? txns, branchRules);
 
   return (
-    <Panel
-      title="Transactions"
-      description={`${txns.length} rows`}
-      icon={TransactionsIcon}
-      action={
-        onBulk &&
-        txns.length > 0 && (
+    <section className="min-w-0">
+      <div className="mb-2 flex min-h-8 flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-muted-foreground tabular-nums">
+          {txns.length} {txns.length === 1 ? "transaction" : "transactions"}
+        </p>
+        {onBulk && (
           <BulkToolbar
-            txns={txns}
             picked={picked}
             onBulk={onBulk}
             onClear={() => setSelected(new Set())}
           />
-        )
-      }
-    >
-      <SearchBox
-        hotkey
-        value={search}
-        onChange={onSearch}
-        placeholder="Search merchant or description…"
-        className="mb-2"
-      />
+        )}
+      </div>
       {sorted.length === 0 ? (
         <Empty>No transactions match the current filters.</Empty>
       ) : (
@@ -448,6 +404,6 @@ export const TransactionsCard = ({
           })}
         />
       )}
-    </Panel>
+    </section>
   );
 };

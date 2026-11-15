@@ -40,7 +40,7 @@ test("totals: in, out, net", () => {
   const txns = [
     txn({ id: "1", amount: -100.5, category: "dagligvarer" }),
     txn({ id: "2", amount: -49.5, category: "transport" }),
-    txn({ id: "3", amount: 2000, category: "inntekt" }),
+    txn({ id: "3", amount: 2000, category: "innskudd", subcategory: "lonn" }),
   ];
   const stats = monthStats("2026-07", txns);
   assert.equal(stats.totalOut, 150);
@@ -48,26 +48,77 @@ test("totals: in, out, net", () => {
   assert.equal(stats.net, 1850);
 });
 
-test("refunds and purchases keep their signs in every category", () => {
+test("money in outside the income categories is a refund that nets its own category", () => {
   const rows = [
-    txn({ id: "purchase", amount: -0.1, category: "innskudd" }),
-    txn({ id: "purchase-2", amount: -0.2, category: "innskudd" }),
-    txn({ id: "refund", amount: 0.15, category: "dagligvarer" }),
+    txn({ id: "pay", amount: 2000, category: "innskudd", subcategory: "lonn" }),
+    txn({
+      id: "loan",
+      amount: 900,
+      category: "annet_lan_og_gjeld",
+      subcategory: "studielan",
+    }),
+    txn({ id: "food", amount: -300, category: "dagligvarer" }),
+    txn({
+      id: "back",
+      amount: 100,
+      category: "dagligvarer",
+      counterparty: "Rema",
+    }),
+    txn({
+      id: "rent",
+      amount: -1000,
+      category: "faste_utgifter",
+      counterparty: "Landlord",
+    }),
+    txn({
+      id: "share",
+      amount: 600,
+      category: "faste_utgifter",
+      counterparty: "Flatmate",
+    }),
+    txn({
+      id: "friend",
+      amount: 50,
+      category: "diverse",
+      counterparty: "Flatmate",
+    }),
     txn({ id: "zero", amount: 0, category: "empty" }),
   ];
   const stats = monthStats("2026-07", rows);
   assert.deepEqual(totals(rows), {
-    totalIn: 0.15,
-    totalOut: 0.3,
-    net: -0.15,
+    totalIn: 2900,
+    totalOut: 550,
+    refunded: 750,
+    net: 2350,
     excluded: { count: 0, total: 0 },
   });
+  assert.equal(
+    stats.net,
+    rows.reduce((sum, t) => sum + t.amount, 0),
+  );
   assert.deepEqual(stats.categories, [
-    { category: "innskudd", total: 0.3, share: 1 },
+    { category: "faste_utgifter", total: 400, share: 0.6667 },
+    { category: "dagligvarer", total: 200, share: 0.3333 },
+    { category: "diverse", total: -50, share: 0 },
   ]);
-  assert.deepEqual(stats.incomeCategories, [
-    { category: "dagligvarer", total: 0.15, share: 1 },
-  ]);
+  assert.deepEqual(
+    stats.incomeCategories.map((c) => c.category),
+    ["innskudd", "annet_lan_og_gjeld"],
+  );
+  assert.deepEqual(
+    stats.topCounterparties.map((c) => [c.counterparty, c.total, c.count]),
+    [
+      ["Landlord", 1000, 1],
+      ["Kiwi", 300, 1],
+    ],
+  );
+  assert.deepEqual(
+    stats.topRefundCounterparties.map((c) => [c.counterparty, c.total]),
+    [
+      ["Flatmate", 650],
+      ["Rema", 100],
+    ],
+  );
 });
 
 test("empty results have zero totals and no category shares", () => {
@@ -127,7 +178,13 @@ test("spending splits by account, and a nameless row is still out of topCounterp
       category: "kort",
       counterparty: null,
     }),
-    txn({ id: "3", account: "Kredittkort", amount: 5000, counterparty: null }),
+    txn({
+      id: "3",
+      account: "Kredittkort",
+      amount: 5000,
+      category: "innskudd",
+      counterparty: null,
+    }),
     txn({
       id: "4",
       amount: -9000,

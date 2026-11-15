@@ -19,25 +19,28 @@ import {
   visibleDeltas,
   yearStats,
   type ExcludedSummary,
+  type SeriesPoint,
   type SubscriptionGroup,
 } from "../../core/stats.ts";
 import type { Categorized } from "../../core/types.ts";
 import { Empty, Note, Panel, StatTile, deltaInfo } from "./Cards.tsx";
-import { DivergingBars, HorizontalBars, type BarItem } from "./Charts.tsx";
+import { DivergingBars, HorizontalBars } from "./Charts.tsx";
 import { GROUP_LABEL, useChartGroup, type Group } from "./chartGroup.ts";
+import type { RulesApi } from "./data.ts";
+import { Items } from "./Items.tsx";
 import { SpendLines } from "./SpendLines.tsx";
 import type { Bucket } from "./axis.ts";
 import { SubscriptionsCard } from "./Transactions.tsx";
 import { categoryLabel, fmtNOK, subcategoryLabel } from "./format.ts";
 import {
-  AccountIcon,
   CategoryIcon,
   ChangesIcon,
   CounterpartyIcon,
   InfoIcon,
   MonthlyIcon,
+  RefundIcon,
 } from "./icons.ts";
-import { ToggleGroup, ToggleGroupItem } from "./ui/toggle-group.tsx";
+import { ChoiceToggle } from "./ChoiceToggle.tsx";
 import type { Grain } from "./url.ts";
 
 const CARD_GRID =
@@ -106,39 +109,6 @@ const GRAIN_LABEL: Record<Grain, string> = {
   month: "Per month",
 };
 
-interface ChoiceToggleProps<T extends string> {
-  value: T;
-  offered: T[];
-  labels: Record<T, string>;
-  name: string;
-  onChange: (value: T) => void;
-}
-
-const ChoiceToggle = <T extends string>({
-  value,
-  offered,
-  labels,
-  name,
-  onChange,
-}: ChoiceToggleProps<T>) =>
-  offered.length < 2 ? null : (
-    <ToggleGroup
-      type="single"
-      variant="outline"
-      size="sm"
-      spacing={0}
-      value={value}
-      onValueChange={(v) => v && onChange(v as T)}
-      aria-label={name}
-    >
-      {offered.map((v) => (
-        <ToggleGroupItem key={v} value={v} className="px-2 text-xs">
-          {labels[v]}
-        </ToggleGroupItem>
-      ))}
-    </ToggleGroup>
-  );
-
 type Stats = ReturnType<typeof monthStats>;
 
 interface TotalsProps {
@@ -156,20 +126,34 @@ const TILES = [
   ["net", "Net", true],
 ] as const;
 
+const tileSub = (
+  key: (typeof TILES)[number][0],
+  stats: Stats,
+  yearly: TotalsProps["yearly"],
+) =>
+  [
+    key === "totalOut" && stats.refunded > 0
+      ? `after ${fmtNOK(stats.refunded)} refunded`
+      : "",
+    yearly ? `${fmtNOK(yearly.averageMonth[key])} / month` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ") || undefined;
+
 const Totals = ({ stats, prev, yearly, vsLabel }: TotalsProps) => (
   <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(min(150px,100%),1fr))] gap-3 max-sm:grid-cols-2 max-sm:[&>*:last-child:nth-child(odd)]:col-span-full">
     {TILES.map(([key, label, goodIfUp]) =>
-      (key === "net" ? stats.totalIn > 0 && stats.totalOut > 0 : stats[key] > 0)
+      (
+        key === "net"
+          ? stats.totalIn > 0 && stats.totalOut !== 0
+          : stats[key] !== 0
+      )
         ? [
             <StatTile
               key={key}
               label={label}
               value={fmtNOK(stats[key])}
-              sub={
-                yearly
-                  ? `${fmtNOK(yearly.averageMonth[key])} / month`
-                  : undefined
-              }
+              sub={tileSub(key, stats, yearly)}
               vs={vsLabel}
               delta={
                 vsLabel ? deltaInfo(stats[key], prev[key], goodIfUp) : undefined
@@ -227,15 +211,11 @@ const Breakdowns = ({
       total: c.total,
       count: c.count,
     }));
-  const acctBars = (list: Stats["accounts"]): BarItem[] =>
-    list.map((a) => ({ label: a.account, total: a.total }));
-
   const cats = catBars(stats.categories, stats.subcategories);
   const cps = cpBars(stats.topCounterparties);
   const inCats = catBars(stats.incomeCategories, stats.incomeSubcategories);
   const inCps = cpBars(stats.topIncomeCounterparties);
-  const accounts = acctBars(stats.accounts);
-  const inAccounts = acctBars(stats.incomeAccounts);
+  const refunds = cpBars(stats.topRefundCounterparties);
   const deltas = visibleDeltas(stats.categoryDeltas).map((d) => ({
     ...d,
     category: categoryLabel(d.category),
@@ -249,26 +229,16 @@ const Breakdowns = ({
     pick(onFilters, "categories")(slugOf.get(slugOrLabel) ?? slugOrLabel, meta);
   const onSubcategory = pick(onFilters, "categories");
   const onMerchant = pick(onFilters, "merchants");
-  const onAccount = pick(onFilters, "accounts");
 
-  // Three breakdowns per direction, named the same way on both sides:
-  // "<direction> by <axis>". The income half hides itself period by period, on
-  // exactly the same emptiness rules as the spending half.
   const sides = [
-    { tone: "spend", side: "Spending", cats, cps, accounts },
-    {
-      tone: "income",
-      side: "Income",
-      cats: inCats,
-      cps: inCps,
-      accounts: inAccounts,
-    },
+    { tone: "spend", side: "Spending", cats, cps },
+    { tone: "income", side: "Income", cats: inCats, cps: inCps },
   ] as const;
 
   return (
     <>
       <div className={grid}>
-        {sides.map(({ tone, side, cats, cps, accounts }) => (
+        {sides.map(({ tone, side, cats, cps }) => (
           // A fragment adds no DOM child, so the grid still counts the cards.
           <Fragment key={tone}>
             {!single && cats.length > 0 && (
@@ -294,12 +264,16 @@ const Breakdowns = ({
               </Panel>
             )}
 
-            {accounts.length > 1 && (
-              <Panel title={`${side} by account`} icon={AccountIcon}>
+            {tone === "spend" && refunds.length > 0 && (
+              <Panel
+                title="Refunds by merchant"
+                icon={RefundIcon}
+                description="Money back that lowers spending in its category."
+              >
                 <HorizontalBars
-                  items={accounts}
-                  onPick={onAccount}
-                  tone={tone}
+                  items={refunds}
+                  onPick={onMerchant}
+                  tone="income"
                 />
               </Panel>
             )}
@@ -320,11 +294,17 @@ const Breakdowns = ({
   );
 };
 
+const alignTo = (series: SeriesPoint[], compare: SeriesPoint[], p: Period) =>
+  p.kind === "recent"
+    ? compare.map((c, i) => ({ ...c, at: series[i]?.at ?? c.at }))
+    : compare;
+
 interface DashboardProps {
   txns: Categorized[];
   all: Categorized[];
   filters: Filters;
   onFilters: SetFilters;
+  rules: RulesApi;
   period: Period;
   grain: Grain;
   offered: Grain[];
@@ -336,6 +316,7 @@ export const Dashboard = ({
   all,
   filters,
   onFilters,
+  rules,
   period: p,
   grain,
   offered,
@@ -383,7 +364,7 @@ export const Dashboard = ({
   };
 
   const series = build(shown, from, to);
-  const compare = vs ? build(previous, vs.from, vs.to) : [];
+  const compare = vs ? alignTo(series, build(previous, vs.from, vs.to), p) : [];
 
   const single = filters.categories.length === 1;
 
@@ -406,9 +387,28 @@ export const Dashboard = ({
         }
       : { income: false, spend: false, band: false, trend: false, compare: [] };
 
+  const byItem = filters.items.length + filters.kinds.length > 0;
+  const items = (
+    <Items
+      rows={all}
+      filters={filters}
+      rules={rules}
+      onFilters={onFilters}
+      grid={CARD_GRID}
+      className="my-4"
+    />
+  );
+
   return (
     <>
       <Totals stats={stats} prev={prev} yearly={yearly} vsLabel={vs?.label} />
+
+      {byItem && (
+        <Note icon={InfoIcon} className="-mt-1 mb-4">
+          An item filter keeps each whole receipt that has the item. These
+          totals are receipt totals. Items from receipts shows the item amounts.
+        </Note>
+      )}
 
       {/* Outside the grid, not a `col-span-full` inside it. `nth-child` counts
           DOM children, but a full-width card owns a whole row on its own — so
@@ -450,6 +450,8 @@ export const Dashboard = ({
         </div>
       )}
 
+      {byItem && items}
+
       <Breakdowns
         stats={stats}
         groups={subscriptionGroups(shown)}
@@ -458,6 +460,8 @@ export const Dashboard = ({
         grid={p.kind === "all" ? CARD_GRID_3 : CARD_GRID}
         vsLabel={vs?.label}
       />
+
+      {!byItem && items}
 
       <ExcludedNote excluded={totals(all).excluded} where="in this period" />
     </>

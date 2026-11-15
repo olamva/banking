@@ -102,6 +102,7 @@ export type AppPeriod = {
   to: string;
   totalIn: number;
   totalOut: number;
+  refunded: number;
   net: number;
   averageOut: number | null;
   averageIn: number | null;
@@ -200,6 +201,7 @@ export function appPeriod(
     to,
     totalIn: stats.totalIn,
     totalOut: stats.totalOut,
+    refunded: stats.refunded,
     net: stats.net,
     averageOut: average?.averageMonth.totalOut ?? null,
     averageIn: average?.averageMonth.totalIn ?? null,

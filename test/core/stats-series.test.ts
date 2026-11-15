@@ -108,7 +108,7 @@ test("dailySeries covers the whole range, spending or not", () => {
   const series = dailySeries(
     [
       txn({ id: "1", amount: -100, date: "2026-07-02" }),
-      txn({ id: "2", amount: 500, date: "2026-07-04" }),
+      txn({ id: "2", amount: 500, category: "innskudd", date: "2026-07-04" }),
     ],
     "2026-07-01",
     "2026-07-05",
@@ -190,7 +190,7 @@ test("daily and monthly cumulative series preserve income and spending", () => {
   const txns = [
     txn({ id: "1", amount: -100.5, date: "2026-07-01" }),
     txn({ id: "2", amount: -49.5, date: "2026-07-03" }),
-    txn({ id: "3", amount: 2000, date: "2026-07-04" }),
+    txn({ id: "3", amount: 2000, category: "innskudd", date: "2026-07-04" }),
     txn({
       id: "4",
       amount: -900,
@@ -406,16 +406,19 @@ test("the income breakdowns are the spending ones over the other sign, and the t
   assert.equal(s.totalOut, 100);
 });
 
-test("topSpendGroups ranks spending only and keeps the top groups", () => {
+test("topSpendGroups ranks spending after refunds and keeps the top groups", () => {
   const groups = topSpendGroups(
     [
       txn({ id: "1", amount: -50, counterparty: "Kiwi" }),
       txn({ id: "2", amount: -80, counterparty: "Rema" }),
       txn({ id: "3", amount: -40, counterparty: "Kiwi" }),
-      txn({ id: "4", amount: 500, counterparty: "Rema" }),
+      txn({ id: "4", amount: 500, counterparty: "Rema", category: "innskudd" }),
       txn({ id: "5", amount: -900, counterparty: "Coop", excluded: true }),
-      txn({ id: "6", amount: -10, counterparty: "Bunnpris" }),
+      txn({ id: "6", amount: -45, counterparty: "Bunnpris" }),
       txn({ id: "7", amount: -999, counterparty: null }),
+      txn({ id: "8", amount: 30, counterparty: "Rema" }),
+      txn({ id: "9", amount: -100, counterparty: "Meny" }),
+      txn({ id: "10", amount: 100, counterparty: "Meny" }),
     ],
     (t) => t.counterparty,
     2,
@@ -424,7 +427,7 @@ test("topSpendGroups ranks spending only and keeps the top groups", () => {
     groups.map((g) => [g.name, g.txns.map((t) => t.id)]),
     [
       ["Kiwi", ["1", "3"]],
-      ["Rema", ["2"]],
+      ["Rema", ["2", "8"]],
     ],
   );
 });

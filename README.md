@@ -79,7 +79,7 @@ pnpm typecheck
 
 `pnpm dev` runs Vite. The app is `src/web/app/`. `/api/txns`, `/api/refresh` and `/api/rules` are one plugin in `vite.config.ts`. The browser computes everything, because the page imports `src/core/stats.ts` directly. Local work needs no build step.
 
-Three views. _Dashboard_ shows the tiles and the charts. _Transactions_ shows the rows behind them. One pair of pickers chooses what both show. _Rules_ edits the category files, and it takes no period and no filter. A delta compares against one year back.
+Three views. _Transactions_ is the start page and shows the rows. _Overview_ shows the tiles, the charts and the receipt items behind them. The period picker, the filter panel and the search box choose what both show. _Rules_ edits the category files, and it takes no period and no filter. A delta compares against one year back. A rolling period, such as the last 30 days, compares against the same number of days before it.
 
 Categories, merchants, accounts and countries each filter as two lists. In a picker, a click cycles: include, then exclude, then off. A meta-click jumps to exclude. An exclusion wins. None means all.
 
