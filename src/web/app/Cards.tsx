@@ -13,14 +13,6 @@ import {
 import { Badge } from "./ui/badge.tsx";
 import { Button } from "./ui/button.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover.tsx";
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "./ui/card.tsx";
 import { cn } from "./ui/utils.ts";
 
 export const Empty = ({ children }: { children: ReactNode }) => (
@@ -109,32 +101,30 @@ export const Panel = ({
   className,
   children,
 }: PanelProps) => (
-  <Card className={cn("min-w-0 gap-3", className)}>
-    <CardHeader>
-      <CardTitle className="flex items-center gap-2 text-sm font-medium">
-        {icon && (
-          <Icon
-            icon={icon}
-            size={16}
-            className="shrink-0 text-muted-foreground"
-          />
+  <section
+    className={cn("flex min-w-0 flex-col gap-3 border-t pt-4", className)}
+  >
+    <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+      <div className="min-w-0">
+        <h2 className="flex min-h-6 items-center gap-2 text-sm font-medium">
+          {icon && (
+            <Icon
+              icon={icon}
+              size={16}
+              className="shrink-0 text-muted-foreground"
+            />
+          )}
+          {title}
+          {info && <InfoTip label="More information">{info}</InfoTip>}
+        </h2>
+        {description && (
+          <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
         )}
-        {title}
-        {info && <InfoTip label="More information">{info}</InfoTip>}
-      </CardTitle>
-      {description && (
-        <CardDescription className="text-xs">{description}</CardDescription>
-      )}
-      {action && (
-        <CardAction className="@max-sm/card-header:col-start-1 @max-sm/card-header:row-span-1 @max-sm/card-header:row-start-auto @max-sm/card-header:mt-1 @max-sm/card-header:justify-self-start">
-          {action}
-        </CardAction>
-      )}
-    </CardHeader>
-    <CardContent className="flex min-w-0 flex-1 flex-col">
-      {children}
-    </CardContent>
-  </Card>
+      </div>
+      {action}
+    </div>
+    <div className="flex min-w-0 flex-1 flex-col">{children}</div>
+  </section>
 );
 
 export interface Delta {
@@ -188,26 +178,24 @@ export const StatTile = ({
   sub,
   info,
 }: StatTileProps) => (
-  <Card className="min-w-0 gap-1.5 py-3.5 [--card-spacing:--spacing(3.5)] sm:[--card-spacing:--spacing(4)]">
-    <CardHeader>
-      <CardDescription className="flex min-h-5 items-center justify-between gap-2 text-xs">
-        <span className="flex min-w-0 items-center gap-0.5">
-          <span className="truncate">{label}</span>
-          {info}
-        </span>
-        {delta?.pct != null && (
-          <Badge variant="outline" className={cn("gap-0.5", deltaTone(delta))}>
-            <DeltaIcon delta={delta} />
-            {fmtPct(Math.abs(delta.pct))}
-          </Badge>
-        )}
-      </CardDescription>
-      <CardTitle className="min-w-0 text-xl font-semibold tracking-tight break-words tabular-nums sm:text-[26px]">
-        {value}
-      </CardTitle>
-    </CardHeader>
+  <div className="flex min-w-0 flex-col gap-1">
+    <div className="flex min-h-5 items-center justify-between gap-2 text-xs text-muted-foreground">
+      <span className="flex min-w-0 items-center gap-0.5">
+        <span className="truncate">{label}</span>
+        {info}
+      </span>
+      {delta?.pct != null && (
+        <Badge variant="outline" className={cn("gap-0.5", deltaTone(delta))}>
+          <DeltaIcon delta={delta} />
+          {fmtPct(Math.abs(delta.pct))}
+        </Badge>
+      )}
+    </div>
+    <div className="min-w-0 text-xl leading-snug font-semibold tracking-tight break-words tabular-nums sm:text-[26px]">
+      {value}
+    </div>
     {(sub || delta) && (
-      <CardContent className="space-y-0.5 text-xs text-muted-foreground">
+      <div className="space-y-0.5 text-xs text-muted-foreground">
         {delta && (
           <div className={deltaTone(delta)}>
             {delta.raw > 0 ? "+" : delta.raw < 0 ? "−" : "±"}
@@ -215,7 +203,7 @@ export const StatTile = ({
           </div>
         )}
         {sub && <div>{sub}</div>}
-      </CardContent>
+      </div>
     )}
-  </Card>
+  </div>
 );

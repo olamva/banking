@@ -420,7 +420,7 @@ const WideTable = ({
                     : undefined
                 }
                 className={cn(
-                  "h-8 border-b bg-card text-xs font-medium text-muted-foreground",
+                  "h-8 border-b bg-background text-xs font-medium text-muted-foreground",
                   align(c),
                 )}
               >

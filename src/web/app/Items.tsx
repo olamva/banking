@@ -232,8 +232,8 @@ export const Items = ({
 
   return (
     <section className={className}>
-      <div className="mb-3">
-        <h2 className="flex items-center gap-2 text-sm font-semibold">
+      <div className="mb-5">
+        <h2 className="flex items-center gap-2 text-base font-semibold">
           <Icon icon={ItemsIcon} size={16} className="text-muted-foreground" />
           Items from receipts
           <InfoTip label="About items from receipts">
@@ -262,7 +262,7 @@ export const Items = ({
         />
       )}
       {kept.length > 0 && (
-        <div className={cn(grid, "mb-4")}>
+        <div className={cn(grid, "mb-8")}>
           <Panel
             title="Spending by item category"
             icon={CategoryIcon}

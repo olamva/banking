@@ -8,7 +8,6 @@ import {
   ExternalLinkIcon,
   FilterIcon,
   Icon,
-  ReceiptIcon,
   type IconSvgElement,
 } from "./icons.ts";
 import { Button } from "./ui/button.tsx";
@@ -211,16 +210,11 @@ export const Slip = ({ receipt, marked, onItem }: SlipProps) => {
 };
 
 export const ReceiptLines = ({ receipt, marked, onItem }: SlipProps) => (
-  <section className="mb-4 text-xs">
-    <h3 className="flex flex-wrap items-baseline gap-x-1.5 border-b border-border pb-1.5 font-semibold">
-      <Icon
-        icon={ReceiptIcon}
-        size={14}
-        className="shrink-0 self-center text-muted-foreground"
-      />
+  <section className="text-xs">
+    <h3 className="flex flex-wrap items-baseline gap-x-1.5 border-b pb-1.5 font-medium text-muted-foreground">
       Receipt
       {receipt.source === "gmail" && !receipt.lines.length && (
-        <span className="font-normal text-muted-foreground">
+        <span className="font-normal">
           {receipt.store} · {fmtDateTime(receipt.at)}
         </span>
       )}

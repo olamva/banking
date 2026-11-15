@@ -49,10 +49,10 @@ import { ChoiceToggle } from "./ChoiceToggle.tsx";
 import type { Grain } from "./url.ts";
 
 const CARD_GRID =
-  "grid grid-cols-[repeat(auto-fit,minmax(min(420px,100%),1fr))] gap-4 [&>*:last-child:nth-child(odd)]:col-span-full";
+  "grid grid-cols-[repeat(auto-fit,minmax(min(420px,100%),1fr))] gap-x-10 gap-y-8 [&>*:last-child:nth-child(odd)]:col-span-full";
 
 const CARD_GRID_3 =
-  "grid grid-cols-[repeat(auto-fit,minmax(min(300px,100%),1fr))] gap-4 [&>*:last-child:nth-child(3n+1)]:col-span-full";
+  "grid grid-cols-[repeat(auto-fit,minmax(min(300px,100%),1fr))] gap-x-10 gap-y-8 [&>*:last-child:nth-child(3n+1)]:col-span-full";
 
 interface ExcludedInfoProps {
   excluded: ExcludedSummary;
@@ -149,7 +149,7 @@ const tileSub = (
     .join(" · ") || undefined;
 
 const Totals = ({ stats, prev, yearly, vsLabel, info }: TotalsProps) => (
-  <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(min(150px,100%),1fr))] gap-3 max-sm:grid-cols-2 max-sm:[&>*:last-child:nth-child(odd)]:col-span-full">
+  <div className="mb-8 grid grid-cols-[repeat(auto-fit,minmax(min(150px,100%),1fr))] gap-x-10 gap-y-5 max-sm:grid-cols-2 max-sm:[&>*:last-child:nth-child(odd)]:col-span-full">
     {TILES.map(([key, label, goodIfUp]) =>
       (
         key === "net"
@@ -291,7 +291,7 @@ const Breakdowns = ({
       </div>
 
       {groups.length > 0 && (
-        <div className="mt-4">
+        <div className="mt-8">
           <SubscriptionsCard
             groups={groups}
             onMerchant={onMerchant}
@@ -399,7 +399,7 @@ export const Dashboard = ({
       rules={rules}
       onFilters={onFilters}
       grid={CARD_GRID}
-      className="my-4"
+      className="my-10"
     />
   );
 
@@ -431,7 +431,7 @@ export const Dashboard = ({
           it, and the last card is left alone in half a row exactly when the
           rule below exists to prevent that. */}
       {series.length > 1 && (
-        <div className="mb-4">
+        <div className="mb-8">
           <Panel
             title={`${chartSubject(by, anyIncome, anySpend)}${GRAIN_SUFFIX[grain]}`}
             icon={MonthlyIcon}

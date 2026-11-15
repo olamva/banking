@@ -140,7 +140,7 @@ export const MatchTable = ({ txns, loading }: MatchTableProps) => {
 
   return (
     <div
-      className={`mt-2 rounded-lg border bg-card px-3 py-1 transition-opacity ${loading ? "pointer-events-none opacity-70" : ""}`}
+      className={`mt-2 transition-opacity ${loading ? "pointer-events-none opacity-70" : ""}`}
     >
       <DataTable
         list
@@ -446,7 +446,7 @@ export const AddForm = ({
 
   return (
     <form
-      className="mb-4 flex flex-col gap-2 rounded-xl border border-dashed bg-muted/30 p-3"
+      className="mb-4 flex flex-col gap-2 border-b pb-4"
       onSubmit={(e) => {
         e.preventDefault();
         if (!ready) return;
