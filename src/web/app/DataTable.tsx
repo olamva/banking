@@ -39,7 +39,7 @@ export interface Column {
   onClick?: () => void;
   sort?: "asc" | "desc" | null;
   className?: string;
-  phone?: "lead" | "title" | "end" | "meta" | "labeled";
+  phone?: "lead" | "title" | "end" | "meta" | "labeled" | "aside";
 }
 
 export const DateCell = ({
@@ -198,6 +198,7 @@ const PhoneList = ({ columns, rows, onRow, rowClassName }: DataTableProps) => {
         {rows.slice(0, limit).map((row, i) => {
           const meta = slot(row, "meta");
           const labeled = slot(row, "labeled");
+          const aside = slot(row, "aside");
           return (
             <li
               key={i}
@@ -229,25 +230,32 @@ const PhoneList = ({ columns, rows, onRow, rowClassName }: DataTableProps) => {
                     </span>
                   ))}
                 </div>
-                {meta.length + labeled.length > 0 && (
-                  <div className="mt-1 flex flex-wrap gap-x-3 text-[13px] leading-4.5 text-muted-foreground">
-                    {meta.length > 0 && (
-                      <span className="inline-flex flex-wrap gap-x-1">
-                        {meta.map(({ cell }, k) => (
-                          <span
-                            key={k}
-                            className="inline-flex gap-1 not-first:before:text-muted-foreground/60 not-first:before:content-['·']"
-                          >
-                            {cell}
-                          </span>
-                        ))}
-                      </span>
-                    )}
-                    {labeled.map(({ cell, c }, k) => (
-                      <span key={k} className="inline-flex gap-1">
-                        <span className="text-muted-foreground/70">
-                          {c.label}
+                {meta.length + labeled.length + aside.length > 0 && (
+                  <div className="mt-1 flex items-start gap-3 text-[13px] leading-4.5 text-muted-foreground">
+                    <div className="flex min-w-0 flex-1 flex-wrap gap-x-3">
+                      {meta.length > 0 && (
+                        <span className="inline-flex flex-wrap gap-x-1">
+                          {meta.map(({ cell }, k) => (
+                            <span
+                              key={k}
+                              className="inline-flex gap-1 not-first:before:text-muted-foreground/60 not-first:before:content-['·']"
+                            >
+                              {cell}
+                            </span>
+                          ))}
                         </span>
+                      )}
+                      {labeled.map(({ cell, c }, k) => (
+                        <span key={k} className="inline-flex gap-1">
+                          <span className="text-muted-foreground/70">
+                            {c.label}
+                          </span>
+                          {cell}
+                        </span>
+                      ))}
+                    </div>
+                    {aside.map(({ cell }, k) => (
+                      <span key={k} className="flex shrink-0">
                         {cell}
                       </span>
                     ))}

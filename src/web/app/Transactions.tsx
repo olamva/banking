@@ -56,7 +56,7 @@ export const useAccountCell = (txns: Categorized[]) => {
         aria-hidden={false}
         role="img"
         aria-label={t.account}
-        className="h-4.5"
+        className="block h-4.5"
       />
     );
     return onPick ? (
@@ -318,7 +318,7 @@ export const TransactionsCard = ({
               sizer: subcategorySizes,
               phone: "meta",
             }),
-            head("Account", "account", { min: true, phone: "meta" }),
+            head("Account", "account", { min: true, phone: "aside" }),
             head("Amount", "amount", {
               num: true,
               min: true,

@@ -145,7 +145,7 @@ export const MatchTable = ({ txns, loading }: MatchTableProps) => {
           { label: "Date", min: true, phone: "meta" },
           { label: "Merchant / description", phone: "title" },
           { label: "Category", min: true, phone: "meta" },
-          { label: "Account", min: true, phone: "meta" },
+          { label: "Account", min: true, phone: "aside" },
           {
             label: "Amount",
             num: true,
