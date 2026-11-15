@@ -10,8 +10,10 @@ import {
   AMOUNT_SIZE,
   AMOUNT_SIZE_EXACT,
   DataTable,
+  DateCell,
   PickCell,
   highlighting,
+  usePhone,
   type Column,
 } from "./DataTable.tsx";
 import {
@@ -19,7 +21,6 @@ import {
   categoryLabel,
   fmtNOK,
   fmtNOKExact,
-  fmtShortDate,
   rowLabel,
 } from "./format.ts";
 import {
@@ -31,9 +32,9 @@ import {
 } from "./icons.ts";
 import { SearchBox } from "./SearchBox.tsx";
 import { TxnDialog } from "./TxnDialog.tsx";
-import { cn } from "./ui/utils.ts";
 
 export const useAccountCell = (txns: Categorized[]) => {
+  const phone = usePhone();
   const main = useMemo(() => {
     const groups = Object.groupBy(
       txns.filter((t) => !t.card),
@@ -47,8 +48,8 @@ export const useAccountCell = (txns: Categorized[]) => {
     t: Categorized,
     onPick?: (account: string, meta: boolean) => void,
   ) => {
-    if (t.account === main) return false;
-    const mark = t.card && (
+    if (phone && t.account === main) return false;
+    const mark = phone && t.card && (
       <Icon
         icon={CardIcon}
         size={15}
@@ -58,16 +59,12 @@ export const useAccountCell = (txns: Categorized[]) => {
         className="block h-4.5"
       />
     );
-    return (
-      <span className="inline-flex align-middle text-muted-foreground">
-        {onPick ? (
-          <PickCell label={t.account} onPick={onPick}>
-            {mark}
-          </PickCell>
-        ) : (
-          mark || t.account
-        )}
-      </span>
+    return onPick ? (
+      <PickCell label={t.account} onPick={onPick}>
+        {mark}
+      </PickCell>
+    ) : (
+      mark || t.account
     );
   };
 };
@@ -222,7 +219,7 @@ export const SubscriptionsCard = ({
             g.count,
             fmtNOK(g.latest),
             fmtNOK(g.total),
-            fmtShortDate(g.last),
+            <DateCell date={g.last} />,
           ])}
         />
       )}
@@ -344,7 +341,7 @@ export const TransactionsCard = ({
               onClick={(e) => !highlighting(e) && setOpen(t)}
               className="text-left text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
             >
-              {fmtShortDate(t.date)}
+              <DateCell date={t.date} />
             </button>,
             <span className="inline-flex items-center gap-1">
               <PickCell label={merchantOf(t)} onPick={onMerchant} />
@@ -366,7 +363,7 @@ export const TransactionsCard = ({
               onPick={onCategory}
             />,
             accountCell(t, onAccount),
-            <span className={cn("font-semibold", t.amount > 0 && "text-good")}>
+            <span className={t.amount > 0 ? "text-good" : undefined}>
               {fmtNOKExact(t.amount)}
             </span>,
           ])}

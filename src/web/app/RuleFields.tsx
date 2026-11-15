@@ -7,12 +7,12 @@ import {
 } from "../../core/ruleFiles.ts";
 import { merchantOf } from "../../core/select.ts";
 import type { Categorized } from "../../core/types.ts";
-import { AMOUNT_SIZE_EXACT, DataTable } from "./DataTable.tsx";
+import { AMOUNT_SIZE_EXACT, DataTable, DateCell } from "./DataTable.tsx";
 import { useAccountCell } from "./Transactions.tsx";
 import type { RulesApi } from "./data.ts";
 import {
   categoryColor,
-  fmtShortDate,
+  fmtDate,
   fmtNOKExact,
   pairLabel,
   rowLabel,
@@ -155,13 +155,13 @@ export const MatchTable = ({ txns, loading }: MatchTableProps) => {
           },
         ]}
         rows={txns.map((txn) => [
-          fmtShortDate(txn.date),
+          <DateCell date={txn.date} wide={fmtDate(txn.date)} />,
           merchantOf(txn),
           <span style={{ color: categoryColor(txn.category) }}>
             {rowLabel(txn.category, txn.subcategory)}
           </span>,
           accountCell(txn),
-          <span className="font-semibold">{fmtNOKExact(txn.amount)}</span>,
+          fmtNOKExact(txn.amount),
         ])}
       />
       {selected && (

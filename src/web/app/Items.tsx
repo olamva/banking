@@ -14,10 +14,10 @@ import {
 } from "../../core/select.ts";
 import type { Categorized } from "../../core/types.ts";
 import { Empty, Note, Panel, StatTile } from "./Cards.tsx";
-import { DataTable, type Column } from "./DataTable.tsx";
+import { DataTable, DateCell, type Column } from "./DataTable.tsx";
 import { HorizontalBars, type BarItem } from "./Charts.tsx";
 import { itemRules, type RulesApi } from "./data.ts";
-import { fmtNOK, fmtNOKExact, fmtPct, fmtShortDate } from "./format.ts";
+import { fmtDate, fmtNOK, fmtNOKExact, fmtPct } from "./format.ts";
 import { CategoryIcon, ChangesIcon, InfoIcon, ItemsIcon } from "./icons.ts";
 import { SwitchField } from "./FilterBar.tsx";
 import { fmtGap, fmtQty, ItemSheet } from "./ItemSheet.tsx";
@@ -199,7 +199,7 @@ export const Items = ({ rows, filters, rules, onFilters }: ItemsProps) => {
     fmtNOKExact(i.price),
     i.change !== null && <Change change={i.change} />,
     fmtGap(i.medianDays),
-    fmtShortDate(i.last),
+    <DateCell date={i.last} wide={fmtDate(i.last)} />,
   ]);
 
   const swings = shown
