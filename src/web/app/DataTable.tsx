@@ -5,8 +5,16 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
-import { fmtNOK, fmtNOKExact } from "./format.ts";
-import { Icon, SortAscIcon, SortDescIcon, SortableIcon } from "./icons.ts";
+import { fmtNOK, fmtNOKExact, fmtShortDate } from "./format.ts";
+import {
+  DownIcon,
+  ExpandIcon,
+  Icon,
+  SortAscIcon,
+  SortDescIcon,
+  SortableIcon,
+  UpIcon,
+} from "./icons.ts";
 import { cn } from "./ui/utils.ts";
 
 const Sizer = ({ of }: { of: string[] }) => (
@@ -33,6 +41,19 @@ export interface Column {
   className?: string;
   phone?: "lead" | "title" | "end" | "meta" | "labeled";
 }
+
+export const DateCell = ({
+  date,
+  wide = date,
+}: {
+  date: string;
+  wide?: string;
+}) => (
+  <>
+    <span className="sm:hidden">{fmtShortDate(date)}</span>
+    <span className="max-sm:hidden">{wide}</span>
+  </>
+);
 
 export const highlighting = (e: { detail: number }) =>
   e.detail > 0 && !(window.getSelection()?.isCollapsed ?? true);
@@ -113,39 +134,47 @@ const PhoneSort = ({ columns }: { columns: Column[] }) => {
   const lead = columns.find((c) => c.phone === "lead")?.header;
   if (!lead && sortable.length === 0) return null;
   return (
-    <div className="flex items-center gap-3 border-b pb-2">
-      {lead}
+    <div className="flex items-center gap-3 pb-2">
+      {lead && (
+        <label className="flex min-h-10 items-center gap-3 text-xs text-muted-foreground">
+          {lead}
+          Select all
+        </label>
+      )}
       {sortable.length > 0 && (
-        <label className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
-          Sort by
+        <div className="ml-auto flex h-10 items-center rounded-full bg-muted text-xs font-medium">
           <select
+            aria-label="Sort by"
             value={current?.label ?? ""}
             onChange={(e) =>
               sortable.find((c) => c.label === e.target.value)?.onClick?.()
             }
-            className="h-8 rounded-md border bg-transparent px-2 text-xs text-foreground"
+            className={cn(
+              "h-10 appearance-none bg-transparent pl-4 outline-none",
+              current ? "pr-1" : "pr-4",
+            )}
           >
-            {!current && <option value="">None</option>}
+            {!current && <option value="">Sort</option>}
             {sortable.map((c) => (
               <option key={c.label} value={c.label}>
                 {c.label}
               </option>
             ))}
           </select>
-        </label>
-      )}
-      {current && (
-        <button
-          type="button"
-          onClick={current.onClick}
-          aria-label={`Sorted ${current.sort === "asc" ? "ascending" : "descending"}. Change the order`}
-          className="inline-flex size-8 items-center justify-center rounded-md border text-muted-foreground"
-        >
-          <Icon
-            icon={current.sort === "asc" ? SortAscIcon : SortDescIcon}
-            size={14}
-          />
-        </button>
+          {current && (
+            <button
+              type="button"
+              onClick={current.onClick}
+              aria-label={`Sorted ${current.sort === "asc" ? "ascending" : "descending"}. Change the order`}
+              className="inline-flex size-10 items-center justify-center text-muted-foreground"
+            >
+              <Icon
+                icon={current.sort === "asc" ? UpIcon : DownIcon}
+                size={14}
+              />
+            </button>
+          )}
+        </div>
       )}
     </div>
   );
@@ -163,15 +192,16 @@ const PhoneList = ({ columns, rows, onRow, rowClassName }: DataTableProps) => {
   return (
     <div>
       <PhoneSort columns={columns} />
-      <ul>
+      <ul className="-mx-(--card-spacing) border-t">
         {rows.slice(0, limit).map((row, i) => {
-          const meta = slot(row, "meta", "labeled");
+          const meta = slot(row, "meta");
+          const labeled = slot(row, "labeled");
           return (
             <li
               key={i}
               onClick={onRow && ((e) => !highlighting(e) && onRow(i))}
               className={cn(
-                "flex min-h-12 items-start gap-3 border-b border-border/70 py-2.5 text-sm tabular-nums",
+                "flex min-h-12 items-start gap-3 border-b border-border/70 px-(--card-spacing) py-3 tabular-nums last:border-b-0",
                 onRow && "cursor-pointer active:bg-muted/60",
                 rowClassName?.(i),
               )}
@@ -182,7 +212,7 @@ const PhoneList = ({ columns, rows, onRow, rowClassName }: DataTableProps) => {
                 </span>
               ))}
               <div className="min-w-0 flex-1">
-                <div className="flex items-baseline gap-3">
+                <div className="flex items-baseline gap-3 text-[15px] leading-5">
                   <div
                     className={cn(
                       "min-w-0 flex-1 truncate",
@@ -192,17 +222,31 @@ const PhoneList = ({ columns, rows, onRow, rowClassName }: DataTableProps) => {
                     {slot(row, "title").map(({ cell }) => cell)}
                   </div>
                   {slot(row, "end").map(({ cell }, k) => (
-                    <span key={k} className="shrink-0 font-medium">
+                    <span key={k} className="shrink-0 font-semibold">
                       {cell}
                     </span>
                   ))}
                 </div>
-                {meta.length > 0 && (
-                  <div className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-muted-foreground">
-                    {meta.map(({ cell, c }, k) => (
+                {meta.length + labeled.length > 0 && (
+                  <div className="mt-1 flex flex-wrap gap-x-3 text-[13px] leading-4.5 text-muted-foreground">
+                    {meta.length > 0 && (
+                      <span className="inline-flex flex-wrap gap-x-1">
+                        {meta.map(({ cell }, k) => (
+                          <span
+                            key={k}
+                            className="inline-flex gap-1 not-first:before:text-muted-foreground/60 not-first:before:content-['·']"
+                          >
+                            {cell}
+                          </span>
+                        ))}
+                      </span>
+                    )}
+                    {labeled.map(({ cell, c }, k) => (
                       <span key={k} className="inline-flex gap-1">
-                        {c.phone === "labeled" && <span>{c.label}</span>}
-                        <span className="text-foreground/80">{cell}</span>
+                        <span className="text-muted-foreground/70">
+                          {c.label}
+                        </span>
+                        {cell}
                       </span>
                     ))}
                   </div>
@@ -216,9 +260,10 @@ const PhoneList = ({ columns, rows, onRow, rowClassName }: DataTableProps) => {
         <button
           type="button"
           onClick={() => setLimit(limit + PAGE)}
-          className="mt-2 h-10 w-full rounded-md border text-sm text-muted-foreground"
+          className="flex h-11 w-full items-center justify-center gap-1 text-xs text-muted-foreground active:text-foreground"
         >
-          Show more ({rows.length - limit} left)
+          <Icon icon={ExpandIcon} size={12} className="rotate-90" />
+          Show {Math.min(PAGE, rows.length - limit)} more
         </button>
       )}
     </div>

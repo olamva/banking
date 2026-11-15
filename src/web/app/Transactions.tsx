@@ -10,6 +10,7 @@ import {
   AMOUNT_SIZE,
   AMOUNT_SIZE_EXACT,
   DataTable,
+  DateCell,
   PickCell,
   highlighting,
   type Column,
@@ -174,7 +175,7 @@ export const SubscriptionsCard = ({
             g.count,
             fmtNOK(g.latest),
             fmtNOK(g.total),
-            g.last,
+            <DateCell date={g.last} />,
           ])}
         />
       )}
@@ -295,7 +296,7 @@ export const TransactionsCard = ({
               onClick={(e) => !highlighting(e) && setOpen(t)}
               className="text-left text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
             >
-              {t.date}
+              <DateCell date={t.date} />
             </button>,
             <span className="inline-flex items-center gap-1">
               <PickCell label={merchantOf(t)} onPick={onMerchant} />

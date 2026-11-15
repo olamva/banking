@@ -118,6 +118,16 @@ export const fmtDate = (date: string): string =>
     timeZone: "UTC",
   });
 
+export const fmtShortDate = (date: string): string =>
+  new Date(`${date}T00:00:00Z`).toLocaleDateString("nb-NO", {
+    day: "numeric",
+    month: "short",
+    ...(!date.startsWith(String(new Date().getFullYear())) && {
+      year: "numeric",
+    }),
+    timeZone: "UTC",
+  });
+
 export const monthLabel = (month: string): string => {
   const [y, m] = month.split("-").map(Number);
   return new Date(Date.UTC(y!, m! - 1, 1)).toLocaleDateString("nb-NO", {
