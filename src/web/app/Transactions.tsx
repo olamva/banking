@@ -236,9 +236,8 @@ export const TransactionsCard = ({
         <p className="text-sm text-muted-foreground tabular-nums">
           {txns.length} {txns.length === 1 ? "transaction" : "transactions"}
         </p>
-        {onBulk && txns.length > 0 && (
+        {onBulk && (
           <BulkToolbar
-            txns={txns}
             picked={picked}
             onBulk={onBulk}
             onClear={() => setSelected(new Set())}

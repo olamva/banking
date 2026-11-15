@@ -18,14 +18,7 @@ export type UrlState = {
   filters: Filters;
 };
 
-const VIEWS = new Map<string, View>([
-  ["transactions", "transactions"],
-  ["overview", "overview"],
-  ["dashboard", "overview"],
-  ["insights", "overview"],
-  ["items", "overview"],
-  ["rules", "rules"],
-]);
+const VIEWS: View[] = ["transactions", "overview", "rules"];
 const ALL_GRAINS: Grain[] = ["running", "day", "month"];
 
 export const GRAINS: Record<PeriodKind, Grain[]> = {
@@ -49,7 +42,7 @@ export const toParams = (s: UrlState): string => {
 };
 
 export const fromParams = (p: URLSearchParams): UrlState => ({
-  view: VIEWS.get(p.get("view") ?? "") ?? "transactions",
+  view: VIEWS.find((v) => v === p.get("view")) ?? "transactions",
   ruleFile: RULE_TABS.find((tab) => tab === p.get("tab")) ?? "categories",
   period: p.get("p") || null,
   grain:

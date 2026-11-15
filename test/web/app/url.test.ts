@@ -61,19 +61,10 @@ test("the period is one param, and the same one in either view", () => {
   );
 });
 
-test("the overview round-trips, and its old page names still open it", () => {
+test("the overview round-trips through the URL", () => {
   const state: UrlState = { ...DEFAULT, view: "overview", period: "2026" };
   assert.equal(toParams(state), "view=overview&p=2026");
   assert.deepEqual(fromParams(new URLSearchParams(toParams(state))), state);
-  for (const old of ["dashboard", "insights", "items"])
-    assert.equal(
-      fromParams(new URLSearchParams(`view=${old}`)).view,
-      "overview",
-    );
-  assert.equal(
-    fromParams(new URLSearchParams("view=toString")).view,
-    "transactions",
-  );
 });
 
 test("the chart grain rides along, and only when it is not the default", () => {
