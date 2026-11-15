@@ -1,0 +1,13 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "Group transactions",
+      "detail": "Use the Group by menu next to the sort menu. Group the list by day, month, category, merchant or account, or turn grouping off. Day is the default. Each group shows its total. In a merchant group, a card purchase shows the shop branch, such as Lerkendal or Elgeseter, in place of the repeated merchant name. In other groups, a known branch shows in gray after the merchant name."
+    },
+    {
+      "title": "Tidier lists",
+      "detail": "On a wide screen, the date, category and other details line up in columns next to the amount. Group headers and pending rows have no background shade. A pending row shows a Pending tag."
+    }
+  ]
+}

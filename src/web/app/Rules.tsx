@@ -53,6 +53,7 @@ const GROUPED = new Set<RuleTab>([
   "categories",
   "giro",
   "payees",
+  "branches",
   "countries",
   "items",
 ]);

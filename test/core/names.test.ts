@@ -1,6 +1,133 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { countryOf, makeCleaner } from "../../src/core/names.ts";
+import {
+  branchFinder,
+  branchRule,
+  countryOf,
+  makeCleaner,
+} from "../../src/core/names.ts";
+
+const card = (counterparty: string, originalCounterparty: string) => ({
+  counterparty,
+  originalCounterparty,
+  description: originalCounterparty,
+  remoteAccountNumber: null,
+  typeText: "Varer",
+});
+
+test("a branch rule beats the branch the code reads", () => {
+  const rows = [
+    card("Bunnpris", "BUNNPRIS MUNKEG TR"),
+    card("Bunnpris", "BUNNPRIS PRINSE, Trondheim, NORWAY"),
+    { ...card("Bunnpris", "BUNNPRIS MOHOLT"), typeText: "Straksbetaling" },
+  ];
+  const branch = branchFinder(rows, {
+    "bunnpris munkeg": "Munkegata",
+    "/^bunnpris moholt/": "Moholt",
+  });
+  assert.deepEqual(rows.map(branch), ["Munkegata", "Prinse", "Moholt"]);
+});
+
+test("a row with no branch rule has no ruled branch, even when one is guessed", () => {
+  const rule = branchRule({
+    "bunnpris munkeg": "Munkegaten",
+    "online linj": "Online",
+  });
+  assert.equal(rule(card("Bunnpris", "BUNNPRIS MUNKEG TR")), "Munkegaten");
+  assert.equal(rule(card("Online", "ONLINE LINJEFO")), null);
+  assert.equal(
+    rule(card("Sesam", "Sesam AS ELGESETERGT. TRONDHEIM")),
+    undefined,
+  );
+});
+
+test("a branch rule that names the merchant leaves no branch", () => {
+  const rows = [
+    card("Online", "ONLINE LINJEFO"),
+    card("Online", "ONLINE TRIKOM"),
+  ];
+  const branch = branchFinder(rows, { "online linj": "Online" });
+  assert.deepEqual(rows.map(branch), [null, "Trikom"]);
+});
+
+test("a card purchase names the branch that the payee name leaves out", () => {
+  const rows = [
+    {
+      ...card("Bunnpris", "BUNNPRIS LERKEN, Trondheim, NORWAY"),
+      typeText: "Kredittkort",
+    },
+    card("Rema 1000", "REMA ELGESETER KLÆBUVEIEN 6 TRONDHEIM"),
+    card("Kiwi", "KIWI MOHOLT TRONDHEIM"),
+    card("Extra", "EXTRA LILLEBY TRONDHEIM"),
+  ];
+  const branch = branchFinder(rows);
+  assert.deepEqual(rows.map(branch), [
+    "Lerken",
+    "Elgeseter",
+    "Moholt",
+    "Lilleby",
+  ]);
+});
+
+test("a branch keeps a district that many shops share", () => {
+  const rows = [
+    card("Rema 1000", "REMA 1000 ELGESETER, TRONDHEIM, NORWAY"),
+    card("Extra", "EXTRA ELGESETER"),
+    card("Samfundet", "STUDENTERSAMFUN ELGESETER"),
+    card("Sesam", "SESAM ELGESETER"),
+  ];
+  assert.equal(branchFinder(rows)(rows[0]!), "Elgeseter");
+});
+
+test("a branch with a street added reads as the same branch", () => {
+  const rows = [
+    card("Bunnpris", "BUNNPRIS LERKEN, Trondheim, NORWAY"),
+    card("Bunnpris", "BUNNPRIS LERKEN DYBDAHLS VEI"),
+  ];
+  assert.deepEqual(rows.map(branchFinder(rows)), ["Lerken", "Lerken"]);
+});
+
+test("a cut-off branch reads as the full branch name", () => {
+  const rows = [
+    card("Rema 1000", "REMA 1000 ELGESETE"),
+    card("Rema 1000", "REMA 1000 ELGESETER, TRONDHEIM, NORWAY"),
+  ];
+  assert.deepEqual(rows.map(branchFinder(rows)), ["Elgeseter", "Elgeseter"]);
+});
+
+test("a cut-off branch with an extra word reads as the full branch", () => {
+  const rows = [
+    card("Bunnpris", "BUNNPRIS LERKEN TR"),
+    card("Bunnpris", "BUNNPRIS LERKEN, Trondheim, NORWAY"),
+    card("Bunnpris", "Bunnpris Lerkendal"),
+  ];
+  assert.deepEqual(rows.map(branchFinder(rows)), [
+    "Lerkendal",
+    "Lerkendal",
+    "Lerkendal",
+  ]);
+});
+
+test("a company form is not a branch", () => {
+  const rows = [
+    card("Sesam", "Sesam AS"),
+    card("Sans Frisør", "SANS FRISØR AS HOLMEN, Trondheim, NORWAY"),
+    card("McDonald's", "McDonalds OSLO, NORWAY"),
+  ];
+  assert.deepEqual(rows.map(branchFinder(rows)), [null, "Holmen", "Oslo"]);
+});
+
+test("a branch needs a card purchase and a plain place name", () => {
+  const rows = [
+    { ...card("Ola Nordmann", "Ola N"), typeText: "Straksbetaling" },
+    card("Apple", "APPLE.COM/BILL"),
+    card("Voi", "PAYPAL *VOITECHNOLO"),
+    card("Naustet Grill", "NAUSTET GRILL"),
+    { ...card("Kiwi", "KIWI MOHOLT"), originalCounterparty: undefined },
+  ];
+  const branch = branchFinder(rows);
+  assert.deepEqual(rows.map(branch), [null, null, null, null, null]);
+});
 
 test("the country comes off the card's own tail, and only there", () => {
   assert.equal(countryOf("YOSHINOYA, TOKYO, JAPAN"), "Japan");

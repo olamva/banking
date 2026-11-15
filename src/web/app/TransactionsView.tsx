@@ -1,6 +1,6 @@
 import { useDeferredValue, type Dispatch, type SetStateAction } from "react";
 import type { BulkFile } from "../../core/bulkRules.ts";
-import type { RuleFile } from "../../core/ruleFiles.ts";
+import type { RuleFile, RuleMap } from "../../core/ruleFiles.ts";
 import { matchesFilters, type Filters } from "../../core/select.ts";
 import { totals } from "../../core/stats.ts";
 import type { Categorized } from "../../core/types.ts";
@@ -9,6 +9,8 @@ import { TransactionsCard } from "./Transactions.tsx";
 
 interface TransactionsViewProps {
   rows: Categorized[];
+  all: Categorized[];
+  branchRules: RuleMap;
   filters: Filters;
   onFilters: Dispatch<SetStateAction<Filters>>;
   onFile: (txn: Categorized, file: RuleFile) => void;
@@ -17,6 +19,8 @@ interface TransactionsViewProps {
 
 export const TransactionsView = ({
   rows,
+  all,
+  branchRules,
   filters,
   onFilters,
   onFile,
@@ -31,6 +35,8 @@ export const TransactionsView = ({
     <>
       <TransactionsCard
         txns={shown}
+        all={all}
+        branchRules={branchRules}
         onMerchant={pick(onFilters, "merchants")}
         onCategory={pick(onFilters, "categories")}
         onAccount={pick(onFilters, "accounts")}

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import type { BulkFile } from "../../core/bulkRules.ts";
 import { BulkCheckbox, BulkSelectAll, BulkToolbar } from "./BulkToolbar.tsx";
-import type { RuleFile } from "../../core/ruleFiles.ts";
+import type { RuleFile, RuleMap } from "../../core/ruleFiles.ts";
 import { merchantOf, subcategoryOf } from "../../core/select.ts";
 import type { SubscriptionGroup } from "../../core/stats.ts";
 import type { Categorized } from "../../core/types.ts";
@@ -17,13 +17,15 @@ import {
   categoryColor,
   categoryLabel,
   fmtNOK,
-  fmtDay,
   fmtNOKExact,
   fmtShortDate,
   rowLabel,
+  shortDateSizes,
 } from "./format.ts";
 import { CardIcon, Icon, ReceiptIcon, RecurringIcon } from "./icons.ts";
 import { TxnDialog } from "./TxnDialog.tsx";
+import { GroupBySelect, TXN_GROUPS, useBranches } from "./TxnGroups.tsx";
+import { Badge } from "./ui/badge.tsx";
 import { cn } from "./ui/utils.ts";
 
 export const useAccountCell = (txns: Categorized[]) => {
@@ -146,6 +148,14 @@ export const SubscriptionsCard = ({
     () => [...new Set(groups.map((g) => categoryLabel(g.category)))],
     [groups],
   );
+  const lastSizes = useMemo(
+    () => shortDateSizes(groups.map((g) => g.last)),
+    [groups],
+  );
+  const countSizes = useMemo(
+    () => [String(Math.max(...groups.map((g) => g.count)))],
+    [groups],
+  );
 
   if (groups.length === 0) return null;
 
@@ -167,6 +177,7 @@ export const SubscriptionsCard = ({
           head("Charges", "count", {
             num: true,
             min: true,
+            sizer: countSizes,
             phone: "labeled",
           }),
           head("Per month", "latest", {
@@ -181,7 +192,11 @@ export const SubscriptionsCard = ({
             sizer: AMOUNT_SIZE,
             phone: "labeled",
           }),
-          head("Last", "last", { min: true, phone: "labeled" }),
+          head("Last", "last", {
+            min: true,
+            sizer: lastSizes,
+            phone: "labeled",
+          }),
         ]}
         rows={sorted.map((g) => [
           <PickCell label={g.name} onPick={onMerchant} />,
@@ -203,6 +218,8 @@ export const SubscriptionsCard = ({
 
 interface TransactionsCardProps {
   txns: Categorized[];
+  all?: Categorized[];
+  branchRules?: RuleMap;
   onMerchant: (merchant: string, meta: boolean) => void;
   onCategory: (category: string, meta: boolean) => void;
   onAccount: (account: string, meta: boolean) => void;
@@ -212,13 +229,26 @@ interface TransactionsCardProps {
 
 export const TransactionsCard = ({
   txns,
+  all,
+  branchRules,
   onMerchant,
   onCategory,
   onAccount,
   onFile,
   onBulk,
 }: TransactionsCardProps) => {
-  const { sorted, head, by } = useTxnSort(txns);
+  const { sorted: bySort, head, by } = useTxnSort(txns);
+  const [groupBy, setGroupBy] = useState("Day");
+  const grouping = TXN_GROUPS[groupBy];
+  const sorted = useMemo(
+    () =>
+      grouping?.time && by !== "date"
+        ? bySort.toSorted((a, b) =>
+            grouping.of(b).localeCompare(grouping.of(a)),
+          )
+        : bySort,
+    [bySort, grouping, by],
+  );
   const accountCell = useAccountCell(txns);
   const [open, setOpen] = useState<Categorized | null>(null);
   const [selected, setSelected] = useState<Set<Categorized>>(new Set());
@@ -229,6 +259,11 @@ export const TransactionsCard = ({
     () => [...new Set(txns.map((t) => rowLabel(t.category, t.subcategory)))],
     [txns],
   );
+  const dateSizes = useMemo(
+    () => shortDateSizes(txns.map((t) => t.date)),
+    [txns],
+  );
+  const { branches, ruled } = useBranches(all ?? txns, branchRules);
 
   return (
     <section className="min-w-0">
@@ -250,11 +285,12 @@ export const TransactionsCard = ({
         <DataTable
           list
           onRow={(i) => setOpen(sorted[i] ?? null)}
+          controls={<GroupBySelect value={groupBy} onChange={setGroupBy} />}
           group={
-            by === "date"
+            grouping
               ? {
-                  of: (i) => sorted[i]!.date,
-                  label: fmtDay,
+                  of: (i) => grouping.of(sorted[i]!),
+                  label: grouping.label,
                   total: (indices) =>
                     fmtNOKExact(
                       Math.round(
@@ -265,9 +301,7 @@ export const TransactionsCard = ({
                 }
               : undefined
           }
-          rowClassName={(i) =>
-            `${sorted[i]?.isPending ? "striped" : ""} ${selected.has(sorted[i]!) ? "bg-muted" : ""}`
-          }
+          rowClassName={(i) => (selected.has(sorted[i]!) ? "bg-muted" : "")}
           columns={[
             ...(onBulk
               ? [
@@ -286,7 +320,11 @@ export const TransactionsCard = ({
                   },
                 ]
               : []),
-            head("Date", "date", { min: true, phone: "meta" }),
+            head("Date", "date", {
+              min: true,
+              sizer: dateSizes,
+              phone: "meta",
+            }),
             head("Merchant / description", "merchant", { phone: "title" }),
             head("Category", "subcategory", {
               min: true,
@@ -311,9 +349,20 @@ export const TransactionsCard = ({
                   />,
                 ]
               : []),
-            by !== "date" && fmtShortDate(t.date),
+            groupBy !== "Day" && fmtShortDate(t.date),
             <span className="inline-flex items-center gap-1">
-              <PickCell label={merchantOf(t)} onPick={onMerchant} />
+              <PickCell
+                label={
+                  (groupBy === "Merchant" && branches.get(t)) || merchantOf(t)
+                }
+                value={merchantOf(t)}
+                onPick={onMerchant}
+              />
+              {groupBy !== "Merchant" && ruled.get(t) && (
+                <span className="truncate text-muted-foreground">
+                  {ruled.get(t)}
+                </span>
+              )}
               {t.receipt && (
                 <Icon
                   icon={ReceiptIcon}
@@ -323,6 +372,11 @@ export const TransactionsCard = ({
                   role="img"
                   className="shrink-0 text-muted-foreground"
                 />
+              )}
+              {t.isPending && (
+                <Badge variant="outline" className="border-dashed">
+                  Pending
+                </Badge>
               )}
             </span>,
             <PickCell

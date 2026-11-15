@@ -128,8 +128,21 @@ export const fmtShortDate = (date: string): string =>
     timeZone: "UTC",
   });
 
+export const shortDateSizes = (dates: string[]): string[] => {
+  const year = new Date().getFullYear();
+  const y = dates.some((d) => !d.startsWith(String(year))) ? year - 1 : year;
+  return ["03", "08"].map((m) => fmtShortDate(`${y}-${m}-28`));
+};
+
 export const fmtDay = (date: string): string =>
   `${new Date(`${date}T00:00:00Z`).toLocaleDateString("nb-NO", { weekday: "long", timeZone: "UTC" })} ${fmtShortDate(date)}`;
+
+export const fmtMonth = (month: string): string =>
+  new Date(`${month}-01T00:00:00Z`).toLocaleDateString("nb-NO", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
 
 export const monthLabel = (month: string): string => {
   const [y, m] = month.split("-").map(Number);

@@ -116,6 +116,7 @@ interface DataTableProps {
   onRow?: (index: number) => void;
   rowClassName?: (index: number) => string;
   list?: boolean;
+  controls?: ReactNode;
   group?: {
     of: (index: number) => string;
     label: (key: string) => ReactNode;
@@ -138,21 +139,26 @@ const usePhone = () =>
     () => phoneQuery.matches,
   );
 
-const ListSort = ({ columns }: { columns: Column[] }) => {
+const ListSort = ({
+  columns,
+  controls,
+}: Pick<DataTableProps, "columns" | "controls">) => {
   const sortable = columns.filter((c) => c.onClick && c.phone);
   const current = sortable.find((c) => c.sort);
   const lead = columns.find((c) => c.phone === "lead")?.header;
-  if (!lead && sortable.length === 0) return null;
+  if (!lead && sortable.length === 0 && !controls) return null;
   return (
-    <div className="flex items-center gap-3 pb-2">
+    <div className="flex items-center gap-2 pb-2">
       {lead && (
-        <label className="flex h-8 items-center gap-3 text-xs text-muted-foreground">
+        <label className="flex h-8 items-center gap-3 text-xs whitespace-nowrap text-muted-foreground">
           {lead}
           Select all
         </label>
       )}
+      <span className="ml-auto" />
+      {controls}
       {sortable.length > 0 && (
-        <ButtonGroup className="ml-auto">
+        <ButtonGroup>
           <Select
             value={current?.label ?? ""}
             onValueChange={(label) =>
@@ -191,6 +197,7 @@ const List = ({
   onRow,
   rowClassName,
   group,
+  controls,
 }: DataTableProps) => {
   const [limit, setLimit] = useState(PAGE);
   const [closed, setClosed] = useState<Set<string>>(new Set());
@@ -205,6 +212,16 @@ const List = ({
   const toggle = (key: string) =>
     setClosed((s) => new Set(s.symmetricDifference(new Set([key]))));
   const shown = [...rows.keys()].slice(0, limit);
+  const sized = ({ cell, c }: { cell: ReactNode; c: Column }) => (
+    <span className="inline-flex flex-col">
+      {cell}
+      {c.sizer && (
+        <span className="hidden sm:block">
+          <Sizer of={c.sizer} />
+        </span>
+      )}
+    </span>
+  );
 
   const item = (i: number) => {
     const row = rows[i]!;
@@ -247,28 +264,30 @@ const List = ({
           </div>
           {meta.length + labeled.length + aside.length > 0 && (
             <div className="mt-1 flex items-start gap-3 text-[13px] leading-4.5 text-muted-foreground sm:contents">
-              <div className="flex min-w-0 flex-1 flex-wrap gap-x-3 sm:order-2">
+              <div className="flex min-w-0 flex-1 flex-wrap gap-x-3 sm:order-2 sm:flex-none sm:flex-nowrap">
                 {meta.length > 0 && (
-                  <span className="inline-flex flex-wrap gap-x-1">
-                    {meta.map(({ cell }, k) => (
+                  <span className="inline-flex flex-wrap items-baseline gap-x-1 sm:gap-x-3">
+                    {meta.map((m, k) => (
                       <span
                         key={k}
-                        className="inline-flex gap-1 not-first:before:text-muted-foreground/60 not-first:before:content-['·']"
+                        className="inline-flex gap-1 not-first:before:text-muted-foreground/60 not-first:before:content-['·'] sm:not-first:before:content-none"
                       >
-                        {cell}
+                        {sized(m)}
                       </span>
                     ))}
                   </span>
                 )}
-                {labeled.map(({ cell, c }, k) => (
-                  <span key={k} className="inline-flex gap-1">
-                    <span className="text-muted-foreground/70">{c.label}</span>
-                    {cell}
+                {labeled.map((l, k) => (
+                  <span key={k} className="inline-flex items-baseline gap-1">
+                    <span className="text-muted-foreground/70">
+                      {l.c.label}
+                    </span>
+                    {sized(l)}
                   </span>
                 ))}
               </div>
               {hasAside && (
-                <span className="flex shrink-0 sm:order-3 sm:w-28">
+                <span className="flex shrink-0 sm:order-1">
                   {aside.map(({ cell }) => cell)}
                 </span>
               )}
@@ -281,7 +300,7 @@ const List = ({
 
   return (
     <div>
-      <ListSort columns={columns} />
+      <ListSort columns={columns} controls={controls} />
       <ul className="-mx-(--card-spacing) border-t">
         {group
           ? [...Map.groupBy(shown, group.of)].map(([key, indices]) => (
@@ -295,10 +314,12 @@ const List = ({
                   <CollapsibleTrigger asChild>
                     <Button
                       variant="ghost"
-                      className="h-auto w-full justify-start gap-2 rounded-none border-b bg-muted/50 px-(--card-spacing) pt-4 pb-1.5 text-xs text-muted-foreground aria-expanded:bg-muted/50"
+                      className="h-auto w-full justify-start gap-2 rounded-none border-b px-(--card-spacing) pt-3 pb-1.5 text-xs font-medium text-muted-foreground aria-expanded:bg-transparent aria-expanded:text-muted-foreground"
                     >
                       <Caret open={!closed.has(key)} />
-                      {group.label(key)}
+                      <span className="text-foreground">
+                        {group.label(key)}
+                      </span>
                       <span className="ml-auto tabular-nums">
                         {group.total(days!.get(key)!)}
                       </span>

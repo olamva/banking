@@ -1,3 +1,5 @@
+import { compile, haystackOf } from "./match.ts";
+
 const COUNTRY_SEGMENTS = 3;
 const NORWAY = "Norway";
 
@@ -24,6 +26,92 @@ function titleCase(s: string): string {
         ? s.slice(i, i + w.length)
         : w.charAt(0).toUpperCase() + w.slice(1),
     );
+}
+
+const CARD_PAYMENT = new Set([
+  "VISA Varekjøp",
+  "VISA Electron",
+  "Varer",
+  "Transaksjon",
+  "Kredittkort",
+]);
+
+const COMPANY_FORM = /^(as|asa|ab|da|ans|nuf|ltd|inc)$/i;
+
+const wordKey = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+
+export function branchRule(
+  rules: Record<string, string>,
+): (t: Parameters<typeof haystackOf>[0]) => string | null | undefined {
+  const ruled = Object.entries(rules).map(([pattern, value]) => ({
+    matches: compile(pattern, "rules/branches.json"),
+    value,
+  }));
+  return (t) => {
+    const haystack = haystackOf(t);
+    const hit = ruled.find((r) => r.matches(haystack));
+    if (!hit) return undefined;
+    return wordKey(hit.value) === wordKey(t.counterparty ?? "")
+      ? null
+      : hit.value;
+  };
+}
+
+export function branchFinder(
+  txns: (Parameters<typeof haystackOf>[0] & { typeText: string | null })[],
+  rules: Record<string, string> = {},
+): (t: (typeof txns)[number]) => string | null {
+  const rule = branchRule(rules);
+  const clean = makeCleaner(txns.flatMap((t) => t.originalCounterparty || []));
+  const named = (raw: string) => {
+    if (!raw.includes(",")) return clean(raw);
+    const head = raw.split(",")[0]!.trim();
+    return head === head.toUpperCase() ? titleCase(head) : head;
+  };
+  const rawBranch = (t: (typeof txns)[number]) => {
+    if (!t.originalCounterparty || !t.counterparty) return null;
+    if (!CARD_PAYMENT.has(t.typeText ?? "")) return null;
+    const own = new Set(t.counterparty.split(/\s+/).map(wordKey));
+    const words = named(t.originalCounterparty)
+      .split(/\s+/)
+      .filter((w) => !COMPANY_FORM.test(w));
+    while (words.length && own.has(wordKey(words[0]!))) words.shift();
+    const branch = words.join(" ");
+    if (
+      !branch ||
+      wordKey(branch) === wordKey(t.counterparty) ||
+      /^paypal/i.test(branch) ||
+      !words.every((w) => /^\p{L}+\.?$/u.test(w))
+    )
+      return null;
+    return branch === branch.toUpperCase() ? titleCase(branch) : branch;
+  };
+  const known = new Map<string, Set<string>>();
+  for (const t of txns) {
+    const branch = rawBranch(t);
+    if (branch)
+      known.set(
+        t.counterparty!,
+        (known.get(t.counterparty!) ?? new Set()).add(branch),
+      );
+  }
+  return (t) => {
+    const named = rule(t);
+    if (named !== undefined) return named;
+    const branch = rawBranch(t);
+    if (!branch) return null;
+    const options = [...(known.get(t.counterparty!) ?? [])];
+    const short =
+      options
+        .filter((b) => branch.startsWith(`${b} `))
+        .sort((a, b) => a.length - b.length)[0] ?? branch;
+    const size = short.split(" ").length;
+    return (
+      options
+        .filter((b) => b.startsWith(short) && b.split(" ").length === size)
+        .sort((a, b) => b.length - a.length)[0] ?? short
+    );
+  };
 }
 
 const MIN_TOKENS = 3;

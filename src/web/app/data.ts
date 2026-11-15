@@ -157,12 +157,12 @@ export type RulesApi = {
 
 export { changeRules } from "../../core/ruleFiles.ts";
 
-const NO_ITEM_RULES: RuleMap = {};
+const NO_RULES: RuleMap = {};
 
-export const itemRules = (
+export const mapRules = (
   rules: RulesApi,
-  file: "items" | "item-categories" = "items",
-): RuleMap => (rules.data?.files[file] as RuleMap | undefined) ?? NO_ITEM_RULES;
+  file: "items" | "item-categories" | "branches",
+): RuleMap => (rules.data?.files[file] as RuleMap | undefined) ?? NO_RULES;
 
 const changedFile = (
   data: RulesData,
