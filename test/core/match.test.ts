@@ -77,11 +77,40 @@ test("rules reject malformed and noncanonical conditions", () => {
     '{"pattern":"shop","colour":"red"}',
     '{"type":"card","pattern":"shop"}',
     '{"pattern":"shop","account":1}',
+    '{"pattern":"shop","date":"1. sep"}',
+    '{"pattern":"shop","amount":"-100"}',
+    '{"pattern":"shop","amount":"-100.00","date":"2026-09-01"}',
     "{not json",
   ])
     assert.throws(() => readRule(key, "test"), /not a valid rule/);
   assert.deepEqual(readRule("shop", "test"), { pattern: "shop" });
   assert.equal(ruleKey({ pattern: "shop" }), "shop");
+});
+
+test("a rule for one transaction beats the payee rule only on that date and amount", () => {
+  const once = ruleKey({
+    pattern: "raw shop",
+    date: "2026-09-01",
+    amount: "-100.00",
+  });
+  const rows = [
+    row,
+    { ...row, id: "other day", date: "2026-09-02" },
+    { ...row, id: "other amount", amount: -100.01 },
+  ];
+  const out = categorize(rows, {
+    [once]: "diverse/utlegg",
+    [ruleKey({ pattern: "raw shop", direction: "out" })]: "food",
+  });
+  assert.deepEqual(
+    out.map((t) => `${t.category}/${t.subcategory}`),
+    ["diverse/utlegg", "food/null", "food/null"],
+  );
+  assert.deepEqual(readRule(once, "test"), {
+    pattern: "raw shop",
+    date: "2026-09-01",
+    amount: "-100.00",
+  });
 });
 
 test("only rules with the same number of conditions conflict", () => {

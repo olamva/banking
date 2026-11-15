@@ -8,6 +8,8 @@ import {
 } from "../../core/ruleFiles.ts";
 import type { Categorized } from "../../core/types.ts";
 import type { RulesApi } from "./data.ts";
+import { fmtNOKExact, fmtShortDate } from "./format.ts";
+import { Checkbox } from "./ui/checkbox.tsx";
 import { BackIcon, Icon } from "./icons.ts";
 import {
   CategoryInput,
@@ -69,6 +71,7 @@ const PatternDialog = ({
   const [type, setType] = useState("");
   const [direction, setDirection] = useState("any");
   const [account, setAccount] = useState("");
+  const [once, setOnce] = useState(false);
   const key =
     file === "categories"
       ? ruleKey({
@@ -77,6 +80,8 @@ const PatternDialog = ({
           direction:
             direction === "any" ? undefined : (direction as "in" | "out"),
           account: account.trim() || undefined,
+          date: once ? txn.date : undefined,
+          amount: once ? txn.amount.toFixed(2) : undefined,
         })
       : pattern.trim();
   const haystacks = useMemo(() => txns.map(haystackOf), [txns]);
@@ -141,6 +146,16 @@ const PatternDialog = ({
                   placeholder={txn.remoteAccountNumber ?? "Any"}
                   className={`${FIELD} font-mono font-normal`}
                 />
+              </label>
+              <label className="flex items-center gap-2 text-xs font-medium sm:col-span-3">
+                <Checkbox
+                  checked={once}
+                  onCheckedChange={(c) => setOnce(c === true)}
+                />
+                Only this transaction
+                <span className="font-normal text-muted-foreground tabular-nums">
+                  {fmtShortDate(txn.date)} · {fmtNOKExact(txn.amount)}
+                </span>
               </label>
             </div>
           )}

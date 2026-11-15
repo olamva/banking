@@ -102,6 +102,7 @@ Preserve this `categorize` precedence:
 
 Keep `rules/categories.json` independent of line order. Reordering must never change a row's category.
 Keep one category rule type. A key with more conditions wins over a key with fewer conditions.
+Target one transaction with the `date` and `amount` conditions, never with a transaction ID.
 Fix collisions between different categories by narrowing patterns, never by changing the matcher or line order.
 Use `rebuild` to report collisions and suggested patterns. Leave collisions within the same category alone.
 
