@@ -3,11 +3,15 @@
   "highlights": [
     {
       "title": "Tidier item names",
-      "detail": "Items lose sale words such as Løsvekt, Stk and Kg, origin marks such as No and Imp, and size leftovers such as 0,50. The same product from different receipts now shows as one item."
+      "detail": "Item names drop sale words and size leftovers. One product from different receipts is one item.",
+      "area": "items",
+      "kind": "improved"
     },
     {
       "title": "Categories for mail receipts",
-      "detail": "An item without a product group takes its category from the purchase, such as Games & apps, Streaming or Eating out. The item category filter uses the category of the whole item, so a KIWI receipt shows under Dairy & eggs when REMA sells the same milk."
+      "detail": "An item without a product group takes its category from the purchase, such as Streaming.",
+      "area": "items",
+      "kind": "new"
     }
   ]
 }
