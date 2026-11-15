@@ -23,6 +23,15 @@ test("a branch rule beats the branch the code reads", () => {
   assert.deepEqual(rows.map(branch), ["Munkegata", "Prinse", "Moholt"]);
 });
 
+test("a branch rule that names the merchant leaves no branch", () => {
+  const rows = [
+    card("Online", "ONLINE LINJEFO"),
+    card("Online", "ONLINE TRIKOM"),
+  ];
+  const branch = branchFinder(rows, { "online linj": "Online" });
+  assert.deepEqual(rows.map(branch), [null, "Trikom"]);
+});
+
 test("a card purchase names the branch that the payee name leaves out", () => {
   const rows = [
     {

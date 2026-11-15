@@ -84,7 +84,10 @@ export function branchFinder(
   return (t) => {
     const haystack = haystackOf(t);
     const hit = ruled.find((r) => r.matches(haystack));
-    if (hit) return hit.value;
+    if (hit)
+      return wordKey(hit.value) === wordKey(t.counterparty ?? "")
+        ? null
+        : hit.value;
     const branch = rawBranch(t);
     if (!branch) return null;
     const options = [...(known.get(t.counterparty!) ?? [])];
