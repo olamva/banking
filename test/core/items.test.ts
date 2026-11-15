@@ -82,23 +82,45 @@ test("a rule renames exact receipt names, and other names lose packaging and sho
         line("Tortillachips Ost", 30, "185 g"),
         line("Tortillas R", 20, "6 pk"),
         line("KJØTTDEIG 14% PRIMA LAVPRIS", 60, "400 g"),
+        line("Bananer Løsvekt", 20),
+        line("Gulrot Snack R No", 25),
+        line("Pepsi Max 1,50", 30),
+        line("Hvitløk , Prima", 15),
+        line("Tomat Runde, Løsvekt", 18),
+        line("Babyspinat Vasket (6/ ) Rema", 22),
+        line("Synnøve Gulost 900-", 120),
+        line("[1. og 4. klasse] Immatrikuleringsball 2025", 210),
       ]),
       txn("6", "2026-11-01T10:00:00Z", [
         line("Maarud Tortilla Cheese", 32, "175 g"),
         line("Maarud Tortilla Cheese Xtra", 33, "175 g"),
+        line("Prima Kjøttdeig 14%", 62, "400 g"),
+        line("BANANER KG", 21),
+        line("Gulrot Snack R Imp", 24),
+        line("Pepsi Max", 31),
+        line("Rema 1000 Gavekort Kr 100", 100),
       ]),
     ],
     { [itemPattern("Maarud Tortilla Cheese")]: "Tortillachips Ost" },
   );
   assert.deepEqual(summary(itemsOf(shrunk)), [
-    "Kjøttdeig 14% Prima Lavpris | 1 | 1 | 1 | 60",
+    "Babyspinat Vasket REMA 1000 | 0 | 1 | 1 | 22",
+    "Bananer | 0 | 2 | 2 | 41",
+    "Gulrot Snack REMA 1000 | 0 | 2 | 2 | 49",
+    "Hvitløk Prima | 0 | 1 | 1 | 15",
     "Maarud Tortilla Cheese Xtra | 1 | 1 | 1 | 33",
+    "Pepsi Max | 0 | 2 | 2 | 61",
+    "Prima Kjøttdeig 14% | 1 | 2 | 2 | 122",
+    "REMA 1000 Gavekort Kr 100 | 0 | 1 | 1 | 100",
+    "Synnøve Gulost | 0 | 1 | 1 | 120",
+    "Tomat Runde | 0 | 1 | 1 | 18",
     "Tortillachips Ost | 2 | 2 | 2 | 62",
     "Tortillas REMA 1000 | 1 | 1 | 1 | 20",
+    "[1. og 4. klasse] Immatrikuleringsball 2025 | 0 | 1 | 1 | 210",
   ]);
 });
 
-test("an item takes its category from a rule, then the product group, then Uncategorized", () => {
+test("an item takes its category from a rule, then the product group, then the transaction category, then Uncategorized", () => {
   const group = (code: string, name: string) => ({ group: { code, name } });
   const items = itemsOf(
     purchasesOf(
@@ -118,6 +140,21 @@ test("an item takes its category from a rule, then the product group, then Uncat
           line("Bananer", 21),
           line("Batterier", 50),
         ]),
+        {
+          ...txn("9", "2026-10-03T10:00:00Z", [line("100 Bits", 13)]),
+          category: "medier_og_underholdning",
+          subcategory: "strommetjenester",
+        },
+        {
+          ...txn("10", "2026-10-04T10:00:00Z", [line("Doom", 199)]),
+          category: "medier_og_underholdning",
+          subcategory: "apper_og_spill",
+        },
+        {
+          ...txn("11", "2026-10-05T10:00:00Z", [line("Pizza", 165)]),
+          category: "kafe_og_restaurant",
+          subcategory: "fastfood",
+        },
       ],
       {},
       false,
@@ -131,6 +168,9 @@ test("an item takes its category from a rule, then the product group, then Uncat
     Gavekort: "Other/Rema1000 gavekort",
     Bananer: "Fruit & veg/Banan",
     Batterier: "Uncategorized",
+    "100 Bits": "Streaming",
+    Doom: "Games & apps",
+    Pizza: "Eating out",
   });
 });
 
@@ -171,6 +211,10 @@ test("the item category filter keeps receipts with a line in that category", () 
     [
       txn("7", "2026-10-01T10:00:00Z", [line("Tine Lettmelk", 20)]),
       txn("8", "2026-10-02T10:00:00Z", [line("Ringnes Pils", 32)]),
+      txn("9", "2026-10-03T10:00:00Z", [
+        { ...line("Bananer", 20), group: { code: "161010", name: "BANAN" } },
+      ]),
+      txn("10", "2026-10-04T10:00:00Z", [line("BANANER KG", 22)]),
       { receipt: undefined, category: "x" } as Categorized,
     ],
     {},
@@ -182,7 +226,8 @@ test("the item category filter keeps receipts with a line in that category", () 
       .map((t) => t.receipt?.id ?? "none");
   assert.deepEqual(ids({ kinds: ["Dairy & eggs"] }), ["7"]);
   assert.deepEqual(ids({ kinds: ["Dairy & eggs/Milk"] }), ["7"]);
-  assert.deepEqual(ids({ kindsOut: ["Alcohol"] }), ["7", "none"]);
+  assert.deepEqual(ids({ kinds: ["Fruit & veg"] }), ["9", "10"]);
+  assert.deepEqual(ids({ kindsOut: ["Alcohol"] }), ["7", "9", "10", "none"]);
 });
 
 test("prices each purchase by kilo, litre or piece across pack sizes", () => {
