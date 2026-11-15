@@ -16,7 +16,7 @@ import type { Categorized } from "../../core/types.ts";
 import { Empty, Note, Panel, StatTile } from "./Cards.tsx";
 import { DataTable, type Column } from "./DataTable.tsx";
 import { HorizontalBars, type BarItem } from "./Charts.tsx";
-import { itemRules, type RulesApi } from "./data.ts";
+import { mapRules, type RulesApi } from "./data.ts";
 import { fmtNOK, fmtNOKExact, fmtPct, fmtShortDate } from "./format.ts";
 import { CategoryIcon, ChangesIcon, InfoIcon, ItemsIcon } from "./icons.ts";
 import { SwitchField } from "./FilterBar.tsx";
@@ -114,8 +114,8 @@ export const Items = ({ rows, filters, rules, onFilters }: ItemsProps) => {
     .replace(/(\d),(\d)/g, "$1.$2")
     .split(/\s+/);
   const [bySize, setBySize] = useState(false);
-  const names = itemRules(rules);
-  const categories = itemRules(rules, "item-categories");
+  const names = mapRules(rules, "items");
+  const categories = mapRules(rules, "item-categories");
   const pickKind = (value: string, exclude: boolean) =>
     onFilters(cycleFilter(filters, "kinds", value, exclude));
   const purchases = useMemo(

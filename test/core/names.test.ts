@@ -5,7 +5,22 @@ import { branchFinder, countryOf, makeCleaner } from "../../src/core/names.ts";
 const card = (counterparty: string, originalCounterparty: string) => ({
   counterparty,
   originalCounterparty,
+  description: originalCounterparty,
+  remoteAccountNumber: null,
   typeText: "Varer",
+});
+
+test("a branch rule beats the branch the code reads", () => {
+  const rows = [
+    card("Bunnpris", "BUNNPRIS MUNKEG TR"),
+    card("Bunnpris", "BUNNPRIS PRINSE, Trondheim, NORWAY"),
+    { ...card("Bunnpris", "BUNNPRIS MOHOLT"), typeText: "Straksbetaling" },
+  ];
+  const branch = branchFinder(rows, {
+    "bunnpris munkeg": "Munkegata",
+    "/^bunnpris moholt/": "Moholt",
+  });
+  assert.deepEqual(rows.map(branch), ["Munkegata", "Prinse", "Moholt"]);
 });
 
 test("a card purchase names the branch that the payee name leaves out", () => {

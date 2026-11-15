@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { branchFinder } from "../../core/names.ts";
+import type { RuleMap } from "../../core/ruleFiles.ts";
 import { merchantOf } from "../../core/select.ts";
 import type { Categorized } from "../../core/types.ts";
 import { categoryLabel, fmtDay, fmtMonth } from "./format.ts";
@@ -54,8 +55,8 @@ export const GroupBySelect = ({ value, onChange }: GroupBySelectProps) => (
   </Select>
 );
 
-export const useBranches = (txns: Categorized[]) =>
+export const useBranches = (txns: Categorized[], rules?: RuleMap) =>
   useMemo(() => {
-    const branchOf = branchFinder(txns);
+    const branchOf = branchFinder(txns, rules);
     return new Map(txns.map((t) => [t, branchOf(t)]));
-  }, [txns]);
+  }, [txns, rules]);

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import type { BulkFile } from "../../core/bulkRules.ts";
 import { BulkCheckbox, BulkSelectAll, BulkToolbar } from "./BulkToolbar.tsx";
-import type { RuleFile } from "../../core/ruleFiles.ts";
+import type { RuleFile, RuleMap } from "../../core/ruleFiles.ts";
 import { merchantOf, subcategoryOf } from "../../core/select.ts";
 import type { SubscriptionGroup } from "../../core/stats.ts";
 import type { Categorized } from "../../core/types.ts";
@@ -249,6 +249,7 @@ export const SubscriptionsCard = ({
 interface TransactionsCardProps {
   txns: Categorized[];
   all?: Categorized[];
+  branchRules?: RuleMap;
   search: string;
   onSearch: (search: string) => void;
   onMerchant: (merchant: string, meta: boolean) => void;
@@ -261,6 +262,7 @@ interface TransactionsCardProps {
 export const TransactionsCard = ({
   txns,
   all,
+  branchRules,
   search,
   onSearch,
   onMerchant,
@@ -295,7 +297,7 @@ export const TransactionsCard = ({
     () => shortDateSizes(txns.map((t) => t.date)),
     [txns],
   );
-  const branches = useBranches(all ?? txns);
+  const branches = useBranches(all ?? txns, branchRules);
 
   return (
     <Panel

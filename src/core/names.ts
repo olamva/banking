@@ -1,3 +1,5 @@
+import { compile, haystackOf } from "./match.ts";
+
 const COUNTRY_SEGMENTS = 3;
 const NORWAY = "Norway";
 
@@ -39,12 +41,13 @@ const COMPANY_FORM = /^(as|asa|ab|da|ans|nuf|ltd|inc)$/i;
 const wordKey = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
 
 export function branchFinder(
-  txns: {
-    counterparty: string | null;
-    originalCounterparty?: string;
-    typeText: string | null;
-  }[],
+  txns: (Parameters<typeof haystackOf>[0] & { typeText: string | null })[],
+  rules: Record<string, string> = {},
 ): (t: (typeof txns)[number]) => string | null {
+  const ruled = Object.entries(rules).map(([pattern, value]) => ({
+    matches: compile(pattern, "rules/branches.json"),
+    value,
+  }));
   const clean = makeCleaner(txns.flatMap((t) => t.originalCounterparty || []));
   const named = (raw: string) => {
     if (!raw.includes(",")) return clean(raw);
@@ -79,6 +82,9 @@ export function branchFinder(
       );
   }
   return (t) => {
+    const haystack = haystackOf(t);
+    const hit = ruled.find((r) => r.matches(haystack));
+    if (hit) return hit.value;
     const branch = rawBranch(t);
     if (!branch) return null;
     const options = [...(known.get(t.counterparty!) ?? [])];

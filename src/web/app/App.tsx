@@ -30,7 +30,7 @@ import { GROUP_SHORTCUT } from "./chartGroup.ts";
 import { Dashboard, pick } from "./Dashboard.tsx";
 import {
   THEMES,
-  itemRules,
+  mapRules,
   readTheme,
   setTheme,
   useHideOnScroll,
@@ -112,9 +112,9 @@ export const App = () => {
     setCategoryHues(distinctCategories(load.txns));
   }
 
-  const names = itemRules(rules);
+  const names = mapRules(rules, "items");
   const loaded = load.status === "ready" ? load.txns : NO_TXNS;
-  const kindRules = itemRules(rules, "item-categories");
+  const kindRules = mapRules(rules, "item-categories");
   const txns = useMemo(
     () => withItems(loaded, names, kindRules),
     [loaded, names, kindRules],
@@ -350,6 +350,7 @@ export const App = () => {
       <TransactionsView
         rows={inPeriod}
         all={txns}
+        branchRules={mapRules(rules, "branches")}
         filters={filters}
         onFilters={setFilters}
         onFile={(txn, file) => setFiling({ txn, file })}
