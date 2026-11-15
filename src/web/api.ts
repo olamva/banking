@@ -1,4 +1,10 @@
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { appData, appPeriod, appTxn } from "../core/app.ts";
 import { payeePattern } from "../core/bulkRules.ts";
 import { withItems } from "../core/items.ts";
@@ -34,6 +40,30 @@ import {
 } from "../core/rules.ts";
 
 const LABELS = `${RULES_DIR}/labels.json`;
+const RECEIPTS = `${DATA_DIR}/raw/receipts`;
+
+const changed = (path: string): number =>
+  existsSync(path) ? statSync(path).ctimeMs : 0;
+
+const inputs = (): number =>
+  Math.max(
+    ...readdirSync(RULES_DIR)
+      .filter((f) => f.endsWith(".json"))
+      .map((f) => changed(`${RULES_DIR}/${f}`)),
+    ...(existsSync(RECEIPTS)
+      ? readdirSync(RECEIPTS).map((s) => changed(`${RECEIPTS}/${s}`))
+      : []),
+  );
+
+// `pnpm rules:push` copies rules and receipts onto the site and restarts
+// nothing. The change time, which rsync cannot carry over, shows a copy that
+// the database has not yet read.
+export const fresh = (): Promise<unknown> =>
+  existsSync(RULES_DIR) && inputs() > changed(DB_FILE)
+    ? rebuildAll().catch((e: unknown) =>
+        console.error(`rebuild failed: ${e instanceof Error ? e.message : e}`),
+      )
+    : Promise.resolve();
 
 const names = () =>
   existsSync(LABELS) ? JSON.parse(readFileSync(LABELS, "utf8")) : {};

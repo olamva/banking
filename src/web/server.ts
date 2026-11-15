@@ -17,6 +17,7 @@ import {
   HANDOFF_PAGE,
   appPayload,
   autoRefresh,
+  fresh,
   jsonRoute,
   payload,
   refresh,
@@ -259,7 +260,7 @@ export const server = createServer(async (req, res) => {
     send(res, 403, "text/plain; charset=utf-8", "Not your dashboard.\n");
     return;
   }
-  if (path.startsWith("/api/")) await ready;
+  if (path.startsWith("/api/")) await ready.then(fresh);
   const rules = rulesRoute(
     path,
     url.searchParams,

@@ -19,8 +19,12 @@ const api = (): Plugin => ({
   // the shared database before the worktree can redirect it. `api.ts` and
   // `server.ts` defer their own imports for the same reason.
   async configureServer(server) {
-    const { appPayload, jsonRoute, payload, refresh, rulesRoute } =
+    const { appPayload, fresh, jsonRoute, payload, refresh, rulesRoute } =
       await import("./src/web/api.ts");
+    server.middlewares.use((req, _res, next) => {
+      if (req.url?.startsWith("/api/")) fresh().then(() => next());
+      else next();
+    });
     // Mounted on no prefix, because connect strips a prefix off req.url and
     // the router needs the whole path.
     server.middlewares.use((req, res, next) => {

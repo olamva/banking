@@ -1,8 +1,15 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, afterEach, beforeEach, mock, test } from "node:test";
+import { setTimeout as later } from "node:timers/promises";
 import { totals } from "../../src/core/stats.ts";
 import type { Categorized } from "../../src/core/types.ts";
 import { haystackOf, ruleKey } from "../../src/core/match.ts";
@@ -13,7 +20,7 @@ process.env.RULES_DIR = join(dir, "rules");
 process.env.DB_FILE = join(dir, "banking.db");
 after(() => rmSync(dir, { recursive: true, force: true }));
 const { rebuildAll, netByReason } = await import("../../src/core/pipeline.ts");
-const { payload, rulesRoute } = await import("../../src/web/api.ts");
+const { fresh, payload, rulesRoute } = await import("../../src/web/api.ts");
 
 const put = (path: string, value: unknown) =>
   writeFileSync(join(dir, path), JSON.stringify(value));
@@ -204,6 +211,19 @@ test("rule saves and history changes rebuild the payload before they return", as
     200,
   );
   assert.equal(category(), "food");
+});
+
+test("rules copied in after the last rebuild reach the payload before the next answer", async () => {
+  await rebuildAll();
+  const category = () => readRows().find((t) => t.id === "purchase")!.category;
+  assert.equal(category(), "food");
+  await later(50);
+  put("rules/categories.json", { shop: "home/furniture" });
+  await fresh();
+  assert.equal(category(), "home");
+  const built = statSync(join(dir, "banking.db")).ctimeMs;
+  await fresh();
+  assert.equal(statSync(join(dir, "banking.db")).ctimeMs, built);
 });
 
 test("a read during a rebuild returns the previous rows", async () => {
