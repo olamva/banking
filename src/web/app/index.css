@@ -233,14 +233,6 @@
 }
 
 @layer components {
-  .striped {
-    background-image: repeating-linear-gradient(
-      -45deg,
-      transparent 0 8px,
-      color-mix(in oklab, var(--foreground) 4%, transparent) 8px 16px
-    );
-  }
-
   .glow {
     background: linear-gradient(
       90deg,

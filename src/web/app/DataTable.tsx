@@ -81,15 +81,9 @@ export const PickCell = ({
       e.stopPropagation();
       if (!highlighting(e)) onPick(value, e.metaKey);
     }}
-    className="h-auto justify-start gap-1.5 rounded-none p-0 text-left text-[length:inherit] font-normal text-inherit underline-offset-2 active:not-aria-[haspopup]:translate-y-0"
+    style={color ? { color } : undefined}
+    className="h-auto justify-start rounded-none p-0 text-left text-[length:inherit] font-normal text-inherit underline-offset-2 active:not-aria-[haspopup]:translate-y-0"
   >
-    {color && (
-      <span
-        aria-hidden
-        className="size-2 shrink-0 rounded-full"
-        style={{ background: color }}
-      />
-    )}
     {children || label}
   </Button>
 );
@@ -301,7 +295,7 @@ const List = ({
                   <CollapsibleTrigger asChild>
                     <Button
                       variant="ghost"
-                      className="h-auto w-full justify-start gap-2 rounded-none border-b bg-muted/50 px-(--card-spacing) py-1.5 text-xs font-medium text-muted-foreground aria-expanded:bg-muted/50"
+                      className="h-auto w-full justify-start gap-2 rounded-none border-b px-(--card-spacing) pt-3 pb-1.5 text-xs font-medium text-muted-foreground aria-expanded:bg-transparent aria-expanded:text-muted-foreground"
                     >
                       <Caret open={!closed.has(key)} />
                       <span className="inline-block text-foreground first-letter:uppercase">

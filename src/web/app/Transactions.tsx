@@ -31,6 +31,7 @@ import {
 } from "./icons.ts";
 import { SearchBox } from "./SearchBox.tsx";
 import { TxnDialog } from "./TxnDialog.tsx";
+import { Badge } from "./ui/badge.tsx";
 import { cn } from "./ui/utils.ts";
 
 export const useAccountCell = (txns: Categorized[]) => {
@@ -310,7 +311,7 @@ export const TransactionsCard = ({
               : undefined
           }
           rowClassName={(i) =>
-            `${sorted[i]?.isPending ? "striped" : ""} ${selected.has(sorted[i]!) ? "bg-muted" : ""}`
+            selected.has(sorted[i]!) ? "bg-muted" : ""
           }
           columns={[
             ...(onBulk
@@ -367,6 +368,11 @@ export const TransactionsCard = ({
                   role="img"
                   className="shrink-0 text-muted-foreground"
                 />
+              )}
+              {t.isPending && (
+                <Badge variant="outline" className="border-dashed">
+                  Pending
+                </Badge>
               )}
             </span>,
             <PickCell
