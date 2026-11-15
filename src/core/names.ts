@@ -26,6 +26,75 @@ function titleCase(s: string): string {
     );
 }
 
+const CARD_PAYMENT = new Set([
+  "VISA Varekjøp",
+  "VISA Electron",
+  "Varer",
+  "Transaksjon",
+  "Kredittkort",
+]);
+
+const COMPANY_FORM = /^(as|asa|ab|da|ans|nuf|ltd|inc)$/i;
+
+const wordKey = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+
+export function branchFinder(
+  txns: {
+    counterparty: string | null;
+    originalCounterparty?: string;
+    typeText: string | null;
+  }[],
+): (t: (typeof txns)[number]) => string | null {
+  const clean = makeCleaner(txns.flatMap((t) => t.originalCounterparty || []));
+  const named = (raw: string) => {
+    if (!raw.includes(",")) return clean(raw);
+    const head = raw.split(",")[0]!.trim();
+    return head === head.toUpperCase() ? titleCase(head) : head;
+  };
+  const rawBranch = (t: (typeof txns)[number]) => {
+    if (!t.originalCounterparty || !t.counterparty) return null;
+    if (!CARD_PAYMENT.has(t.typeText ?? "")) return null;
+    const own = new Set(t.counterparty.split(/\s+/).map(wordKey));
+    const words = named(t.originalCounterparty)
+      .split(/\s+/)
+      .filter((w) => !COMPANY_FORM.test(w));
+    while (words.length && own.has(wordKey(words[0]!))) words.shift();
+    const branch = words.join(" ");
+    if (
+      !branch ||
+      wordKey(branch) === wordKey(t.counterparty) ||
+      /^paypal/i.test(branch) ||
+      !words.every((w) => /^\p{L}+\.?$/u.test(w))
+    )
+      return null;
+    return branch === branch.toUpperCase() ? titleCase(branch) : branch;
+  };
+  const known = new Map<string, Set<string>>();
+  for (const t of txns) {
+    const branch = rawBranch(t);
+    if (branch)
+      known.set(
+        t.counterparty!,
+        (known.get(t.counterparty!) ?? new Set()).add(branch),
+      );
+  }
+  return (t) => {
+    const branch = rawBranch(t);
+    if (!branch) return null;
+    const options = [...(known.get(t.counterparty!) ?? [])];
+    const size = branch.split(" ").length;
+    return (
+      options
+        .filter((b) => branch.startsWith(`${b} `))
+        .sort((a, b) => a.length - b.length)[0] ??
+      options
+        .filter((b) => b.startsWith(branch) && b.split(" ").length === size)
+        .sort((a, b) => b.length - a.length)[0] ??
+      branch
+    );
+  };
+}
+
 const MIN_TOKENS = 3;
 const PLACE_NAMES = 3;
 

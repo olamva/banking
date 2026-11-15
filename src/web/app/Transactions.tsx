@@ -17,8 +17,6 @@ import {
   categoryColor,
   categoryLabel,
   fmtNOK,
-  fmtDay,
-  fmtMonth,
   fmtNOKExact,
   fmtShortDate,
   rowLabel,
@@ -26,7 +24,6 @@ import {
 } from "./format.ts";
 import {
   CardIcon,
-  GroupIcon,
   Icon,
   ReceiptIcon,
   RecurringIcon,
@@ -34,14 +31,8 @@ import {
 } from "./icons.ts";
 import { SearchBox } from "./SearchBox.tsx";
 import { TxnDialog } from "./TxnDialog.tsx";
+import { GroupBySelect, TXN_GROUPS, useBranches } from "./TxnGroups.tsx";
 import { Badge } from "./ui/badge.tsx";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "./ui/select.tsx";
 import { cn } from "./ui/utils.ts";
 
 export const useAccountCell = (txns: Categorized[]) => {
@@ -132,26 +123,6 @@ const TXN_SORTS = {
 
 const useTxnSort = (txns: Categorized[]) =>
   useSort(txns, TXN_SORTS, "date", ["merchant", "subcategory", "account"]);
-
-const upper = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-const TXN_GROUPS: Record<
-  string,
-  {
-    of: (t: Categorized) => string;
-    label: (key: string) => string;
-    time?: boolean;
-  }
-> = {
-  Day: { of: (t) => t.date, label: (d) => upper(fmtDay(d)), time: true },
-  Month: {
-    of: (t) => t.date.slice(0, 7),
-    label: (m) => upper(fmtMonth(m)),
-    time: true,
-  },
-  Category: { of: (t) => t.category, label: categoryLabel },
-  Merchant: { of: merchantOf, label: (key) => key },
-  Account: { of: (t) => t.account, label: (key) => key },
-};
 
 const GROUP_SORTS = {
   name: (a: SubscriptionGroup, b: SubscriptionGroup) =>
@@ -322,6 +293,8 @@ export const TransactionsCard = ({
     () => shortDateSizes(txns.map((t) => t.date)),
     [txns],
   );
+  const { branches, sizes: branchSizes } = useBranches(txns);
+  const byCategory = groupBy === "Category";
 
   return (
     <Panel
@@ -353,25 +326,7 @@ export const TransactionsCard = ({
         <DataTable
           list
           onRow={(i) => setOpen(sorted[i] ?? null)}
-          controls={
-            <Select value={groupBy} onValueChange={setGroupBy}>
-              <SelectTrigger
-                size="sm"
-                aria-label="Group by"
-                className="text-xs"
-              >
-                <Icon icon={GroupIcon} className="max-sm:hidden" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent position="popper" align="end">
-                {[...Object.keys(TXN_GROUPS), "None"].map((g) => (
-                  <SelectItem key={g} value={g}>
-                    {g}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          }
+          controls={<GroupBySelect value={groupBy} onChange={setGroupBy} />}
           group={
             grouping
               ? {
@@ -408,13 +363,13 @@ export const TransactionsCard = ({
               : []),
             head("Date", "date", {
               min: true,
-              sizer: dateSizes,
+              sizer: groupBy === "Day" ? undefined : dateSizes,
               phone: "meta",
             }),
             head("Merchant / description", "merchant", { phone: "title" }),
             head("Category", "subcategory", {
               min: true,
-              sizer: subcategorySizes,
+              sizer: byCategory ? branchSizes : subcategorySizes,
               phone: "meta",
             }),
             head("Account", "account", { min: true, phone: "aside" }),
@@ -454,12 +409,16 @@ export const TransactionsCard = ({
                 </Badge>
               )}
             </span>,
-            <PickCell
-              label={rowLabel(t.category, t.subcategory)}
-              value={subcategoryOf(t)}
-              color={categoryColor(t.category)}
-              onPick={onCategory}
-            />,
+            byCategory ? (
+              (branches.get(t) ?? false)
+            ) : (
+              <PickCell
+                label={rowLabel(t.category, t.subcategory)}
+                value={subcategoryOf(t)}
+                color={categoryColor(t.category)}
+                onPick={onCategory}
+              />
+            ),
             accountCell(t, onAccount),
             <span className={cn("font-semibold", t.amount > 0 && "text-good")}>
               {fmtNOKExact(t.amount)}

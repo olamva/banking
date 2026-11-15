@@ -203,7 +203,7 @@ const List = ({
   const [closed, setClosed] = useState<Set<string>>(new Set());
   const slot = (row: ReactNode[], ...phone: Column["phone"][]) =>
     row.flatMap((cell, j) =>
-      phone.includes(columns[j]?.phone) && cell !== false
+      phone.includes(columns[j]?.phone) && (cell !== false || columns[j]?.sizer)
         ? [{ cell, c: columns[j]! }]
         : [],
     );
@@ -270,7 +270,10 @@ const List = ({
                     {meta.map((m, k) => (
                       <span
                         key={k}
-                        className="inline-flex gap-1 not-first:before:text-muted-foreground/60 not-first:before:content-['·'] sm:not-first:before:content-none"
+                        className={cn(
+                          "inline-flex gap-1 not-first:before:text-muted-foreground/60 not-first:before:content-['·'] sm:not-first:before:content-none",
+                          m.cell === false && "max-sm:hidden",
+                        )}
                       >
                         {sized(m)}
                       </span>
