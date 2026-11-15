@@ -322,7 +322,16 @@ export async function mailReceipt(id: string, raw: Uint8Array): Promise<Found> {
   };
   return {
     receipt,
-    fit: (paid) => ({ ...receipt, ...mailItems(mail, receipt.store, paid) }),
+    fit: (paid) => {
+      const found = mailItems(mail, receipt.store, paid);
+      return found
+        ? {
+            ...receipt,
+            ...found,
+            lines: found.lines.map((l) => ({ ...l, ...splitSize(l.name) })),
+          }
+        : receipt;
+    },
     amounts: [...text.matchAll(MONEY)].map(
       (m) =>
         Number((m[1] ?? m[3] ?? m[4])!.replace(/[ .,]/g, "")) +

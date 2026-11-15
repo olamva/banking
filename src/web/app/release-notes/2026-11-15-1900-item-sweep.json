@@ -3,7 +3,7 @@
   "highlights": [
     {
       "title": "Tidier item names",
-      "detail": "Items lose sale words such as Løsvekt, Stk and Kg, origin marks such as No and Imp, and size leftovers such as 0,50. The same product from different receipts now shows as one item."
+      "detail": "Items lose sale words such as Løsvekt, Stk and Kg, origin marks such as No and Imp, and size leftovers such as 0,50. The same product from different receipts now shows as one item. Mail receipts show a size such as 3 stk or 1,5 l apart from the name, as store receipts do."
     },
     {
       "title": "Categories for mail receipts",
