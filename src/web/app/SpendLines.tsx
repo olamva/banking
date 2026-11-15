@@ -50,9 +50,9 @@ export const SpendLines = ({
 
   const lines = groupLines(groups, dense);
   const shownLines = lines.filter((l) => shows(`g:${l.name}`));
-  const peaks = groups.length
+  const values = groups.length
     ? shownLines.flatMap((l) => l.dense.map((p) => p?.totalOut ?? 0))
-    : [...series, ...compare].map((p) => Math.max(p.totalIn, p.totalOut));
+    : [...series, ...compare].flatMap((p) => [p.totalIn, p.totalOut]);
 
   const multiYear = new Set(series.map((p) => p.at.slice(0, 4))).size > 1;
   const height = multiYear ? 234 : 220;
@@ -61,7 +61,7 @@ export const SpendLines = ({
   const padT = 10;
   const plotW = Math.max(width - padL - 16, 20);
   const plotH = height - padB - padT;
-  const maxVal = Math.max(...peaks, 1);
+  const maxVal = Math.max(...values, 1);
   const step = niceStep(maxVal);
   const gridMax = Math.ceil(maxVal / step) * step;
 
@@ -73,10 +73,7 @@ export const SpendLines = ({
     ? [0, dense.length - 1].map((x) => trend.intercept + trend.slope * x)
     : [];
 
-  const lows = [
-    ...(shows("trend") ? ends : []),
-    ...(groups.length ? [] : [...series, ...compare].map((p) => p.totalOut)),
-  ];
+  const lows = [...(shows("trend") ? ends : []), ...values];
   const gridMin = Math.min(0, ...lows.map((v) => Math.floor(v / step) * step));
   const ticks = Array.from(
     { length: Math.round((gridMax - gridMin) / step) + 1 },

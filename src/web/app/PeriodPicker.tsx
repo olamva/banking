@@ -165,7 +165,7 @@ export const PeriodPicker = ({
                 max={to ?? latest}
                 onChange={(e) => onPeriod(`${e.target.value}..${to ?? ""}`)}
                 aria-label="From"
-                className="h-8 px-1.5 text-xs"
+                className="h-8 appearance-none px-1.5 text-xs"
               />
               <Input
                 type="date"
@@ -174,7 +174,7 @@ export const PeriodPicker = ({
                 max={latest}
                 onChange={(e) => onPeriod(`${from ?? ""}..${e.target.value}`)}
                 aria-label="To"
-                className="h-8 px-1.5 text-xs"
+                className="h-8 appearance-none px-1.5 text-xs"
               />
             </div>
           )}
