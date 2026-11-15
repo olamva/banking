@@ -2,16 +2,8 @@
   "bump": "minor",
   "highlights": [
     {
-      "title": "Transactions as a list",
-      "detail": "Transactions, Subscriptions and the rule match list show as a list instead of a table. On a phone, each row has the name and the amount on the first line, and the details on the second line. On a wider screen, each row is one line. You do not scroll sideways, and the page scrolls as one."
-    },
-    {
-      "title": "Days you can fold",
-      "detail": "When you sort transactions by date, they are grouped by day. Each day shows its total. Tap a day to fold or unfold its transactions."
-    },
-    {
-      "title": "Less clutter",
-      "detail": "Dates are short, such as 19. okt. The account you use most is hidden, and a card account shows as a card icon. Amounts are bold."
+      "title": "Lists on the phone",
+      "detail": "On a phone, each table shows as a list. Each row shows the name and the amount on the first line. The date, category, account and other details are on the second line. You do not scroll sideways, and the page scrolls as one."
     },
     {
       "title": "Sort and load more",
