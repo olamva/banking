@@ -75,24 +75,25 @@ export const PickCell = ({
   onPick,
   children,
 }: PickCellProps) => (
-  <button
-    type="button"
+  <Button
+    variant="link"
     onClick={(e) => {
       e.stopPropagation();
       if (!highlighting(e)) onPick(value, e.metaKey);
     }}
     style={color ? { color } : undefined}
-    className="text-left underline-offset-2 hover:underline"
+    className="h-auto justify-start rounded-none p-0 text-left text-[length:inherit] font-normal text-inherit underline-offset-2 active:not-aria-[haspopup]:translate-y-0"
   >
     {children || label}
-  </button>
+  </Button>
 );
 
 const SortHeader = ({ c }: { c: Column }) => (
-  <button
-    type="button"
+  <Button
+    variant="ghost"
+    size="xs"
     onClick={c.onClick}
-    className="inline-flex items-center gap-1 font-medium text-muted-foreground hover:text-foreground"
+    className="h-auto px-0 text-muted-foreground hover:bg-transparent dark:hover:bg-transparent"
   >
     {c.label}
     <Icon
@@ -103,10 +104,9 @@ const SortHeader = ({ c }: { c: Column }) => (
             ? SortDescIcon
             : SortableIcon
       }
-      size={13}
-      className={cn("shrink-0", !c.sort && "opacity-40")}
+      className={cn(!c.sort && "opacity-40")}
     />
-  </button>
+  </Button>
 );
 
 interface DataTableProps {
