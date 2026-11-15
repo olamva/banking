@@ -1,6 +1,7 @@
 import {
   useDeferredValue,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -170,6 +171,8 @@ export const App = () => {
       writeUrl({ view, ruleFile, period: chosen, grain, group, sort, filters }),
     [view, ruleFile, chosen, grain, group, sort, filters],
   );
+
+  useLayoutEffect(() => window.scrollTo(0, 0), [view]);
 
   const steps = p.kind === "month" ? months : p.kind === "year" ? years : [];
   const nextStep = (by: number) => steps[steps.indexOf(active) + by];
