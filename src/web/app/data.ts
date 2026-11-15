@@ -395,8 +395,9 @@ export const useHideOnScroll = (
     const onScroll = () => {
       const y = window.scrollY;
       const height = header.current?.offsetHeight ?? 0;
-      setHidden((was) => headerHidden(y, last, was, height));
-      if (Math.abs(y - last) >= 8) last = y;
+      const held = !!header.current?.querySelector("[data-state=open]");
+      setHidden((was) => !held && headerHidden(y, last, was, height));
+      if (held || Math.abs(y - last) >= 8) last = y;
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
