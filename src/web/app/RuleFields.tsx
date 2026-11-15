@@ -139,7 +139,7 @@ export const MatchTable = ({ txns, loading }: MatchTableProps) => {
       className={`mt-2 rounded-lg border bg-card px-3 py-1 transition-opacity ${loading ? "pointer-events-none opacity-70" : ""}`}
     >
       <DataTable
-        scroll
+        list
         onRow={(i) => setSelected(txns[i] ?? null)}
         columns={[
           { label: "Date", min: true, phone: "meta" },

@@ -15,6 +15,7 @@ import {
   SortableIcon,
   UpIcon,
 } from "./icons.ts";
+import { Caret } from "./Cards.tsx";
 import { cn } from "./ui/utils.ts";
 
 const Sizer = ({ of }: { of: string[] }) => (
@@ -100,6 +101,12 @@ interface DataTableProps {
   scroll?: boolean;
   onRow?: (index: number) => void;
   rowClassName?: (index: number) => string;
+  list?: boolean;
+  group?: {
+    of: (index: number) => string;
+    label: (key: string) => ReactNode;
+    total: (indices: number[]) => ReactNode;
+  };
 }
 
 const WINDOW_OVER = 80;
@@ -117,7 +124,7 @@ const usePhone = () =>
     () => phoneQuery.matches,
   );
 
-const PhoneSort = ({ columns }: { columns: Column[] }) => {
+const ListSort = ({ columns }: { columns: Column[] }) => {
   const sortable = columns.filter((c) => c.onClick && c.phone);
   const current = sortable.find((c) => c.sort);
   const lead = columns.find((c) => c.phone === "lead")?.header;
@@ -169,88 +176,123 @@ const PhoneSort = ({ columns }: { columns: Column[] }) => {
   );
 };
 
-const PhoneList = ({ columns, rows, onRow, rowClassName }: DataTableProps) => {
+const List = ({
+  columns,
+  rows,
+  onRow,
+  rowClassName,
+  group,
+}: DataTableProps) => {
   const [limit, setLimit] = useState(PAGE);
+  const [closed, setClosed] = useState<Set<string>>(new Set());
   const slot = (row: ReactNode[], ...phone: Column["phone"][]) =>
     row.flatMap((cell, j) =>
       phone.includes(columns[j]?.phone) && cell !== false
         ? [{ cell, c: columns[j]! }]
         : [],
     );
+  const days = group && Map.groupBy(rows.keys(), group.of);
+  const hasAside = columns.some((c) => c.phone === "aside");
+  const toggle = (key: string) =>
+    setClosed((s) => new Set(s.symmetricDifference(new Set([key]))));
 
   return (
     <div>
-      <PhoneSort columns={columns} />
+      <ListSort columns={columns} />
       <ul className="-mx-(--card-spacing) border-t">
         {rows.slice(0, limit).map((row, i) => {
           const meta = slot(row, "meta");
           const labeled = slot(row, "labeled");
           const aside = slot(row, "aside");
-          return (
-            <li
-              key={i}
-              onClick={onRow && ((e) => !highlighting(e) && onRow(i))}
-              className={cn(
-                "flex min-h-12 items-start gap-3 border-b border-border/70 px-(--card-spacing) py-3 tabular-nums last:border-b-0",
-                onRow && "cursor-pointer active:bg-muted/60",
-                rowClassName?.(i),
-              )}
-            >
-              {slot(row, "lead").map(({ cell }, k) => (
-                <span key={k} className="pt-0.5">
-                  {cell}
-                </span>
-              ))}
-              <div className="min-w-0 flex-1">
-                <div className="flex items-baseline gap-3 text-[15px] leading-5">
-                  <div
-                    className={cn(
-                      "min-w-0 flex-1 truncate",
-                      onRow && "pointer-events-none",
-                    )}
-                  >
-                    {slot(row, "title").map(({ cell }) => cell)}
-                  </div>
-                  {slot(row, "end").map(({ cell }, k) => (
-                    <span key={k} className="shrink-0 font-semibold">
-                      {cell}
-                    </span>
-                  ))}
-                </div>
-                {meta.length + labeled.length + aside.length > 0 && (
-                  <div className="mt-1 flex items-start gap-3 text-[13px] leading-4.5 text-muted-foreground">
-                    <div className="flex min-w-0 flex-1 flex-wrap gap-x-3">
-                      {meta.length > 0 && (
-                        <span className="inline-flex flex-wrap gap-x-1">
-                          {meta.map(({ cell }, k) => (
-                            <span
-                              key={k}
-                              className="inline-flex gap-1 not-first:before:text-muted-foreground/60 not-first:before:content-['·']"
-                            >
-                              {cell}
-                            </span>
-                          ))}
-                        </span>
+          const key = group?.of(i);
+          const shut = key !== undefined && closed.has(key);
+          return [
+            key !== undefined && (i === 0 || group!.of(i - 1) !== key) && (
+              <li key={`day-${key}`} className="border-b">
+                <button
+                  type="button"
+                  aria-expanded={!shut}
+                  onClick={() => toggle(key)}
+                  className="flex w-full items-center gap-2 px-(--card-spacing) pt-4 pb-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+                >
+                  <Caret open={!shut} />
+                  {group!.label(key)}
+                  <span className="ml-auto tabular-nums">
+                    {group!.total(days!.get(key)!)}
+                  </span>
+                </button>
+              </li>
+            ),
+            !shut && (
+              <li
+                key={i}
+                onClick={onRow && ((e) => !highlighting(e) && onRow(i))}
+                className={cn(
+                  "flex min-h-12 items-start gap-3 border-b border-border/70 px-(--card-spacing) py-3 tabular-nums last:border-b-0 sm:min-h-10 sm:items-center sm:py-2",
+                  onRow &&
+                    "cursor-pointer hover:bg-muted/60 active:bg-muted/60",
+                  rowClassName?.(i),
+                )}
+              >
+                {slot(row, "lead").map(({ cell }, k) => (
+                  <span key={k} className="pt-0.5 sm:pt-0">
+                    {cell}
+                  </span>
+                ))}
+                <div className="min-w-0 flex-1 sm:flex sm:items-center sm:gap-6">
+                  <div className="flex items-baseline gap-3 text-[15px] leading-5 sm:contents sm:text-sm">
+                    <div
+                      className={cn(
+                        "min-w-0 flex-1 truncate sm:order-1",
+                        onRow && "pointer-events-none",
                       )}
-                      {labeled.map(({ cell, c }, k) => (
-                        <span key={k} className="inline-flex gap-1">
-                          <span className="text-muted-foreground/70">
-                            {c.label}
-                          </span>
-                          {cell}
-                        </span>
-                      ))}
+                    >
+                      {slot(row, "title").map(({ cell }) => cell)}
                     </div>
-                    {aside.map(({ cell }, k) => (
-                      <span key={k} className="flex shrink-0">
+                    {slot(row, "end").map(({ cell }, k) => (
+                      <span
+                        key={k}
+                        className="shrink-0 font-semibold sm:order-4 sm:w-28 sm:text-right"
+                      >
                         {cell}
                       </span>
                     ))}
                   </div>
-                )}
-              </div>
-            </li>
-          );
+                  {meta.length + labeled.length + aside.length > 0 && (
+                    <div className="mt-1 flex items-start gap-3 text-[13px] leading-4.5 text-muted-foreground sm:contents">
+                      <div className="flex min-w-0 flex-1 flex-wrap gap-x-3 sm:order-2">
+                        {meta.length > 0 && (
+                          <span className="inline-flex flex-wrap gap-x-1">
+                            {meta.map(({ cell }, k) => (
+                              <span
+                                key={k}
+                                className="inline-flex gap-1 not-first:before:text-muted-foreground/60 not-first:before:content-['·']"
+                              >
+                                {cell}
+                              </span>
+                            ))}
+                          </span>
+                        )}
+                        {labeled.map(({ cell, c }, k) => (
+                          <span key={k} className="inline-flex gap-1">
+                            <span className="text-muted-foreground/70">
+                              {c.label}
+                            </span>
+                            {cell}
+                          </span>
+                        ))}
+                      </div>
+                      {hasAside && (
+                        <span className="flex shrink-0 sm:order-3 sm:w-28">
+                          {aside.map(({ cell }) => cell)}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </li>
+            ),
+          ];
         })}
       </ul>
       {rows.length > limit && (
@@ -377,9 +419,12 @@ const WideTable = ({
   );
 };
 
-export const DataTable = (props: DataTableProps) =>
-  usePhone() && props.columns.some((c) => c.phone === "title") ? (
-    <PhoneList {...props} />
+export const DataTable = (props: DataTableProps) => {
+  const phone = usePhone();
+  return (props.list || phone) &&
+    props.columns.some((c) => c.phone === "title") ? (
+    <List {...props} />
   ) : (
     <WideTable {...props} />
   );
+};
