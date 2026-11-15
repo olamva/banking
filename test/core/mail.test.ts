@@ -69,7 +69,7 @@ before(async () => {
   mail("power", "POWER Norge <noreply@power.no>", "2 Oct 2026", [
     "<table>",
     "<tr><td>Produkt</td><td>Antall</td><td>Sum</td></tr>",
-    "<tr><td>KULZ VANNKOKER, SVART</td><td>1</td><td>kr 199,00</td></tr>",
+    "<tr><td>KULZ VANNKOKER 1,7 L</td><td>1</td><td>kr 199,00</td></tr>",
     "<tr><td>EMV Power Norge</td><td></td><td>-kr 99,50</td></tr>",
     "<tr><td>POINT BRØDRISTER</td><td>2</td><td>kr 998,00</td></tr>",
     "<tr><td>Delsum</td><td>kr 1&nbsp;097,50</td></tr>",
@@ -122,7 +122,7 @@ const receipt = (id: string) => {
 test("a mail receipt lists the item rows that add up to its total", () => {
   assert.deepEqual(receipt("power"), {
     lines: [
-      ["KULZ VANNKOKER, SVART", 1, 199, 199],
+      ["KULZ VANNKOKER", 1, 199, 199],
       ["EMV Power Norge", 1, -99.5, -99.5],
       ["POINT BRØDRISTER", 2, 499, 998],
       ["Frakt", 1, 79, 79],
@@ -142,16 +142,20 @@ test("a mail that prints one item beside the total gives that item the total", (
   assert.deepEqual(receipt("steam").lines, [["Valheim", 1, 145, 145]]);
 });
 
-test("a mail receipt prints its fees and VAT, but Items leaves them out", () => {
+test("a mail receipt prints its fees and VAT, but Items leaves them out and splits off the size", () => {
   assert.deepEqual(receipt("claude").lines, [
     ["Claude Pro", 1, 183.2, 183.2],
     ["VAT (25%)", 1, 45.8, 45.8],
   ]);
   assert.deepEqual(
     purchasesOf(rows.filter((t) => t.id === "power" || t.id === "claude")).map(
-      (p) => p.raw,
+      (p) => [p.raw, p.size],
     ),
-    ["KULZ VANNKOKER, SVART", "POINT BRØDRISTER", "Claude Pro"],
+    [
+      ["KULZ VANNKOKER", "1,7 l"],
+      ["POINT BRØDRISTER", undefined],
+      ["Claude Pro", undefined],
+    ],
   );
 });
 
