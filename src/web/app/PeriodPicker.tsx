@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { PeriodKind } from "../../core/select.ts";
+import { RECENT_DAYS, type PeriodKind } from "../../core/select.ts";
 import { CalendarIcon, Icon, NextIcon, PrevIcon } from "./icons.ts";
 import { Button } from "./ui/button.tsx";
 import { ButtonGroup } from "./ui/button-group.tsx";
@@ -32,11 +32,13 @@ const realDate = (d: string): string => {
 const periodLabel = (kind: PeriodKind, period: string): string =>
   kind === "all"
     ? "All time"
-    : kind === "custom"
-      ? "Custom range"
-      : kind === "year"
-        ? period
-        : `${MONTH_NAMES[Number(period.slice(5)) - 1]} ${period.slice(0, 4)}`;
+    : kind === "recent"
+      ? `Last ${parseInt(period)} days`
+      : kind === "custom"
+        ? "Custom range"
+        : kind === "year"
+          ? period
+          : `${MONTH_NAMES[Number(period.slice(5)) - 1]} ${period.slice(0, 4)}`;
 
 interface PeriodPickerProps {
   months: string[];
@@ -119,6 +121,21 @@ export const PeriodPicker = ({
           align="start"
           className="w-76 max-w-[calc(100vw-1.5rem)] gap-2 p-2"
         >
+          <p className="px-1 text-xs text-muted-foreground">Last</p>
+          <div className="grid grid-cols-4 gap-1">
+            {RECENT_DAYS.map((days) => (
+              <Button
+                key={days}
+                variant="ghost"
+                size="sm"
+                aria-label={`Last ${days} days`}
+                className={pick(period === `${days}d`)}
+                onClick={() => choose(`${days}d`)}
+              >
+                {days} days
+              </Button>
+            ))}
+          </div>
           <div className="grid grid-cols-2 gap-1">
             <Button
               variant="ghost"

@@ -7,7 +7,6 @@ import { Button } from "./ui/button.tsx";
 import { Checkbox } from "./ui/checkbox.tsx";
 
 interface BulkToolbarProps {
-  txns: Categorized[];
   picked: Categorized[];
   onBulk: (txns: Categorized[], file: BulkFile) => void;
   onClear: () => void;
@@ -52,30 +51,22 @@ export const BulkCheckbox = ({
   />
 );
 
-export const BulkToolbar = ({
-  txns,
-  picked,
-  onBulk,
-  onClear,
-}: BulkToolbarProps) => {
-  const targets = picked.length > 0 ? picked : txns;
-  return (
+export const BulkToolbar = ({ picked, onBulk, onClear }: BulkToolbarProps) =>
+  picked.length > 0 && (
     <div className="flex flex-wrap items-center justify-end gap-1">
-      {picked.length > 0 && (
-        <Button
-          variant="secondary"
-          size="sm"
-          aria-live="polite"
-          onClick={onClear}
-        >
-          {picked.length} selected
-          <Icon icon={CloseIcon} size={12} />
-        </Button>
-      )}
+      <Button
+        variant="secondary"
+        size="sm"
+        aria-live="polite"
+        onClick={onClear}
+      >
+        {picked.length} selected
+        <Icon icon={CloseIcon} size={12} />
+      </Button>
       <Button
         variant="ghost"
         size="sm"
-        onClick={() => onBulk(targets, "payees")}
+        onClick={() => onBulk(picked, "payees")}
       >
         <Icon icon={EditIcon} size={14} />
         Rename payees
@@ -83,11 +74,10 @@ export const BulkToolbar = ({
       <Button
         variant="ghost"
         size="sm"
-        onClick={() => onBulk(targets, "categories")}
+        onClick={() => onBulk(picked, "categories")}
       >
         <Icon icon={CategoryIcon} size={14} />
         Change category
       </Button>
     </div>
   );
-};

@@ -12,10 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover.tsx";
 import { Switch } from "./ui/switch.tsx";
 import { cn } from "./ui/utils.ts";
 
-export type View =
-  "dashboard" | "insights" | "transactions" | "items" | "rules";
-
-export const SEARCH_VIEWS: View[] = ["transactions", "items"];
+export type View = "transactions" | "overview" | "rules";
 
 interface SwitchFieldProps {
   label: string;
@@ -178,9 +175,8 @@ const X = ({ label, onClick }: { label: string; onClick: () => void }) => (
   </button>
 );
 
-export const activeCount = (specs: AxisSpec[], f: Filters, view: View) =>
+export const activeCount = (specs: AxisSpec[], f: Filters) =>
   specs.reduce((n, s) => n + f[s.axis].length + f[AXES[s.axis]].length, 0) +
-  Number(f.search !== "" && !SEARCH_VIEWS.includes(view)) +
   Number(f.showExcluded);
 
 interface AxisChipProps {
@@ -246,7 +242,6 @@ const PlainChip = ({
 );
 
 interface FilterChipsProps {
-  view: View;
   specs: AxisSpec[];
   filters: Filters;
   onFilters: (filters: Filters) => void;
@@ -254,7 +249,6 @@ interface FilterChipsProps {
 }
 
 export const FilterChips = ({
-  view,
   specs,
   filters,
   onFilters,
@@ -263,8 +257,7 @@ export const FilterChips = ({
   const axes = specs.filter(
     (s) => filters[s.axis].length + filters[AXES[s.axis]].length > 0,
   );
-  const search = filters.search !== "" && !SEARCH_VIEWS.includes(view);
-  const count = axes.length + Number(search) + Number(filters.showExcluded);
+  const count = axes.length + Number(filters.showExcluded);
   if (count === 0) return null;
 
   return (
@@ -278,15 +271,6 @@ export const FilterChips = ({
           onEdit={() => onEdit(spec.axis)}
         />
       ))}
-      {search && (
-        <PlainChip
-          label="Remove text search"
-          onRemove={() => onFilters({ ...filters, search: "" })}
-        >
-          <span className="text-muted-foreground">Text:</span> “{filters.search}
-          ”
-        </PlainChip>
-      )}
       {filters.showExcluded && (
         <PlainChip
           label="Hide internal transfers"
