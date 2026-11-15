@@ -7,6 +7,7 @@ import {
   ID_FIELD,
   bankLabel,
   categoryColor,
+  flagOf,
   fmtDate,
   fmtNOKExact,
   rowLabel,
@@ -218,7 +219,10 @@ export const TxnDialog = ({
             </Fact>
             {txn.country && (
               <Fact label="Country" edit={edit("countries", "Change country")}>
-                {txn.country}
+                <span className="inline-flex items-center gap-2">
+                  <span aria-hidden>{flagOf(txn.country)}</span>
+                  {txn.country}
+                </span>
               </Fact>
             )}
             {txn.typeText && <Fact label="Type">{txn.typeText}</Fact>}
