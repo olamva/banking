@@ -22,8 +22,7 @@ import {
   fmtNOKExact,
   rowLabel,
 } from "./format.ts";
-import { Icon, ReceiptIcon, RecurringIcon, TransactionsIcon } from "./icons.ts";
-import { SearchBox } from "./SearchBox.tsx";
+import { Icon, ReceiptIcon, RecurringIcon } from "./icons.ts";
 import { TxnDialog } from "./TxnDialog.tsx";
 const useSort = <T, S extends Record<string, (a: T, b: T) => number>>(
   items: T[],
@@ -97,18 +96,7 @@ export const SubscriptionsCard = ({
   onMerchant,
   onCategory,
 }: SubscriptionsCardProps) => {
-  const [search, setSearch] = useState("");
-  const shown = useMemo(() => {
-    const q = search.toLowerCase();
-    return q
-      ? groups.filter(
-          (g) =>
-            g.name.toLowerCase().includes(q) ||
-            categoryLabel(g.category).toLowerCase().includes(q),
-        )
-      : groups;
-  }, [groups, search]);
-  const { sorted, head } = useSort(shown, GROUP_SORTS, "total", [
+  const { sorted, head } = useSort(groups, GROUP_SORTS, "total", [
     "name",
     "category",
   ]);
@@ -124,59 +112,45 @@ export const SubscriptionsCard = ({
       title="Subscriptions & recurring"
       description={`${groups.length} found in this period`}
       icon={RecurringIcon}
-      action={
-        <SearchBox
-          value={search}
-          onChange={setSearch}
-          placeholder="Search subscriptions…"
-          className="w-40 sm:w-56"
-        />
-      }
     >
-      {sorted.length === 0 ? (
-        <Empty>No subscriptions match the search.</Empty>
-      ) : (
-        <DataTable
-          scroll
-          columns={[
-            head("Subscription", "name"),
-            head("Category", "category", { min: true, sizer: categorySizes }),
-            head("Charges", "count", { num: true, min: true }),
-            head("Per month", "latest", {
-              num: true,
-              min: true,
-              sizer: AMOUNT_SIZE,
-            }),
-            head("Total", "total", {
-              num: true,
-              min: true,
-              sizer: AMOUNT_SIZE,
-            }),
-            head("Last", "last", { min: true }),
-          ]}
-          rows={sorted.map((g) => [
-            <PickCell label={g.name} onPick={onMerchant} />,
-            <PickCell
-              label={categoryLabel(g.category)}
-              value={g.category}
-              color={categoryColor(g.category)}
-              onPick={onCategory}
-            />,
-            g.count,
-            fmtNOK(g.latest),
-            fmtNOK(g.total),
-            g.last,
-          ])}
-        />
-      )}
+      <DataTable
+        scroll
+        columns={[
+          head("Subscription", "name"),
+          head("Category", "category", { min: true, sizer: categorySizes }),
+          head("Charges", "count", { num: true, min: true }),
+          head("Per month", "latest", {
+            num: true,
+            min: true,
+            sizer: AMOUNT_SIZE,
+          }),
+          head("Total", "total", {
+            num: true,
+            min: true,
+            sizer: AMOUNT_SIZE,
+          }),
+          head("Last", "last", { min: true }),
+        ]}
+        rows={sorted.map((g) => [
+          <PickCell label={g.name} onPick={onMerchant} />,
+          <PickCell
+            label={categoryLabel(g.category)}
+            value={g.category}
+            color={categoryColor(g.category)}
+            onPick={onCategory}
+          />,
+          g.count,
+          fmtNOK(g.latest),
+          fmtNOK(g.total),
+          g.last,
+        ])}
+      />
     </Panel>
   );
 };
 
 interface TransactionsCardProps {
   txns: Categorized[];
-  search: string;
-  onSearch: (search: string) => void;
   onMerchant: (merchant: string, meta: boolean) => void;
   onCategory: (category: string, meta: boolean) => void;
   onAccount: (account: string, meta: boolean) => void;
@@ -186,8 +160,6 @@ interface TransactionsCardProps {
 
 export const TransactionsCard = ({
   txns,
-  search,
-  onSearch,
   onMerchant,
   onCategory,
   onAccount,
@@ -206,29 +178,20 @@ export const TransactionsCard = ({
   );
 
   return (
-    <Panel
-      title="Transactions"
-      description={`${txns.length} rows`}
-      icon={TransactionsIcon}
-      action={
-        onBulk &&
-        txns.length > 0 && (
+    <section className="min-w-0">
+      <div className="mb-2 flex min-h-8 flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-muted-foreground tabular-nums">
+          {txns.length} {txns.length === 1 ? "transaction" : "transactions"}
+        </p>
+        {onBulk && txns.length > 0 && (
           <BulkToolbar
             txns={txns}
             picked={picked}
             onBulk={onBulk}
             onClear={() => setSelected(new Set())}
           />
-        )
-      }
-    >
-      <SearchBox
-        hotkey
-        value={search}
-        onChange={onSearch}
-        placeholder="Search merchant or description…"
-        className="mb-2"
-      />
+        )}
+      </div>
       {sorted.length === 0 ? (
         <Empty>No transactions match the current filters.</Empty>
       ) : (
@@ -323,6 +286,6 @@ export const TransactionsCard = ({
           })}
         />
       )}
-    </Panel>
+    </section>
   );
 };

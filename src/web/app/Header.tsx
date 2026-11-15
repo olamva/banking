@@ -68,7 +68,7 @@ export const Header = ({
         <h1 className="min-w-0 flex-1 truncate text-base font-semibold sm:flex-none">
           {title}
         </h1>
-        <div className="flex min-w-0 items-center gap-2 max-sm:order-last max-sm:w-full sm:ml-2">
+        <div className="flex min-w-0 items-center gap-2 max-sm:order-last max-sm:w-full max-sm:flex-wrap sm:ml-2">
           {controls}
         </div>
         <div className="ml-auto">{action}</div>

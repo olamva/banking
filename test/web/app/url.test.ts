@@ -8,7 +8,7 @@ import {
 } from "../../../src/web/app/url.ts";
 
 const DEFAULT: UrlState = {
-  view: "dashboard",
+  view: "transactions",
   ruleFile: "categories",
   period: null,
   grain: "running",
@@ -21,7 +21,7 @@ test("the untouched page has no query string at all", () => {
 
 test("a populated state round-trips, nulls included", () => {
   const state: UrlState = {
-    view: "transactions",
+    view: "overview",
     ruleFile: "categories",
     grain: "month",
     period: "2026",
@@ -52,21 +52,28 @@ test("the period is one param, and the same one in either view", () => {
   assert.equal(
     toParams({
       ...DEFAULT,
-      view: "transactions",
+      view: "overview",
       ruleFile: "categories",
       period: "all",
       grain: "month",
     }),
-    "view=transactions&p=all",
+    "view=overview&p=all",
   );
 });
 
-test("the insights and items views round-trip through the URL", () => {
-  for (const view of ["insights", "items"] as const) {
-    const state: UrlState = { ...DEFAULT, view, period: "2026" };
-    assert.equal(toParams(state), `view=${view}&p=2026`);
-    assert.deepEqual(fromParams(new URLSearchParams(toParams(state))), state);
-  }
+test("the overview round-trips, and its old page names still open it", () => {
+  const state: UrlState = { ...DEFAULT, view: "overview", period: "2026" };
+  assert.equal(toParams(state), "view=overview&p=2026");
+  assert.deepEqual(fromParams(new URLSearchParams(toParams(state))), state);
+  for (const old of ["dashboard", "insights", "items"])
+    assert.equal(
+      fromParams(new URLSearchParams(`view=${old}`)).view,
+      "overview",
+    );
+  assert.equal(
+    fromParams(new URLSearchParams("view=toString")).view,
+    "transactions",
+  );
 });
 
 test("the chart grain rides along, and only when it is not the default", () => {
@@ -166,7 +173,7 @@ test("showExcluded rides along only when it is on", () => {
 test("junk params fall back to the default, and an empty cat is no categories", () => {
   const s = fromParams(new URLSearchParams("cat=&view=sideways&p="));
   assert.deepEqual(s.filters.categories, []);
-  assert.equal(s.view, "dashboard");
+  assert.equal(s.view, "transactions");
   assert.equal(s.period, null);
 });
 

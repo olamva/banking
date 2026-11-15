@@ -13,22 +13,22 @@ import {
   type Filters,
 } from "../../core/select.ts";
 import type { Categorized } from "../../core/types.ts";
-import {
-  DataTable,
-  Empty,
-  Note,
-  Panel,
-  StatTile,
-  type Column,
-} from "./Cards.tsx";
+import { DataTable, Empty, Note, Panel, type Column } from "./Cards.tsx";
 import { HorizontalBars, type BarItem } from "./Charts.tsx";
 import { itemRules, type RulesApi } from "./data.ts";
 import { fmtDate, fmtNOK, fmtNOKExact, fmtPct } from "./format.ts";
-import { CategoryIcon, ChangesIcon, InfoIcon, ItemsIcon } from "./icons.ts";
+import {
+  CategoryIcon,
+  ChangesIcon,
+  Icon,
+  InfoIcon,
+  ItemsIcon,
+} from "./icons.ts";
 import { SwitchField } from "./FilterBar.tsx";
 import { fmtGap, fmtQty, ItemSheet } from "./ItemSheet.tsx";
-import { PriceChart } from "./PriceChart.tsx";
-import { SearchBox } from "./SearchBox.tsx";
+import { cn } from "./ui/utils.ts";
+
+const MIN_SWING = 0.05;
 
 type Sort =
   | "name"
@@ -112,13 +112,20 @@ interface ItemsProps {
   filters: Filters;
   rules: RulesApi;
   onFilters: (filters: Filters) => void;
+  grid: string;
+  className?: string;
 }
 
-export const Items = ({ rows, filters, rules, onFilters }: ItemsProps) => {
-  const words = useDeferredValue(filters.search)
-    .toLowerCase()
-    .replace(/(\d),(\d)/g, "$1.$2")
-    .split(/\s+/);
+export const Items = ({
+  rows,
+  filters,
+  rules,
+  onFilters,
+  grid,
+  className,
+}: ItemsProps) => {
+  const search = useDeferredValue(filters.search).toLowerCase();
+  const words = search.replace(/(\d),(\d)/g, "$1.$2").split(/\s+/);
   const [bySize, setBySize] = useState(false);
   const names = itemRules(rules);
   const categories = itemRules(rules, "item-categories");
@@ -130,7 +137,7 @@ export const Items = ({ rows, filters, rules, onFilters }: ItemsProps) => {
         rows.filter((t) =>
           matchesFilters(t, {
             ...filters,
-            search: "",
+            search,
             items: [],
             itemsOut: [],
             kinds: [],
@@ -141,15 +148,17 @@ export const Items = ({ rows, filters, rules, onFilters }: ItemsProps) => {
         filters.withoutDeposit,
         categories,
       ),
-    [rows, filters, names, categories],
+    [rows, filters, search, names, categories],
   );
   const items = useMemo(() => itemsOf(purchases, bySize), [purchases, bySize]);
   const picks = filters.items.map(nameKey);
   const drops = filters.itemsOut.map(nameKey);
-  const shown = items.filter(({ key, category, purchases: [first] }) => {
+  const shown = items.filter(({ key, category, purchases: list }) => {
     const kind = [topCategory(category), category];
+    const first = list[0];
     return (
-      words.every((w) => key.includes(w)) &&
+      (words.every((w) => key.includes(w)) ||
+        list.some((p) => p.store.toLowerCase().includes(search))) &&
       (!picks.length || picks.includes(first!.key)) &&
       !drops.includes(first!.key) &&
       (!filters.kinds.length || kind.some((k) => filters.kinds.includes(k))) &&
@@ -211,7 +220,7 @@ export const Items = ({ rows, filters, rules, onFilters }: ItemsProps) => {
   ]);
 
   const swings = shown
-    .filter((i) => i.change)
+    .filter((i) => i.change !== null && Math.abs(i.change) >= MIN_SWING)
     .toSorted((a, b) => a.change! - b.change!);
 
   const bought = shown.reduce((n, i) => n + i.count, 0);
@@ -219,31 +228,20 @@ export const Items = ({ rows, filters, rules, onFilters }: ItemsProps) => {
     shown.flatMap((i) => i.purchases.map((p) => p.receipt)),
   ).size;
 
+  if (items.length === 0) return null;
+
   return (
-    <>
-      <div className="mb-4 flex flex-wrap gap-2">
-        <SearchBox
-          value={filters.search}
-          onChange={(search) => onFilters({ ...filters, search })}
-          placeholder="Search items"
-          hotkey
-          className="flex-1"
-        />
-        <SwitchField
-          label="Split by size"
-          checked={bySize}
-          onChange={setBySize}
-          className="sm:h-auto sm:self-stretch"
-        />
-      </div>
-      <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(min(150px,100%),1fr))] gap-3 max-sm:grid-cols-2">
-        <StatTile label="Items" value={String(shown.length)} />
-        <StatTile label="Purchases" value={String(bought)} />
-        <StatTile label="Shopping trips" value={String(receipts)} />
-        <StatTile
-          label="Spent"
-          value={fmtNOK(shown.reduce((n, i) => n + i.spent, 0))}
-        />
+    <section className={className}>
+      <div className="mb-3">
+        <h2 className="flex items-center gap-2 text-sm font-semibold">
+          <Icon icon={ItemsIcon} size={16} className="text-muted-foreground" />
+          Items from receipts
+        </h2>
+        <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
+          {receipts} {receipts === 1 ? "receipt" : "receipts"} · {bought}{" "}
+          {bought === 1 ? "purchase" : "purchases"} ·{" "}
+          {fmtNOK(shown.reduce((n, i) => n + i.spent, 0))}
+        </p>
       </div>
       {open && (
         <ItemSheet
@@ -258,65 +256,55 @@ export const Items = ({ rows, filters, rules, onFilters }: ItemsProps) => {
         />
       )}
       {shown.length > 0 && (
-        <Panel
-          title="Spend by category"
-          icon={CategoryIcon}
-          description="Select a category to show only its items."
-          className="mb-4"
-        >
-          <HorizontalBars
-            items={categoryBars(shown)}
-            onPick={pickKind}
-            onPickSub={pickKind}
-          />
-        </Panel>
-      )}
-      {swings.length > 0 && (
-        <Panel
-          title="Biggest price changes"
-          icon={ChangesIcon}
-          description="The latest price against the median of earlier purchases of the same size."
-          className="mb-4"
-        >
-          <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
-            <Swings
-              title="Cheaper now"
-              items={swings.filter((i) => i.change! < 0).slice(0, 5)}
-              onPick={setPicked}
+        <div className={cn(grid, "mb-4")}>
+          <Panel
+            title="Spending by item category"
+            icon={CategoryIcon}
+            description="Select a category to show only its items."
+          >
+            <HorizontalBars
+              items={categoryBars(shown)}
+              onPick={pickKind}
+              onPickSub={pickKind}
             />
-            <Swings
-              title="More expensive now"
-              items={swings
-                .filter((i) => i.change! > 0)
-                .toReversed()
-                .slice(0, 5)}
-              onPick={setPicked}
-            />
-          </div>
-        </Panel>
+          </Panel>
+          {swings.length > 0 && (
+            <Panel
+              title="Biggest price changes"
+              icon={ChangesIcon}
+              description="The latest price against the median of earlier purchases of the same size. Changes under 5% are left out."
+            >
+              <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
+                <Swings
+                  title="Cheaper now"
+                  items={swings.filter((i) => i.change! < 0).slice(0, 5)}
+                  onPick={setPicked}
+                />
+                <Swings
+                  title="More expensive now"
+                  items={swings
+                    .filter((i) => i.change! > 0)
+                    .toReversed()
+                    .slice(0, 5)}
+                  onPick={setPicked}
+                />
+              </div>
+            </Panel>
+          )}
+        </div>
       )}
-      {sorted.length > 0 && (
-        <Panel
-          title="Price over time"
-          icon={ChangesIcon}
-          description="The first five items in the table. Select a point to open its item."
-          className="mb-4"
-        >
-          <PriceChart
-            lines={sorted.slice(0, 5).map((i) => ({
-              name: bySize && i.sizes[0] ? `${i.name} · ${i.sizes[0]}` : i.name,
-              purchases: i.purchases,
-            }))}
-            onPick={(p) =>
-              setPicked(sorted.find((i) => i.purchases.includes(p))!.key)
-            }
+      <Panel
+        title="Bought items"
+        icon={ItemsIcon}
+        action={
+          <SwitchField
+            label="Split by size"
+            checked={bySize}
+            onChange={setBySize}
           />
-        </Panel>
-      )}
-      <Panel title="Bought items" icon={ItemsIcon}>
-        {items.length === 0 ? (
-          <Empty>No receipts with item lines match the current filters.</Empty>
-        ) : shown.length === 0 ? (
+        }
+      >
+        {shown.length === 0 ? (
           <Empty>
             {filters.search
               ? `No items match “${filters.search}”.`
@@ -347,8 +335,9 @@ export const Items = ({ rows, filters, rules, onFilters }: ItemsProps) => {
       <Note icon={InfoIcon} className="mt-4">
         Items come from receipts with item lines. The category comes from the
         product group on a REMA receipt, or from a rule in Item categories.
-        Select an item to see each purchase and its receipt, or to rename it.
+        Select an item to see each purchase, its price over time and its
+        receipt, or to rename it.
       </Note>
-    </>
+    </section>
   );
 };

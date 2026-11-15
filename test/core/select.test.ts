@@ -97,6 +97,17 @@ test("matchesFilters: category and search", () => {
   assert.equal(matchesFilters(t, { ...NO_FILTERS, search: "kiwi" }), false);
 });
 
+test("matchesFilters: search finds a receipt by an item name", () => {
+  const t = txn({
+    id: "1",
+    amount: -50,
+    description: "Rema 1000",
+    items: ["lett melk tine"],
+  });
+  assert.equal(matchesFilters(t, { ...NO_FILTERS, search: "Tine Lett" }), true);
+  assert.equal(matchesFilters(t, { ...NO_FILTERS, search: "fløte" }), false);
+});
+
 test("matchesFilters: excluded rows are hidden unless showExcluded, and no other filter overrides it", () => {
   const transfer = txn({
     id: "1",
@@ -234,6 +245,19 @@ test("period: a month covers its own days and nothing either side of it", () => 
     from: "2025-02-01",
     to: "2025-02-31",
     label: "last year",
+  });
+});
+
+test("period: the last N days end today and compare with the N days before", () => {
+  const p = period("30d", "2026-03-05");
+  assert.deepEqual(
+    [p.kind, p.from, p.to, p.label],
+    ["recent", "2026-02-04", "2026-03-05", "Last 30 days"],
+  );
+  assert.deepEqual(p.prev, {
+    from: "2026-01-05",
+    to: "2026-02-03",
+    label: "the 30 days before",
   });
 });
 
