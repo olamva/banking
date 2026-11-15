@@ -1,0 +1,23 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "A transactions view",
+      "detail": "A separate view lists all transactions in the period.",
+      "area": "transactions",
+      "kind": "new"
+    },
+    {
+      "title": "Include or exclude categories",
+      "detail": "Pick categories from a dropdown. Each pick can include or exclude the category.",
+      "area": "filters",
+      "kind": "new"
+    },
+    {
+      "title": "Filters in the address",
+      "detail": "The view and the filters stay in the URL. A reload keeps them.",
+      "area": "app",
+      "kind": "new"
+    }
+  ]
+}

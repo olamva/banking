@@ -1,0 +1,17 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "Bulk edits",
+      "detail": "Select many transactions and change their category at once.",
+      "area": "transactions",
+      "kind": "new"
+    },
+    {
+      "title": "Category search in bulk edits",
+      "detail": "Type to find a category when you edit many transactions.",
+      "area": "transactions",
+      "kind": "improved"
+    }
+  ]
+}

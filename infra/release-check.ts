@@ -66,10 +66,12 @@ export function releaseProblems(
   );
   for (const name of base)
     if (!(name in head)) problems.push(`Keep the release ${name}.`);
-  const newest = base.toSorted().at(-1) ?? "";
+  const sorted = base.toSorted();
+  const [oldest = "", newest = ""] = [sorted[0], sorted.at(-1)];
   const added = Object.keys(head).filter((name) => !base.includes(name));
   for (const name of added)
-    if (name <= newest) problems.push(`${name} must sort after ${newest}.`);
+    if (name > oldest && name <= newest)
+      problems.push(`${name} must sort after ${newest} or before ${oldest}.`);
   if (!added.length && !exempt)
     problems.push(
       `Add a release to ${DIR}, or apply the "no release" label to the PR.`,

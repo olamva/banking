@@ -1,0 +1,23 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "Edit rules on the page",
+      "detail": "Change the rules in the Rules view. Each change saves a version.",
+      "area": "rules",
+      "kind": "new"
+    },
+    {
+      "title": "Rule history",
+      "detail": "See what each version changed. Step back to an earlier version.",
+      "area": "rules",
+      "kind": "new"
+    },
+    {
+      "title": "Exact amounts",
+      "detail": "The transaction table shows the exact amount.",
+      "area": "transactions",
+      "kind": "improved"
+    }
+  ]
+}
