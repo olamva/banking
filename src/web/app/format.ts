@@ -118,6 +118,28 @@ export const fmtDate = (date: string): string =>
     timeZone: "UTC",
   });
 
+const REGIONS = new Intl.DisplayNames(["en"], { type: "region" });
+
+const REGION_CODES = new Map(
+  Array.from({ length: 676 }, (_, i) =>
+    String.fromCharCode(65 + Math.floor(i / 26), 65 + (i % 26)),
+  ).flatMap((code) => {
+    const name = REGIONS.of(code)!;
+    const current =
+      Intl.getCanonicalLocales(`und-${code}`)[0] === `und-${code}`;
+    return name === code || !current
+      ? []
+      : [[name.toLowerCase(), code] as const];
+  }),
+);
+
+export const flagOf = (country: string): string => {
+  const code = REGION_CODES.get(country.toLowerCase());
+  return code
+    ? String.fromCodePoint(...[...code].map((c) => 0x1f1a5 + c.charCodeAt(0)))
+    : "";
+};
+
 export const fmtShortDate = (date: string): string =>
   new Date(`${date}T00:00:00Z`).toLocaleDateString("nb-NO", {
     day: "numeric",

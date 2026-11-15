@@ -211,7 +211,7 @@ export const Slip = ({ receipt, marked, onItem }: SlipProps) => {
 
 export const ReceiptLines = ({ receipt, marked, onItem }: SlipProps) => (
   <section className="text-xs">
-    <h3 className="flex flex-wrap items-baseline gap-x-1.5 border-b pb-1.5 font-medium text-muted-foreground">
+    <h3 className="flex flex-wrap items-baseline gap-x-1.5 font-medium text-muted-foreground">
       Receipt
       {receipt.source === "gmail" && !receipt.lines.length && (
         <span className="font-normal">
@@ -237,7 +237,7 @@ export const ReceiptLines = ({ receipt, marked, onItem }: SlipProps) => (
       </div>
     )}
     {!!receipt.lines.length && (
-      <div className={receipt.source === "gmail" ? "pt-1" : "pt-3"}>
+      <div className={receipt.source === "gmail" ? "pt-1" : "pt-2"}>
         <Slip receipt={receipt} marked={marked} onItem={onItem} />
       </div>
     )}

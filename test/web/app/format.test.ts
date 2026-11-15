@@ -6,6 +6,7 @@ import {
   ID_FIELD,
   bankLabel,
   categoryColor,
+  flagOf,
   fmtDate,
   fmtNOKExact,
   rowLabel,
@@ -146,6 +147,14 @@ test("a row with no subcategory reads as its category, never as Annet", () => {
     "Andre dagligvarer",
     "a named sub is still the sub's own name",
   );
+});
+
+test("a country name gets its flag, and an unknown place gets none", () => {
+  assert.equal(flagOf("Norway"), "🇳🇴");
+  assert.equal(flagOf("united kingdom"), "🇬🇧");
+  assert.equal(flagOf("Germany"), "🇩🇪", "not the retired code DD");
+  assert.equal(flagOf("Atlantis"), "");
+  assert.equal(flagOf("NO"), "", "a region code is not a country name");
 });
 
 test("an exact amount keeps the øre only when it is not zero", () => {

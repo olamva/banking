@@ -1,0 +1,17 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "New transaction details",
+      "detail": "Each fact has its own row. Change the payee, category, country or subscription on that row.",
+      "area": "transactions",
+      "kind": "improved"
+    },
+    {
+      "title": "Country flags",
+      "detail": "The transaction details show a flag next to the country.",
+      "area": "transactions",
+      "kind": "new"
+    }
+  ]
+}
