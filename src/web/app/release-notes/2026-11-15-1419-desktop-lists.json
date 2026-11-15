@@ -1,0 +1,17 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "Transactions as a list on every screen",
+      "detail": "Transactions, Subscriptions and the rule match list show as a list on the desktop too. On a wide screen, each row is one line: the name, the details, the account and the amount."
+    },
+    {
+      "title": "Days you can fold",
+      "detail": "When you sort transactions by date, they are grouped by day. Each day shows its total. Tap a day to fold or unfold its transactions."
+    },
+    {
+      "title": "Less clutter",
+      "detail": "Dates are short, such as 19. okt. The account you use most is hidden, and a card account shows as a card icon. Amounts are bold."
+    }
+  ]
+}
