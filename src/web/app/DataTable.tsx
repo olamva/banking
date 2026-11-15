@@ -15,6 +15,15 @@ import {
   SortableIcon,
   UpIcon,
 } from "./icons.ts";
+import { Button } from "./ui/button.tsx";
+import { ButtonGroup } from "./ui/button-group.tsx";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select.tsx";
 import { cn } from "./ui/utils.ts";
 
 const Sizer = ({ of }: { of: string[] }) => (
@@ -144,43 +153,34 @@ const PhoneSort = ({ columns }: { columns: Column[] }) => {
         </label>
       )}
       {sortable.length > 0 && (
-        <div className="ml-auto flex items-center text-xs text-muted-foreground">
-          <label className="relative flex h-8 items-center gap-1 rounded-md px-2 hover:bg-muted has-focus-visible:ring-2 has-focus-visible:ring-ring">
-            Sort by
-            <span className="font-medium text-foreground">
-              {current?.label ?? "None"}
-            </span>
-            <Icon icon={ExpandIcon} size={12} className="rotate-90" />
-            <select
-              aria-label="Sort by"
-              value={current?.label ?? ""}
-              onChange={(e) =>
-                sortable.find((c) => c.label === e.target.value)?.onClick?.()
-              }
-              className="absolute inset-0 cursor-pointer appearance-none opacity-0"
-            >
-              {!current && <option value="">None</option>}
+        <ButtonGroup className="ml-auto">
+          <Select
+            value={current?.label ?? ""}
+            onValueChange={(label) =>
+              sortable.find((c) => c.label === label)?.onClick?.()
+            }
+          >
+            <SelectTrigger size="sm" aria-label="Sort by" className="text-xs">
+              <SelectValue placeholder="Sort" />
+            </SelectTrigger>
+            <SelectContent position="popper" align="end">
               {sortable.map((c) => (
-                <option key={c.label} value={c.label}>
+                <SelectItem key={c.label} value={c.label}>
                   {c.label}
-                </option>
+                </SelectItem>
               ))}
-            </select>
-          </label>
-          {current && (
-            <button
-              type="button"
-              onClick={current.onClick}
-              aria-label={`Sorted ${current.sort === "asc" ? "ascending" : "descending"}. Change the order`}
-              className="inline-flex size-8 items-center justify-center rounded-md hover:bg-muted hover:text-foreground"
-            >
-              <Icon
-                icon={current.sort === "asc" ? UpIcon : DownIcon}
-                size={14}
-              />
-            </button>
-          )}
-        </div>
+            </SelectContent>
+          </Select>
+          <Button
+            variant="outline"
+            size="icon-sm"
+            disabled={!current}
+            onClick={current?.onClick}
+            aria-label={`Sorted ${current?.sort === "asc" ? "ascending" : "descending"}. Change the order`}
+          >
+            <Icon icon={current?.sort === "asc" ? UpIcon : DownIcon} />
+          </Button>
+        </ButtonGroup>
       )}
     </div>
   );
@@ -271,14 +271,14 @@ const PhoneList = ({ columns, rows, onRow, rowClassName }: DataTableProps) => {
         })}
       </ul>
       {rows.length > limit && (
-        <button
-          type="button"
+        <Button
+          variant="ghost"
           onClick={() => setLimit(limit + PAGE)}
-          className="flex h-11 w-full items-center justify-center gap-1 text-xs text-muted-foreground active:text-foreground"
+          className="mt-1 w-full text-muted-foreground"
         >
-          <Icon icon={ExpandIcon} size={12} className="rotate-90" />
+          <Icon icon={ExpandIcon} className="rotate-90" />
           Show {Math.min(PAGE, rows.length - limit)} more
-        </button>
+        </Button>
       )}
     </div>
   );
