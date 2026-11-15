@@ -6,6 +6,10 @@
       "detail": "On a phone, each table shows as a list. Each row shows the name and the amount on the first line. The date, category, account and other details are on the second line. You do not scroll sideways, and the page scrolls as one."
     },
     {
+      "title": "Cleaner transaction tables",
+      "detail": "Dates are short, such as 19. okt. The account you use most is hidden, and a card account shows as a card icon. Account text is gray, and amounts are bold. This applies on the phone and on the desktop."
+    },
+    {
       "title": "Sort and load more",
       "detail": "Pick a sort field and the order in the control above each list. Each list shows 50 rows. Tap Show more at the bottom to see the next rows."
     }
