@@ -8,7 +8,7 @@ import {
 import type { BulkFile } from "../../core/bulkRules.ts";
 import { itemsOf, nameKey, purchasesOf } from "../../core/items.ts";
 import type { RuleFile } from "../../core/ruleFiles.ts";
-import { matchesFilters, type Filters } from "../../core/select.ts";
+import { markedItem, matchesFilters, type Filters } from "../../core/select.ts";
 import { totals } from "../../core/stats.ts";
 import type { Categorized } from "../../core/types.ts";
 import { ExcludedInfo, pick } from "./Dashboard.tsx";
@@ -56,11 +56,19 @@ export const TransactionsView = ({
     [picked, all, names, kinds, filters.withoutDeposit],
   );
   const item = items.find((i) => i.key === picked);
+  const [open, setOpen] = useState<Categorized | null>(null);
+  const [back, setBack] = useState<Categorized | null>(null);
+  const marked = purchasesOf(open ? [open] : [], names)
+    .filter((p) => markedItem(p.key, filters))
+    .map((p) => p.raw);
 
   const onItem = (txn: Categorized, raw: string, action: ItemAction) => {
     const bought = purchasesOf([txn], names).find((p) => p.raw === raw);
     if (!bought) return;
-    if (action === "details") return setPicked(bought.key);
+    if (action === "details") {
+      setBack(txn);
+      return setPicked(bought.key);
+    }
     const other = (list: string[]) =>
       list.filter((v) => nameKey(v) !== bought.key);
     onFilters((f) =>
@@ -86,6 +94,9 @@ export const TransactionsView = ({
         }
         all={all}
         branchRules={mapRules(rules, "branches")}
+        open={open}
+        marked={marked}
+        onOpen={setOpen}
         onMerchant={pick(onFilters, "merchants")}
         onCategory={pick(onFilters, "categories")}
         onAccount={pick(onFilters, "accounts")}
@@ -101,7 +112,16 @@ export const TransactionsView = ({
           names={items.map((i) => i.name)}
           rules={rules}
           onRename={(name) => setPicked(nameKey(name))}
-          onClose={() => setPicked(null)}
+          {...(back && {
+            onBack: () => {
+              setPicked(null);
+              setOpen(back);
+            },
+          })}
+          onClose={() => {
+            setPicked(null);
+            setBack(null);
+          }}
         />
       )}
     </>
