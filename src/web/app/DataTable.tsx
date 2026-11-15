@@ -1,5 +1,5 @@
+import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import {
-  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -18,11 +18,6 @@ import {
 import { Caret } from "./Cards.tsx";
 import { Button } from "./ui/button.tsx";
 import { ButtonGroup } from "./ui/button-group.tsx";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "./ui/collapsible.tsx";
 import {
   Select,
   SelectContent,
@@ -129,7 +124,6 @@ interface DataTableProps {
 const WINDOW_OVER = 80;
 const OVERSCAN = 12;
 const VIEWPORT = 460;
-const PAGE = 50;
 
 const phoneQuery = window.matchMedia("(max-width: 639px)");
 const usePhone = () =>
@@ -204,18 +198,13 @@ const List = ({
   group,
   controls,
 }: DataTableProps) => {
-  const [limit, setLimit] = useState(PAGE);
   const [closed, setClosed] = useState<Set<string>>(new Set());
-  const more = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!more.current) return;
-    const io = new IntersectionObserver(
-      ([e]) => e?.isIntersecting && setLimit((l) => l + PAGE),
-      { rootMargin: "800px" },
-    );
-    io.observe(more.current);
-    return () => io.disconnect();
-  }, [limit, rows.length]);
+  const list = useRef<HTMLUListElement>(null);
+  const [margin, setMargin] = useState(0);
+  useLayoutEffect(() => {
+    const m = (list.current?.getBoundingClientRect().top ?? 0) + window.scrollY;
+    if (Math.abs(m - margin) > 0.5) setMargin(m);
+  });
   const slot = (row: ReactNode[], ...phone: Column["phone"][]) =>
     row.flatMap((cell, j) =>
       phone.includes(columns[j]?.phone) && cell !== false
@@ -226,7 +215,17 @@ const List = ({
   const hasAside = columns.some((c) => c.phone === "aside");
   const toggle = (key: string) =>
     setClosed((s) => new Set(s.symmetricDifference(new Set([key]))));
-  const shown = [...rows.keys()].slice(0, limit);
+  const entries: (number | string)[] = days
+    ? [...days].flatMap(([key, ix]) => [key, ...(closed.has(key) ? [] : ix)])
+    : [...rows.keys()];
+  const v = useWindowVirtualizer({
+    count: entries.length,
+    estimateSize: () => 48,
+    overscan: 8,
+    scrollMargin: margin,
+    getItemKey: (k) =>
+      typeof entries[k] === "string" ? `g${entries[k]}` : entries[k]!,
+  });
   const sized = ({ cell, c }: { cell: ReactNode; c: Column }) => (
     <span className="inline-flex flex-col">
       {cell}
@@ -238,17 +237,32 @@ const List = ({
     </span>
   );
 
-  const item = (i: number) => {
+  const head = (key: string) => (
+    <Button
+      variant="ghost"
+      aria-expanded={!closed.has(key)}
+      onClick={() => toggle(key)}
+      className="h-auto w-full justify-start gap-2 rounded-none border-b px-(--card-spacing) pt-3 pb-1.5 text-xs font-medium text-muted-foreground aria-expanded:bg-transparent aria-expanded:text-muted-foreground"
+    >
+      <Caret open={!closed.has(key)} />
+      <span className="text-foreground">{group!.label(key)}</span>
+      <span className="ml-auto tabular-nums">
+        {group!.total(days!.get(key)!)}
+      </span>
+    </Button>
+  );
+
+  const item = (i: number, last: boolean) => {
     const row = rows[i]!;
     const meta = slot(row, "meta");
     const labeled = slot(row, "labeled");
     const aside = slot(row, "aside");
     return (
-      <li
-        key={i}
+      <div
         onClick={onRow && ((e) => !highlighting(e) && onRow(i))}
         className={cn(
-          "flex min-h-12 items-start gap-3 border-b border-border/70 px-(--card-spacing) py-3 tabular-nums last:border-b-0 sm:min-h-10 sm:items-center sm:py-2",
+          "flex min-h-12 items-start gap-3 border-b border-border/70 px-(--card-spacing) py-3 tabular-nums sm:min-h-10 sm:items-center sm:py-2",
+          last && "border-b-0",
           onRow && "cursor-pointer hover:bg-muted/60 active:bg-muted/60",
           rowClassName?.(i),
         )}
@@ -309,46 +323,35 @@ const List = ({
             </div>
           )}
         </div>
-      </li>
+      </div>
     );
   };
 
   return (
     <div>
       <ListSort columns={columns} controls={controls} />
-      <ul className="-mx-(--card-spacing) border-t">
-        {group
-          ? [...Map.groupBy(shown, group.of)].map(([key, indices]) => (
-              <Collapsible
-                key={key}
-                asChild
-                open={!closed.has(key)}
-                onOpenChange={() => toggle(key)}
-              >
-                <li>
-                  <CollapsibleTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      className="h-auto w-full justify-start gap-2 rounded-none border-b px-(--card-spacing) pt-3 pb-1.5 text-xs font-medium text-muted-foreground aria-expanded:bg-transparent aria-expanded:text-muted-foreground"
-                    >
-                      <Caret open={!closed.has(key)} />
-                      <span className="text-foreground">
-                        {group.label(key)}
-                      </span>
-                      <span className="ml-auto tabular-nums">
-                        {group.total(days!.get(key)!)}
-                      </span>
-                    </Button>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent asChild>
-                    <ul>{indices.map(item)}</ul>
-                  </CollapsibleContent>
-                </li>
-              </Collapsible>
-            ))
-          : shown.map(item)}
+      <ul
+        ref={list}
+        className="relative -mx-(--card-spacing) border-t"
+        style={{ height: v.getTotalSize() }}
+      >
+        {v.getVirtualItems().map((vi) => {
+          const e = entries[vi.index]!;
+          return (
+            <li
+              key={vi.key}
+              data-index={vi.index}
+              ref={v.measureElement}
+              className="absolute inset-x-0 top-0"
+              style={{ transform: `translateY(${vi.start - margin}px)` }}
+            >
+              {typeof e === "string"
+                ? head(e)
+                : item(e, typeof entries[vi.index + 1] !== "number")}
+            </li>
+          );
+        })}
       </ul>
-      {rows.length > limit && <div ref={more} />}
     </div>
   );
 };
