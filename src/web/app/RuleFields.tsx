@@ -7,7 +7,8 @@ import {
 } from "../../core/ruleFiles.ts";
 import { merchantOf } from "../../core/select.ts";
 import type { Categorized } from "../../core/types.ts";
-import { AMOUNT_SIZE_EXACT, DataTable } from "./Cards.tsx";
+import { AMOUNT_SIZE_EXACT, DataTable, DateCell } from "./DataTable.tsx";
+import { useAccountCell } from "./Transactions.tsx";
 import type { RulesApi } from "./data.ts";
 import {
   categoryColor,
@@ -131,6 +132,7 @@ interface MatchTableProps {
 
 export const MatchTable = ({ txns, loading }: MatchTableProps) => {
   const [selected, setSelected] = useState<Categorized | null>(null);
+  const accountCell = useAccountCell(txns);
 
   return (
     <div
@@ -140,24 +142,25 @@ export const MatchTable = ({ txns, loading }: MatchTableProps) => {
         scroll
         onRow={(i) => setSelected(txns[i] ?? null)}
         columns={[
-          { label: "Date", min: true },
-          { label: "Merchant / description" },
-          { label: "Category", min: true },
-          { label: "Account", min: true },
+          { label: "Date", min: true, phone: "meta" },
+          { label: "Merchant / description", phone: "title" },
+          { label: "Category", min: true, phone: "meta" },
+          { label: "Account", min: true, phone: "aside" },
           {
             label: "Amount",
             num: true,
             min: true,
             sizer: AMOUNT_SIZE_EXACT,
+            phone: "end",
           },
         ]}
         rows={txns.map((txn) => [
-          fmtDate(txn.date),
+          <DateCell date={txn.date} wide={fmtDate(txn.date)} />,
           merchantOf(txn),
           <span style={{ color: categoryColor(txn.category) }}>
             {rowLabel(txn.category, txn.subcategory)}
           </span>,
-          txn.account,
+          accountCell(txn),
           fmtNOKExact(txn.amount),
         ])}
       />

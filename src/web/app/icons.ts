@@ -38,6 +38,7 @@ export { PieChartIcon as CategoryIcon } from "@hugeicons/core-free-icons";
 export { RepeatIcon as RecurringIcon } from "@hugeicons/core-free-icons";
 export { Store01Icon as CounterpartyIcon } from "@hugeicons/core-free-icons";
 export { Wallet01Icon as AccountIcon } from "@hugeicons/core-free-icons";
+export { CreditCardIcon as CardIcon } from "@hugeicons/core-free-icons";
 
 export { Undo02Icon as UndoIcon } from "@hugeicons/core-free-icons";
 export { Redo02Icon as RedoIcon } from "@hugeicons/core-free-icons";

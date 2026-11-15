@@ -5,16 +5,17 @@ import type { RuleFile } from "../../core/ruleFiles.ts";
 import { merchantOf, subcategoryOf } from "../../core/select.ts";
 import type { SubscriptionGroup } from "../../core/stats.ts";
 import type { Categorized } from "../../core/types.ts";
+import { Empty, Panel } from "./Cards.tsx";
 import {
   AMOUNT_SIZE,
   AMOUNT_SIZE_EXACT,
   DataTable,
-  Empty,
-  Panel,
+  DateCell,
   PickCell,
   highlighting,
+  usePhone,
   type Column,
-} from "./Cards.tsx";
+} from "./DataTable.tsx";
 import {
   categoryColor,
   categoryLabel,
@@ -22,9 +23,52 @@ import {
   fmtNOKExact,
   rowLabel,
 } from "./format.ts";
-import { Icon, ReceiptIcon, RecurringIcon, TransactionsIcon } from "./icons.ts";
+import {
+  CardIcon,
+  Icon,
+  ReceiptIcon,
+  RecurringIcon,
+  TransactionsIcon,
+} from "./icons.ts";
 import { SearchBox } from "./SearchBox.tsx";
 import { TxnDialog } from "./TxnDialog.tsx";
+
+export const useAccountCell = (txns: Categorized[]) => {
+  const phone = usePhone();
+  const main = useMemo(() => {
+    const groups = Object.groupBy(
+      txns.filter((t) => !t.card),
+      (t) => t.account,
+    );
+    return Object.keys(groups).sort(
+      (a, b) => groups[b]!.length - groups[a]!.length,
+    )[0];
+  }, [txns]);
+  return (
+    t: Categorized,
+    onPick?: (account: string, meta: boolean) => void,
+  ) => {
+    if (phone && t.account === main) return false;
+    const mark = phone && t.card && (
+      <Icon
+        icon={CardIcon}
+        size={15}
+        aria-hidden={false}
+        role="img"
+        aria-label={t.account}
+        className="block h-4.5"
+      />
+    );
+    return onPick ? (
+      <PickCell label={t.account} onPick={onPick}>
+        {mark}
+      </PickCell>
+    ) : (
+      mark || t.account
+    );
+  };
+};
+
 const useSort = <T, S extends Record<string, (a: T, b: T) => number>>(
   items: T[],
   sorts: S,
@@ -139,20 +183,30 @@ export const SubscriptionsCard = ({
         <DataTable
           scroll
           columns={[
-            head("Subscription", "name"),
-            head("Category", "category", { min: true, sizer: categorySizes }),
-            head("Charges", "count", { num: true, min: true }),
+            head("Subscription", "name", { phone: "title" }),
+            head("Category", "category", {
+              min: true,
+              sizer: categorySizes,
+              phone: "meta",
+            }),
+            head("Charges", "count", {
+              num: true,
+              min: true,
+              phone: "labeled",
+            }),
             head("Per month", "latest", {
               num: true,
               min: true,
               sizer: AMOUNT_SIZE,
+              phone: "end",
             }),
             head("Total", "total", {
               num: true,
               min: true,
               sizer: AMOUNT_SIZE,
+              phone: "labeled",
             }),
-            head("Last", "last", { min: true }),
+            head("Last", "last", { min: true, phone: "labeled" }),
           ]}
           rows={sorted.map((g) => [
             <PickCell label={g.name} onPick={onMerchant} />,
@@ -165,7 +219,7 @@ export const SubscriptionsCard = ({
             g.count,
             fmtNOK(g.latest),
             fmtNOK(g.total),
-            g.last,
+            <DateCell date={g.last} />,
           ])}
         />
       )}
@@ -195,6 +249,7 @@ export const TransactionsCard = ({
   onBulk,
 }: TransactionsCardProps) => {
   const { sorted, head } = useTxnSort(txns);
+  const accountCell = useAccountCell(txns);
   const [open, setOpen] = useState<Categorized | null>(null);
   const [selected, setSelected] = useState<Set<Categorized>>(new Set());
   const picked = txns.filter((t) => selected.has(t));
@@ -252,20 +307,23 @@ export const TransactionsCard = ({
                       />
                     ),
                     min: true,
+                    phone: "lead" as const,
                   },
                 ]
               : []),
-            head("Date", "date", { min: true }),
-            head("Merchant / description", "merchant"),
+            head("Date", "date", { min: true, phone: "meta" }),
+            head("Merchant / description", "merchant", { phone: "title" }),
             head("Category", "subcategory", {
               min: true,
               sizer: subcategorySizes,
+              phone: "meta",
             }),
-            head("Account", "account", { min: true }),
+            head("Account", "account", { min: true, phone: "aside" }),
             head("Amount", "amount", {
               num: true,
               min: true,
               sizer: AMOUNT_SIZE_EXACT,
+              phone: "end",
             }),
           ]}
           rows={sorted.map((t) => [
@@ -283,7 +341,7 @@ export const TransactionsCard = ({
               onClick={(e) => !highlighting(e) && setOpen(t)}
               className="text-left text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
             >
-              {t.date}
+              <DateCell date={t.date} />
             </button>,
             <span className="inline-flex items-center gap-1">
               <PickCell label={merchantOf(t)} onPick={onMerchant} />
@@ -304,7 +362,7 @@ export const TransactionsCard = ({
               color={categoryColor(t.category)}
               onPick={onCategory}
             />,
-            <PickCell label={t.account} onPick={onAccount} />,
+            accountCell(t, onAccount),
             <span className={t.amount > 0 ? "text-good" : undefined}>
               {fmtNOKExact(t.amount)}
             </span>,
