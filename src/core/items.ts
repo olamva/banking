@@ -37,30 +37,53 @@ export type Item = {
 
 const osloDay = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Oslo" });
 
-const PACKAGING = new Set([
+const NOISE = new Set([
   "bx",
   "boks",
   "fl",
   "flaske",
   "plastfl",
+  "glassflas",
   "fridepack",
+  "sleek",
+  "ow",
+  "krt",
+  "kartong",
+  "pose",
+  "poser",
+  "filmet",
+  "løsvekt",
+  "stykk",
+  "stk",
+  "kg",
+  "lavpris",
   "x",
 ]);
 
+const ORIGIN = new Set(["no", "n", "imp"]);
+
+const RESIDUE = /^(?:0[.,]\d+|\d[.,]\d\d|\d+(?:\.{2,}|-)|,)$/;
+
 const tidy = (name: string): string => {
   const shouted = name === name.toUpperCase();
+  const words = name
+    .replace(/\([^)\p{L}]*\)/gu, " ")
+    .replace(/\brema 1000\b/gi, "Rema")
+    .split(/\s+/)
+    .filter((w) => w && !NOISE.has(w.toLowerCase()) && !RESIDUE.test(w));
+  while (words.length > 1 && ORIGIN.has(words.at(-1)!.toLowerCase()))
+    words.pop();
   return (
-    name
-      .split(/\s+/)
-      .filter((w) => !PACKAGING.has(w.toLowerCase()))
+    words
       .map((w) =>
-        w === "R"
+        w === "R" || w.toLowerCase() === "rema"
           ? "REMA 1000"
           : shouted
             ? w.charAt(0) + w.slice(1).toLowerCase()
             : w,
       )
-      .join(" ") || name
+      .join(" ")
+      .replace(/,$/, "") || name
   );
 };
 
@@ -126,6 +149,24 @@ const groupCategory = (group: ReceiptLine["group"]): string | undefined =>
     .filter(Boolean)
     .join("/");
 
+const SPENT_ON: Record<string, string> = {
+  "medier_og_underholdning/apper_og_spill": "Games & apps",
+  "medier_og_underholdning/strommetjenester": "Streaming",
+  "medier_og_underholdning/bokhandler": "Books",
+  "hobby_og_fritid/nettjenester": "Games & apps",
+  "hjem_og_hage/hvitevarer_og_elektronikk": "Electronics",
+  hjem_og_hage: "Home",
+  hobby_og_fritid: "Leisure",
+  kafe_og_restaurant: "Eating out",
+  reise: "Travel",
+  bil_og_transport: "Transport",
+  klaer_og_utstyr: "Clothing & gear",
+  helse_og_velvaere: "Personal care",
+};
+
+const spentOn = (t: Categorized): string | undefined =>
+  SPENT_ON[`${t.category}/${t.subcategory}`] ?? SPENT_ON[t.category];
+
 export const topCategory = (category: string): string =>
   category.split("/")[0]!;
 
@@ -134,7 +175,7 @@ export const nameKey = (name: string): string =>
     .toLowerCase()
     .replace(/(\d),(\d)/g, "$1.$2")
     .split(/\s+/)
-    .filter((w) => w && !PACKAGING.has(w))
+    .filter((w) => w && !NOISE.has(w))
     .sort()
     .join(" ");
 
@@ -196,8 +237,9 @@ export const unitPrice = (
 const receiptPurchases = (
   receipt: Receipt,
   nameOf: (raw: string) => string,
-  withoutDeposit = false,
-  categoryOf: (name: string) => string | undefined = () => undefined,
+  withoutDeposit: boolean,
+  categoryOf: (name: string) => string | undefined,
+  fallback: string | undefined,
 ): Purchase[] =>
   [
     ...Map.groupBy(
@@ -208,7 +250,8 @@ const receiptPurchases = (
     ).values(),
   ].map((same) => {
     const name = nameOf(same[0]!.name);
-    const category = categoryOf(name) ?? groupCategory(same[0]!.group);
+    const category =
+      categoryOf(name) ?? groupCategory(same[0]!.group) ?? fallback;
     return {
       key: nameKey(name),
       sizeKey: sizeKey(same[0]!.size),
@@ -230,44 +273,62 @@ const receiptPurchases = (
     };
   });
 
+const bought = (
+  txns: Categorized[],
+  rules: RuleMap,
+  withoutDeposit: boolean,
+  categories: RuleMap,
+): Purchase[][] => {
+  const nameOf = namer(rules);
+  const categoryOf = lookup(categories, "rules/item-categories.json");
+  return txns.map((t) =>
+    t.receipt
+      ? receiptPurchases(
+          t.receipt,
+          nameOf,
+          withoutDeposit,
+          categoryOf,
+          spentOn(t),
+        )
+      : [],
+  );
+};
+
 export const purchasesOf = (
   txns: Categorized[],
   rules: RuleMap = {},
   withoutDeposit = false,
   categories: RuleMap = {},
-): Purchase[] => {
-  const nameOf = namer(rules);
-  const categoryOf = lookup(categories, "rules/item-categories.json");
-  return txns.flatMap((t) =>
-    t.receipt
-      ? receiptPurchases(t.receipt, nameOf, withoutDeposit, categoryOf)
-      : [],
-  );
-};
+): Purchase[] => bought(txns, rules, withoutDeposit, categories).flat();
 
 export const withItems = (
   txns: Categorized[],
   rules: RuleMap = {},
   categories: RuleMap = {},
 ): Categorized[] => {
-  const nameOf = namer(rules);
-  const categoryOf = lookup(categories, "rules/item-categories.json");
-  return txns.map((t) => {
-    if (!t.receipt) return t;
-    const bought = receiptPurchases(t.receipt, nameOf, false, categoryOf);
-    return {
-      ...t,
-      items: [...new Set(bought.map((p) => p.key))],
-      kinds: [
-        ...new Set(
-          bought.flatMap((p) => {
-            const c = p.category ?? UNCATEGORIZED;
-            return [topCategory(c), c];
-          }),
-        ),
-      ],
-    };
-  });
+  const each = bought(txns, rules, false, categories);
+  const kindOf = new Map(
+    [...Map.groupBy(each.flat(), (p) => p.key)].map(([key, list]) => [
+      key,
+      itemCategory(list),
+    ]),
+  );
+  return txns.map((t, i) =>
+    t.receipt
+      ? {
+          ...t,
+          items: [...new Set(each[i]!.map((p) => p.key))],
+          kinds: [
+            ...new Set(
+              each[i]!.flatMap((p) => {
+                const c = kindOf.get(p.key)!;
+                return [topCategory(c), c];
+              }),
+            ),
+          ],
+        }
+      : t,
+  );
 };
 
 const median = (xs: number[]): number | null => {
@@ -287,6 +348,11 @@ const commonest = (xs: string[]): string =>
       Number(a[0] === a[0].toUpperCase()) - Number(b[0] === b[0].toUpperCase()),
   )[0]![0];
 
+const itemCategory = (list: Purchase[]): string => {
+  const known = list.flatMap((p) => p.category ?? []);
+  return known.length ? commonest(known) : UNCATEGORIZED;
+};
+
 const dayOf = (date: string) => Date.parse(`${date}T00:00:00Z`) / 864e5;
 
 export const itemsOf = (purchases: Purchase[], bySize = false): Item[] =>
@@ -299,7 +365,6 @@ export const itemsOf = (purchases: Purchase[], bySize = false): Item[] =>
     const qty = sorted.reduce((n, p) => n + p.qty, 0);
     const spent = ore(sorted.reduce((n, p) => n + p.amount, 0));
     const days = [...new Set(sorted.map((p) => dayOf(p.date)))];
-    const known = sorted.flatMap((p) => p.category ?? []);
     const [now, ...before] = sorted
       .filter((p) => p.sizeKey === sorted[0]!.sizeKey)
       .map(packPrice);
@@ -307,7 +372,7 @@ export const itemsOf = (purchases: Purchase[], bySize = false): Item[] =>
     return {
       key,
       name: commonest(sorted.map((p) => p.name)),
-      category: known.length ? commonest(known) : UNCATEGORIZED,
+      category: itemCategory(sorted),
       sizes: [
         ...new Map(
           sorted.filter((p) => p.size).map((p) => [p.sizeKey, p.size!]),
