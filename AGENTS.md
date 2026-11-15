@@ -148,6 +148,14 @@ Wait for my explicit approval of the presented visual changes before merging or 
 Do not treat silence, passing tests, screenshots alone, or earlier implementation permission as visual approval.
 Request renewed approval if subsequent changes materially alter the reviewed appearance.
 
+## UI components
+
+Build the web UI from the shadcn/ui components in `src/web/app/ui/`.
+Use these components for each control, such as `Button`, `Select`, `Checkbox`, `Collapsible` and `ButtonGroup`.
+Do not style a native `<button>`, `<select>` or `<input>` as a new control.
+Add a missing shadcn/ui component to `src/web/app/ui/` before you write a custom control.
+Use plain elements only for layout and text.
+
 ## Phone layout
 
 Inspect every UI change at 375 CSS px with `pnpm shot` before completion. Do not use the T3 preview tools.

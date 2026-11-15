@@ -16,6 +16,20 @@ import {
   UpIcon,
 } from "./icons.ts";
 import { Caret } from "./Cards.tsx";
+import { Button } from "./ui/button.tsx";
+import { ButtonGroup } from "./ui/button-group.tsx";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "./ui/collapsible.tsx";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select.tsx";
 import { cn } from "./ui/utils.ts";
 
 const Sizer = ({ of }: { of: string[] }) => (
@@ -138,43 +152,34 @@ const ListSort = ({ columns }: { columns: Column[] }) => {
         </label>
       )}
       {sortable.length > 0 && (
-        <div className="ml-auto flex items-center text-xs text-muted-foreground">
-          <label className="relative flex h-8 items-center gap-1 rounded-md px-2 hover:bg-muted has-focus-visible:ring-2 has-focus-visible:ring-ring">
-            Sort by
-            <span className="font-medium text-foreground">
-              {current?.label ?? "None"}
-            </span>
-            <Icon icon={ExpandIcon} size={12} className="rotate-90" />
-            <select
-              aria-label="Sort by"
-              value={current?.label ?? ""}
-              onChange={(e) =>
-                sortable.find((c) => c.label === e.target.value)?.onClick?.()
-              }
-              className="absolute inset-0 cursor-pointer appearance-none opacity-0"
-            >
-              {!current && <option value="">None</option>}
+        <ButtonGroup className="ml-auto">
+          <Select
+            value={current?.label ?? ""}
+            onValueChange={(label) =>
+              sortable.find((c) => c.label === label)?.onClick?.()
+            }
+          >
+            <SelectTrigger size="sm" aria-label="Sort by" className="text-xs">
+              <SelectValue placeholder="Sort" />
+            </SelectTrigger>
+            <SelectContent position="popper" align="end">
               {sortable.map((c) => (
-                <option key={c.label} value={c.label}>
+                <SelectItem key={c.label} value={c.label}>
                   {c.label}
-                </option>
+                </SelectItem>
               ))}
-            </select>
-          </label>
-          {current && (
-            <button
-              type="button"
-              onClick={current.onClick}
-              aria-label={`Sorted ${current.sort === "asc" ? "ascending" : "descending"}. Change the order`}
-              className="inline-flex size-8 items-center justify-center rounded-md hover:bg-muted hover:text-foreground"
-            >
-              <Icon
-                icon={current.sort === "asc" ? UpIcon : DownIcon}
-                size={14}
-              />
-            </button>
-          )}
-        </div>
+            </SelectContent>
+          </Select>
+          <Button
+            variant="outline"
+            size="icon-sm"
+            disabled={!current}
+            onClick={current?.onClick}
+            aria-label={`Sorted ${current?.sort === "asc" ? "ascending" : "descending"}. Change the order`}
+          >
+            <Icon icon={current?.sort === "asc" ? UpIcon : DownIcon} />
+          </Button>
+        </ButtonGroup>
       )}
     </div>
   );
@@ -199,115 +204,123 @@ const List = ({
   const hasAside = columns.some((c) => c.phone === "aside");
   const toggle = (key: string) =>
     setClosed((s) => new Set(s.symmetricDifference(new Set([key]))));
+  const shown = [...rows.keys()].slice(0, limit);
+
+  const item = (i: number) => {
+    const row = rows[i]!;
+    const meta = slot(row, "meta");
+    const labeled = slot(row, "labeled");
+    const aside = slot(row, "aside");
+    return (
+      <li
+        key={i}
+        onClick={onRow && ((e) => !highlighting(e) && onRow(i))}
+        className={cn(
+          "flex min-h-12 items-start gap-3 border-b border-border/70 px-(--card-spacing) py-3 tabular-nums last:border-b-0 sm:min-h-10 sm:items-center sm:py-2",
+          onRow && "cursor-pointer hover:bg-muted/60 active:bg-muted/60",
+          rowClassName?.(i),
+        )}
+      >
+        {slot(row, "lead").map(({ cell }, k) => (
+          <span key={k} className="pt-0.5 sm:pt-0">
+            {cell}
+          </span>
+        ))}
+        <div className="min-w-0 flex-1 sm:flex sm:items-center sm:gap-6">
+          <div className="flex items-baseline gap-3 text-[15px] leading-5 sm:contents sm:text-sm">
+            <div
+              className={cn(
+                "min-w-0 flex-1 truncate sm:order-1",
+                onRow && "pointer-events-none",
+              )}
+            >
+              {slot(row, "title").map(({ cell }) => cell)}
+            </div>
+            {slot(row, "end").map(({ cell }, k) => (
+              <span
+                key={k}
+                className="shrink-0 font-semibold sm:order-4 sm:w-28 sm:text-right"
+              >
+                {cell}
+              </span>
+            ))}
+          </div>
+          {meta.length + labeled.length + aside.length > 0 && (
+            <div className="mt-1 flex items-start gap-3 text-[13px] leading-4.5 text-muted-foreground sm:contents">
+              <div className="flex min-w-0 flex-1 flex-wrap gap-x-3 sm:order-2">
+                {meta.length > 0 && (
+                  <span className="inline-flex flex-wrap gap-x-1">
+                    {meta.map(({ cell }, k) => (
+                      <span
+                        key={k}
+                        className="inline-flex gap-1 not-first:before:text-muted-foreground/60 not-first:before:content-['·']"
+                      >
+                        {cell}
+                      </span>
+                    ))}
+                  </span>
+                )}
+                {labeled.map(({ cell, c }, k) => (
+                  <span key={k} className="inline-flex gap-1">
+                    <span className="text-muted-foreground/70">{c.label}</span>
+                    {cell}
+                  </span>
+                ))}
+              </div>
+              {hasAside && (
+                <span className="flex shrink-0 sm:order-3 sm:w-28">
+                  {aside.map(({ cell }) => cell)}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      </li>
+    );
+  };
 
   return (
     <div>
       <ListSort columns={columns} />
       <ul className="-mx-(--card-spacing) border-t">
-        {rows.slice(0, limit).map((row, i) => {
-          const meta = slot(row, "meta");
-          const labeled = slot(row, "labeled");
-          const aside = slot(row, "aside");
-          const key = group?.of(i);
-          const shut = key !== undefined && closed.has(key);
-          return [
-            key !== undefined && (i === 0 || group!.of(i - 1) !== key) && (
-              <li key={`day-${key}`} className="border-b">
-                <button
-                  type="button"
-                  aria-expanded={!shut}
-                  onClick={() => toggle(key)}
-                  className="flex w-full items-center gap-2 px-(--card-spacing) pt-4 pb-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
-                >
-                  <Caret open={!shut} />
-                  {group!.label(key)}
-                  <span className="ml-auto tabular-nums">
-                    {group!.total(days!.get(key)!)}
-                  </span>
-                </button>
-              </li>
-            ),
-            !shut && (
-              <li
-                key={i}
-                onClick={onRow && ((e) => !highlighting(e) && onRow(i))}
-                className={cn(
-                  "flex min-h-12 items-start gap-3 border-b border-border/70 px-(--card-spacing) py-3 tabular-nums last:border-b-0 sm:min-h-10 sm:items-center sm:py-2",
-                  onRow &&
-                    "cursor-pointer hover:bg-muted/60 active:bg-muted/60",
-                  rowClassName?.(i),
-                )}
+        {group
+          ? [...Map.groupBy(shown, group.of)].map(([key, indices]) => (
+              <Collapsible
+                key={key}
+                asChild
+                open={!closed.has(key)}
+                onOpenChange={() => toggle(key)}
               >
-                {slot(row, "lead").map(({ cell }, k) => (
-                  <span key={k} className="pt-0.5 sm:pt-0">
-                    {cell}
-                  </span>
-                ))}
-                <div className="min-w-0 flex-1 sm:flex sm:items-center sm:gap-6">
-                  <div className="flex items-baseline gap-3 text-[15px] leading-5 sm:contents sm:text-sm">
-                    <div
-                      className={cn(
-                        "min-w-0 flex-1 truncate sm:order-1",
-                        onRow && "pointer-events-none",
-                      )}
+                <li>
+                  <CollapsibleTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      className="h-auto w-full justify-start gap-2 rounded-none border-b bg-muted/50 px-(--card-spacing) pt-4 pb-1.5 text-xs text-muted-foreground aria-expanded:bg-muted/50"
                     >
-                      {slot(row, "title").map(({ cell }) => cell)}
-                    </div>
-                    {slot(row, "end").map(({ cell }, k) => (
-                      <span
-                        key={k}
-                        className="shrink-0 font-semibold sm:order-4 sm:w-28 sm:text-right"
-                      >
-                        {cell}
+                      <Caret open={!closed.has(key)} />
+                      {group.label(key)}
+                      <span className="ml-auto tabular-nums">
+                        {group.total(days!.get(key)!)}
                       </span>
-                    ))}
-                  </div>
-                  {meta.length + labeled.length + aside.length > 0 && (
-                    <div className="mt-1 flex items-start gap-3 text-[13px] leading-4.5 text-muted-foreground sm:contents">
-                      <div className="flex min-w-0 flex-1 flex-wrap gap-x-3 sm:order-2">
-                        {meta.length > 0 && (
-                          <span className="inline-flex flex-wrap gap-x-1">
-                            {meta.map(({ cell }, k) => (
-                              <span
-                                key={k}
-                                className="inline-flex gap-1 not-first:before:text-muted-foreground/60 not-first:before:content-['·']"
-                              >
-                                {cell}
-                              </span>
-                            ))}
-                          </span>
-                        )}
-                        {labeled.map(({ cell, c }, k) => (
-                          <span key={k} className="inline-flex gap-1">
-                            <span className="text-muted-foreground/70">
-                              {c.label}
-                            </span>
-                            {cell}
-                          </span>
-                        ))}
-                      </div>
-                      {hasAside && (
-                        <span className="flex shrink-0 sm:order-3 sm:w-28">
-                          {aside.map(({ cell }) => cell)}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </li>
-            ),
-          ];
-        })}
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent asChild>
+                    <ul>{indices.map(item)}</ul>
+                  </CollapsibleContent>
+                </li>
+              </Collapsible>
+            ))
+          : shown.map(item)}
       </ul>
       {rows.length > limit && (
-        <button
-          type="button"
+        <Button
+          variant="ghost"
           onClick={() => setLimit(limit + PAGE)}
-          className="flex h-11 w-full items-center justify-center gap-1 text-xs text-muted-foreground active:text-foreground"
+          className="mt-1 w-full text-muted-foreground"
         >
-          <Icon icon={ExpandIcon} size={12} className="rotate-90" />
+          <Icon icon={ExpandIcon} className="rotate-90" />
           Show {Math.min(PAGE, rows.length - limit)} more
-        </button>
+        </Button>
       )}
     </div>
   );
