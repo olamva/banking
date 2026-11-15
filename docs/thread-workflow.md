@@ -2,7 +2,9 @@
 
 ## Setup
 
-T3 reads `t3.json` and runs setup after worktree creation.
+T3 runs setup after worktree creation.
+A `projectScriptOverrides` entry in `~/.t3/userdata/settings.json` replaces `t3.json`.
+Keep the command in both files the same.
 Setup installs locked dependencies and links `.env`, `data`, and `rules` from the main checkout.
 Setup preserves existing files and refuses incorrect links.
 Setup then cleans the worktrees and branches of merged tasks. See [Cleanup](#cleanup).
