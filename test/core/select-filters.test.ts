@@ -8,11 +8,16 @@ import {
   distinctMerchants,
   distinctMonths,
   distinctSubcategories,
+  groupAt,
   inRange,
+  markedItem,
   matchesFilters,
   NO_FILTERS,
+  NO_GROUP,
   period,
   personMerchants,
+  pruneGroups,
+  withGroupAt,
   subcategoryOf,
 } from "../../src/core/select.ts";
 import type { Categorized } from "../../src/core/types.ts";
@@ -362,4 +367,88 @@ test("country filters include unknown countries and respect exclusions", () => {
     ["local"],
   );
   assert.deepEqual(shown({ countries: ["Japan"], accounts: ["Other"] }), []);
+});
+
+test("matchesFilters: a row shows when it matches any group, and the switches bind every group", () => {
+  const kiosk = txn({
+    id: "1",
+    amount: -22,
+    counterparty: "Online",
+    category: "kafe_og_restaurant",
+    subcategory: "linjeforening_kiosk",
+  });
+  const rema = txn({
+    id: "2",
+    amount: -30,
+    counterparty: "Rema 1000",
+    items: ["monster ultra white"],
+  });
+  const kiwi = txn({ id: "3", amount: -40, items: ["lett melk tine"] });
+  const hidden = txn({
+    id: "4",
+    amount: -22,
+    counterparty: "Online",
+    category: "kafe_og_restaurant",
+    subcategory: "linjeforening_kiosk",
+    excluded: true,
+  });
+  const all = [kiosk, rema, kiwi, hidden];
+  const f: Filters = {
+    ...NO_FILTERS,
+    merchants: ["Online"],
+    or: [{ ...NO_GROUP, items: ["Monster Ultra White"] }],
+  };
+  const shown = (g: Filters) => all.filter((t) => matchesFilters(t, g));
+
+  assert.deepEqual(shown(f), [kiosk, rema]);
+  assert.deepEqual(shown({ ...f, or: [...f.or, NO_GROUP] }), [kiosk, rema]);
+  assert.deepEqual(shown({ ...f, search: "rema" }), [rema]);
+  assert.deepEqual(shown({ ...f, showExcluded: true }), [kiosk, rema, hidden]);
+  assert.deepEqual(shown({ ...NO_FILTERS, or: [NO_GROUP] }), [
+    kiosk,
+    rema,
+    kiwi,
+  ]);
+});
+
+test("withGroupAt edits one group, and pruneGroups drops the empty ones", () => {
+  const f: Filters = {
+    ...NO_FILTERS,
+    merchants: ["Online"],
+    or: [{ ...NO_GROUP, items: ["Monster"] }],
+  };
+  const added = withGroupAt(f, 2, {
+    ...groupAt(f, 2),
+    merchants: ["Kiwi"],
+    showExcluded: true,
+  });
+  assert.deepEqual(added.merchants, ["Online"]);
+  assert.deepEqual(
+    added.or.map((g) => [g.items, g.merchants]),
+    [
+      [["Monster"], []],
+      [[], ["Kiwi"]],
+    ],
+  );
+  assert.equal(added.showExcluded, true);
+
+  const emptied = withGroupAt(added, 0, {
+    ...groupAt(added, 0),
+    merchants: [],
+  });
+  assert.equal(emptied.or.length, 2);
+  const pruned = pruneGroups(emptied);
+  assert.deepEqual([pruned.items, pruned.merchants], [["Monster"], []]);
+  assert.deepEqual(pruned.or, [{ ...NO_GROUP, merchants: ["Kiwi"] }]);
+  assert.equal(pruneGroups(f), f);
+});
+
+test("markedItem marks an item that any group names", () => {
+  const f: Filters = {
+    ...NO_FILTERS,
+    merchants: ["Online"],
+    or: [{ ...NO_GROUP, items: ["Monster Ultra White"] }],
+  };
+  assert.equal(markedItem("monster ultra white", f), true);
+  assert.equal(markedItem("lett melk tine", f), false);
 });

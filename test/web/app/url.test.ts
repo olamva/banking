@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { NO_FILTERS } from "../../../src/core/select.ts";
+import { NO_FILTERS, NO_GROUP } from "../../../src/core/select.ts";
 import {
   fromParams,
   toParams,
@@ -54,6 +54,14 @@ test("a populated state round-trips, nulls included", () => {
       accountsOut: ["Mastercard Ung"],
       countries: ["Japan", "—"],
       countriesOut: ["Norway"],
+      or: [
+        {
+          ...NO_GROUP,
+          categories: ["kafe_og_restaurant/linjeforening_kiosk"],
+          merchants: ["Online"],
+        },
+        { ...NO_GROUP, items: ["Monster Ultra White"], itemsOut: ["Pose"] },
+      ],
       search: "rema",
       showExcluded: true,
       withReceipt: true,
@@ -200,5 +208,24 @@ test("a subcategory pair rides in the category list, slash and all", () => {
   assert.deepEqual(
     fromParams(new URLSearchParams(toParams(state))).filters.categories,
     ["annet_lan_og_gjeld", "dagligvarer/andre_dagligvarer", "vipps/"],
+  );
+});
+
+test("each or group rides in one param, and an empty group leaves no trace", () => {
+  const filters = {
+    ...NO_FILTERS,
+    or: [NO_GROUP, { ...NO_GROUP, items: ["Monster Ultra White"] }],
+  };
+  assert.equal(toParams({ ...DEFAULT, filters }), "it=Monster+Ultra+White");
+  assert.equal(
+    toParams({
+      ...DEFAULT,
+      filters: { ...filters, merchants: ["Online"] },
+    }),
+    "m=Online&or=it%3DMonster%2BUltra%2BWhite",
+  );
+  assert.deepEqual(
+    fromParams(new URLSearchParams("m=Online&or=&or=it%3DMonster")).filters.or,
+    [{ ...NO_GROUP, items: ["Monster"] }],
   );
 });

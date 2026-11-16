@@ -1,0 +1,11 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "Join filters with Or",
+      "detail": "Add an Or group to show rows that match any group, such as a kiosk or an item from receipts.",
+      "area": "filters",
+      "kind": "new"
+    }
+  ]
+}

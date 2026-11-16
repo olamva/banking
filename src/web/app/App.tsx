@@ -18,9 +18,12 @@ import {
   distinctMonths,
   distinctSubcategories,
   distinctYears,
+  groupAt,
   inRange,
   matchesFilters,
   period,
+  pruneGroups,
+  withGroupAt,
   todayOslo,
   type Filters,
 } from "../../core/select.ts";
@@ -97,6 +100,13 @@ export const App = () => {
   const [chosen, setChosen] = useState<string | null>(initial.period);
   const [filters, setFilters] = useState<Filters>(initial.filters);
   const [scope, setScope] = useState<Scope | null>(null);
+  const [editing, setEditing] = useState(0);
+  const onScope = (next: Scope | null) => {
+    setScope(next);
+    if (next !== null) return;
+    setEditing(0);
+    setFilters(pruneGroups);
+  };
   const [chosenGrain, setChosenGrain] = useState<Grain>(initial.grain);
   const [group, setGroup] = useState(initial.group);
   const [sort, setSort] = useState(initial.sort);
@@ -405,13 +415,18 @@ export const App = () => {
                   />
                   <FilterButton
                     specs={specs}
-                    filters={filters}
-                    onFilters={setFilters}
+                    filters={groupAt(filters, editing)}
+                    onFilters={(next) =>
+                      setFilters((f) => withGroupAt(f, editing, next))
+                    }
                     scope={scope}
-                    onScope={setScope}
+                    onScope={onScope}
                     matching={matching}
                     count={activeCount(specs, filters)}
                     deposit={view === "overview"}
+                    group={editing}
+                    groups={Math.max(filters.or.length + 1, editing + 1)}
+                    onGroup={setEditing}
                   />
                   <SearchBox
                     hotkey
@@ -429,7 +444,10 @@ export const App = () => {
                 specs={specs}
                 filters={filters}
                 onFilters={setFilters}
-                onEdit={setScope}
+                onEdit={(group, next) => {
+                  setEditing(group);
+                  setScope(next);
+                }}
               />
             )}
           </Header>

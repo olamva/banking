@@ -1,19 +1,10 @@
 import { nameKey, topCategory } from "./items.ts";
 import type { Categorized } from "./types.ts";
 
-export type Filters = {
-  categories: string[];
-  categoriesOut: string[];
-  merchants: string[];
-  merchantsOut: string[];
-  items: string[];
-  itemsOut: string[];
-  kinds: string[];
-  kindsOut: string[];
-  accounts: string[];
-  accountsOut: string[];
-  countries: string[];
-  countriesOut: string[];
+export type Group = Record<Axis | (typeof AXES)[Axis], string[]>;
+
+export type Filters = Group & {
+  or: Group[];
   search: string;
   showExcluded: boolean;
   withReceipt: boolean;
@@ -35,19 +26,15 @@ export type Axis = keyof typeof AXES;
 export const axisPairs = (): [Axis, (typeof AXES)[Axis]][] =>
   Object.entries(AXES) as [Axis, (typeof AXES)[Axis]][];
 
+const GROUP_KEYS = axisPairs().flat();
+
+export const NO_GROUP = Object.fromEntries(
+  GROUP_KEYS.map((k) => [k, []]),
+) as unknown as Group;
+
 export const NO_FILTERS: Filters = {
-  categories: [],
-  categoriesOut: [],
-  merchants: [],
-  merchantsOut: [],
-  items: [],
-  itemsOut: [],
-  kinds: [],
-  kindsOut: [],
-  accounts: [],
-  accountsOut: [],
-  countries: [],
-  countriesOut: [],
+  ...NO_GROUP,
+  or: [],
   search: "",
   showExcluded: false,
   withReceipt: false,
@@ -58,6 +45,41 @@ export const clearFilters = (f: Filters): Filters => ({
   ...NO_FILTERS,
   withoutDeposit: f.withoutDeposit,
 });
+
+const groupOf = (f: Group): Group =>
+  Object.fromEntries(GROUP_KEYS.map((k) => [k, f[k]])) as Group;
+
+export const emptyGroup = (g: Group): boolean =>
+  GROUP_KEYS.every((k) => g[k].length === 0);
+
+export const groupsOf = (f: Filters): Filters[] => [
+  { ...f, or: [] },
+  ...f.or.map((g) => ({ ...f, ...g, or: [] })),
+];
+
+export const liveGroups = (f: Filters): Filters[] => {
+  const all = groupsOf(f);
+  const live = all.filter((g) => !emptyGroup(g));
+  return live.length ? live : all.slice(0, 1);
+};
+
+export const groupAt = (f: Filters, i: number): Filters => ({
+  ...f,
+  ...(i ? (f.or[i - 1] ?? NO_GROUP) : {}),
+  or: [],
+});
+
+export const withGroupAt = (f: Filters, i: number, next: Filters): Filters =>
+  i
+    ? { ...next, ...groupOf(f), or: f.or.toSpliced(i - 1, 1, groupOf(next)) }
+    : { ...next, or: f.or };
+
+export const pruneGroups = (f: Filters): Filters => {
+  const kept = [f, ...f.or].filter((g) => !emptyGroup(g));
+  if (kept.length === f.or.length + 1) return f;
+  const [first = NO_GROUP, ...rest] = kept.map(groupOf);
+  return { ...f, ...first, or: rest };
+};
 
 export function cycleFilter(
   f: Filters,
@@ -107,7 +129,12 @@ const shown = (
   !candidates.some((c) => exclude.includes(c)) &&
   (!include.length || candidates.some((c) => include.includes(c)));
 
-export function matchesFilters(t: Categorized, f: Filters): boolean {
+export const matchesFilters = (t: Categorized, f: Filters): boolean =>
+  f.or.length
+    ? liveGroups(f).some((g) => matchesGroup(t, g))
+    : matchesGroup(t, f);
+
+function matchesGroup(t: Categorized, f: Filters): boolean {
   if (t.excluded && !f.showExcluded) return false;
   if (f.withReceipt && !t.receipt) return false;
   if (!shown(f.categories, f.categoriesOut, [t.category, subcategoryOf(t)]))
@@ -133,8 +160,11 @@ export const searchesItem = (key: string, search: string): boolean =>
     .every((w) => key.includes(w));
 
 export const markedItem = (key: string, f: Filters, kind = ""): boolean =>
-  f.items.some((i) => nameKey(i) === key) ||
-  f.kinds.some((k) => k === kind || k === topCategory(kind)) ||
+  groupsOf(f).some(
+    (g) =>
+      g.items.some((i) => nameKey(i) === key) ||
+      g.kinds.some((k) => k === kind || k === topCategory(kind)),
+  ) ||
   (!!f.search && searchesItem(key, f.search));
 
 export type PeriodKind = "month" | "year" | "recent" | "all" | "custom";
@@ -295,13 +325,20 @@ const REPEATED = [
   ["countries", "co"],
 ] as const;
 
-export function filtersToParams(f: Filters, p = new URLSearchParams()) {
+function groupToParams(f: Group, p = new URLSearchParams()) {
   if (f.categories.length) p.set("cat", f.categories.join(","));
   if (f.categoriesOut.length) p.set("cat_not", f.categoriesOut.join(","));
   for (const [axis, name] of REPEATED) {
     for (const v of f[axis]) p.append(name, v);
     for (const v of f[AXES[axis]]) p.append(`${name}_not`, v);
   }
+  return p;
+}
+
+export function filtersToParams(filters: Filters, p = new URLSearchParams()) {
+  const f = pruneGroups(filters);
+  groupToParams(f, p);
+  for (const g of f.or) p.append("or", groupToParams(g).toString());
   if (f.search) p.set("q", f.search);
   if (f.showExcluded) p.set("excl", "1");
   if (f.withReceipt) p.set("rcpt", "1");
@@ -309,7 +346,19 @@ export function filtersToParams(f: Filters, p = new URLSearchParams()) {
   return p;
 }
 
-export function filtersFromParams(p: URLSearchParams): Filters {
+export const filtersFromParams = (p: URLSearchParams): Filters => ({
+  ...groupFromParams(p),
+  or: p
+    .getAll("or")
+    .map((g) => groupFromParams(new URLSearchParams(g)))
+    .filter((g) => !emptyGroup(g)),
+  search: p.get("q") ?? "",
+  showExcluded: p.get("excl") === "1",
+  withReceipt: p.get("rcpt") === "1",
+  withoutDeposit: p.get("pant") === "0",
+});
+
+function groupFromParams(p: URLSearchParams): Group {
   const axis = (
     values: string[],
     out: string[],
@@ -349,9 +398,5 @@ export function filtersFromParams(p: URLSearchParams): Filters {
     accountsOut,
     countries,
     countriesOut,
-    search: p.get("q") ?? "",
-    showExcluded: p.get("excl") === "1",
-    withReceipt: p.get("rcpt") === "1",
-    withoutDeposit: p.get("pant") === "0",
   };
 }

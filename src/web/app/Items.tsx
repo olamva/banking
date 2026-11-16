@@ -9,6 +9,7 @@ import {
 } from "../../core/items.ts";
 import {
   cycleFilter,
+  liveGroups,
   matchesFilters,
   type Filters,
 } from "../../core/select.ts";
@@ -25,6 +26,19 @@ import { Button } from "./ui/button.tsx";
 import { cn } from "./ui/utils.ts";
 
 const MIN_SWING = 0.05;
+
+const hasItemFilter = (g: Filters) =>
+  g.items.length + g.itemsOut.length + g.kinds.length + g.kindsOut.length > 0;
+
+const itemIn = (g: Filters, key: string, category: string) => {
+  const kind = [topCategory(category), category];
+  return (
+    (!g.items.length || g.items.some((i) => nameKey(i) === key)) &&
+    !g.itemsOut.some((i) => nameKey(i) === key) &&
+    (!g.kinds.length || kind.some((k) => g.kinds.includes(k))) &&
+    !kind.some((k) => g.kindsOut.includes(k))
+  );
+};
 
 type Sort =
   | "name"
@@ -127,44 +141,36 @@ export const Items = ({
   const categories = mapRules(rules, "item-categories");
   const pickKind = (value: string, exclude: boolean) =>
     onFilters(cycleFilter(filters, "kinds", value, exclude));
-  const purchases = useMemo(
-    () =>
-      purchasesOf(
-        rows.filter((t) =>
-          matchesFilters(t, {
-            ...filters,
-            search,
-            items: [],
-            itemsOut: [],
-            kinds: [],
-            kindsOut: [],
-          }),
-        ),
-        names,
-        filters.withoutDeposit,
-        categories,
+  const purchases = useMemo(() => {
+    const groups = liveGroups({ ...filters, search });
+    const loose = groups.map((g) => ({
+      ...g,
+      items: [],
+      itemsOut: [],
+      kinds: [],
+      kindsOut: [],
+    }));
+    const txns = rows.filter((t) => loose.some((g) => matchesFilters(t, g)));
+    const all = purchasesOf(txns, names, filters.withoutDeposit, categories);
+    if (groups.every((g) => !hasItemFilter(g))) return all;
+    const kindOf = new Map(itemsOf(all).map((i) => [i.key, i.category]));
+    const txnOf = new Map(txns.map((t) => [t.receipt, t]));
+    return all.filter((p) =>
+      groups.some(
+        (g, i) =>
+          matchesFilters(txnOf.get(p.receipt)!, loose[i]!) &&
+          itemIn(g, p.key, kindOf.get(p.key)!),
       ),
-    [rows, filters, search, names, categories],
-  );
+    );
+  }, [rows, filters, search, names, categories]);
   const whole = useMemo(() => itemsOf(purchases), [purchases]);
   const items = useMemo(
     () => (bySize ? itemsOf(purchases, true) : whole),
     [purchases, bySize, whole],
   );
-  const picks = filters.items.map(nameKey);
-  const drops = filters.itemsOut.map(nameKey);
-  const keep = ({ key, category, purchases: list }: Item) => {
-    const kind = [topCategory(category), category];
-    const first = list[0];
-    return (
-      (words.every((w) => key.includes(w)) ||
-        list.some((p) => p.store.toLowerCase().includes(search))) &&
-      (!picks.length || picks.includes(first!.key)) &&
-      !drops.includes(first!.key) &&
-      (!filters.kinds.length || kind.some((k) => filters.kinds.includes(k))) &&
-      !kind.some((k) => filters.kindsOut.includes(k))
-    );
-  };
+  const keep = ({ key, purchases: list }: Item) =>
+    words.every((w) => key.includes(w)) ||
+    list.some((p) => p.store.toLowerCase().includes(search));
   const shown = items.filter(keep);
   const kept = whole.filter(keep);
   const [sort, setSort] = useState<Sort>("count");

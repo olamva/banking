@@ -1,15 +1,24 @@
 import { Fragment, type ReactNode } from "react";
 import { topCategory } from "../../core/items.ts";
-import type { Axis, Filters } from "../../core/select.ts";
-import { AXES, clearFilters, NO_COUNTRY } from "../../core/select.ts";
+import type { Filters } from "../../core/select.ts";
+import {
+  AXES,
+  clearFilters,
+  emptyGroup,
+  groupsOf,
+  NO_COUNTRY,
+  pruneGroups,
+  withGroupAt,
+} from "../../core/select.ts";
 import { FilterPanel, type AxisSpec, type Scope } from "./FilterPanel.tsx";
 import { categoryLabel, pairLabel, treeLabel } from "./format.ts";
-import { CloseIcon, FilterIcon, Icon } from "./icons.ts";
+import { AddedIcon, CloseIcon, FilterIcon, Icon } from "./icons.ts";
 import type { useFilterOptions } from "./options.ts";
 import { Badge } from "./ui/badge.tsx";
 import { Button } from "./ui/button.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover.tsx";
 import { Switch } from "./ui/switch.tsx";
+import { ToggleGroup, ToggleGroupItem } from "./ui/toggle-group.tsx";
 import { cn } from "./ui/utils.ts";
 
 export type View = "transactions" | "overview" | "rules";
@@ -105,7 +114,61 @@ interface FilterButtonProps {
   matching: number;
   count: number;
   deposit: boolean;
+  group: number;
+  groups: number;
+  onGroup: (group: number) => void;
 }
+
+const GroupStrip = ({
+  group,
+  groups,
+  onGroup,
+  canAdd,
+}: {
+  group: number;
+  groups: number;
+  onGroup: (group: number) => void;
+  canAdd: boolean;
+}) => (
+  <div className="flex items-center gap-1 overflow-x-auto border-b p-1">
+    {groups > 1 && (
+      <ToggleGroup
+        type="single"
+        variant="outline"
+        size="sm"
+        spacing={0}
+        value={String(group)}
+        onValueChange={(v) => v && onGroup(Number(v))}
+        aria-label="Filter group"
+      >
+        {Array.from({ length: groups }, (_, i) => (
+          <ToggleGroupItem
+            key={i}
+            value={String(i)}
+            className="px-2 text-xs pointer-coarse:h-9"
+          >
+            {i ? `Or ${i + 1}` : "Group 1"}
+          </ToggleGroupItem>
+        ))}
+      </ToggleGroup>
+    )}
+    <Button
+      variant="ghost"
+      size="sm"
+      disabled={!canAdd}
+      onClick={() => onGroup(groups)}
+      className="shrink-0 text-muted-foreground pointer-coarse:h-9"
+    >
+      <Icon icon={AddedIcon} size={14} />
+      Or
+    </Button>
+    {groups > 1 && (
+      <span className="ml-auto min-w-0 truncate pr-2 text-xs text-muted-foreground">
+        Any group matches
+      </span>
+    )}
+  </div>
+);
 
 export const FilterButton = ({
   specs,
@@ -116,7 +179,11 @@ export const FilterButton = ({
   matching,
   count,
   deposit,
+  group,
+  groups,
+  onGroup,
 }: FilterButtonProps) => {
+  const filled = !emptyGroup(filters);
   return (
     <Popover
       open={scope !== null}
@@ -141,8 +208,17 @@ export const FilterButton = ({
         onOpenAutoFocus={(e) => e.preventDefault()}
         className="max-h-[min(34rem,var(--radix-popover-content-available-height))] w-[min(22rem,calc(100vw-1.5rem))] gap-0 overflow-hidden p-0"
       >
+        {(groups > 1 || filled) && (
+          <GroupStrip
+            group={group}
+            groups={groups}
+            onGroup={onGroup}
+            canAdd={filled}
+          />
+        )}
         {scope && (
           <FilterPanel
+            key={group}
             specs={specs}
             filters={filters}
             onFilters={onFilters}
@@ -183,7 +259,11 @@ const X = ({ label, onClick }: { label: string; onClick: () => void }) => (
 );
 
 export const activeCount = (specs: AxisSpec[], f: Filters) =>
-  specs.reduce((n, s) => n + f[s.axis].length + f[AXES[s.axis]].length, 0) +
+  groupsOf(f).reduce(
+    (n, g) =>
+      specs.reduce((m, s) => m + g[s.axis].length + g[AXES[s.axis]].length, n),
+    0,
+  ) +
   Number(f.showExcluded) +
   Number(f.withReceipt);
 
@@ -254,7 +334,7 @@ interface FilterChipsProps {
   specs: AxisSpec[];
   filters: Filters;
   onFilters: (filters: Filters) => void;
-  onEdit: (axis: Axis) => void;
+  onEdit: (group: number, scope: Scope) => void;
 }
 
 export const FilterChips = ({
@@ -263,24 +343,51 @@ export const FilterChips = ({
   onFilters,
   onEdit,
 }: FilterChipsProps) => {
-  const axes = specs.filter(
-    (s) => filters[s.axis].length + filters[AXES[s.axis]].length > 0,
-  );
+  const groups = groupsOf(filters)
+    .map((g, i) => ({
+      i,
+      g,
+      axes: specs.filter((s) => g[s.axis].length + g[AXES[s.axis]].length > 0),
+    }))
+    .filter(({ axes }) => axes.length > 0);
+  const chips = groups.reduce((n, { axes }) => n + axes.length, 0);
   const count =
-    axes.length + Number(filters.showExcluded) + Number(filters.withReceipt);
+    chips + Number(filters.showExcluded) + Number(filters.withReceipt);
   if (count === 0) return null;
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      {axes.map((spec) => (
-        <AxisChip
-          key={spec.axis}
-          spec={spec}
-          filters={filters}
-          onFilters={onFilters}
-          onEdit={() => onEdit(spec.axis)}
-        />
+      {groups.map(({ i, g, axes }, at) => (
+        <Fragment key={i}>
+          {at > 0 && (
+            <span className="px-0.5 text-xs font-medium text-muted-foreground uppercase">
+              or
+            </span>
+          )}
+          {axes.map((spec) => (
+            <AxisChip
+              key={spec.axis}
+              spec={spec}
+              filters={g}
+              onFilters={(next) =>
+                onFilters(pruneGroups(withGroupAt(filters, i, next)))
+              }
+              onEdit={() => onEdit(i, spec.axis)}
+            />
+          ))}
+        </Fragment>
       ))}
+      {chips > 0 && (
+        <Button
+          variant="ghost"
+          aria-label="Add an or group"
+          onClick={() => onEdit(filters.or.length + 1, "home")}
+          className="shrink-0 text-muted-foreground"
+        >
+          <Icon icon={AddedIcon} size={15} />
+          Or
+        </Button>
+      )}
       {filters.showExcluded && (
         <PlainChip
           label="Hide internal transfers"

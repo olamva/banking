@@ -8,7 +8,12 @@ import {
 import type { BulkFile } from "../../core/bulkRules.ts";
 import { itemsOf, nameKey, purchasesOf } from "../../core/items.ts";
 import type { RuleFile } from "../../core/ruleFiles.ts";
-import { markedItem, matchesFilters, type Filters } from "../../core/select.ts";
+import {
+  groupsOf,
+  markedItem,
+  matchesFilters,
+  type Filters,
+} from "../../core/select.ts";
 import { totals } from "../../core/stats.ts";
 import type { Categorized } from "../../core/types.ts";
 import { ExcludedInfo, pick } from "./Dashboard.tsx";
@@ -50,7 +55,8 @@ export const TransactionsView = ({
   const [picked, setPicked] = useState<string | null>(null);
   const [open, setOpen] = useState<Categorized | null>(null);
   const [back, setBack] = useState<Categorized | null>(null);
-  const needed = !!picked || (!!open && filters.kinds.length > 0);
+  const needed =
+    !!picked || (!!open && groupsOf(filters).some((g) => g.kinds.length > 0));
   const items = useMemo(
     () =>
       needed
