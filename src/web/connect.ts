@@ -77,6 +77,12 @@ const finish = (id: string, flow: Flow, pasted: string): Promise<unknown> => {
   return started.finish(code);
 };
 
+const requestSource = async (name: string): Promise<unknown> => {
+  if (!name || name.length > 80)
+    throw new Error("Write the name of the service.");
+  return (await import("../net/t3.ts")).requestSource(name);
+};
+
 // A pasted login travels in the body. A query string lands in the proxy log,
 // and the Trumf cookie is too large for a header.
 export function connectRoute(
@@ -87,7 +93,8 @@ export function connectRoute(
   const [, id = "", step] =
     /^\/api\/connect\/([a-z]+)\/(start|finish)$/.exec(path) ?? [];
   const flow = Object.hasOwn(FLOWS, id) ? FLOWS[id] : undefined;
-  if (!flow || !step)
+  const added = path === "/api/connect/new";
+  if (!added && (!flow || !step))
     return Promise.resolve(answer(404, new Error(`no route ${path}`)));
   if (req.headers["x-banking-connect"] !== "1")
     return Promise.resolve(
@@ -95,21 +102,23 @@ export function connectRoute(
     );
   const work =
     step === "start"
-      ? (flow.start?.() ?? Promise.reject(new Error("no login link"))).then(
+      ? (flow!.start?.() ?? Promise.reject(new Error("no login link"))).then(
           (started) => {
             pending.set(id, started);
             return { url: started.url };
           },
         )
-      : process.platform === "darwin"
-        ? Promise.reject(
-            new Error(
-              "Connect on the site. The Mac keeps its own logins from pnpm sb1 login and pnpm receipts login.",
-            ),
-          )
-        : req.method !== "POST"
-          ? Promise.reject(new Error("needs POST"))
-          : read(req).then((pasted) => finish(id, flow, pasted));
+      : req.method !== "POST"
+        ? Promise.reject(new Error("needs POST"))
+        : added
+          ? read(req).then(requestSource)
+          : process.platform === "darwin"
+            ? Promise.reject(
+                new Error(
+                  "Connect on the site. The Mac keeps its own logins from pnpm sb1 login and pnpm receipts login.",
+                ),
+              )
+            : read(req).then((pasted) => finish(id, flow!, pasted));
   return work.then(
     (value) => answer(200, value ?? {}),
     (e: unknown) => answer(400, e instanceof Error ? e : new Error(String(e))),

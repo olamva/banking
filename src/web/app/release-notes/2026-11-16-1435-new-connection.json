@@ -1,0 +1,11 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "Ask for a new connection",
+      "detail": "Write a service name under Logins, and a T3 Code thread starts to add it.",
+      "area": "app",
+      "kind": "new"
+    }
+  ]
+}
