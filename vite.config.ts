@@ -21,6 +21,7 @@ const api = (): Plugin => ({
   async configureServer(server) {
     const { appPayload, fresh, jsonRoute, payload, refresh, rulesRoute } =
       await import("./src/web/api.ts");
+    const { connectRoute } = await import("./src/web/connect.ts");
     server.middlewares.use((req, _res, next) => {
       if (req.url?.startsWith("/api/")) fresh().then(() => next());
       else next();
@@ -35,11 +36,11 @@ const api = (): Plugin => ({
       );
       const answer = json
         ? Promise.resolve(json)
-        : rulesRoute(
+        : (rulesRoute(
             url.pathname,
             url.searchParams,
             req.headers["x-banking-rules"] as string | undefined,
-          );
+          ) ?? connectRoute(url.pathname, req));
       if (!answer) return next();
       answer.then((a) => {
         res.writeHead(a.status, {

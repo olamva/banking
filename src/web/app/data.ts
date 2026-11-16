@@ -227,8 +227,12 @@ const rulesUrl = (
 
 // The same shape as the refresh, and for the same reason: Easy Auth answers a
 // session cookie on GET alone, so the custom header carries the whole guard.
-const ask = async (url: string): Promise<Record<string, unknown>> => {
-  const r = await fetch(url, { headers: { "X-Banking-Rules": "1" } });
+const ask = async (
+  url: string,
+  header = "X-Banking-Rules",
+  init: RequestInit = {},
+): Promise<Record<string, unknown>> => {
+  const r = await fetch(url, { ...init, headers: { [header]: "1" } });
   const body = (await r.text()) || "(no body)";
   let parsed: Record<string, unknown> = {};
   try {
@@ -240,6 +244,15 @@ const ask = async (url: string): Promise<Record<string, unknown>> => {
     throw new Error(String(parsed["error"] ?? `${r.status} ${body}`));
   return parsed;
 };
+
+export const startLogin = async (id: string): Promise<string> =>
+  String((await ask(`/api/connect/${id}/start`, "X-Banking-Connect"))["url"]);
+
+export const finishLogin = (id: string, pasted: string): Promise<unknown> =>
+  ask(`/api/connect/${id}/finish`, "X-Banking-Connect", {
+    method: "POST",
+    body: pasted,
+  });
 
 export const useRules = (onRebuilt: () => void): RulesApi => {
   const [data, setData] = useState<RulesData | null>(null);

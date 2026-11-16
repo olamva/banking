@@ -10,7 +10,9 @@ const API = "https://api.sparebank1.no";
 // empty result.
 export class ReauthRequired extends Error {
   constructor(cause: string) {
-    super(`BankID login required (${cause}). Run: pnpm sb1 login`);
+    super(
+      `BankID login required (${cause}). ${process.platform === "darwin" ? "Run: pnpm sb1 login" : "Connect the bank again in Settings."}`,
+    );
   }
 }
 
@@ -67,10 +69,33 @@ async function postToken(
   return JSON.parse(body) as TokenResponse;
 }
 
+export function authorize(): { url: string; state: string } {
+  const state = randomBytes(16).toString("hex");
+  const url = new URL(`${API}/oauth/authorize`);
+  url.search = new URLSearchParams({
+    client_id: env("CLIENT_ID"),
+    response_type: "code",
+    redirect_uri: env("REDIRECT_URI"),
+    finInst: env("FINANCIAL_INSTITUTION"),
+    state,
+  }).toString();
+  return { url: url.toString(), state };
+}
+
+export async function connect(code: string, state: string): Promise<void> {
+  const t = await postToken({
+    grant_type: "authorization_code",
+    code,
+    redirect_uri: env("REDIRECT_URI"),
+    state,
+  });
+  await setToken(t.refresh_token);
+}
+
 export async function login(): Promise<void> {
   const redirectUri = env("REDIRECT_URI");
   const { port, pathname } = new URL(redirectUri);
-  const state = randomBytes(16).toString("hex");
+  const { url: authorizeUrl, state } = authorize();
 
   const code = await new Promise<string>((resolve, reject) => {
     const server = createServer((req, res) => {
@@ -106,28 +131,14 @@ export async function login(): Promise<void> {
     });
     server.on("error", reject);
     server.listen(Number(port), "127.0.0.1", () => {
-      const authorize = new URL(`${API}/oauth/authorize`);
-      authorize.search = new URLSearchParams({
-        client_id: env("CLIENT_ID"),
-        response_type: "code",
-        redirect_uri: redirectUri,
-        finInst: env("FINANCIAL_INSTITUTION"),
-        state,
-      }).toString();
       console.error(
-        `Opening BankID login (code expires in 2 min):\n${authorize}`,
+        `Opening BankID login (code expires in 2 min):\n${authorizeUrl}`,
       );
-      execFile("open", [authorize.toString()]);
+      execFile("open", [authorizeUrl]);
     });
   });
 
-  const t = await postToken({
-    grant_type: "authorization_code",
-    code,
-    redirect_uri: redirectUri,
-    state,
-  });
-  await setToken(t.refresh_token);
+  await connect(code, state);
   console.error(`Refresh token stored in the ${store()}.`);
 }
 

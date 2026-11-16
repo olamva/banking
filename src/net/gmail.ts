@@ -29,13 +29,50 @@ async function postToken(params: Record<string, string>) {
   return JSON.parse(body) as { access_token: string; refresh_token?: string };
 }
 
-export async function login(): Promise<void> {
-  const clientId = env("GMAIL_CLIENT_ID");
+export const SITE_REDIRECT = "http://127.0.0.1:8765/";
+
+export function authorize(redirectUri = SITE_REDIRECT): {
+  url: string;
+  state: string;
+  verifier: string;
+} {
   const verifier = randomBytes(32).toString("base64url");
   const state = randomBytes(16).toString("hex");
+  const auth = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+  auth.search = new URLSearchParams({
+    client_id: env("GMAIL_CLIENT_ID"),
+    redirect_uri: redirectUri,
+    response_type: "code",
+    scope: "https://www.googleapis.com/auth/gmail.readonly",
+    access_type: "offline",
+    prompt: "consent",
+    code_challenge: createHash("sha256").update(verifier).digest("base64url"),
+    code_challenge_method: "S256",
+    state,
+  }).toString();
+  return { url: auth.toString(), state, verifier };
+}
+
+export async function connect(
+  code: string,
+  verifier: string,
+  redirectUri = SITE_REDIRECT,
+): Promise<void> {
+  const t = await postToken({
+    grant_type: "authorization_code",
+    code,
+    code_verifier: verifier,
+    redirect_uri: redirectUri,
+  });
+  if (!t.refresh_token) throw new Error("Google returned no refresh token");
+  secretSet("gmail", t.refresh_token);
+}
+
+export async function login(): Promise<void> {
   const server = createServer();
   await new Promise<void>((ok) => server.listen(0, "127.0.0.1", ok));
   const redirectUri = `http://127.0.0.1:${(server.address() as AddressInfo).port}/`;
+  const { url: auth, state, verifier } = authorize(redirectUri);
 
   const code = await new Promise<string>((resolve, reject) => {
     server.on("request", (req, res) => {
@@ -53,30 +90,11 @@ export async function login(): Promise<void> {
           ),
         );
     });
-    const auth = new URL("https://accounts.google.com/o/oauth2/v2/auth");
-    auth.search = new URLSearchParams({
-      client_id: clientId,
-      redirect_uri: redirectUri,
-      response_type: "code",
-      scope: "https://www.googleapis.com/auth/gmail.readonly",
-      access_type: "offline",
-      prompt: "consent",
-      code_challenge: createHash("sha256").update(verifier).digest("base64url"),
-      code_challenge_method: "S256",
-      state,
-    }).toString();
     console.error(`Opening the Google login:\n${auth}`);
-    execFile("open", [auth.toString()]);
+    execFile("open", [auth]);
   });
 
-  const t = await postToken({
-    grant_type: "authorization_code",
-    code,
-    code_verifier: verifier,
-    redirect_uri: redirectUri,
-  });
-  if (!t.refresh_token) throw new Error("Google returned no refresh token");
-  secretSet("gmail", t.refresh_token);
+  await connect(code, verifier, redirectUri);
   console.error("Gmail login stored in the keychain.");
 }
 

@@ -64,7 +64,7 @@ function capture(ws: WebSocket, url: string): Promise<Session> {
   });
 }
 
-export async function login(): Promise<void> {
+export function authorizeUrl(): string {
   const auth = new URL("https://id.rema.no/authorization");
   auth.search = new URLSearchParams({
     response_type: "code",
@@ -73,16 +73,35 @@ export async function login(): Promise<void> {
     code_challenge: createHash("sha256")
       .update(randomBytes(32))
       .digest("base64url"),
-    state: randomBytes(16).toString("base64url"),
+    state: randomBytes(16).toString("hex"),
     scope: "all",
     redirect_uri: REDIRECT,
   }).toString();
+  return auth.toString();
+}
 
+export async function login(): Promise<void> {
   const session = await chromeLogin("Rema", "with your phone number", (ws) =>
-    capture(ws, auth.toString()),
+    capture(ws, authorizeUrl()),
   );
   secretSet("rema", JSON.stringify(session));
   console.error("Rema login stored in the keychain.");
+}
+
+export async function save(pasted: string): Promise<void> {
+  let login: Partial<Session> = {};
+  try {
+    login = JSON.parse(pasted) as Partial<Session>;
+  } catch {}
+  if (!login.key || !login.refreshToken)
+    throw new Error("Paste the text that the console code copied.");
+  const session = {
+    key: login.key,
+    refreshToken: login.refreshToken,
+    deviceId: randomUUID().toUpperCase(),
+  };
+  secretSet("rema", JSON.stringify(session));
+  await idToken(session);
 }
 
 async function idToken(s: Session): Promise<string> {

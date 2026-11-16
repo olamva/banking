@@ -22,7 +22,7 @@ import { Switch } from "./ui/switch.tsx";
 import { ToggleGroup, ToggleGroupItem } from "./ui/toggle-group.tsx";
 import { cn } from "./ui/utils.ts";
 
-export type View = "transactions" | "overview" | "rules";
+export type View = "transactions" | "overview" | "settings";
 
 interface SwitchFieldProps {
   label: string;

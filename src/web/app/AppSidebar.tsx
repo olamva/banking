@@ -1,3 +1,4 @@
+import { isRuleFile } from "../../core/ruleFiles.ts";
 import { THEMES, setTheme, type Theme } from "./data.ts";
 import type { View } from "./FilterBar.tsx";
 import {
@@ -7,7 +8,7 @@ import {
   KeyboardIcon,
   LightThemeIcon,
   ReleaseIcon,
-  RulesIcon,
+  SettingsIcon,
   SystemThemeIcon,
   TransactionsIcon,
 } from "./icons.ts";
@@ -48,13 +49,13 @@ import {
 export const VIEW_LABEL: Record<View, string> = {
   transactions: "Transactions",
   overview: "Overview",
-  rules: "Rules",
+  settings: "Settings",
 };
 
 export const VIEWS: [View, typeof DashboardIcon][] = [
   ["transactions", TransactionsIcon],
   ["overview", DashboardIcon],
-  ["rules", RulesIcon],
+  ["settings", SettingsIcon],
 ];
 
 const THEME_ICONS = {
@@ -146,14 +147,14 @@ export const AppSidebar = ({
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-        {view === "rules" &&
+        {view === "settings" &&
           TAB_GROUPS.map(([label, files]) => (
             <SidebarGroup
               key={label}
               className="group-data-[collapsible=icon]:hidden"
             >
               <SidebarGroupLabel>
-                {label === "Checks" ? label : `${label} rules`}
+                {files.every(isRuleFile) ? `${label} rules` : label}
               </SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>

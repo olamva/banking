@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
-import { env } from "./token.ts";
+import { env, secretSet } from "./token.ts";
 
 const PAGES = "https://www.trumf.no/trumf-profil/kvitteringer";
 const UA =
@@ -81,6 +81,13 @@ async function page(path: string, key: string): Promise<unknown> {
       "Trumf login expired. Copy the Cookie header of a logged-in www.trumf.no page into TRUMF_COOKIE in .env",
     );
   return value;
+}
+
+export function save(pasted: string): void {
+  const cookie = pasted.replace(/^\s*cookie:\s*/i, "").trim();
+  if (!cookie.includes("authjs.session-token"))
+    throw new Error("Paste the cookie header of a logged-in trumf.no page.");
+  secretSet("TRUMF_COOKIE", cookie);
 }
 
 export async function sync(dir: string): Promise<number> {

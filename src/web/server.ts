@@ -25,6 +25,7 @@ import {
   signedIn,
   visit,
 } from "./api.ts";
+import { connectRoute } from "./connect.ts";
 
 const DIST = resolve(import.meta.dirname, "../../data/dist");
 
@@ -261,11 +262,12 @@ export const server = createServer(async (req, res) => {
     return;
   }
   if (path.startsWith("/api/")) await ready.then(fresh);
-  const rules = rulesRoute(
-    path,
-    url.searchParams,
-    req.headers["x-banking-rules"] as string | undefined,
-  );
+  const rules =
+    rulesRoute(
+      path,
+      url.searchParams,
+      req.headers["x-banking-rules"] as string | undefined,
+    ) ?? connectRoute(path, req);
   if (rules) {
     rules.then((a) =>
       send(res, a.status, JSON_TYPE, a.body, coding(req, JSON_TYPE)),

@@ -62,8 +62,13 @@ async function token(
   return t.access_token;
 }
 
-export async function login(): Promise<void> {
+export function authorize(): {
+  url: string;
+  state: string;
+  verifier: string;
+} {
   const verifier = randomBytes(32).toString("base64url");
+  const state = randomBytes(16).toString("base64url");
   const auth = new URL("https://login.coop.no/authorize");
   auth.search = new URLSearchParams({
     response_type: "code",
@@ -73,19 +78,27 @@ export async function login(): Promise<void> {
     scope: "openid profile offline_access",
     code_challenge: createHash("sha256").update(verifier).digest("base64url"),
     code_challenge_method: "S256",
-    state: randomBytes(16).toString("base64url"),
+    state,
   }).toString();
-  const code = await chromeLogin(
-    "Coop",
-    "with your password and SMS code",
-    (ws) => capture(ws, auth.toString()),
-  );
-  await token(randomUUID().toUpperCase(), {
+  return { url: auth.toString(), state, verifier };
+}
+
+export const connect = (code: string, verifier: string): Promise<string> =>
+  token(randomUUID().toUpperCase(), {
     grant_type: "authorization_code",
     code,
     redirect_uri: REDIRECT,
     code_verifier: verifier,
   });
+
+export async function login(): Promise<void> {
+  const { url, verifier } = authorize();
+  const code = await chromeLogin(
+    "Coop",
+    "with your password and SMS code",
+    (ws) => capture(ws, url),
+  );
+  await connect(code, verifier);
   console.error("Coop login stored in the keychain.");
 }
 
