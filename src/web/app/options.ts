@@ -2,7 +2,9 @@ import { useMemo } from "react";
 import { itemsOf, purchasesOf, topCategory } from "../../core/items.ts";
 import type { RuleMap } from "../../core/ruleFiles.ts";
 import {
+  axisPairs,
   countryOf,
+  groupsOf,
   distinctAccounts,
   distinctCategories,
   distinctCountries,
@@ -26,10 +28,19 @@ const subLabelOf = (pair: string) =>
 
 export const useFilterOptions = (
   inPeriod: Categorized[],
-  filters: Filters,
+  all: Filters,
   names: RuleMap,
   kindRules: RuleMap,
 ) => {
+  const filters = useMemo(
+    (): Record<Axis, string[]> =>
+      all.or.length
+        ? (Object.fromEntries(
+            axisPairs().map(([a]) => [a, groupsOf(all).flatMap((g) => g[a])]),
+          ) as Record<Axis, string[]>)
+        : all,
+    [all],
+  );
   const categories = useMemo(
     () =>
       [

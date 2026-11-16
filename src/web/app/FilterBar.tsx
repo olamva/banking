@@ -1,7 +1,16 @@
 import { Fragment, type ReactNode } from "react";
 import { topCategory } from "../../core/items.ts";
-import type { Axis, Filters } from "../../core/select.ts";
-import { AXES, clearFilters, NO_COUNTRY } from "../../core/select.ts";
+import type { Filters, Group } from "../../core/select.ts";
+import {
+  AXES,
+  clearFilters,
+  emptyGroup,
+  NO_GROUP,
+  groupsOf,
+  NO_COUNTRY,
+  pruneGroups,
+  withGroupAt,
+} from "../../core/select.ts";
 import { FilterPanel, type AxisSpec, type Scope } from "./FilterPanel.tsx";
 import { categoryLabel, pairLabel, treeLabel } from "./format.ts";
 import { CloseIcon, FilterIcon, Icon } from "./icons.ts";
@@ -10,6 +19,7 @@ import { Badge } from "./ui/badge.tsx";
 import { Button } from "./ui/button.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover.tsx";
 import { Switch } from "./ui/switch.tsx";
+import { ToggleGroup, ToggleGroupItem } from "./ui/toggle-group.tsx";
 import { cn } from "./ui/utils.ts";
 
 export type View = "transactions" | "overview" | "rules";
@@ -105,7 +115,105 @@ interface FilterButtonProps {
   matching: number;
   count: number;
   deposit: boolean;
+  group: number;
+  groups: string[];
+  onGroup: (group: number) => void;
 }
+
+export const groupLabels = (
+  specs: AxisSpec[],
+  f: Filters,
+  editing: number,
+): string[] =>
+  [...groupsOf(f), ...(editing > f.or.length ? [NO_GROUP] : [])].map((g) =>
+    groupLabel(specs, g),
+  );
+
+const groupLabel = (specs: AxisSpec[], g: Group) =>
+  specs
+    .flatMap((s) => {
+      const name = (v: string) =>
+        s.subs && s.subLabel && v.includes("/")
+          ? s.subLabel(v)
+          : (s.label ?? s.fullLabel ?? ((x: string) => x))(v);
+      return [
+        ...g[s.axis].map(name),
+        ...g[AXES[s.axis]].map((v) => `not ${name(v)}`),
+      ];
+    })
+    .join(", ") || "New group";
+
+const Or = () => (
+  <span className="px-0.5 text-xs font-medium text-muted-foreground uppercase">
+    or
+  </span>
+);
+
+const AddGroup = ({
+  onClick,
+  disabled,
+  className,
+}: {
+  onClick: () => void;
+  disabled?: boolean;
+  className?: string;
+}) => (
+  <Button
+    variant="outline"
+    disabled={disabled}
+    onClick={onClick}
+    className={cn(
+      "shrink-0 rounded-full border-dashed px-3 font-normal text-muted-foreground",
+      className,
+    )}
+  >
+    Also include…
+  </Button>
+);
+
+const GroupStrip = ({
+  group,
+  labels,
+  onGroup,
+  canAdd,
+}: {
+  group: number;
+  labels: string[];
+  onGroup: (group: number) => void;
+  canAdd: boolean;
+}) => (
+  <div className="flex flex-wrap items-center gap-1 border-b p-1.5">
+    {labels.length > 1 && (
+      <ToggleGroup
+        type="single"
+        variant="outline"
+        size="sm"
+        spacing={1}
+        value={String(group)}
+        onValueChange={(v) => v && onGroup(Number(v))}
+        aria-label="Edit group"
+        className="w-auto min-w-0 flex-wrap"
+      >
+        {labels.map((label, i) => (
+          <Fragment key={i}>
+            {i > 0 && <Or />}
+            <ToggleGroupItem
+              value={String(i)}
+              className="max-w-44 min-w-0 shrink rounded-full px-2.5 text-xs font-normal pointer-coarse:h-9"
+            >
+              <span className="truncate">{label}</span>
+            </ToggleGroupItem>
+          </Fragment>
+        ))}
+      </ToggleGroup>
+    )}
+    <AddGroup
+      disabled={!canAdd}
+      onClick={() => onGroup(labels.length)}
+      className="h-7 text-xs pointer-coarse:h-9"
+    />
+  </div>
+);
 
 export const FilterButton = ({
   specs,
@@ -116,7 +224,11 @@ export const FilterButton = ({
   matching,
   count,
   deposit,
+  group,
+  groups,
+  onGroup,
 }: FilterButtonProps) => {
+  const filled = !emptyGroup(filters);
   return (
     <Popover
       open={scope !== null}
@@ -141,8 +253,17 @@ export const FilterButton = ({
         onOpenAutoFocus={(e) => e.preventDefault()}
         className="max-h-[min(34rem,var(--radix-popover-content-available-height))] w-[min(22rem,calc(100vw-1.5rem))] gap-0 overflow-hidden p-0"
       >
+        {(groups.length > 1 || filled) && (
+          <GroupStrip
+            group={group}
+            labels={groups}
+            onGroup={onGroup}
+            canAdd={filled}
+          />
+        )}
         {scope && (
           <FilterPanel
+            key={group}
             specs={specs}
             filters={filters}
             onFilters={onFilters}
@@ -183,7 +304,11 @@ const X = ({ label, onClick }: { label: string; onClick: () => void }) => (
 );
 
 export const activeCount = (specs: AxisSpec[], f: Filters) =>
-  specs.reduce((n, s) => n + f[s.axis].length + f[AXES[s.axis]].length, 0) +
+  groupsOf(f).reduce(
+    (n, g) =>
+      specs.reduce((m, s) => m + g[s.axis].length + g[AXES[s.axis]].length, n),
+    0,
+  ) +
   Number(f.showExcluded) +
   Number(f.withReceipt);
 
@@ -254,7 +379,7 @@ interface FilterChipsProps {
   specs: AxisSpec[];
   filters: Filters;
   onFilters: (filters: Filters) => void;
-  onEdit: (axis: Axis) => void;
+  onEdit: (group: number, scope: Scope) => void;
 }
 
 export const FilterChips = ({
@@ -263,24 +388,39 @@ export const FilterChips = ({
   onFilters,
   onEdit,
 }: FilterChipsProps) => {
-  const axes = specs.filter(
-    (s) => filters[s.axis].length + filters[AXES[s.axis]].length > 0,
-  );
+  const groups = groupsOf(filters)
+    .map((g, i) => ({
+      i,
+      g,
+      axes: specs.filter((s) => g[s.axis].length + g[AXES[s.axis]].length > 0),
+    }))
+    .filter(({ axes }) => axes.length > 0);
+  const chips = groups.reduce((n, { axes }) => n + axes.length, 0);
   const count =
-    axes.length + Number(filters.showExcluded) + Number(filters.withReceipt);
+    chips + Number(filters.showExcluded) + Number(filters.withReceipt);
   if (count === 0) return null;
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      {axes.map((spec) => (
-        <AxisChip
-          key={spec.axis}
-          spec={spec}
-          filters={filters}
-          onFilters={onFilters}
-          onEdit={() => onEdit(spec.axis)}
-        />
+      {groups.map(({ i, g, axes }, at) => (
+        <Fragment key={i}>
+          {at > 0 && <Or />}
+          {axes.map((spec) => (
+            <AxisChip
+              key={spec.axis}
+              spec={spec}
+              filters={g}
+              onFilters={(next) =>
+                onFilters(pruneGroups(withGroupAt(filters, i, next)))
+              }
+              onEdit={() => onEdit(i, spec.axis)}
+            />
+          ))}
+        </Fragment>
       ))}
+      {chips > 0 && (
+        <AddGroup onClick={() => onEdit(filters.or.length + 1, "home")} />
+      )}
       {filters.showExcluded && (
         <PlainChip
           label="Hide internal transfers"

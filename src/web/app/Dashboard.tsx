@@ -7,6 +7,7 @@ import {
 import {
   AXES,
   axisBounds,
+  groupsOf,
   inRange,
   matchesFilters,
   type Axis,
@@ -308,6 +309,8 @@ const alignTo = (series: SeriesPoint[], compare: SeriesPoint[], p: Period) =>
     ? compare.map((c, i) => ({ ...c, at: series[i]?.at ?? c.at }))
     : compare;
 
+const oneCategory = (f: Filters) => f.categories.length === 1 && !f.or.length;
+
 interface DashboardProps {
   txns: Categorized[];
   all: Categorized[];
@@ -370,7 +373,7 @@ export const Dashboard = ({
   const series = build(shown, from, to);
   const compare = vs ? alignTo(series, build(previous, vs.from, vs.to), p) : [];
 
-  const single = filters.categories.length === 1;
+  const single = oneCategory(filters);
 
   const anyIncome = series.some((s) => s.totalIn > 0);
   const anySpend = series.some((s) => s.totalOut > 0);
@@ -391,7 +394,9 @@ export const Dashboard = ({
         }
       : { income: false, spend: false, band: false, trend: false, compare: [] };
 
-  const byItem = filters.items.length + filters.kinds.length > 0;
+  const byItem = groupsOf(filters).some(
+    (g) => g.items.length + g.kinds.length > 0,
+  );
   const items = (
     <Items
       rows={all}

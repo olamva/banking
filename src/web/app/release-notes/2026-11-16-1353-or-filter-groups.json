@@ -1,0 +1,11 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "Combine filters with Also include",
+      "detail": "Tap Also include… to add the rows of another filter, such as an item from receipts.",
+      "area": "filters",
+      "kind": "new"
+    }
+  ]
+}
