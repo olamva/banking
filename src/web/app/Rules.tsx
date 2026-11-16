@@ -46,7 +46,7 @@ import {
   rowsFor,
 } from "./RuleFields.tsx";
 import { History } from "./RuleHistory.tsx";
-import { ReceiptLogins } from "./ReceiptLogins.tsx";
+import { Logins } from "./Logins.tsx";
 
 const GROUP_FIELD =
   "h-auto min-h-0 w-auto min-w-20 max-w-full flex-1 rounded-none border-0 bg-transparent px-2 py-1 font-mono text-xs focus-visible:ring-0 md:text-xs dark:bg-transparent";
@@ -229,7 +229,7 @@ export const RulesView = ({
   );
   const hasMatches = grouped ? shownGroups.length > 0 : shown.length > 0;
 
-  if (file === "receipts") return <ReceiptLogins />;
+  if (file === "logins") return <Logins />;
   if (stale)
     return (
       <Panel title="Rebuild needed" icon={ErrorIcon}>

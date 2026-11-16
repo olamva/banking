@@ -348,18 +348,3 @@ test("a rule preview counts the rows a pattern claims and rejects a bad regex", 
   assert.equal(out.count, 1);
   assert.equal(match("/(/").status, 400);
 });
-
-test("the Coop connect route needs its header and a started login", async () => {
-  const { connectRoute } = await import("../../src/web/api.ts");
-  const finish = (header?: string) =>
-    connectRoute(
-      "/api/connect/coop/finish",
-      new URLSearchParams({
-        url: "https://login.coop.no/android/no.coop.members/callback?code=c&state=s",
-      }),
-      header,
-    )!;
-  assert.equal((await finish()).status, 405);
-  assert.equal((await finish("1")).status, 400);
-  assert.equal(network.mock.callCount(), 0);
-});

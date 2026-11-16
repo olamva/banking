@@ -48,7 +48,7 @@ async function token(
   });
   if (!res.ok)
     throw new Error(
-      `Coop refused the token (${res.status}). Connect Coop again in Settings.`,
+      `Coop login expired (${res.status}). Run: pnpm receipts login coop`,
     );
   const t = (await res.json()) as {
     access_token: string;
@@ -105,8 +105,7 @@ export async function login(): Promise<void> {
 export async function sync(dir: string): Promise<number> {
   const stored = secretGet("coop");
   if (!stored && process.platform === "darwin") return 0;
-  if (!stored)
-    throw new Error("Coop is not connected. Connect Coop in Settings.");
+  if (!stored) throw new Error("No Coop login. Run: pnpm receipts login coop");
   const { refreshToken, deviceId } = JSON.parse(stored) as Session;
   const headers = {
     "X-Token": await token(deviceId, {

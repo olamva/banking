@@ -11,13 +11,13 @@ export type Source = keyof typeof SOURCES;
 export const receiptDir = (source: Source): string =>
   `${DATA_DIR}/raw/receipts/${source}`;
 
-const seed = (message: string): string =>
+const advice = (message: string): string =>
   process.platform !== "darwin" && /login|\.env/.test(message)
-    ? `${message.replace(/\.?$/, ".")} Then run pnpm receipts:seed.`
+    ? `${message.replace(/\.?\s*(Run:|Copy|—) .*$/, "")}. Connect it again in Settings.`
     : message;
 
 const failure = (source: Source, reason: unknown): string => {
-  const m = seed(reason instanceof Error ? reason.message : String(reason));
+  const m = advice(reason instanceof Error ? reason.message : String(reason));
   return m.toLowerCase().startsWith(source) ? m : `${source}: ${m}`;
 };
 

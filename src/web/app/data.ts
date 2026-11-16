@@ -230,8 +230,9 @@ const rulesUrl = (
 const ask = async (
   url: string,
   header = "X-Banking-Rules",
+  init: RequestInit = {},
 ): Promise<Record<string, unknown>> => {
-  const r = await fetch(url, { headers: { [header]: "1" } });
+  const r = await fetch(url, { ...init, headers: { [header]: "1" } });
   const body = (await r.text()) || "(no body)";
   let parsed: Record<string, unknown> = {};
   try {
@@ -244,14 +245,14 @@ const ask = async (
   return parsed;
 };
 
-export const startCoop = async (): Promise<string> =>
-  String((await ask("/api/connect/coop/start", "X-Banking-Connect"))["url"]);
+export const startLogin = async (id: string): Promise<string> =>
+  String((await ask(`/api/connect/${id}/start`, "X-Banking-Connect"))["url"]);
 
-export const finishCoop = (pasted: string): Promise<unknown> =>
-  ask(
-    `/api/connect/coop/finish?${new URLSearchParams({ url: pasted })}`,
-    "X-Banking-Connect",
-  );
+export const finishLogin = (id: string, pasted: string): Promise<unknown> =>
+  ask(`/api/connect/${id}/finish`, "X-Banking-Connect", {
+    method: "POST",
+    body: pasted,
+  });
 
 export const useRules = (onRebuilt: () => void): RulesApi => {
   const [data, setData] = useState<RulesData | null>(null);

@@ -17,7 +17,6 @@ import {
   HANDOFF_PAGE,
   appPayload,
   autoRefresh,
-  connectRoute,
   fresh,
   jsonRoute,
   payload,
@@ -26,6 +25,7 @@ import {
   signedIn,
   visit,
 } from "./api.ts";
+import { connectRoute } from "./connect.ts";
 
 const DIST = resolve(import.meta.dirname, "../../data/dist");
 
@@ -267,12 +267,7 @@ export const server = createServer(async (req, res) => {
       path,
       url.searchParams,
       req.headers["x-banking-rules"] as string | undefined,
-    ) ??
-    connectRoute(
-      path,
-      url.searchParams,
-      req.headers["x-banking-connect"] as string | undefined,
-    );
+    ) ?? connectRoute(path, req);
   if (rules) {
     rules.then((a) =>
       send(res, a.status, JSON_TYPE, a.body, coding(req, JSON_TYPE)),

@@ -1,0 +1,11 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "Connect logins from Settings",
+      "detail": "Settings holds the rules and a login form for the bank and each receipt source.",
+      "area": "app",
+      "kind": "new"
+    }
+  ]
+}
