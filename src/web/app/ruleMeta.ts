@@ -12,7 +12,7 @@ export const CHECKS = ["review", "conflicts"] as const;
 
 export type Check = (typeof CHECKS)[number];
 
-export type RuleTab = RuleFile | Check;
+export type RuleTab = RuleFile | Check | "receipts";
 
 export const CHECK_ICON: Record<Check, IconSvgElement> = {
   review: WarningIcon,
@@ -30,12 +30,14 @@ export const checkTone = (tab: RuleTab, count = 0): string =>
   count > 0 && tab in CHECK_TONE ? CHECK_TONE[tab as Check] : "";
 
 export const RULE_LABEL: Record<RuleTab, string> = {
+  receipts: "Receipt logins",
   review: "Review",
   conflicts: "Conflicts",
   ...FILE_LABEL,
 };
 
 export const TAB_GROUPS: [string, RuleTab[]][] = [
+  ["Connections", ["receipts"]],
   ["Checks", [...CHECKS]],
   ...RULE_GROUPS,
 ];

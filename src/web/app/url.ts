@@ -23,7 +23,7 @@ export type UrlState = {
 export const DEFAULT_GROUP = "Day";
 export const DEFAULT_SORT = "-date";
 
-const VIEWS: View[] = ["transactions", "overview", "rules"];
+const VIEWS: View[] = ["transactions", "overview", "settings"];
 const ALL_GRAINS: Grain[] = ["running", "day", "month"];
 
 export const GRAINS: Record<PeriodKind, Grain[]> = {
@@ -40,7 +40,7 @@ const grainsFor = (p: string | null): Grain[] =>
 export const toParams = (s: UrlState): string => {
   const p = new URLSearchParams();
   if (s.view !== "transactions") p.set("view", s.view);
-  if (s.view === "rules") p.set("tab", s.ruleFile);
+  if (s.view === "settings") p.set("tab", s.ruleFile);
   if (s.period) p.set("p", s.period);
   if (s.grain !== grainsFor(s.period)[0]) p.set("g", s.grain);
   if (s.group !== DEFAULT_GROUP) p.set("group", s.group);

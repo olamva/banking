@@ -19,6 +19,7 @@ const secretsOf = (source: string): [string, string][] => {
 try {
   for (const source of Object.keys(SOURCES)) {
     const secrets = secretsOf(source);
+    if (!secrets.length && source === "coop") continue;
     if (!secrets.length)
       throw new Error(
         `${source}: no login and no ${source.toUpperCase()}_ values in .env`,

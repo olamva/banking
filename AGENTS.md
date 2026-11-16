@@ -54,6 +54,7 @@ Never rely on transaction IDs across syncs. SB1 changes them on every fetch and 
 
 Keep `/api/txns` reading only `data/banking.db`.
 Call the bank and receipt APIs only through `refresh` in `src/web/api.ts`.
+The one exception is `connectRoute` in `src/web/api.ts`. It exchanges a Coop login code when I select **Finish** in Settings. It fetches no receipts.
 Start `refresh` only from the Refresh button, the hosted server's midnight run, or the first payload request of each Oslo day.
 Run the midnight and first-visit refreshes only on the hosted server, through `autoRefresh` in `src/web/server.ts`.
 Never call the bank API on other page loads, reloads, filter changes, or timers.

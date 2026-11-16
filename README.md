@@ -170,7 +170,7 @@ The SB1 values arrive last, because the developer portal wants a redirect before
 7. Register a **second SpareBank 1 client** in the developer portal. The BankID login runs on this machine, so the redirect is a localhost URL. Use a port that the first client does not use.
 8. Put the four SB1 values in `infra/terraform.tfvars` and run `infra/oracle/configure.sh` again.
 9. Run `pnpm seed:site`. The token goes to the VM instead of the keychain. Do not use `pnpm sb1 login`, which reads `.env` and would put the token of this machine on the site.
-10. Run `pnpm receipts login rema`, `pnpm receipts login gmail` and `pnpm receipts login coop`, and fill in the receipt values in `.env`. Then run `pnpm receipts:seed`. For each source in `src/net/receipts.ts`, it copies the keychain login named after the source and each `.env` value whose name starts with the source in capitals and `_`, such as `REMA_SUBSCRIPTION_KEY` or `TRUMF_COOKIE`. The copies go to `/srv/banking/secrets/` on the VM. Run it again when the site reports an expired receipt login. Coop keeps one live login, and a new login ends the earlier one. Only the site fetches Coop receipts. The seed moves the Coop login from the keychain to the VM, and the Mac then skips Coop. A Coop login on the Mac ends the login on the site, so run `pnpm receipts:seed` directly after it.
+10. Run `pnpm receipts login rema`, `pnpm receipts login gmail` and `pnpm receipts login coop`, and fill in the receipt values in `.env`. Then run `pnpm receipts:seed`. For each source in `src/net/receipts.ts`, it copies the keychain login named after the source and each `.env` value whose name starts with the source in capitals and `_`, such as `REMA_SUBSCRIPTION_KEY` or `TRUMF_COOKIE`. The copies go to `/srv/banking/secrets/` on the VM. Run it again when the site reports an expired receipt login. Coop keeps one live login, and a new login ends the earlier one. Only the site fetches Coop receipts. Connect Coop in **Settings → Receipt logins** on the site. Select **Connect Coop**, log in on the Coop page, and paste the address of the last page back into the form. The site keeps the login in `/srv/banking/secrets/coop`. The dev server refuses this flow, because a Coop login on the Mac ends the login on the site. The seed skips Coop when the keychain holds no Coop login. When you use `pnpm receipts login coop`, the seed moves the login to the VM, and the Mac then skips Coop. Run `pnpm receipts:seed` directly after that login.
 11. Open the site and press Refresh.
 
 SB1 rotates the refresh token on every exchange, so two processes on one chain invalidate each other. The second client gives the site an independent chain.
@@ -229,7 +229,7 @@ Transaction details show which classification source applies.
 **Rules → Review** lists the payees without a category rule. Guessed categories come first, and the sidebar counts them in yellow.
 **Rules → Conflicts** lists the category and payee rules that compete, and the sidebar counts them in red.
 
-After an upgrade, select **Rebuild saved transactions** if the Rules page requests it.
+After an upgrade, select **Rebuild saved transactions** if the Settings page requests it.
 This rebuild reads cached files and makes no bank request.
 
 The bank labels its own transactions, and it is wrong often enough to matter. The rules live in `rules/`, and none of them are in git.

@@ -1,0 +1,11 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "Connect Coop from Settings",
+      "detail": "Settings now holds the rules and a Coop login form, so you can connect Coop again from the phone.",
+      "area": "receipts",
+      "kind": "new"
+    }
+  ]
+}

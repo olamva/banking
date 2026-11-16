@@ -136,7 +136,7 @@ export const App = () => {
     [txns],
   );
 
-  const checks = useChecks(rules, txns, view === "rules");
+  const checks = useChecks(rules, txns, view === "settings");
   const counts = useMemo(
     (): Partial<Record<RuleTab, number>> =>
       rules.data
@@ -182,7 +182,7 @@ export const App = () => {
   };
 
   const stepBy = (by: number) => {
-    if (view !== "rules") return step(by);
+    if (view !== "settings") return step(by);
     setRuleFile(
       (f) =>
         RULE_TABS[
@@ -212,14 +212,18 @@ export const App = () => {
       keys: ["ArrowLeft"],
       cap: "←",
       what:
-        view === "rules" ? "The rule file before" : "The month or year before",
+        view === "settings"
+          ? "The settings tab before"
+          : "The month or year before",
       run: () => stepBy(-1),
     },
     {
       keys: ["ArrowRight"],
       cap: "→",
       what:
-        view === "rules" ? "The rule file after" : "The month or year after",
+        view === "settings"
+          ? "The settings tab after"
+          : "The month or year after",
       run: () => stepBy(1),
     },
     {
@@ -227,7 +231,7 @@ export const App = () => {
       cap: "t",
       what: "Today — this month, or this year in a year view",
       run: () => {
-        if (view === "rules") return;
+        if (view === "settings") return;
         const now = todayOslo();
         const it = p.kind === "year" ? now.slice(0, 4) : now.slice(0, 7);
         if (offered.includes(it)) setChosen(it);
@@ -261,7 +265,7 @@ export const App = () => {
       keys: ["f"],
       cap: "f",
       what: "Open the filter panel",
-      run: () => view !== "rules" && setScope("home"),
+      run: () => view !== "settings" && setScope("home"),
     },
     {
       keys: ["e"],
@@ -309,7 +313,7 @@ export const App = () => {
   );
 
   const views: Record<View, () => ReactNode> = {
-    rules: () => (
+    settings: () => (
       <RulesView
         rules={rules}
         txns={txns}
@@ -348,7 +352,7 @@ export const App = () => {
     ),
   };
   const body =
-    ready || shownView === "rules" ? (
+    ready || shownView === "settings" ? (
       views[shownView]()
     ) : (
       <LoadNote
@@ -382,7 +386,7 @@ export const App = () => {
             title={VIEW_LABEL[view]}
             action={<RefreshButton refresh={refresh} />}
             controls={
-              view === "rules" ? (
+              view === "settings" ? (
                 <RuleFileSelect
                   file={ruleFile}
                   onFile={setRuleFile}
@@ -424,7 +428,7 @@ export const App = () => {
               )
             }
           >
-            {view !== "rules" && (
+            {view !== "settings" && (
               <FilterChips
                 specs={specs}
                 filters={filters}

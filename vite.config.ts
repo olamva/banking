@@ -19,8 +19,15 @@ const api = (): Plugin => ({
   // the shared database before the worktree can redirect it. `api.ts` and
   // `server.ts` defer their own imports for the same reason.
   async configureServer(server) {
-    const { appPayload, fresh, jsonRoute, payload, refresh, rulesRoute } =
-      await import("./src/web/api.ts");
+    const {
+      appPayload,
+      connectRoute,
+      fresh,
+      jsonRoute,
+      payload,
+      refresh,
+      rulesRoute,
+    } = await import("./src/web/api.ts");
     server.middlewares.use((req, _res, next) => {
       if (req.url?.startsWith("/api/")) fresh().then(() => next());
       else next();
@@ -35,11 +42,16 @@ const api = (): Plugin => ({
       );
       const answer = json
         ? Promise.resolve(json)
-        : rulesRoute(
+        : (rulesRoute(
             url.pathname,
             url.searchParams,
             req.headers["x-banking-rules"] as string | undefined,
-          );
+          ) ??
+          connectRoute(
+            url.pathname,
+            url.searchParams,
+            req.headers["x-banking-connect"] as string | undefined,
+          ));
       if (!answer) return next();
       answer.then((a) => {
         res.writeHead(a.status, {
