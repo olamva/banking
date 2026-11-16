@@ -1,7 +1,7 @@
 import { Fragment, useState, type FormEvent } from "react";
 import { toast } from "sonner";
-import { finishLogin, startLogin } from "./data.ts";
-import { CopyIcon, ExternalLinkIcon, Icon } from "./icons.ts";
+import { finishLogin, requestLogin, startLogin } from "./data.ts";
+import { AddedIcon, CopyIcon, ExternalLinkIcon, Icon } from "./icons.ts";
 import { LOGINS, type Login } from "./loginSteps.ts";
 import { Button } from "./ui/button.tsx";
 import { Input } from "./ui/input.tsx";
@@ -134,13 +134,53 @@ const LoginItem = ({ login }: LoginItemProps) => {
   );
 };
 
+const AddLogin = () => {
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const send = (e: FormEvent) => {
+    e.preventDefault();
+    const wanted = name.trim();
+    setBusy(true);
+    requestLogin(wanted)
+      .then(() => {
+        setName("");
+        toast.success(`A T3 Code thread now adds ${wanted}.`);
+      }, failed)
+      .finally(() => setBusy(false));
+  };
+
+  return (
+    <Item>
+      <ItemMedia
+        variant="icon"
+        className="size-10 rounded-lg border-dashed bg-transparent"
+      >
+        <Icon icon={AddedIcon} />
+      </ItemMedia>
+      <form className="flex min-w-0 flex-1 gap-2" onSubmit={send}>
+        <Input
+          aria-label="New connection"
+          placeholder="New connection"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+        <Button type="submit" variant="outline" disabled={busy || !name.trim()}>
+          Add
+        </Button>
+      </form>
+    </Item>
+  );
+};
+
 export const Logins = () => (
   <ItemGroup className="max-w-2xl rounded-xl border bg-card">
-    {LOGINS.map((login, i) => (
+    {LOGINS.map((login) => (
       <Fragment key={login.id}>
-        {i > 0 && <ItemSeparator />}
         <LoginItem login={login} />
+        <ItemSeparator />
       </Fragment>
     ))}
+    <AddLogin />
   </ItemGroup>
 );

@@ -68,3 +68,19 @@ test("a pasted Trumf cookie must hold the session", async () => {
     "__Secure-authjs.session-token.0=a; x=b",
   );
 });
+
+test("a new connection sends its name to the T3 Code webhook", async () => {
+  process.env.T3_WEBHOOK_URL = "https://hooks.test/source";
+  const add = (body: string) =>
+    call("/api/connect/new", { method: "POST", body });
+  const before = network.mock.callCount();
+  assert.equal((await add("   ")).status, 400);
+  assert.equal(network.mock.callCount(), before);
+  assert.equal((await add(" Kiwi ")).status, 200);
+  const [url, init] = network.mock.calls.at(-1)!.arguments as [
+    string,
+    RequestInit,
+  ];
+  assert.equal(url, "https://hooks.test/source");
+  assert.deepEqual(JSON.parse(String(init.body)), { name: "Kiwi" });
+});

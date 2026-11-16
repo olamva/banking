@@ -248,6 +248,9 @@ const ask = async (
 export const startLogin = async (id: string): Promise<string> =>
   String((await ask(`/api/connect/${id}/start`, "X-Banking-Connect"))["url"]);
 
+export const requestLogin = (name: string): Promise<unknown> =>
+  ask("/api/connect/new", "X-Banking-Connect", { method: "POST", body: name });
+
 export const finishLogin = (id: string, pasted: string): Promise<unknown> =>
   ask(`/api/connect/${id}/finish`, "X-Banking-Connect", {
     method: "POST",
