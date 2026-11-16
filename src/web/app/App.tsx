@@ -48,6 +48,7 @@ import {
   FilterChips,
   axisSpecs,
   activeCount,
+  groupLabels,
   type View,
 } from "./FilterBar.tsx";
 import type { Scope } from "./FilterPanel.tsx";
@@ -425,7 +426,7 @@ export const App = () => {
                     count={activeCount(specs, filters)}
                     deposit={view === "overview"}
                     group={editing}
-                    groups={Math.max(filters.or.length + 1, editing + 1)}
+                    groups={groupLabels(specs, filters, editing)}
                     onGroup={setEditing}
                   />
                   <SearchBox

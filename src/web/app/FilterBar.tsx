@@ -1,10 +1,11 @@
 import { Fragment, type ReactNode } from "react";
 import { topCategory } from "../../core/items.ts";
-import type { Filters } from "../../core/select.ts";
+import type { Filters, Group } from "../../core/select.ts";
 import {
   AXES,
   clearFilters,
   emptyGroup,
+  NO_GROUP,
   groupsOf,
   NO_COUNTRY,
   pruneGroups,
@@ -12,7 +13,7 @@ import {
 } from "../../core/select.ts";
 import { FilterPanel, type AxisSpec, type Scope } from "./FilterPanel.tsx";
 import { categoryLabel, pairLabel, treeLabel } from "./format.ts";
-import { AddedIcon, CloseIcon, FilterIcon, Icon } from "./icons.ts";
+import { CloseIcon, FilterIcon, Icon } from "./icons.ts";
 import type { useFilterOptions } from "./options.ts";
 import { Badge } from "./ui/badge.tsx";
 import { Button } from "./ui/button.tsx";
@@ -115,58 +116,102 @@ interface FilterButtonProps {
   count: number;
   deposit: boolean;
   group: number;
-  groups: number;
+  groups: string[];
   onGroup: (group: number) => void;
 }
 
+export const groupLabels = (
+  specs: AxisSpec[],
+  f: Filters,
+  editing: number,
+): string[] =>
+  [...groupsOf(f), ...(editing > f.or.length ? [NO_GROUP] : [])].map((g) =>
+    groupLabel(specs, g),
+  );
+
+const groupLabel = (specs: AxisSpec[], g: Group) =>
+  specs
+    .flatMap((s) => {
+      const name = (v: string) =>
+        s.subs && s.subLabel && v.includes("/")
+          ? s.subLabel(v)
+          : (s.label ?? s.fullLabel ?? ((x: string) => x))(v);
+      return [
+        ...g[s.axis].map(name),
+        ...g[AXES[s.axis]].map((v) => `not ${name(v)}`),
+      ];
+    })
+    .join(", ") || "New group";
+
+const Or = () => (
+  <span className="px-0.5 text-xs font-medium text-muted-foreground uppercase">
+    or
+  </span>
+);
+
+const AddGroup = ({
+  onClick,
+  disabled,
+  className,
+}: {
+  onClick: () => void;
+  disabled?: boolean;
+  className?: string;
+}) => (
+  <Button
+    variant="outline"
+    disabled={disabled}
+    onClick={onClick}
+    className={cn(
+      "shrink-0 rounded-full border-dashed px-3 font-normal text-muted-foreground",
+      className,
+    )}
+  >
+    Also include…
+  </Button>
+);
+
 const GroupStrip = ({
   group,
-  groups,
+  labels,
   onGroup,
   canAdd,
 }: {
   group: number;
-  groups: number;
+  labels: string[];
   onGroup: (group: number) => void;
   canAdd: boolean;
 }) => (
-  <div className="flex items-center gap-1 overflow-x-auto border-b p-1">
-    {groups > 1 && (
+  <div className="flex flex-wrap items-center gap-1 border-b p-1.5">
+    {labels.length > 1 && (
       <ToggleGroup
         type="single"
         variant="outline"
         size="sm"
-        spacing={0}
+        spacing={1}
         value={String(group)}
         onValueChange={(v) => v && onGroup(Number(v))}
-        aria-label="Filter group"
+        aria-label="Edit group"
+        className="w-auto min-w-0 flex-wrap"
       >
-        {Array.from({ length: groups }, (_, i) => (
-          <ToggleGroupItem
-            key={i}
-            value={String(i)}
-            className="px-2 text-xs pointer-coarse:h-9"
-          >
-            {i ? `Or ${i + 1}` : "Group 1"}
-          </ToggleGroupItem>
+        {labels.map((label, i) => (
+          <Fragment key={i}>
+            {i > 0 && <Or />}
+            <ToggleGroupItem
+              value={String(i)}
+              className="max-w-44 min-w-0 shrink rounded-full px-2.5 text-xs font-normal pointer-coarse:h-9"
+            >
+              <span className="truncate">{label}</span>
+            </ToggleGroupItem>
+          </Fragment>
         ))}
       </ToggleGroup>
     )}
-    <Button
-      variant="ghost"
-      size="sm"
+    <AddGroup
       disabled={!canAdd}
-      onClick={() => onGroup(groups)}
-      className="shrink-0 text-muted-foreground pointer-coarse:h-9"
-    >
-      <Icon icon={AddedIcon} size={14} />
-      Or
-    </Button>
-    {groups > 1 && (
-      <span className="ml-auto min-w-0 truncate pr-2 text-xs text-muted-foreground">
-        Any group matches
-      </span>
-    )}
+      onClick={() => onGroup(labels.length)}
+      className="h-7 text-xs pointer-coarse:h-9"
+    />
   </div>
 );
 
@@ -208,10 +253,10 @@ export const FilterButton = ({
         onOpenAutoFocus={(e) => e.preventDefault()}
         className="max-h-[min(34rem,var(--radix-popover-content-available-height))] w-[min(22rem,calc(100vw-1.5rem))] gap-0 overflow-hidden p-0"
       >
-        {(groups > 1 || filled) && (
+        {(groups.length > 1 || filled) && (
           <GroupStrip
             group={group}
-            groups={groups}
+            labels={groups}
             onGroup={onGroup}
             canAdd={filled}
           />
@@ -359,11 +404,7 @@ export const FilterChips = ({
     <div className="flex flex-wrap items-center gap-1.5">
       {groups.map(({ i, g, axes }, at) => (
         <Fragment key={i}>
-          {at > 0 && (
-            <span className="px-0.5 text-xs font-medium text-muted-foreground uppercase">
-              or
-            </span>
-          )}
+          {at > 0 && <Or />}
           {axes.map((spec) => (
             <AxisChip
               key={spec.axis}
@@ -378,15 +419,7 @@ export const FilterChips = ({
         </Fragment>
       ))}
       {chips > 0 && (
-        <Button
-          variant="ghost"
-          aria-label="Add an or group"
-          onClick={() => onEdit(filters.or.length + 1, "home")}
-          className="shrink-0 text-muted-foreground"
-        >
-          <Icon icon={AddedIcon} size={15} />
-          Or
-        </Button>
+        <AddGroup onClick={() => onEdit(filters.or.length + 1, "home")} />
       )}
       {filters.showExcluded && (
         <PlainChip
