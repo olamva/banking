@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+unset $(git rev-parse --local-env-vars)
+
+zero=0000000000000000000000000000000000000000
+head=$(git rev-parse HEAD)
+run=
+while read -r _ sha _ _; do
+  [ "$sha" = "$zero" ] && continue
+  [ "$sha" = "$head" ] || { echo "pre-push: check out the commit that you push. The checks test HEAD." >&2; exit 1; }
+  run=1
+done
+[ -n "$run" ] || exit 0
+[ -z "$(git status --porcelain)" ] || { echo "pre-push: commit or remove the local changes. The checks test the working tree." >&2; exit 1; }
+
+git fetch -q origin main || true
+RELEASE_EXEMPT=$(gh pr view --json labels -q 'any(.labels[]; .name == "no release")' 2>/dev/null || echo true) pnpm --silent release:check
+pnpm --silent check

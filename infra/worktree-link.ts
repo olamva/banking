@@ -29,6 +29,7 @@ export function linkWorktree(cwd = process.cwd()) {
   for (const { source, target } of links)
     if (!lstatSync(target, { throwIfNoEntry: false }))
       symlinkSync(source, target);
+  git("config", "core.hooksPath", ".githooks");
 }
 
 if (

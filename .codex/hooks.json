@@ -11,6 +11,16 @@
             "statusMessage": "Checking the checkout"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/pr-guard.sh\"",
+            "statusMessage": "Checking the release label"
+          }
+        ]
       }
     ]
   }

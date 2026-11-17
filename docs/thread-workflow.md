@@ -29,16 +29,20 @@ Use the host's approval mechanism when those restrictions apply.
 ## Merge checks
 
 GitHub requires `Tests, types, and build` from GitHub Actions on `main` PRs.
-Strict branch protection requires the branch to include current `main`.
+Strict branch updating is off. A branch need not include current `main`.
 GitHub applies these requirements to administrators and requires resolved review conversations.
 GitHub deletes remote branches after merging.
 
 Fetch `origin/main` before merging.
 Merge `origin/main` into an outdated task branch, resolve conflicts, and push without rewriting history.
 Repeat checks for the new commit.
-Run `pnpm test` and `pnpm typecheck` locally.
+Run `pnpm check` before each push. It runs `pnpm test`, `pnpm typecheck` and `pnpm build`.
+The `.githooks/pre-push` hook runs `pnpm release:check` and `pnpm check`, and it stops a push that fails.
+The hook tests HEAD and refuses a push with uncommitted changes. Do not use `--no-verify`.
+`pnpm worktree:link` sets `core.hooksPath` to `.githooks`.
+The `pr-guard.sh` hook stops `gh pr create` when the branch adds no release and the command has no `no release` label.
 Run one test file with `node --test <file>`. Node runs TypeScript without a loader.
-Run `pnpm build`. A linked worktree builds to `data.local/dist`.
+A linked worktree builds to `data.local/dist`.
 Use the babysit-pr skill to check every reported result and merge the exact reviewed commit.
 Concurrent agents can encounter an outdated branch after another merge. Repeat this update cycle when GitHub refuses merging.
 
