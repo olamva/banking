@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import type { Load, Refresh } from "./data.ts";
 import {
   ErrorIcon,
@@ -77,44 +83,49 @@ export const RefreshButton = ({ refresh }: { refresh: Refresh }) => {
         className="w-64"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
-        {refresh.steps.length ? (
-          <ul className="flex flex-col gap-1.5">
-            {refresh.steps.map((s) => (
-              <li
-                key={s.name}
-                className={cn(
-                  "flex items-center gap-2",
-                  s.ms === null && "text-muted-foreground",
-                )}
-              >
-                <Icon
-                  icon={
-                    s.ms === null
-                      ? PendingIcon
-                      : s.done
-                        ? TickIcon
-                        : LoadingIcon
-                  }
-                  size={14}
-                  className={cn(
-                    "text-muted-foreground",
-                    s.ms !== null && !s.done && "animate-spin",
-                  )}
-                />
-                <span className="flex-1">{s.name}</span>
-                {s.ms !== null && (
-                  <span className="text-muted-foreground tabular-nums">
-                    {seconds(s.ms)}
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <span className="text-muted-foreground">Starting…</span>
-        )}
+        <Steps steps={refresh.steps} />
       </PopoverContent>
     </Popover>
+  );
+};
+
+const TICK_MS = 100;
+
+const Steps = ({ steps }: { steps: Refresh["steps"] }) => {
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), TICK_MS);
+    return () => clearInterval(t);
+  }, []);
+  return steps.length ? (
+    <ul className="flex flex-col gap-1.5">
+      {steps.map((s) => (
+        <li
+          key={s.name}
+          className={cn(
+            "flex items-center gap-2",
+            s.ms === null && "text-muted-foreground",
+          )}
+        >
+          <Icon
+            icon={s.ms === null ? PendingIcon : s.done ? TickIcon : LoadingIcon}
+            size={14}
+            className={cn(
+              "text-muted-foreground",
+              s.ms !== null && !s.done && "animate-spin",
+            )}
+          />
+          <span className="flex-1">{s.name}</span>
+          {s.ms !== null && (
+            <span className="text-muted-foreground tabular-nums">
+              {seconds(s.done ? s.ms : s.ms + Math.max(0, now - s.at))}
+            </span>
+          )}
+        </li>
+      ))}
+    </ul>
+  ) : (
+    <span className="text-muted-foreground">Starting…</span>
   );
 };
 
