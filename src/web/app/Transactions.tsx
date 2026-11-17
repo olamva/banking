@@ -10,9 +10,9 @@ import {
   AMOUNT_SIZE,
   AMOUNT_SIZE_EXACT,
   DataTable,
-  PickCell,
   type Column,
 } from "./DataTable.tsx";
+import { PickCell } from "./PickCell.tsx";
 import {
   categoryColor,
   categoryLabel,
