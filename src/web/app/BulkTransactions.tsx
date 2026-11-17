@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { bulkChanges, bulkPlan, type BulkFile } from "../../core/bulkRules.ts";
+import { plural } from "../../core/plural.ts";
 import { merchantOf } from "../../core/select.ts";
 import type { Categorized } from "../../core/types.ts";
 import type { RulesApi } from "./data.ts";
@@ -160,7 +161,9 @@ export const BulkTransactions = ({
             <div role="status" className="border-y py-4 text-sm">
               <p className="font-semibold">{COPY[file].saved}</p>
               <p className="mt-1 wrap-anywhere">
-                {changed} transaction(s) change to {COPY[file].to(value.trim())}
+                {plural(changed, "transaction")}{" "}
+                {changed === 1 ? "changes" : "change"} to{" "}
+                {COPY[file].to(value.trim())}
                 .
               </p>
               <p className="mt-2 text-xs text-muted-foreground">
@@ -267,7 +270,7 @@ const BulkPreview = ({
     <>
       <div>
         <p className="mb-2 text-xs text-muted-foreground">
-          {names.length} payee name(s) → {copy.target}
+          {plural(names.length, "payee name")} → {copy.target}
         </p>
         <div className="flex max-h-24 flex-wrap gap-1.5 overflow-y-auto">
           {names.map((name) => (
@@ -319,7 +322,8 @@ const BulkPreview = ({
         </p>
         {plan.skipped > 0 && (
           <p>
-            {plan.skipped} selected transaction(s) cannot change{copy.skip}
+            {plural(plan.skipped, "selected transaction")} cannot change
+            {copy.skip}
           </p>
         )}
         {stale && (

@@ -18,6 +18,7 @@ const { values: o, positionals: paths } = parseArgs({
     theme: { type: "string", default: "both" },
     size: { type: "string", default: "phone" },
     click: { type: "string", multiple: true, default: [] },
+    fill: { type: "string", multiple: true, default: [] },
     type: { type: "string" },
     wait: { type: "string" },
     element: { type: "string" },
@@ -33,7 +34,8 @@ if (!paths.length) {
   --theme <t>           dark, light or both (default both)
   --size <s>            phone (375x812), desktop (1440x900) or WIDTHxHEIGHT
   --click <selector>    Click before the capture; repeat for more steps
-  --type <text>         Type into the focused element after the clicks
+  --fill <sel>=><text>  Fill a field after the clicks; repeat for more fields
+  --type <text>         Type into the focused element after the fills
   --wait <selector>     Wait for this element before the capture
   --element <selector>  Capture only this element
   --full                Capture the full page
@@ -97,6 +99,10 @@ const shoot = async (
     for (const target of o.click!) {
       await visible(target).click();
       await page.waitForLoadState("networkidle");
+    }
+    for (const step of o.fill!) {
+      const at = step.lastIndexOf("=>");
+      await visible(step.slice(0, at)).fill(step.slice(at + 2));
     }
     if (o.type) await page.keyboard.type(o.type);
     if (o.wait) await visible(o.wait).waitFor();

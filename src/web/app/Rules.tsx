@@ -260,7 +260,7 @@ export const RulesView = ({
       />
     );
   if (file === "conflicts")
-    return <ConflictsView conflicts={checks.conflicts} />;
+    return <ConflictsView conflicts={checks.conflicts} rules={rules} />;
 
   return data === null ? (
     <Loading />

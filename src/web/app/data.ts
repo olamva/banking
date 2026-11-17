@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { buildLabels, type Labels, type Names } from "../../core/labels.ts";
 import {
+  bulkRules,
   changeRules,
+  groupRules,
   type RuleChange,
   type RuleFile,
   type RuleMap,
   type Rules,
 } from "../../core/ruleFiles.ts";
+import { plural } from "../../core/plural.ts";
 import type { Categorized } from "../../core/types.ts";
 import type { RefreshStatus } from "../api.ts";
 
@@ -106,7 +109,7 @@ export const useRefresh = (
         setBad(!!last.stopped);
         setNote(
           last.stopped ??
-            `${last.fetched} file(s) fetched, ${last.rows} rows rebuilt.`,
+            `${plural(last.fetched, "file")} fetched, ${plural(last.rows, "row")} rebuilt.`,
         );
         onDone();
       })
@@ -150,11 +153,16 @@ export type RulesApi = {
   busy: boolean;
   note: string | null;
   bad: boolean;
-  save: (file: RuleFile, key: string, value?: string, was?: string) => void;
+  save: (
+    file: RuleFile,
+    key: string,
+    value?: string,
+    was?: string,
+  ) => Promise<boolean>;
   rebuild: () => void;
   saveBulk: (file: RuleFile, keys: string[], value: string) => Promise<boolean>;
-  saveGroup: (file: RuleFile, keys: string[], value: string) => void;
-  remove: (file: RuleFile, key: string) => void;
+  saveGroup: (file: RuleFile, keys: string[], value: string) => Promise<boolean>;
+  remove: (file: RuleFile, key: string) => Promise<boolean>;
   undo: (file: RuleFile) => void;
   redo: (file: RuleFile) => void;
   restore: (file: RuleFile, at: number) => void;
@@ -323,28 +331,17 @@ export const useRules = (onRebuilt: () => void): RulesApi => {
         changedFile(data, file, (rules) =>
           Array.isArray(rules)
             ? [...new Set([...rules, ...keys])]
-            : {
-                ...Object.fromEntries(keys.map((key) => [key, value])),
-                ...Object.fromEntries(
-                  Object.entries(rules).filter(([key]) => !keys.includes(key)),
-                ),
-              },
+            : bulkRules(rules, keys, value),
         ),
       );
     },
     saveGroup: (file, keys, value) => {
       const q = new URLSearchParams({ file, value });
       for (const key of keys) q.append("key", key);
-      run(`/api/rules/group?${q}`, "Saved.", (data) =>
-        changedFile(data, file, (rules) => {
-          if (Array.isArray(rules)) return rules;
-          return Object.fromEntries(
-            Object.entries(rules).map(([key, old]) => [
-              key,
-              keys.includes(key) ? value : old,
-            ]),
-          );
-        }),
+      return run(`/api/rules/group?${q}`, "Saved.", (data) =>
+        changedFile(data, file, (rules) =>
+          Array.isArray(rules) ? rules : groupRules(rules, keys, value),
+        ),
       );
     },
     remove: (file, key) =>

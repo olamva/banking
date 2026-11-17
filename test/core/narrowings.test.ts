@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { categorize } from "../../src/core/categorize.ts";
-import { narrowings, overlaps } from "../../src/core/narrowings.ts";
+import { narrowings, newConflicts, overlaps } from "../../src/core/narrowings.ts";
 import type { Categorized } from "../../src/core/types.ts";
 
 function row(overrides: Partial<Categorized>): Categorized {
@@ -139,4 +139,25 @@ test("an anchored winner cannot be inlined, and says so rather than guessing", (
   ];
   const [loose] = narrowings(rows, { "/^rema/": "reise", rema: "dagligvarer" });
   assert.equal(loose!.suggest, "");
+});
+
+test("a change reports only the conflicts it adds", () => {
+  const rows = [
+    row({ description: "J.SLETTEDAL . SÆBØ", counterparty: "J.SLETTEDAL" }),
+    row({ id: "2", description: "KIWI 131", counterparty: "KIWI 131" }),
+  ];
+  const before = {
+    "/j\\.slettedal/": "J. Slettedal",
+    kiwi: "Kiwi",
+    "kiwi 1": "Kiwi Byåsen",
+  };
+  const added = newConflicts(rows, before, {
+    ...before,
+    "J.SLETTEDAL": "Joker",
+    "/kiwi/": "Kiwi",
+  });
+  assert.deepEqual(
+    added.map((c) => [c.winner, c.loser]),
+    [["/j\\.slettedal/", "J.SLETTEDAL"]],
+  );
 });

@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import type { Accounts } from "./core/exclude.ts";
 import { RULES_DIR } from "./core/paths.ts";
 import { monthsOnDisk, RAW } from "./core/pipeline.ts";
+import { plural } from "./core/plural.ts";
 import type { Categorized, Txn } from "./core/types.ts";
 
 const args = process.argv.slice(2);
@@ -94,7 +95,7 @@ async function matchCmd(pattern: string): Promise<void> {
     );
   if (hits.length > SHOWN_HITS)
     console.log(`... and ${hits.length - SHOWN_HITS} more`);
-  console.error(`\n${hits.length} row(s) claimed by ${pattern}`);
+  console.error(`\n${plural(hits.length, "row")} claimed by ${pattern}`);
 }
 
 async function reconcileCmd(): Promise<void> {
@@ -133,7 +134,7 @@ async function reconcileCmd(): Promise<void> {
   const bad = unexplained(lines);
   console.error(
     bad.length
-      ? `\n${bad.length} account(s) do not add up. Either the balances are stale — ` +
+      ? `\n${plural(bad.length, "account")} ${bad.length === 1 ? "does" : "do"} not add up. Either the balances are stale — ` +
           `\`pnpm sb1 accounts\` — or rows are missing, or an "opening" is owed in rules/accounts.json:\n` +
           bad.map((l) => `  ${l.name}: ${kr(l.gap)}`).join("\n")
       : `\nEvery account adds up. The history explains the money.`,

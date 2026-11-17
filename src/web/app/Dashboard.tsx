@@ -28,6 +28,7 @@ import {
   type SeriesPoint,
   type SubscriptionGroup,
 } from "../../core/stats.ts";
+import { plural } from "../../core/plural.ts";
 import type { Categorized } from "../../core/types.ts";
 import { Empty, InfoTip, Note, Panel, StatTile, deltaInfo } from "./Cards.tsx";
 import { DivergingBars, HorizontalBars } from "./Charts.tsx";
@@ -63,7 +64,7 @@ interface ExcludedInfoProps {
 export const ExcludedInfo = ({ excluded, shown }: ExcludedInfoProps) =>
   shown || excluded.count === 0 ? null : (
     <InfoTip label="About internal transfers" className="-my-1">
-      {excluded.count} {excluded.count === 1 ? "transaction" : "transactions"}{" "}
+      {plural(excluded.count, "transaction")}{" "}
       for {fmtNOK(excluded.total)} in this period are internal transfers or card
       bill payments. They are not counted. Turn on Show internal transfers in
       Filter to see them.

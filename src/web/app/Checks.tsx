@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { overlaps, type Overlap } from "../../core/narrowings.ts";
+import { plural } from "../../core/plural.ts";
 import { reviewGroups, type ReviewGroup } from "../../core/review.ts";
 import {
   RULE_FILES,
@@ -11,6 +12,7 @@ import { Empty } from "./Cards.tsx";
 import type { RulesApi } from "./data.ts";
 import { rowLabel } from "./format.ts";
 import { Icon, WarningIcon } from "./icons.ts";
+import { Entry } from "./RuleFields.tsx";
 import { FileDialog } from "./RuleDialog.tsx";
 import { RULE_LABEL, entriesOf, type RuleTab } from "./ruleMeta.ts";
 import { Badge } from "./ui/badge.tsx";
@@ -18,7 +20,7 @@ import { Button } from "./ui/button.tsx";
 
 export type Conflict = Overlap & { file: RuleFile };
 
-const CHECKED = ["categories", "payees"] as const;
+export const CHECKED = ["categories", "payees"] as const;
 
 export const useChecks = (
   rules: RulesApi,
@@ -111,8 +113,8 @@ export const ReviewView = ({
                   {t.amount < 0 ? "Money out" : "Money in"}
                 </p>
                 <p>
-                  {rowLabel(t.category, t.subcategory)} · {group.length}{" "}
-                  transaction(s) · {t.date}
+                  {rowLabel(t.category, t.subcategory)} ·{" "}
+                  {plural(group.length, "transaction")} · {t.date}
                 </p>
               </div>
               <Button
@@ -150,25 +152,42 @@ export const ReviewView = ({
   );
 };
 
-export const ConflictsView = ({ conflicts }: { conflicts: Conflict[] }) => (
+export const conflictSides = (c: Conflict): [string, string][] => [
+  [c.winner, c.winnerValue],
+  [c.loser, c.loserValue],
+];
+
+interface ConflictsViewProps {
+  conflicts: Conflict[];
+  rules: RulesApi;
+}
+
+export const ConflictsView = ({ conflicts, rules }: ConflictsViewProps) => (
   <section className="flex min-w-0 flex-col">
     {conflicts.length === 0 && <Empty>No rules conflict.</Empty>}
     <ul>
       {conflicts.map((c) => (
         <li
           key={`${c.file}|${c.winner}|${c.loser}`}
-          className="space-y-1 border-b py-2.5 text-xs break-words last:border-0 [overflow-wrap:anywhere]"
+          className="flex min-w-0 flex-col gap-2 border-b py-3 text-xs last:border-0"
         >
-          <Badge variant="secondary">{RULE_LABEL[c.file]}</Badge>
-          <p>
-            <code>{c.winner}</code> → {c.winnerValue}
-          </p>
-          <p>
-            Overrides <code>{c.loser}</code> → {c.loserValue}
-          </p>
-          <p className="text-muted-foreground">
-            {c.rows} matching transaction(s): {c.examples.join(", ")}
-          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="secondary">{RULE_LABEL[c.file]}</Badge>
+            <span className="min-w-0 text-muted-foreground [overflow-wrap:anywhere]">
+              {plural(c.rows, "transaction")}
+            </span>
+          </div>
+          <ul className="[&>li]:flex-nowrap [&>li]:border-0 [&>li>:not(button)]:min-w-0 [&>li>:not(button)]:border-input">
+            {conflictSides(c).map(([key, value]) => (
+              <Entry
+                key={key}
+                file={c.file}
+                entryKey={key}
+                value={value}
+                rules={rules}
+              />
+            ))}
+          </ul>
         </li>
       ))}
     </ul>

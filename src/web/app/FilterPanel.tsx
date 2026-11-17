@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { plural } from "../../core/plural.ts";
 import {
   AXES,
   clearFilters,
@@ -443,7 +444,8 @@ export const FilterPanel = ({
             aria-live="polite"
             className="mr-auto text-xs text-muted-foreground tabular-nums"
           >
-            {matching} {matching === 1 ? "transaction" : "transactions"} match
+            {plural(matching, "transaction")}{" "}
+            {matching === 1 ? "matches" : "match"}
           </span>
           {active && (
             <Button

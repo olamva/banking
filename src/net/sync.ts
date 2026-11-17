@@ -4,6 +4,7 @@ import type { Accounts } from "../core/exclude.ts";
 import { osloDate } from "../core/normalize.ts";
 import { RULES_DIR } from "../core/paths.ts";
 import { monthsOnDisk, RAW } from "../core/pipeline.ts";
+import { plural } from "../core/plural.ts";
 import { BudgetExhausted, remaining } from "./budget.ts";
 import { get, monthRange, RateLimited } from "./sb1.ts";
 
@@ -158,7 +159,7 @@ export async function syncSpan(
         `it is probably truncated. Sync a narrower span rather than writing this to data/raw.`,
     );
   if (res.errors?.length)
-    debug(`warning: the bank reported ${res.errors.length} error(s)`);
+    debug(`warning: the bank reported ${plural(res.errors.length, "error")}`);
 
   const byFile = splitSpan(rows);
 
@@ -179,7 +180,9 @@ export async function syncSpan(
     const [month, account] = key.split("/");
     if (!months.includes(month)) continue;
     if (settled(fileFor(month, account), month)) continue;
-    debug(`warning: ${byFile.get(key)!.length} row(s) came back for ${month}`);
+    debug(
+      `warning: ${plural(byFile.get(key)!.length, "row")} came back for ${month}`,
+    );
   }
   return fetched;
 }
@@ -194,8 +197,8 @@ export async function syncRange(from: string, to: string): Promise<SyncResult> {
   const cost = costs.reduce((a, b) => a + b, 0);
   const left = remaining();
   debug(
-    `${months.length} months, ${months[0]} to ${months.at(-1)}: ` +
-      `${cost} request${cost === 1 ? "" : "s"}, ${files} files`,
+    `${plural(months.length, "month")}, ${months[0]} to ${months.at(-1)}: ` +
+      `${plural(cost, "request")}, ${plural(files, "file")}`,
   );
   // `null` means the bank has not reported recently. It does not mean zero left.
   // The first response supplies a new figure.
@@ -215,12 +218,14 @@ export async function syncRange(from: string, to: string): Promise<SyncResult> {
         throw e;
       const stopped =
         `${e.message} Stopped at ${part[0]}..${part.at(-1)}, ` +
-        `${fetched} files fetched. Refresh again to carry on.`;
+        `${plural(fetched, "file")} fetched. Refresh again to carry on.`;
       debug(`\n${stopped}`);
       return { fetched, stopped };
     }
   }
-  debug(`\n${fetched} files fetched across ${months.length} months.`);
+  debug(
+    `\n${plural(fetched, "file")} fetched across ${plural(months.length, "month")}.`,
+  );
   return { fetched, stopped: null };
 }
 

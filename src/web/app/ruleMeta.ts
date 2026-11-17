@@ -42,7 +42,7 @@ export const TAB_NOTE: Partial<Record<RuleTab, string>> = {
   review:
     "These payees have no category rule. The bank or a guess sets their category. Save a category rule to confirm one. Guessed categories come first.",
   conflicts:
-    "These rules assign different values to the same transactions. They have the same number of conditions, so the first matching rule wins. Narrow a pattern to fix a conflict.",
+    "These rules assign different values to the same transactions. They have the same number of conditions, so the first matching rule wins. Remove one rule, or narrow a pattern, to fix a conflict.",
 };
 
 export const TAB_GROUPS: [string, RuleTab[]][] = [

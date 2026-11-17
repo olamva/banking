@@ -109,6 +109,29 @@ const covers = (key: string, other: string): boolean =>
   ![key, other].some((k) => isRegex(k) || k.startsWith("{")) &&
   other.toLowerCase().includes(key.toLowerCase());
 
+export const bulkRules = (
+  rules: RuleMap,
+  keys: string[],
+  value: string,
+): RuleMap => ({
+  ...Object.fromEntries(keys.map((key) => [key, value])),
+  ...Object.fromEntries(
+    Object.entries(rules).filter(([key]) => !keys.includes(key)),
+  ),
+});
+
+export const groupRules = (
+  rules: RuleMap,
+  keys: string[],
+  value: string,
+): RuleMap =>
+  Object.fromEntries(
+    Object.entries(rules).map(([key, old]) => [
+      key,
+      keys.includes(key) ? value : old,
+    ]),
+  );
+
 export const changeRules = (
   rules: Rules,
   key: string,

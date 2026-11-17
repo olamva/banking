@@ -13,6 +13,7 @@ import {
   matchesFilters,
   type Filters,
 } from "../../core/select.ts";
+import { plural } from "../../core/plural.ts";
 import type { Categorized } from "../../core/types.ts";
 import { Empty, InfoTip, Panel } from "./Cards.tsx";
 import { DataTable, type Column } from "./DataTable.tsx";
@@ -250,8 +251,7 @@ export const Items = ({
           </InfoTip>
         </h2>
         <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
-          {receipts} {receipts === 1 ? "receipt" : "receipts"} · {bought}{" "}
-          {bought === 1 ? "purchase" : "purchases"} ·{" "}
+          {plural(receipts, "receipt")} · {plural(bought, "purchase")} ·{" "}
           {fmtNOK(kept.reduce((n, i) => n + i.spent, 0))}
         </p>
       </div>
