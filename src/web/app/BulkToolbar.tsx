@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef, useState } from "react";
 import type { BulkFile } from "../../core/bulkRules.ts";
 import { merchantOf } from "../../core/select.ts";
 import type { Categorized } from "../../core/types.ts";
@@ -5,7 +6,6 @@ import { fmtNOKExact } from "./format.ts";
 import {
   type IconSvgElement,
   CategoryIcon,
-  CloseIcon,
   CountryIcon,
   EditIcon,
   ExcludeIcon,
@@ -17,6 +17,7 @@ import {
   RecurringIcon,
 } from "./icons.ts";
 import { Button } from "./ui/button.tsx";
+import { ButtonGroup } from "./ui/button-group.tsx";
 import { Checkbox } from "./ui/checkbox.tsx";
 import {
   DropdownMenu,
@@ -25,19 +26,29 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu.tsx";
+import { cn } from "./ui/utils.ts";
 
-const MORE: [BulkFile, IconSvgElement, string][] = [
-  ["countries", CountryIcon, "Change country…"],
-  ["family", PeopleIcon, "Mark as family…"],
-  ["subscriptions", RecurringIcon, "Mark as subscription…"],
-  ["not-subscriptions", ExcludeIcon, "Not a subscription…"],
+const BULK: [BulkFile, IconSvgElement, string][] = [
+  ["payees", EditIcon, "Rename payees"],
+  ["categories", CategoryIcon, "Change category"],
+  ["countries", CountryIcon, "Change country"],
+  ["family", PeopleIcon, "Mark as family"],
+  ["subscriptions", RecurringIcon, "Mark as subscription"],
+  ["not-subscriptions", ExcludeIcon, "Not a subscription"],
 ];
+
+interface Action {
+  icon: IconSvgElement;
+  label: string;
+  run: () => void;
+  dialog?: boolean;
+  split?: boolean;
+}
 
 interface BulkToolbarProps {
   picked: Categorized[];
   onBulk: (txns: Categorized[], file: BulkFile) => void;
   onPayees?: (payees: string[], hide: boolean) => void;
-  onClear: () => void;
 }
 
 interface BulkSelectAllProps {
@@ -64,10 +75,10 @@ export const BulkSelectAll = ({
             ? "indeterminate"
             : false
       }
-      onCheckedChange={(c) => {
+      onCheckedChange={() => {
         const next = new Set(selected);
         for (const t of txns) {
-          if (c === true) next.add(t);
+          if (count === 0) next.add(t);
           else next.delete(t);
         }
         onSelect(next);
@@ -102,70 +113,105 @@ export const BulkCheckbox = ({
   />
 );
 
-export const BulkToolbar = ({
-  picked,
-  onBulk,
-  onPayees,
-  onClear,
-}: BulkToolbarProps) => {
-  if (picked.length === 0) return null;
+export const BulkToolbar = ({ picked, onBulk, onPayees }: BulkToolbarProps) => {
+  const box = useRef<HTMLDivElement>(null);
+  const ruler = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState(0);
   const payees = [...new Set(picked.map(merchantOf))];
+  const these = payees.length === 1 ? "this payee" : "these payees";
+  const actions: Action[] = [
+    ...BULK.map(([file, icon, label]) => ({
+      icon,
+      label,
+      dialog: true,
+      run: () => onBulk(picked, file),
+    })),
+    ...(onPayees
+      ? [
+          {
+            icon: FilterIcon,
+            label: `Show only ${these}`,
+            split: true,
+            run: () => onPayees(payees, false),
+          },
+          {
+            icon: HideIcon,
+            label: `Hide ${these}`,
+            run: () => onPayees(payees, true),
+          },
+        ]
+      : []),
+  ];
+
+  const measure = () => {
+    if (!box.current || !ruler.current) return;
+    const [more = 0, ...widths] = [...ruler.current.children].map(
+      (c) => (c as HTMLElement).offsetWidth,
+    );
+    const room = box.current.clientWidth;
+    let used = 0;
+    let n = 0;
+    while (n < widths.length && used + widths[n]! <= room - more)
+      used += widths[n++]!;
+    setFit(widths.reduce((s, w) => s + w, 0) <= room ? widths.length : n);
+  };
+  useLayoutEffect(measure);
+  useLayoutEffect(() => {
+    const observer = new ResizeObserver(measure);
+    if (box.current) observer.observe(box.current);
+    return () => observer.disconnect();
+  }, []);
+
+  const more = (
+    <Button variant="outline" size="icon-sm" aria-label="More bulk actions">
+      <Icon icon={MoreIcon} size={14} />
+    </Button>
+  );
+  const inline = (a: Action, fill = false) => (
+    <Button
+      key={a.label}
+      variant="outline"
+      size="sm"
+      onClick={a.run}
+      className={cn("text-xs", fill && "max-sm:flex-1")}
+    >
+      <Icon icon={a.icon} size={14} />
+      {a.label}
+    </Button>
+  );
+  const rest = actions.slice(fit);
+
   return (
-    <div className="flex flex-wrap items-center gap-1 max-sm:order-last max-sm:basis-full">
-      <Button
-        variant="secondary"
-        size="sm"
-        aria-live="polite"
-        onClick={onClear}
-      >
-        {picked.length} selected
-        <Icon icon={CloseIcon} size={12} />
-      </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => onBulk(picked, "payees")}
-      >
-        <Icon icon={EditIcon} size={14} />
-        Rename<span className="max-sm:hidden">payees</span>
-      </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => onBulk(picked, "categories")}
-      >
-        <Icon icon={CategoryIcon} size={14} />
-        <span className="sm:hidden">Category</span>
-        <span className="max-sm:hidden">Change category</span>
-      </Button>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon-sm" aria-label="More bulk actions">
-            <Icon icon={MoreIcon} size={14} />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-max">
-          {MORE.map(([file, icon, label]) => (
-            <DropdownMenuItem key={file} onSelect={() => onBulk(picked, file)}>
-              <Icon icon={icon} size={14} />
-              {label}
-            </DropdownMenuItem>
-          ))}
-          {onPayees && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => onPayees(payees, false)}>
-                <Icon icon={FilterIcon} size={14} />
-                Show only {payees.length === 1 ? "this payee" : "these payees"}
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => onPayees(payees, true)}>
-                <Icon icon={HideIcon} size={14} />
-                Hide {payees.length === 1 ? "this payee" : "these payees"}
-              </DropdownMenuItem>
-            </>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
+    <div
+      ref={box}
+      className="relative flex min-w-0 flex-1 max-sm:order-last max-sm:basis-full sm:basis-0 sm:justify-end"
+    >
+      <div aria-hidden className="invisible absolute inset-0 overflow-hidden">
+        <div ref={ruler} className="flex w-max">
+          {more}
+          {actions.map((a) => inline(a))}
+        </div>
+      </div>
+      <ButtonGroup className="max-sm:w-full">
+        {actions.slice(0, fit).map((a) => inline(a, true))}
+        {rest.length > 0 && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>{more}</DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-max">
+              {rest.map((a, i) => [
+                a.split && i > 0 && (
+                  <DropdownMenuSeparator key={`${a.label}-`} />
+                ),
+                <DropdownMenuItem key={a.label} onSelect={a.run}>
+                  <Icon icon={a.icon} size={14} />
+                  {a.label}
+                  {a.dialog && "…"}
+                </DropdownMenuItem>,
+              ])}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </ButtonGroup>
     </div>
   );
 };

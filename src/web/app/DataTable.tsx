@@ -234,26 +234,19 @@ const List = ({
   );
 
   const head = (key: string) => (
-    <div className="flex border-b">
-      {group!.lead && (
-        <span className="flex items-center pt-3 pb-1.5 pl-(--card-spacing)">
-          {group!.lead(key, days!.get(key)!)}
-        </span>
-      )}
+    <div className="flex items-center gap-3 bg-muted/40 px-3">
+      {group!.lead?.(key, days!.get(key)!)}
       <Button
         variant="ghost"
         aria-expanded={!closed.has(key)}
         onClick={() => toggle(key)}
-        className={cn(
-          "h-auto flex-1 justify-start gap-2 rounded-none px-(--card-spacing) pt-3 pb-1.5 text-xs font-medium text-muted-foreground aria-expanded:bg-transparent aria-expanded:text-muted-foreground",
-          group!.lead && "pl-3",
-        )}
+        className="h-8 flex-1 justify-start gap-2 rounded-none px-0 text-xs font-medium text-muted-foreground hover:bg-transparent aria-expanded:bg-transparent aria-expanded:text-muted-foreground dark:hover:bg-transparent"
       >
-        <Caret open={!closed.has(key)} />
         <span className="text-foreground">{group!.label(key)}</span>
         <span className="ml-auto tabular-nums">
           {group!.total(days!.get(key)!)}
         </span>
+        <Caret open={!closed.has(key)} />
       </Button>
     </div>
   );
@@ -267,7 +260,7 @@ const List = ({
       <div
         onClick={onRow && ((e) => !highlighting(e) && onRow(i))}
         className={cn(
-          "flex min-h-12 items-start gap-3 border-b border-border/70 px-(--card-spacing) py-3 tabular-nums sm:min-h-10 sm:items-center sm:py-2",
+          "flex min-h-12 items-start gap-3 border-b border-border/70 px-3 py-3 tabular-nums sm:min-h-10 sm:items-center sm:py-2",
           last && "border-b-0",
           onRow && "cursor-pointer hover:bg-muted/60 active:bg-muted/60",
           rowClassName?.(i),
@@ -338,7 +331,7 @@ const List = ({
       <ListSort columns={columns} controls={controls} start={start} />
       <ul
         ref={list}
-        className="relative -mx-(--card-spacing) border-t"
+        className="relative -mx-3 border-t"
         style={{ height: v.getTotalSize() }}
       >
         {v.getVirtualItems().map((vi) => {
