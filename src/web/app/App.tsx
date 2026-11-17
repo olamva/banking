@@ -10,7 +10,7 @@ import {
 import { toast } from "sonner";
 import { bulkFilters, type BulkFile } from "../../core/bulkRules.ts";
 import { withItems } from "../../core/items.ts";
-import { RULE_FILES, type RuleFile } from "../../core/ruleFiles.ts";
+import type { RuleFile } from "../../core/ruleFiles.ts";
 import {
   axisBounds,
   clearFilters,
@@ -57,12 +57,12 @@ import { Header, LoadNote, RefreshButton } from "./Header.tsx";
 import { useFilterOptions } from "./options.ts";
 import { PeriodPicker } from "./PeriodPicker.tsx";
 import { ReleaseNotesDialog } from "./Releases.tsx";
-import { guessedCount, useChecks } from "./Checks.tsx";
+import { useChecks } from "./Checks.tsx";
 import { ConflictDialog } from "./ConflictDialog.tsx";
 import { useConflictGuard } from "./conflictGuard.ts";
-import { RULE_TABS, entriesOf, type RuleTab } from "./ruleMeta.ts";
+import { RULE_TABS, type RuleTab } from "./ruleMeta.ts";
 import { FileDialog } from "./RuleDialog.tsx";
-import { RuleFileSelect, RulesView } from "./Rules.tsx";
+import { RuleHeading, RuleSearch, RulesView } from "./Rules.tsx";
 import { SearchBox } from "./SearchBox.tsx";
 import { ShortcutsDialog, useShortcuts, type Shortcut } from "./Shortcuts.tsx";
 import { TransactionsView } from "./TransactionsView.tsx";
@@ -100,6 +100,7 @@ export const App = () => {
   const [view, setView] = useState<View>(initial.view);
   const shownView = useDeferredValue(view);
   const [ruleFile, setRuleFile] = useState<RuleTab>(initial.ruleFile);
+  const [find, setFind] = useState("");
   const [chosen, setChosen] = useState<string | null>(initial.period);
   const [filters, setFilters] = useState<Filters>(initial.filters);
   const [scope, setScope] = useState<Scope | null>(null);
@@ -151,22 +152,7 @@ export const App = () => {
   );
 
   const checks = useChecks(rules, txns, view === "settings");
-  const counts = useMemo(
-    (): Partial<Record<RuleTab, number>> =>
-      rules.data
-        ? {
-            ...Object.fromEntries(
-              RULE_FILES.map((f) => [
-                f,
-                entriesOf(rules.data!.files[f]).length,
-              ]),
-            ),
-            review: guessedCount(checks.review),
-            conflicts: checks.conflicts.length,
-          }
-        : {},
-    [rules.data, checks],
-  );
+  const { counts } = checks;
 
   const offered = [...months, ...years, "all"];
   const active =
@@ -309,7 +295,7 @@ export const App = () => {
       },
     },
     { cap: "⌘ B", what: "Show or hide the sidebar" },
-    { cap: "/ ⌘F", what: "Search merchants and items" },
+    { cap: "/ ⌘F", what: "Search merchants, items or rules" },
     { keys: ["?"], cap: "?", what: "This list", run: () => setHelp(true) },
   ];
   useShortcuts(shortcuts);
@@ -334,6 +320,7 @@ export const App = () => {
         pairs={pairs}
         file={ruleFile}
         checks={checks}
+        find={find}
       />
     ),
     overview: () => (
@@ -397,15 +384,22 @@ export const App = () => {
           <Header
             ref={header}
             hidden={hidden}
-            title={VIEW_LABEL[view]}
+            title={
+              {
+                ...VIEW_LABEL,
+                settings: (
+                  <RuleHeading
+                    file={ruleFile}
+                    onFile={setRuleFile}
+                    counts={counts}
+                  />
+                ),
+              }[view]
+            }
             action={<RefreshButton refresh={refresh} />}
             controls={
               view === "settings" ? (
-                <RuleFileSelect
-                  file={ruleFile}
-                  onFile={setRuleFile}
-                  counts={counts}
-                />
+                <RuleSearch file={ruleFile} find={find} onFind={setFind} />
               ) : (
                 <>
                   <PeriodPicker

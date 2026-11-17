@@ -57,34 +57,6 @@ export interface Column {
 export const highlighting = (e: { detail: number }) =>
   e.detail > 0 && !(window.getSelection()?.isCollapsed ?? true);
 
-interface PickCellProps {
-  label: string;
-  value?: string;
-  color?: string;
-  onPick: (value: string, meta: boolean) => void;
-  children?: ReactNode;
-}
-
-export const PickCell = ({
-  label,
-  value = label,
-  color,
-  onPick,
-  children,
-}: PickCellProps) => (
-  <Button
-    variant="link"
-    onClick={(e) => {
-      e.stopPropagation();
-      if (!highlighting(e)) onPick(value, e.metaKey);
-    }}
-    style={color ? { color } : undefined}
-    className="h-auto justify-start rounded-none p-0 text-left text-[length:inherit] font-normal text-inherit underline-offset-2 active:not-aria-[haspopup]:translate-y-0 has-[svg]:-m-1 has-[svg]:rounded-md has-[svg]:p-1 has-[svg]:hover:bg-muted has-[svg]:hover:text-foreground"
-  >
-    {children || label}
-  </Button>
-);
-
 const SortHeader = ({ c }: { c: Column }) => (
   <Button
     variant="ghost"
@@ -114,10 +86,12 @@ interface DataTableProps {
   rowClassName?: (index: number) => string;
   list?: boolean;
   controls?: ReactNode;
+  start?: ReactNode;
   group?: {
     of: (index: number) => string;
     label: (key: string) => ReactNode;
     total: (indices: number[]) => ReactNode;
+    lead?: (key: string, indices: number[]) => ReactNode;
   };
 }
 
@@ -146,20 +120,21 @@ const scrollBox = (el: Element | null): Element | null =>
 const ListSort = ({
   columns,
   controls,
-}: Pick<DataTableProps, "columns" | "controls">) => {
+  start,
+}: Pick<DataTableProps, "columns" | "controls" | "start">) => {
   const sortable = columns.filter((c) => c.onClick && c.phone);
   const current = sortable.find((c) => c.sort);
   const lead = columns.find((c) => c.phone === "lead")?.header;
-  if (!lead && sortable.length === 0 && !controls) return null;
+  if (!lead && sortable.length === 0 && !controls && !start) return null;
   return (
-    <div className="flex items-center gap-2 pb-2">
-      {lead && (
-        <label className="flex h-8 items-center gap-3 text-xs whitespace-nowrap text-muted-foreground">
+    <div className="flex flex-wrap items-center gap-2 pb-2">
+      {(lead || start) && (
+        <span className="mr-auto flex h-8 items-center gap-3">
           {lead}
-          Select all
-        </label>
+          {start}
+        </span>
       )}
-      <span className="ml-auto" />
+      {!lead && !start && <span className="ml-auto" />}
       {controls}
       {sortable.length > 0 && (
         <ButtonGroup>
@@ -205,6 +180,7 @@ const List = ({
   rowClassName,
   group,
   controls,
+  start,
 }: DataTableProps) => {
   const [closed, setClosed] = useState<Set<string>>(new Set());
   const list = useRef<HTMLUListElement>(null);
@@ -258,18 +234,28 @@ const List = ({
   );
 
   const head = (key: string) => (
-    <Button
-      variant="ghost"
-      aria-expanded={!closed.has(key)}
-      onClick={() => toggle(key)}
-      className="h-auto w-full justify-start gap-2 rounded-none border-b px-(--card-spacing) pt-3 pb-1.5 text-xs font-medium text-muted-foreground aria-expanded:bg-transparent aria-expanded:text-muted-foreground"
-    >
-      <Caret open={!closed.has(key)} />
-      <span className="text-foreground">{group!.label(key)}</span>
-      <span className="ml-auto tabular-nums">
-        {group!.total(days!.get(key)!)}
-      </span>
-    </Button>
+    <div className="flex border-b">
+      {group!.lead && (
+        <span className="flex items-center pt-3 pb-1.5 pl-(--card-spacing)">
+          {group!.lead(key, days!.get(key)!)}
+        </span>
+      )}
+      <Button
+        variant="ghost"
+        aria-expanded={!closed.has(key)}
+        onClick={() => toggle(key)}
+        className={cn(
+          "h-auto flex-1 justify-start gap-2 rounded-none px-(--card-spacing) pt-3 pb-1.5 text-xs font-medium text-muted-foreground aria-expanded:bg-transparent aria-expanded:text-muted-foreground",
+          group!.lead && "pl-3",
+        )}
+      >
+        <Caret open={!closed.has(key)} />
+        <span className="text-foreground">{group!.label(key)}</span>
+        <span className="ml-auto tabular-nums">
+          {group!.total(days!.get(key)!)}
+        </span>
+      </Button>
+    </div>
   );
 
   const item = (i: number, last: boolean) => {
@@ -349,7 +335,7 @@ const List = ({
 
   return (
     <div>
-      <ListSort columns={columns} controls={controls} />
+      <ListSort columns={columns} controls={controls} start={start} />
       <ul
         ref={list}
         className="relative -mx-(--card-spacing) border-t"

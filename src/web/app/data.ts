@@ -328,7 +328,9 @@ export const useRules = (onRebuilt: () => void): RulesApi => {
       for (const key of keys) q.append("key", key);
       return run(`/api/rules/bulk?${q}`, "Saved bulk edit.", (data) =>
         changedFile(data, file, (rules) =>
-          Array.isArray(rules) ? rules : bulkRules(rules, keys, value),
+          Array.isArray(rules)
+            ? [...new Set([...rules, ...keys])]
+            : bulkRules(rules, keys, value),
         ),
       );
     },

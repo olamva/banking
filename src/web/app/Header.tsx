@@ -36,7 +36,7 @@ export const RefreshButton = ({ refresh }: { refresh: Refresh }) => (
 interface HeaderProps {
   ref: RefObject<HTMLElement | null>;
   hidden: boolean;
-  title: string;
+  title: ReactNode;
   controls?: ReactNode;
   action: ReactNode;
   children?: ReactNode;
@@ -64,10 +64,10 @@ export const Header = ({
           orientation="vertical"
           className="mr-1 h-4! self-center max-sm:hidden"
         />
-        <h1 className="min-w-0 flex-1 truncate text-base font-semibold sm:w-28 sm:flex-none">
+        <h1 className="flex min-w-0 flex-1 items-center gap-1 text-base font-semibold sm:min-w-28 sm:flex-none">
           {title}
         </h1>
-        <div className="flex min-w-0 items-center gap-2 max-sm:order-last max-sm:w-full max-sm:flex-wrap sm:ml-2">
+        <div className="flex min-w-0 items-center gap-2 empty:hidden max-sm:order-last max-sm:w-full max-sm:flex-wrap sm:ml-2">
           {controls}
         </div>
         <div className="ml-auto">{action}</div>
