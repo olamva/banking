@@ -111,9 +111,9 @@ const PickMenu = ({ noun, label, onPick, children }: PickMenuProps) => {
       <DropdownMenuTrigger
         asChild
         onPointerDown={(e) => {
-          if (e.pointerType !== "mouse") e.preventDefault();
+          if (e.pointerType !== "mouse" || e.metaKey) e.preventDefault();
         }}
-        onClick={() => setOpen(true)}
+        onClick={(e) => (e.metaKey ? onPick(true) : setOpen(true))}
       >
         <Button
           variant="ghost"
