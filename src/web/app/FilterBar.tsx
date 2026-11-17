@@ -15,6 +15,7 @@ import {
 } from "../../core/select.ts";
 import type { Categorized } from "../../core/types.ts";
 import { FilterPanel, type AxisSpec, type Scope } from "./FilterPanel.tsx";
+import { categoryTerms } from "../../core/search.ts";
 import { categoryLabel, pairLabel, treeLabel } from "./format.ts";
 import { CloseIcon, FilterIcon, Icon } from "./icons.ts";
 import { kept, type useFilterOptions } from "./options.ts";
@@ -73,6 +74,7 @@ export const axisSpecs = (o: Options): AxisSpec[] => {
           : tree(c),
       subs: subsOf,
       subLabel: pairLabel,
+      terms: categoryTerms,
     },
     {
       axis: "merchants",

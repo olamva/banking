@@ -1,0 +1,11 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "Smarter filter search",
+      "detail": "Search filters by English names, such as \"groceries\". Typos and o for ø also match.",
+      "area": "filters",
+      "kind": "improved"
+    }
+  ]
+}
