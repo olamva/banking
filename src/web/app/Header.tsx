@@ -1,7 +1,15 @@
-import type { ReactNode, RefObject } from "react";
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import type { Load, Refresh } from "./data.ts";
-import { ErrorIcon, Icon, LoadingIcon, RefreshIcon } from "./icons.ts";
+import {
+  ErrorIcon,
+  Icon,
+  LoadingIcon,
+  PendingIcon,
+  RefreshIcon,
+  TickIcon,
+} from "./icons.ts";
 import { Button } from "./ui/button.tsx";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover.tsx";
 import {
   Empty,
   EmptyContent,
@@ -15,23 +23,100 @@ import { SidebarTrigger } from "./ui/sidebar.tsx";
 import { Skeleton } from "./ui/skeleton.tsx";
 import { cn } from "./ui/utils.ts";
 
-export const RefreshButton = ({ refresh }: { refresh: Refresh }) => (
-  <Button
-    variant="outline"
-    onClick={refresh.run}
-    disabled={refresh.busy}
-    aria-label="Refresh from the bank"
-  >
-    <Icon
-      icon={refresh.busy ? LoadingIcon : RefreshIcon}
-      size={15}
-      className={refresh.busy ? "animate-spin" : undefined}
-    />
-    <span className={cn("max-sm:hidden", refresh.busy && "glow")}>
-      {refresh.busy ? "Refreshing…" : "Refresh"}
-    </span>
-  </Button>
-);
+const HOVER_MS = 1000;
+
+const seconds = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
+
+export const RefreshButton = ({ refresh }: { refresh: Refresh }) => {
+  const [open, setOpen] = useState<"hover" | "click" | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => {
+    if (!refresh.busy) setOpen(null);
+  }, [refresh.busy]);
+  return (
+    <Popover
+      open={refresh.busy && !!open}
+      onOpenChange={(o) => !o && setOpen(null)}
+    >
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          onClick={(e) => {
+            e.preventDefault();
+            clearTimeout(timer.current);
+            if (refresh.busy) setOpen((o) => (o === "click" ? null : "click"));
+            else refresh.run();
+          }}
+          onPointerEnter={(e) => {
+            if (e.pointerType === "mouse")
+              timer.current = setTimeout(
+                () => setOpen((o) => o ?? "hover"),
+                HOVER_MS,
+              );
+          }}
+          onPointerLeave={() => {
+            clearTimeout(timer.current);
+            setOpen((o) => (o === "hover" ? null : o));
+          }}
+          aria-label={
+            refresh.busy ? "Show refresh progress" : "Refresh from the bank"
+          }
+        >
+          <Icon
+            icon={refresh.busy ? LoadingIcon : RefreshIcon}
+            size={15}
+            className={refresh.busy ? "animate-spin" : undefined}
+          />
+          <span className={cn("max-sm:hidden", refresh.busy && "glow")}>
+            {refresh.busy ? "Refreshing…" : "Refresh"}
+          </span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="end"
+        className="w-64"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
+        {refresh.steps.length ? (
+          <ul className="flex flex-col gap-1.5">
+            {refresh.steps.map((s) => (
+              <li
+                key={s.name}
+                className={cn(
+                  "flex items-center gap-2",
+                  s.ms === null && "text-muted-foreground",
+                )}
+              >
+                <Icon
+                  icon={
+                    s.ms === null
+                      ? PendingIcon
+                      : s.done
+                        ? TickIcon
+                        : LoadingIcon
+                  }
+                  size={14}
+                  className={cn(
+                    "text-muted-foreground",
+                    s.ms !== null && !s.done && "animate-spin",
+                  )}
+                />
+                <span className="flex-1">{s.name}</span>
+                {s.ms !== null && (
+                  <span className="text-muted-foreground tabular-nums">
+                    {seconds(s.ms)}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <span className="text-muted-foreground">Starting…</span>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+};
 
 interface HeaderProps {
   ref: RefObject<HTMLElement | null>;

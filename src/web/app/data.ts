@@ -11,7 +11,7 @@ import {
 } from "../../core/ruleFiles.ts";
 import { plural } from "../../core/plural.ts";
 import type { Categorized } from "../../core/types.ts";
-import type { RefreshStatus } from "../api.ts";
+import type { RefreshStatus, Step } from "../api.ts";
 
 type Payload = { txns: Categorized[]; names: Names; refreshing: boolean };
 
@@ -71,18 +71,24 @@ export type Refresh = {
   busy: boolean;
   note: string | null;
   bad: boolean;
+  steps: Step[];
   run: () => void;
 };
 
-const POLL_MS = 2000;
+const POLL_MS = 1000;
 
 const status = (): Promise<RefreshStatus> =>
   getJson<RefreshStatus>("/api/refresh/status");
 
-const settled = async (s: RefreshStatus): Promise<RefreshStatus> => {
+const settled = async (
+  s: RefreshStatus,
+  seen: (s: RefreshStatus) => void,
+): Promise<RefreshStatus> => {
+  seen(s);
   while (s.running) {
     await new Promise((done) => setTimeout(done, POLL_MS));
     s = await status();
+    seen(s);
   }
   return s;
 };
@@ -94,6 +100,7 @@ export const useRefresh = (
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [bad, setBad] = useState(false);
+  const [steps, setSteps] = useState<Step[]>([]);
   const watching = useRef(false);
 
   const watch = (started: Promise<RefreshStatus>) => {
@@ -101,8 +108,9 @@ export const useRefresh = (
     watching.current = true;
     setBusy(true);
     setNote(null);
+    setSteps([]);
     started
-      .then(settled)
+      .then((s) => settled(s, (s) => setSteps(s.steps)))
       .then(({ last }) => {
         if (!last) return;
         if ("error" in last) throw new Error(last.error);
@@ -131,6 +139,7 @@ export const useRefresh = (
     busy,
     note,
     bad,
+    steps,
     run: () =>
       watch(
         getJson<RefreshStatus>("/api/refresh/start", {

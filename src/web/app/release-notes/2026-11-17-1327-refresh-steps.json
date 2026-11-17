@@ -1,0 +1,11 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Refresh progress",
+      "detail": "Hover or press Refresh while it runs to see each step and the time it takes.",
+      "area": "app",
+      "kind": "new"
+    }
+  ]
+}

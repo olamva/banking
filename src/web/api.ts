@@ -225,13 +225,37 @@ export type Refreshed = {
   stopped: string | null;
 };
 
+const STEPS = [
+  "Fetching transactions",
+  "Fetching receipts",
+  "Rebuilding database",
+] as const;
+
+export type Step = { name: string; ms: number | null; done: boolean };
+let steps: { name: string; start: number | null; end: number | null }[] = [];
+
+const step = <T>(
+  name: (typeof STEPS)[number],
+  work: () => Promise<T>,
+): Promise<T> => {
+  const s = steps.find((s) => s.name === name)!;
+  s.start = Date.now();
+  return work().finally(() => {
+    s.end = Date.now();
+  });
+};
+
 async function run(): Promise<Refreshed> {
+  steps = STEPS.map((name) => ({ name, start: null, end: null }));
   const { syncAll } = await import("../net/sync.ts");
   const { syncReceipts } = await import("../net/receipts.ts");
   const { rebuildAll } = await import("../core/pipeline.ts");
-  const [bank, receipts] = await Promise.all([syncAll(), syncReceipts()]);
+  const [bank, receipts] = await Promise.all([
+    step("Fetching transactions", syncAll),
+    step("Fetching receipts", syncReceipts),
+  ]);
   return {
-    rows: await rebuildAll(),
+    rows: await step("Rebuilding database", rebuildAll),
     fetched: bank.fetched + receipts.added,
     stopped:
       [bank.stopped, ...receipts.failed].filter(Boolean).join(" ") || null,
@@ -244,6 +268,7 @@ let running: Promise<Refreshed> | null = null;
 
 export type RefreshStatus = {
   running: boolean;
+  steps: Step[];
   last: ((Refreshed | { error: string }) & { at: number }) | null;
 };
 let last: RefreshStatus["last"] = null;
@@ -278,7 +303,15 @@ export function refreshRoute(
       return bad(405, new Error("needs X-Banking-Refresh: 1"));
     void quietly(refresh());
   } else if (path !== "/api/refresh/status") return null;
-  return ok({ running: !!running, last } satisfies RefreshStatus);
+  return ok({
+    running: !!running,
+    steps: steps.map((s) => ({
+      name: s.name,
+      ms: s.start === null ? null : (s.end ?? Date.now()) - s.start,
+      done: s.end !== null,
+    })),
+    last,
+  } satisfies RefreshStatus);
 }
 
 const APP_ROUTES: Record<string, (params: URLSearchParams) => Answer> = {

@@ -53,6 +53,7 @@ export { MinusSignIcon as RemovedIcon } from "@hugeicons/core-free-icons";
 export { Exchange01Icon as ChangedIcon } from "@hugeicons/core-free-icons";
 
 export { Tick02Icon as TickIcon } from "@hugeicons/core-free-icons";
+export { DashedLineCircleIcon as PendingIcon } from "@hugeicons/core-free-icons";
 export { ArrowLeft01Icon as PrevIcon } from "@hugeicons/core-free-icons";
 export { ArrowRight01Icon as NextIcon } from "@hugeicons/core-free-icons";
 export { Calendar03Icon as CalendarIcon } from "@hugeicons/core-free-icons";
