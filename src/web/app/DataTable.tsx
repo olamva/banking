@@ -1,4 +1,4 @@
-import { useWindowVirtualizer } from "@tanstack/react-virtual";
+import * as rv from "@tanstack/react-virtual";
 import {
   useLayoutEffect,
   useRef,
@@ -135,6 +135,14 @@ const usePhone = () =>
     () => phoneQuery.matches,
   );
 
+const scrollBox = (el: Element | null): Element | null =>
+  !el || el === document.body
+    ? null
+    : /auto|scroll/.test(getComputedStyle(el).overflowY) &&
+        el.scrollHeight > el.clientHeight
+      ? el
+      : scrollBox(el.parentElement);
+
 const ListSort = ({
   columns,
   controls,
@@ -201,8 +209,13 @@ const List = ({
   const [closed, setClosed] = useState<Set<string>>(new Set());
   const list = useRef<HTMLUListElement>(null);
   const [margin, setMargin] = useState(0);
+  const [box, setBox] = useState<Element | null>(null);
   useLayoutEffect(() => {
-    const m = (list.current?.getBoundingClientRect().top ?? 0) + window.scrollY;
+    const b = scrollBox(list.current?.parentElement ?? null);
+    if (b !== box) setBox(b);
+    const m =
+      (list.current?.getBoundingClientRect().top ?? 0) +
+      (b ? b.scrollTop - b.getBoundingClientRect().top : window.scrollY);
     if (Math.abs(m - margin) > 0.5) setMargin(m);
   });
   const slot = (row: ReactNode[], ...phone: Column["phone"][]) =>
@@ -218,13 +231,20 @@ const List = ({
   const entries: (number | string)[] = days
     ? [...days].flatMap(([key, ix]) => [key, ...(closed.has(key) ? [] : ix)])
     : [...rows.keys()];
-  const v = useWindowVirtualizer({
+  const v = rv.useWindowVirtualizer({
     count: entries.length,
     estimateSize: () => 48,
     overscan: 8,
     scrollMargin: margin,
     getItemKey: (k) =>
       typeof entries[k] === "string" ? `g${entries[k]}` : entries[k]!,
+    ...(box &&
+      ({
+        getScrollElement: () => box,
+        observeElementRect: rv.observeElementRect,
+        observeElementOffset: rv.observeElementOffset,
+        scrollToFn: rv.elementScroll,
+      } as unknown as Partial<rv.VirtualizerOptions<Window, Element>>)),
   });
   const sized = ({ cell, c }: { cell: ReactNode; c: Column }) => (
     <span className="inline-flex flex-col">
