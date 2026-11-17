@@ -34,6 +34,8 @@ export type Found = {
   amounts: number[];
   names: string[];
   fit?: (paid: number) => Receipt;
+  incoming?: boolean;
+  pdf?: boolean;
 };
 
 type RemaRow = {
@@ -301,6 +303,9 @@ export const coopReceipt = ({ period, details }: CoopFile): Found => {
   };
 };
 
+const INCOMING =
+  /refund|refusjon|tilbakebetal|kreditnota|credit note|payout|utbetaling|sent you a payment|har sendt deg|fått inn penger|mottatt betaling|på vei til bankkontoen|lønnsslipp|payslip/i;
+
 const MONEY =
   /(\d{1,3}(?:[ .,]\d{3})+|\d+)(?:[.,](\d{2})(?!\d)|,-)|(?:kr\.?|nok) ?(\d{1,3}(?: \d{3})+|\d+)(?![\d.,]| \d)|(\d{1,3}(?: \d{3})+|\d+) ?(?:kr|nok)\b/gi;
 
@@ -312,6 +317,7 @@ export async function mailReceipt(id: string, raw: Uint8Array): Promise<Found> {
       .replace(/\s+/g, " ");
   const address = mail.from?.address ?? "";
   const domain = address.split("@")[1]?.split(".").at(-2) ?? "";
+  const incoming = INCOMING.test(mail.subject ?? "");
   const receipt: Receipt = {
     source: "gmail",
     id,
@@ -337,7 +343,18 @@ export async function mailReceipt(id: string, raw: Uint8Array): Promise<Found> {
         Number((m[1] ?? m[3] ?? m[4])!.replace(/[ .,]/g, "")) +
         Number(m[2] ?? 0) / 100,
     ),
-    names: [letters(domain), firstWord(mail.from?.name ?? "")],
+    names: [
+      letters(domain),
+      firstWord(mail.from?.name ?? ""),
+      ...(incoming
+        ? (mail.from?.name ?? "")
+            .split(/\s/)
+            .map(letters)
+            .filter((w) => w.length >= 4)
+        : []),
+    ],
+    incoming,
+    pdf: mail.attachments.some((a) => /\.pdf$/i.test(a.filename ?? "")),
   };
 }
 
@@ -360,28 +377,33 @@ export function matchReceipts<T extends Txn>(
   txns: T[],
   found: Found[],
 ): Map<T, Receipt> {
-  const byCents = Map.groupBy(
-    txns.filter((t) => t.amount < 0),
-    (t) => Math.round(-t.amount * 100),
-  );
+  const byCents = Map.groupBy(txns, (t) => Math.round(t.amount * 100));
+  const income = txns.filter((t) => t.amount > 0);
   const pairs = found.flatMap((f) => {
     const day = dayOf(osloDay.format(f.receipt.at));
-    return [...new Set(f.amounts.map((a) => Math.round(a * 100)))].flatMap(
-      (cents) =>
-        (byCents.get(cents) ?? [])
-          .map((t) => ({ f, t, lag: dayOf(t.date) - day }))
-          .filter(
-            ({ t, lag }) => lag >= -2 && lag <= 7 && sameStore(f.names, t),
-          ),
+    const near = (rows: T[], loose: boolean) =>
+      rows
+        .map((t) => ({ f, t, lag: dayOf(t.date) - day, loose }))
+        .filter(({ t, lag }) => lag >= -2 && lag <= 7 && sameStore(f.names, t));
+    const exact = [
+      ...new Set(f.amounts.map((a) => Math.round(a * 100))),
+    ].flatMap((cents) =>
+      near(byCents.get(f.incoming ? cents : -cents) ?? [], false),
     );
+    return exact.length || !(f.incoming && f.pdf) ? exact : near(income, true);
   });
-  pairs.sort((a, b) => Math.abs(a.lag) - Math.abs(b.lag) || b.lag - a.lag);
+  pairs.sort(
+    (a, b) =>
+      Number(a.loose) - Number(b.loose) ||
+      Math.abs(a.lag) - Math.abs(b.lag) ||
+      b.lag - a.lag,
+  );
   const used = new Set<Found>();
   const matched = new Map<T, Receipt>();
   for (const { f, t } of pairs)
     if (!used.has(f) && !matched.has(t)) {
       used.add(f);
-      matched.set(t, f.fit?.(-t.amount) ?? f.receipt);
+      matched.set(t, (!f.incoming && f.fit?.(-t.amount)) || f.receipt);
     }
   return matched;
 }
