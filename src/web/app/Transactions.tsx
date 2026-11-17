@@ -2,7 +2,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import type { BulkFile } from "../../core/bulkRules.ts";
 import { BulkCheckbox, BulkSelectAll, BulkToolbar } from "./BulkToolbar.tsx";
 import type { RuleFile, RuleMap } from "../../core/ruleFiles.ts";
-import { merchantOf, subcategoryOf } from "../../core/select.ts";
+import { merchantOf, subcategoryOf, type Axis } from "../../core/select.ts";
 import type { SubscriptionGroup } from "../../core/stats.ts";
 import type { Categorized } from "../../core/types.ts";
 import { Empty, Panel } from "./Cards.tsx";
@@ -226,9 +226,7 @@ interface TransactionsCardProps {
   open: Categorized | null;
   marked?: string[];
   onOpen: (txn: Categorized | null) => void;
-  onMerchant: (merchant: string, meta: boolean) => void;
-  onCategory: (category: string, meta: boolean) => void;
-  onAccount: (account: string, meta: boolean) => void;
+  onPick: (axis: Axis) => (value: string, exclude: boolean) => void;
   onItem?: (txn: Categorized, raw: string, action: ItemAction) => void;
   onFile?: (txn: Categorized, file: RuleFile) => void;
   onBulk?: (txns: Categorized[], file: BulkFile) => void;
@@ -246,9 +244,7 @@ export const TransactionsCard = ({
   open,
   marked,
   onOpen,
-  onMerchant,
-  onCategory,
-  onAccount,
+  onPick,
   onItem,
   onFile,
   onBulk,
@@ -386,7 +382,7 @@ export const TransactionsCard = ({
                   (groupBy === "Merchant" && branches.get(t)) || merchantOf(t)
                 }
                 value={merchantOf(t)}
-                onPick={onMerchant}
+                onPick={onPick("merchants")}
               />
               {groupBy !== "Merchant" && ruled.get(t) && (
                 <span className="truncate text-muted-foreground">
@@ -416,9 +412,9 @@ export const TransactionsCard = ({
               label={rowLabel(t.category, t.subcategory)}
               value={subcategoryOf(t)}
               color={categoryColor(t.category)}
-              onPick={onCategory}
+              onPick={onPick("categories")}
             />,
-            accountCell(t, onAccount),
+            accountCell(t, onPick("accounts")),
             <span className={cn("font-semibold", t.amount > 0 && "text-good")}>
               {fmtNOKExact(t.amount)}
             </span>,
@@ -430,6 +426,10 @@ export const TransactionsCard = ({
           txn={open}
           marked={marked}
           onClose={() => onOpen(null)}
+          onPick={(axis, value, exclude) => {
+            onOpen(null);
+            onPick(axis)(value, exclude);
+          }}
           {...(onItem && {
             onItem: (raw, action) => {
               onOpen(null);

@@ -106,9 +106,7 @@ export const TransactionsView = ({
         open={open}
         marked={marked}
         onOpen={setOpen}
-        onMerchant={pick(onFilters, "merchants")}
-        onCategory={pick(onFilters, "categories")}
-        onAccount={pick(onFilters, "accounts")}
+        onPick={(axis) => pick(onFilters, axis)}
         onItem={onItem}
         onFile={onFile}
         onBulk={onBulk}

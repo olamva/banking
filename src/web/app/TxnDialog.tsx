@@ -1,6 +1,6 @@
 import { useState, type ComponentProps, type ReactNode } from "react";
 import type { RuleFile } from "../../core/ruleFiles.ts";
-import { merchantOf } from "../../core/select.ts";
+import { merchantOf, subcategoryOf, type Axis } from "../../core/select.ts";
 import type { Categorized } from "../../core/types.ts";
 import { Caret } from "./Cards.tsx";
 import {
@@ -13,7 +13,7 @@ import {
   rowLabel,
   txnFields,
 } from "./format.ts";
-import { CardIcon, EditIcon, Icon } from "./icons.ts";
+import { CardIcon, EditIcon, ExcludeIcon, FilterIcon, Icon } from "./icons.ts";
 import { ReceiptLines, type ItemAction } from "./ReceiptLines.tsx";
 import { Badge } from "./ui/badge.tsx";
 import { Button } from "./ui/button.tsx";
@@ -26,6 +26,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu.tsx";
 import {
@@ -41,6 +43,7 @@ interface TxnDialogProps {
   txn: Categorized;
   marked?: string[];
   onClose: () => void;
+  onPick?: (axis: Axis, value: string, exclude: boolean) => void;
   onFile?: (file: RuleFile) => void;
   onItem?: (raw: string, action: ItemAction) => void;
 }
@@ -93,6 +96,48 @@ const Fact = ({ label, sub, edit, children }: FactProps) => (
   </div>
 );
 
+interface PickMenuProps {
+  noun: string;
+  label: string;
+  onPick?: (exclude: boolean) => void;
+  children: ReactNode;
+}
+
+const PickMenu = ({ noun, label, onPick, children }: PickMenuProps) => {
+  const [open, setOpen] = useState(false);
+  if (!onPick) return children;
+  return (
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger
+        asChild
+        onPointerDown={(e) => {
+          if (e.pointerType !== "mouse" || e.metaKey) e.preventDefault();
+        }}
+        onClick={(e) => (e.metaKey ? onPick(true) : setOpen(true))}
+      >
+        <Button
+          variant="ghost"
+          className="-mx-1.5 -my-0.5 flex h-auto w-fit max-w-[calc(100%+0.75rem)] justify-start rounded-sm border-0 px-1.5 py-0.5 text-left text-[length:inherit] leading-[inherit] font-[inherit] whitespace-normal active:not-aria-[haspopup]:translate-y-0"
+        >
+          {children}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-56">
+        <DropdownMenuLabel className="truncate">{label}</DropdownMenuLabel>
+        <DropdownMenuItem onSelect={() => onPick(false)}>
+          <Icon icon={FilterIcon} size={15} />
+          Filter by this {noun}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem variant="destructive" onSelect={() => onPick(true)}>
+          <Icon icon={ExcludeIcon} size={15} />
+          Exclude this {noun}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
 const EditButton = ({
   label,
   ...props
@@ -113,6 +158,7 @@ export const TxnDialog = ({
   txn,
   marked,
   onClose,
+  onPick,
   onFile,
   onItem,
 }: TxnDialogProps) => {
@@ -121,6 +167,8 @@ export const TxnDialog = ({
   const [advanced, setAdvanced] = useState(false);
   const edit = (file: RuleFile, label: string) =>
     onFile && <EditButton label={label} onClick={() => onFile(file)} />;
+  const pickOf = (axis: Axis, value: string) =>
+    onPick && ((exclude: boolean) => onPick(axis, value, exclude));
 
   return (
     <Sheet open onOpenChange={(o) => !o && onClose()}>
@@ -175,7 +223,13 @@ export const TxnDialog = ({
               }
               edit={edit("payees", "Rename payee")}
             >
-              {merchantOf(txn)}
+              <PickMenu
+                noun="payee"
+                label={merchantOf(txn)}
+                onPick={pickOf("merchants", merchantOf(txn))}
+              >
+                {merchantOf(txn)}
+              </PickMenu>
             </Fact>
             <Fact
               label="Category"
@@ -198,31 +252,49 @@ export const TxnDialog = ({
                 )
               }
             >
-              <span
-                className="font-medium"
-                style={{ color: categoryColor(txn.category) }}
+              <PickMenu
+                noun="category"
+                label={rowLabel(txn.category, txn.subcategory)}
+                onPick={pickOf("categories", subcategoryOf(txn))}
               >
-                {rowLabel(txn.category, txn.subcategory)}
-              </span>
+                <span
+                  className="font-medium"
+                  style={{ color: categoryColor(txn.category) }}
+                >
+                  {rowLabel(txn.category, txn.subcategory)}
+                </span>
+              </PickMenu>
             </Fact>
             <Fact label="Account">
-              <span className="inline-flex items-center gap-1.5">
-                {txn.card && (
-                  <Icon
-                    icon={CardIcon}
-                    size={14}
-                    className="text-muted-foreground"
-                  />
-                )}
-                {txn.account}
-              </span>
+              <PickMenu
+                noun="account"
+                label={txn.account}
+                onPick={pickOf("accounts", txn.account)}
+              >
+                <span className="inline-flex items-center gap-1.5">
+                  {txn.card && (
+                    <Icon
+                      icon={CardIcon}
+                      size={14}
+                      className="text-muted-foreground"
+                    />
+                  )}
+                  {txn.account}
+                </span>
+              </PickMenu>
             </Fact>
             {txn.country && (
               <Fact label="Country" edit={edit("countries", "Change country")}>
-                <span className="inline-flex items-center gap-2">
-                  <span aria-hidden>{flagOf(txn.country)}</span>
-                  {txn.country}
-                </span>
+                <PickMenu
+                  noun="country"
+                  label={txn.country}
+                  onPick={pickOf("countries", txn.country)}
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <span aria-hidden>{flagOf(txn.country)}</span>
+                    {txn.country}
+                  </span>
+                </PickMenu>
               </Fact>
             )}
             {txn.typeText && <Fact label="Type">{txn.typeText}</Fact>}
