@@ -11,11 +11,14 @@ import { RULES_DIR } from "./paths.ts";
 import {
   CATEGORY_VALUED,
   RULE_FILES,
+  bulkRules,
   diffRules,
   changeRules,
+  groupRules,
   isMapFile as isMap,
   type RuleChange,
   type RuleFile,
+  type RuleMap,
   type Rules,
 } from "./ruleFiles.ts";
 
@@ -193,14 +196,7 @@ export function saveBulk(
     throw new Error("Bulk edits support payees, categories and items");
   if (keys.length === 0) throw new Error("Select at least one transaction");
   for (const key of keys) check({ file, key, value });
-  const existing = load(file) as Record<string, string>;
-  const changes = Object.fromEntries(keys.map((key) => [key, value]));
-  return commit(file, {
-    ...changes,
-    ...Object.fromEntries(
-      Object.entries(existing).filter(([key]) => !Object.hasOwn(changes, key)),
-    ),
-  });
+  return commit(file, bulkRules(load(file) as RuleMap, keys, value));
 }
 
 export function saveValues(
@@ -212,9 +208,7 @@ export function saveValues(
   const existing = load(file);
   if (Array.isArray(existing)) throw new Error(`${file}.json has no values`);
   for (const key of keys) check({ file, key, value });
-  const next = { ...existing };
-  for (const key of keys) if (key in next) next[key] = value;
-  return commit(file, next);
+  return commit(file, groupRules(existing, keys, value));
 }
 
 // Move the cursor to a version. Nothing is deleted, and every version above it

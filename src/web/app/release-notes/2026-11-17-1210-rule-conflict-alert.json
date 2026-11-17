@@ -1,0 +1,17 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "Warnings for rule conflicts",
+      "detail": "A rule change that conflicts with another rule asks first. Remove the other rule, or save and fix it later.",
+      "area": "rules",
+      "kind": "new"
+    },
+    {
+      "title": "Remove a rule from Conflicts",
+      "detail": "Each conflict has a Remove button for each of its two rules.",
+      "area": "rules",
+      "kind": "improved"
+    }
+  ]
+}

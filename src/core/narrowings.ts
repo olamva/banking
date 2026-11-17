@@ -62,6 +62,24 @@ export function overlaps(
   );
 }
 
+const pairOf = (o: Overlap) => `${o.winner}\n${o.loser}`;
+
+export function newConflicts(
+  rows: Categorized[],
+  before: RuleMap,
+  after: RuleMap,
+  includeExcluded = false,
+): Overlap[] {
+  const known = new Set(
+    overlaps(rows, before, includeExcluded)
+      .filter((o) => !o.harmless)
+      .map(pairOf),
+  );
+  return overlaps(rows, after, includeExcluded).filter(
+    (o) => !o.harmless && !known.has(pairOf(o)),
+  );
+}
+
 export type Narrowing = {
   pattern: string;
   value: string;

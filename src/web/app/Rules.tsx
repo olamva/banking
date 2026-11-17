@@ -257,7 +257,7 @@ export const RulesView = ({
       />
     );
   if (file === "conflicts")
-    return <ConflictsView conflicts={checks.conflicts} />;
+    return <ConflictsView conflicts={checks.conflicts} rules={rules} />;
 
   return (
     <section className="flex min-w-0 flex-col gap-4">

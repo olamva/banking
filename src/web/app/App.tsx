@@ -58,6 +58,8 @@ import { useFilterOptions } from "./options.ts";
 import { PeriodPicker } from "./PeriodPicker.tsx";
 import { ReleaseNotesDialog } from "./Releases.tsx";
 import { guessedCount, useChecks } from "./Checks.tsx";
+import { ConflictDialog } from "./ConflictDialog.tsx";
+import { useConflictGuard } from "./conflictGuard.ts";
 import { RULE_TABS, entriesOf, type RuleTab } from "./ruleMeta.ts";
 import { FileDialog } from "./RuleDialog.tsx";
 import { RuleFileSelect, RulesView } from "./Rules.tsx";
@@ -89,7 +91,7 @@ export const App = () => {
     reload,
     load.status === "ready" && load.refreshing,
   );
-  const rules = useRules(reload);
+  const saved = useRules(reload);
   const [filing, setFiling] = useState<{
     txn: Categorized;
     file: RuleFile;
@@ -117,20 +119,21 @@ export const App = () => {
   const header = useRef<HTMLElement>(null);
   const hidden = useHideOnScroll(header, filters);
   useNoteToast(refresh.note, refresh.bad);
-  useNoteToast(rules.note, rules.bad);
+  useNoteToast(saved.note, saved.bad);
 
   if (load.status === "ready") {
     setLabels(load.labels);
     setCategoryHues(distinctCategories(load.txns));
   }
 
-  const names = mapRules(rules, "items");
+  const names = mapRules(saved, "items");
   const loaded = load.status === "ready" ? load.txns : NO_TXNS;
-  const kindRules = mapRules(rules, "item-categories");
+  const kindRules = mapRules(saved, "item-categories");
   const txns = useMemo(
     () => withItems(loaded, names, kindRules),
     [loaded, names, kindRules],
   );
+  const { rules, pending } = useConflictGuard(saved, txns);
   const ready = txns.length > 0;
   const months = useMemo(() => distinctMonths(txns), [txns]);
   const years = useMemo(() => distinctYears(txns), [txns]);
@@ -490,6 +493,7 @@ export const App = () => {
           onClose={() => setFiling(null)}
         />
       )}
+      <ConflictDialog pending={pending} />
       <Toaster theme={theme} position="bottom-right" />
     </TooltipProvider>
   );

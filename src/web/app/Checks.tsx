@@ -15,7 +15,7 @@ import { Button } from "./ui/button.tsx";
 
 export type Conflict = Overlap & { file: RuleFile };
 
-const CHECKED = ["categories", "payees"] as const;
+export const CHECKED = ["categories", "payees"] as const;
 
 export const useChecks = (
   rules: RulesApi,
@@ -144,12 +144,84 @@ export const ReviewView = ({ rules, txns, pairs, groups }: ReviewViewProps) => {
   );
 };
 
-export const ConflictsView = ({ conflicts }: { conflicts: Conflict[] }) => (
+interface ConflictRuleProps {
+  label?: string;
+  pattern: string;
+  value: string;
+  fresh?: boolean;
+  onRemove?: () => void;
+  busy?: boolean;
+}
+
+const ConflictRule = ({
+  label,
+  pattern,
+  value,
+  fresh,
+  onRemove,
+  busy,
+}: ConflictRuleProps) => (
+  <div className="flex min-w-0 items-center gap-2">
+    <p className="min-w-0 flex-1">
+      {label && `${label} `}
+      <code>{pattern}</code> → {value}
+      {fresh && <span className="text-muted-foreground"> (new)</span>}
+    </p>
+    {onRemove && (
+      <Button variant="outline" size="sm" disabled={busy} onClick={onRemove}>
+        Remove
+      </Button>
+    )}
+  </div>
+);
+
+interface ConflictItemProps {
+  conflict: Conflict;
+  fresh?: string[];
+  onRemove?: (pattern: string) => void;
+  busy?: boolean;
+}
+
+export const ConflictItem = ({
+  conflict: c,
+  fresh = [],
+  onRemove,
+  busy,
+}: ConflictItemProps) => (
+  <li className="space-y-1 border-b py-2.5 text-xs break-words last:border-0 [overflow-wrap:anywhere]">
+    <Badge variant="secondary">{RULE_LABEL[c.file]}</Badge>
+    <ConflictRule
+      pattern={c.winner}
+      value={c.winnerValue}
+      fresh={fresh.includes(c.winner)}
+      onRemove={onRemove && (() => onRemove(c.winner))}
+      busy={busy}
+    />
+    <ConflictRule
+      label="Overrides"
+      pattern={c.loser}
+      value={c.loserValue}
+      fresh={fresh.includes(c.loser)}
+      onRemove={onRemove && (() => onRemove(c.loser))}
+      busy={busy}
+    />
+    <p className="text-muted-foreground">
+      {c.rows} matching transaction(s): {c.examples.join(", ")}
+    </p>
+  </li>
+);
+
+interface ConflictsViewProps {
+  conflicts: Conflict[];
+  rules: RulesApi;
+}
+
+export const ConflictsView = ({ conflicts, rules }: ConflictsViewProps) => (
   <section className="flex min-w-0 flex-col gap-4">
     <p className="text-sm text-muted-foreground">
       These rules assign different values to the same transactions. They have
-      the same number of conditions, so the first matching rule wins. Narrow a
-      pattern to fix a conflict.
+      the same number of conditions, so the first matching rule wins. Remove
+      one rule, or narrow a pattern, to fix a conflict.
     </p>
     <Panel
       title="Conflicting rules"
@@ -159,21 +231,12 @@ export const ConflictsView = ({ conflicts }: { conflicts: Conflict[] }) => (
       {conflicts.length === 0 && <Empty>No rules conflict.</Empty>}
       <ul>
         {conflicts.map((c) => (
-          <li
+          <ConflictItem
             key={`${c.file}|${c.winner}|${c.loser}`}
-            className="space-y-1 border-b py-2.5 text-xs break-words last:border-0 [overflow-wrap:anywhere]"
-          >
-            <Badge variant="secondary">{RULE_LABEL[c.file]}</Badge>
-            <p>
-              <code>{c.winner}</code> → {c.winnerValue}
-            </p>
-            <p>
-              Overrides <code>{c.loser}</code> → {c.loserValue}
-            </p>
-            <p className="text-muted-foreground">
-              {c.rows} matching transaction(s): {c.examples.join(", ")}
-            </p>
-          </li>
+            conflict={c}
+            busy={rules.busy}
+            onRemove={(pattern) => void rules.remove(c.file, pattern)}
+          />
         ))}
       </ul>
     </Panel>
