@@ -61,7 +61,7 @@ test("txnFields drops the fields the bank sent nothing for", () => {
 
 test("txnFields keeps the øre, unlike every summed figure", () => {
   const amount = txnFields(row).find(([name]) => name === "Amount");
-  assert.equal(amount?.[1], "−249,50 kr");
+  assert.equal(amount?.[1], "− 249,50 kr");
 });
 
 test("txnFields drops what the caller already shows itself", () => {
@@ -158,8 +158,8 @@ test("a country name gets its flag, and an unknown place gets none", () => {
 });
 
 test("an exact amount keeps the øre only when it is not zero", () => {
-  assert.equal(fmtNOKExact(-140), "\u2212140 kr");
-  assert.equal(fmtNOKExact(-139.5), "\u2212139,50 kr");
+  assert.equal(fmtNOKExact(-140), "\u2212\u00a0140 kr");
+  assert.equal(fmtNOKExact(-139.5), "\u2212\u00a0139,50 kr");
   assert.equal(fmtNOKExact(139.05), "139,05 kr");
   assert.equal(fmtNOKExact(0), "0 kr");
 });
