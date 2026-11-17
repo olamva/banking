@@ -5,6 +5,8 @@ import {
   moveRules,
   type RulesData,
 } from "../../../src/web/app/data.ts";
+import { renamePayees } from "../../../src/core/categorize.ts";
+import type { RuleMap } from "../../../src/core/ruleFiles.ts";
 
 test("changeRules removes a map entry immediately", () => {
   assert.deepEqual(
@@ -27,15 +29,29 @@ test("a shorter plain pattern replaces the longer ones it covers for the same va
     '{"pattern":"microsoft-g1","direction":"in"}': "Azure",
   };
   assert.deepEqual(changeRules(map, "Microsoft-G", "Azure"), {
+    "Microsoft-G": "Azure",
     "microsoft-gx": "Other",
     "/microsoft-g1/": "Azure",
     '{"pattern":"microsoft-g1","direction":"in"}': "Azure",
-    "Microsoft-G": "Azure",
   });
   assert.deepEqual(changeRules(["ola nordmann", "kari"], "ola"), [
     "kari",
     "ola",
   ]);
+});
+
+test("a saved payee rule wins over an older rule that matches the same row", () => {
+  const row = {
+    description: "J.SLETTEDAL . SÆBØ",
+    counterparty: null,
+    remoteAccountNumber: null,
+  };
+  const payees = changeRules(
+    { "/j\\.slettedal/": "J. Slettedal" },
+    "J.SLETTEDAL",
+    "Joker",
+  ) as RuleMap;
+  assert.equal(renamePayees([row], payees)[0]!.counterparty, "Joker");
 });
 
 test("moveRules applies rule history in both directions", () => {

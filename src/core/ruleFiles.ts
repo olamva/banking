@@ -122,11 +122,13 @@ export const changeRules = (
   }
   const next = { ...rules };
   if (was !== undefined) delete next[was];
-  if (remove) delete next[key];
-  else {
-    next[key] = value!;
-    for (const [other, v] of Object.entries(next))
-      if (v === value && covers(key, other)) delete next[other];
+  if (remove) {
+    delete next[key];
+    return next;
   }
-  return next;
+  for (const [other, v] of Object.entries(next))
+    if (v === value && covers(key, other)) delete next[other];
+  return key in next
+    ? { ...next, [key]: value! }
+    : { [key]: value!, ...next };
 };

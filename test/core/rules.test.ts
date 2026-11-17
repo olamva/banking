@@ -107,11 +107,11 @@ test("one value edit updates every pattern in its group", () => {
   });
 });
 
-test("an edit keeps the order of every other line", () => {
+test("an edit keeps its line, and a new pattern goes first so it wins", () => {
   put("giro", { a: "faste_utgifter/boligutgifter", b: "reise/annen_reise" });
-  rules.save({ file: "giro", key: "a", value: "reise/annen_reise" });
+  rules.save({ file: "giro", key: "b", value: "faste_utgifter/boligutgifter" });
   rules.save({ file: "giro", key: "c", value: "innskudd/lommepenger" });
-  assert.deepEqual(Object.keys(rules.load("giro")), ["a", "b", "c"]);
+  assert.deepEqual(Object.keys(rules.load("giro")), ["c", "a", "b"]);
 });
 
 test("a list file takes a bare entry, and a remove drops it", () => {
