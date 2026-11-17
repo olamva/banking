@@ -10,6 +10,16 @@
             "statusMessage": "Checking the checkout"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/pr-guard.sh\"",
+            "statusMessage": "Checking the release label"
+          }
+        ]
       }
     ]
   },
@@ -41,6 +51,7 @@
       "Bash(pnpm test:*)",
       "Bash(pnpm typecheck:*)",
       "Bash(pnpm build:*)",
+      "Bash(pnpm check)",
       "Bash(pnpm shot:*)",
       "Bash(pnpm rules:push)",
       "Bash(pnpm rules:pull)",

@@ -8,6 +8,8 @@ Create a PR into `main`. Put feedback requests in its description.
 Add a release file to `src/web/app/release-notes/` for important features and major changes. The README gives its format.
 Limit releases to changes in the app, including performance. Scripts, CI and terminal output get `no release`.
 Apply the `no release` label to every other PR. CI requires one of the two.
+Run `pnpm check` before each push. The pre-push hook also runs it and `pnpm release:check`. Never use `--no-verify`.
+Pass `--label "no release"` to `gh pr create` when the branch adds no release. A label added later does not stop the first CI failure.
 Use the `babysit-pr` skill after creating or updating the PR.
 Complete implementation, relevant tests, and a review of the final diff before merging.
 Fix failures and resolve review feedback within the requested scope.
