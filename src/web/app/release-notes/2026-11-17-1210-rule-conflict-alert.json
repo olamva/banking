@@ -3,7 +3,7 @@
   "highlights": [
     {
       "title": "Warnings for rule conflicts",
-      "detail": "A rule change that conflicts with another rule asks first. Remove the other rule, or save and fix it later.",
+      "detail": "A rule change that makes a conflict asks first. Remove the old rule, or keep both.",
       "area": "rules",
       "kind": "new"
     },
