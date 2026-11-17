@@ -153,10 +153,10 @@ export const ReviewView = ({
 
 export const CONFLICT_SIDES = [
   { label: "Wins", key: "winner", value: "winnerValue" },
-  { label: "Overridden", key: "loser", value: "loserValue" },
+  { label: "Loses", key: "loser", value: "loserValue" },
 ] as const;
 
-export const conflictRows = (c: Conflict) =>
+const conflictRows =(c: Conflict) =>
   `${c.rows} matching transaction(s): ${c.examples.join(", ")}`;
 
 interface ConflictsViewProps {
