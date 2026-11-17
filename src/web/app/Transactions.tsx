@@ -93,14 +93,7 @@ const useSort = <T, S extends Record<string, (a: T, b: T) => number>>(
       label,
       ...extra,
       sort: by === key ? (asc ? "asc" : "desc") : null,
-      onClick: () =>
-        setSort(
-          by !== key
-            ? order(key, firstAsc(key))
-            : asc === firstAsc(key)
-              ? order(key, !asc)
-              : "",
-        ),
+      onClick: () => setSort(order(key, by === key ? !asc : firstAsc(key))),
     }),
   };
 };
