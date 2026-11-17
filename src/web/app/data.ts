@@ -71,7 +71,7 @@ export type Refresh = {
   busy: boolean;
   note: string | null;
   bad: boolean;
-  steps: Step[];
+  steps: (Step & { at: number })[];
   run: () => void;
 };
 
@@ -100,7 +100,7 @@ export const useRefresh = (
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [bad, setBad] = useState(false);
-  const [steps, setSteps] = useState<Step[]>([]);
+  const [steps, setSteps] = useState<Refresh["steps"]>([]);
   const watching = useRef(false);
 
   const watch = (started: Promise<RefreshStatus>) => {
@@ -110,7 +110,11 @@ export const useRefresh = (
     setNote(null);
     setSteps([]);
     started
-      .then((s) => settled(s, (s) => setSteps(s.steps)))
+      .then((s) =>
+        settled(s, (s) =>
+          setSteps(s.steps.map((step) => ({ ...step, at: Date.now() }))),
+        ),
+      )
       .then(({ last }) => {
         if (!last) return;
         if ("error" in last) throw new Error(last.error);
@@ -170,7 +174,11 @@ export type RulesApi = {
   ) => Promise<boolean>;
   rebuild: () => void;
   saveBulk: (file: RuleFile, keys: string[], value: string) => Promise<boolean>;
-  saveGroup: (file: RuleFile, keys: string[], value: string) => Promise<boolean>;
+  saveGroup: (
+    file: RuleFile,
+    keys: string[],
+    value: string,
+  ) => Promise<boolean>;
   remove: (file: RuleFile, key: string) => Promise<boolean>;
   undo: (file: RuleFile) => void;
   redo: (file: RuleFile) => void;

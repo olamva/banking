@@ -1,0 +1,11 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Smooth refresh timer",
+      "detail": "The time of the current refresh step now counts up smoothly.",
+      "area": "app",
+      "kind": "fixed"
+    }
+  ]
+}
