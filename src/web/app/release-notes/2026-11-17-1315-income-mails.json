@@ -1,0 +1,17 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "Mails for money in",
+      "detail": "Payslips, payouts and refund mails now attach to the rows where the money came in.",
+      "area": "receipts",
+      "kind": "new"
+    },
+    {
+      "title": "Refund mails skip the purchase",
+      "detail": "A refund mail no longer attaches to the purchase that it refunds.",
+      "area": "receipts",
+      "kind": "fixed"
+    }
+  ]
+}

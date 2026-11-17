@@ -49,10 +49,15 @@ const item = (prodtxt1: string, pieces: number, amount: number) => ({
   volume: 1,
 });
 
-const mail = (from: string, date: string, html: string) =>
+const mail = (
+  from: string,
+  date: string,
+  html: string,
+  subject = "Your receipt",
+) =>
   [
     `From: ${from}`,
-    "Subject: Your receipt",
+    `Subject: ${subject}`,
     `Date: ${date}`,
     "MIME-Version: 1.0",
     "Content-Type: text/html; charset=utf-8",
@@ -79,6 +84,10 @@ before(async () => {
       bank("twitch", "2026-09-03", -59, "TWITCH"),
       bank("extra", "2026-09-01", -296.6, "EXTRA ELGESETER, TRONDHEIM"),
       bank("rema-split", "2026-09-12", -650.19, "REMA 1000 MOHOLT"),
+      bank("steam-buy", "2026-09-20", -599, "PAYPAL *STEAM GAMES"),
+      bank("steam-back", "2026-09-25", 599, "PAYPAL *STEAM GAMES"),
+      bank("salary", "2026-09-15", 10202.8, "POWER NORGE AS"),
+      bank("tip", "2026-09-16", 24.92, "BOA RE PAYPAL PTE LTD"),
     ],
   });
   put("data/raw/receipts/coop/A0-coop-1.json", {
@@ -233,6 +242,55 @@ before(async () => {
       "<p>Paid 59,00</p>",
     ),
   );
+  put(
+    "data/raw/receipts/gmail/steam-buy.eml",
+    mail(
+      "Steam <noreply@steampowered.com>",
+      "17 Sep 2026 10:00:00 +0200",
+      "<p>Total: 599,00 kr</p>",
+      "Thank you for your Steam purchase!",
+    ),
+  );
+  put(
+    "data/raw/receipts/gmail/steam-back.eml",
+    mail(
+      "Steam <noreply@steampowered.com>",
+      "21 Sep 2026 10:00:00 +0200",
+      "<p>Refunded: 599,00 kr</p>",
+      "Your purchase has been refunded",
+    ),
+  );
+  put(
+    "data/raw/receipts/gmail/payslip.eml",
+    [
+      'From: "Lønningskontoret - Power" <noreply.power@aditrocloud.com>',
+      "Subject: Lønnsslippen din: Lønn september 2026",
+      "Date: 14 Sep 2026 10:00:00 +0200",
+      "MIME-Version: 1.0",
+      'Content-Type: multipart/mixed; boundary="b"',
+      "",
+      "--b",
+      "Content-Type: text/plain; charset=utf-8",
+      "",
+      "Lønnsslippen for 14.09 ligger vedlagt.",
+      "--b",
+      'Content-Type: application/pdf; name="slipp.pdf"',
+      'Content-Disposition: attachment; filename="slipp.pdf"',
+      "Content-Transfer-Encoding: base64",
+      "",
+      "JVBERi0=",
+      "--b--",
+    ].join("\r\n"),
+  );
+  put(
+    "data/raw/receipts/gmail/tip.eml",
+    mail(
+      "PayPal <service@paypal.com>",
+      "15 Sep 2026 10:00:00 +0200",
+      "<p>Du har mottatt $2,00 USD</p>",
+      "Varsling om mottatt betaling",
+    ),
+  );
   await rebuildAll();
   const db = openDb(process.env.DB_FILE!);
   rows = queryRange(db, "0000-00", "9999-99");
@@ -353,6 +411,20 @@ test("each mail goes to one bank row, and each row takes the closest mail", () =
   assert.equal(rows.find((t) => t.id === "apple-1")!.receipt!.store, "Apple");
 });
 
+test("a refund mail reaches the money back, not the closer purchase", () => {
+  assert.equal(receiptOf("steam-back"), "gmail/steam-back");
+  assert.equal(receiptOf("steam-buy"), "gmail/steam-buy");
+});
+
+test("a payslip with its amount in a PDF reaches the next pay from that sender", () => {
+  assert.equal(receiptOf("salary"), "gmail/payslip");
+  assert.equal(
+    receiptOf("tip"),
+    undefined,
+    "a mail with no PDF needs the same amount",
+  );
+});
+
 test("a Coop receipt dated just after Oslo midnight reaches that day's card row", () => {
   assert.equal(receiptOf("extra"), "coop/A0:/coop-1");
   const receipt = rows.find((t) => t.id === "extra")!.receipt!;
@@ -375,7 +447,7 @@ test("a Coop receipt dated just after Oslo midnight reaches that day's card row"
 });
 
 test("a broken or undated receipt file leaves the rest of the rebuild intact", () => {
-  assert.equal(rows.length, 8);
+  assert.equal(rows.length, 12);
   assert.ok(
     errors.mock.calls.some((c) =>
       String(c.arguments[0]).includes("broken.json"),
