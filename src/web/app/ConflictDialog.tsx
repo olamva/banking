@@ -1,5 +1,5 @@
 import { plural } from "../../core/plural.ts";
-import { CONFLICT_SIDES, type Conflict } from "./Checks.tsx";
+import { conflictSides, type Conflict } from "./Checks.tsx";
 import type { PendingConflicts } from "./conflictGuard.ts";
 import { ErrorIcon, Icon } from "./icons.ts";
 import { Badge } from "./ui/badge.tsx";
@@ -19,27 +19,20 @@ interface ConflictCardProps {
 }
 
 const ConflictCard = ({ conflict: c, fresh }: ConflictCardProps) => (
-  <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1.5 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs dark:bg-destructive/10">
-    {CONFLICT_SIDES.map((side) => (
-      <div key={side.key} className="contents">
-        <dt className="text-muted-foreground">{side.label}</dt>
-        <dd className="[overflow-wrap:anywhere]">
-          <code className="rounded bg-muted px-1 py-0.5 font-mono">
-            {c[side.key]}
-          </code>{" "}
-          → {c[side.value]}
-          {fresh.includes(c[side.key]) && (
-            <Badge variant="outline" className="ml-1.5">
-              New
-            </Badge>
-          )}
-        </dd>
-      </div>
+  <div className="flex flex-col gap-1.5 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs dark:bg-destructive/10">
+    {conflictSides(c).map(([key, value]) => (
+      <p key={key} className="[overflow-wrap:anywhere]">
+        <code className="rounded bg-muted px-1 py-0.5 font-mono">{key}</code> →{" "}
+        {value}
+        {fresh.includes(key) && (
+          <Badge variant="outline" className="ml-1.5">
+            New
+          </Badge>
+        )}
+      </p>
     ))}
-    <dd className="col-start-2 text-muted-foreground">
-      {plural(c.rows, "transaction")}
-    </dd>
-  </dl>
+    <p className="text-muted-foreground">{plural(c.rows, "transaction")}</p>
+  </div>
 );
 
 interface ConflictDialogProps {

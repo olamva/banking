@@ -152,10 +152,10 @@ export const ReviewView = ({
   );
 };
 
-export const CONFLICT_SIDES = [
-  { label: "Wins", key: "winner", value: "winnerValue" },
-  { label: "Loses", key: "loser", value: "loserValue" },
-] as const;
+export const conflictSides = (c: Conflict): [string, string][] => [
+  [c.winner, c.winnerValue],
+  [c.loser, c.loserValue],
+];
 
 interface ConflictsViewProps {
   conflicts: Conflict[];
@@ -177,21 +177,17 @@ export const ConflictsView = ({ conflicts, rules }: ConflictsViewProps) => (
               {plural(c.rows, "transaction")}
             </span>
           </div>
-          {CONFLICT_SIDES.map((side) => (
-            <div key={side.key} className="flex flex-col gap-1">
-              <span className="font-medium text-muted-foreground">
-                {side.label}
-              </span>
-              <ul className="[&>li]:flex-nowrap [&>li>:not(button)]:min-w-0 [&>li>:not(button)]:border-input">
-                <Entry
-                  file={c.file}
-                  entryKey={c[side.key]}
-                  value={c[side.value]}
-                  rules={rules}
-                />
-              </ul>
-            </div>
-          ))}
+          <ul className="[&>li]:flex-nowrap [&>li]:border-0 [&>li>:not(button)]:min-w-0 [&>li>:not(button)]:border-input">
+            {conflictSides(c).map(([key, value]) => (
+              <Entry
+                key={key}
+                file={c.file}
+                entryKey={key}
+                value={value}
+                rules={rules}
+              />
+            ))}
+          </ul>
         </li>
       ))}
     </ul>
