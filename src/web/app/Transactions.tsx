@@ -8,7 +8,6 @@ import type { Categorized } from "../../core/types.ts";
 import { Empty, Panel } from "./Cards.tsx";
 import {
   AMOUNT_SIZE,
-  AMOUNT_SIZE_EXACT,
   DataTable,
   type Column,
 } from "./DataTable.tsx";
@@ -17,7 +16,6 @@ import {
   categoryColor,
   categoryLabel,
   fmtNOK,
-  fmtNOKExact,
   fmtShortDate,
   rowLabel,
   shortDateSizes,
@@ -93,14 +91,7 @@ const useSort = <T, S extends Record<string, (a: T, b: T) => number>>(
       label,
       ...extra,
       sort: by === key ? (asc ? "asc" : "desc") : null,
-      onClick: () =>
-        setSort(
-          by !== key
-            ? order(key, firstAsc(key))
-            : asc === firstAsc(key)
-              ? order(key, !asc)
-              : "",
-        ),
+      onClick: () => setSort(order(key, by === key ? !asc : firstAsc(key))),
     }),
   };
 };
@@ -334,12 +325,7 @@ export const TransactionsCard = ({
                   of: (i) => grouping.of(sorted[i]!),
                   label: grouping.label,
                   total: (indices) =>
-                    fmtNOKExact(
-                      Math.round(
-                        indices.reduce((s, i) => s + sorted[i]!.amount, 0) *
-                          100,
-                      ) / 100,
-                    ),
+                    fmtNOK(indices.reduce((s, i) => s + sorted[i]!.amount, 0)),
                   ...(onBulk && {
                     lead: (key: string, indices: number[]) => (
                       <BulkSelectAll
@@ -387,7 +373,7 @@ export const TransactionsCard = ({
             head("Amount", "amount", {
               num: true,
               min: true,
-              sizer: AMOUNT_SIZE_EXACT,
+              sizer: AMOUNT_SIZE,
               phone: "end",
             }),
           ]}
@@ -442,7 +428,7 @@ export const TransactionsCard = ({
             />,
             accountCell(t, onPick("accounts")),
             <span className={cn("font-semibold", t.amount > 0 && "text-good")}>
-              {fmtNOKExact(t.amount)}
+              {fmtNOK(t.amount)}
             </span>,
           ])}
         />

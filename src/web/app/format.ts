@@ -4,7 +4,9 @@ import type { Categorized } from "../../core/types.ts";
 
 const NOK = new Intl.NumberFormat("nb-NO");
 
-export const fmtNOK = (n: number): string => `${NOK.format(Math.round(n))} kr`;
+const kr = (s: string): string => `${s.replace("−", "− ")} kr`;
+
+export const fmtNOK = (n: number): string => kr(NOK.format(Math.round(n)));
 
 const NOK_ORE = new Intl.NumberFormat("nb-NO", {
   minimumFractionDigits: 2,
@@ -13,7 +15,7 @@ const NOK_ORE = new Intl.NumberFormat("nb-NO", {
 
 // A whole krone drops the ",00". Half a krone keeps two digits, never one.
 export const fmtNOKExact = (n: number): string =>
-  Math.round(n * 100) % 100 === 0 ? fmtNOK(n) : `${NOK_ORE.format(n)} kr`;
+  Math.round(n * 100) % 100 === 0 ? fmtNOK(n) : kr(NOK_ORE.format(n));
 
 export const fmtPct = (share: number): string =>
   `${Math.round(share * 1000) / 10}%`;

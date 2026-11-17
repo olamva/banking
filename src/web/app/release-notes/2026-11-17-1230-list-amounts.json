@@ -1,0 +1,17 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Whole kroner in the list",
+      "detail": "The transaction list rounds each amount and day total. A minus sign now has a space after it.",
+      "area": "transactions",
+      "kind": "improved"
+    },
+    {
+      "title": "Sort order flips each time",
+      "detail": "A second click on a sort now reverses the order and no longer removes the sort.",
+      "area": "transactions",
+      "kind": "fixed"
+    }
+  ]
+}
