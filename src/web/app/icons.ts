@@ -62,6 +62,7 @@ export { Settings01Icon as SettingsIcon } from "@hugeicons/core-free-icons";
 export { Copy01Icon as CopyIcon } from "@hugeicons/core-free-icons";
 export { MoreHorizontalIcon as MoreIcon } from "@hugeicons/core-free-icons";
 export { UserGroupIcon as PeopleIcon } from "@hugeicons/core-free-icons";
+export { ViewOffSlashIcon as HideIcon } from "@hugeicons/core-free-icons";
 export { News01Icon as ReleaseIcon } from "@hugeicons/core-free-icons";
 
 export { AlertCircleIcon as ErrorIcon } from "@hugeicons/core-free-icons";

@@ -14,24 +14,72 @@ import {
   DialogTitle,
 } from "./ui/dialog.tsx";
 
+const NAME_NOTE = "Match the imported payee name.";
+const EXCLUDED_SKIP = " because of exclusions or missing payment details.";
+const NAME_SKIP = " because they have no imported payee name.";
+
 const COPY: Record<
   BulkFile,
-  { title: string; saved: string; to: (value: string) => string }
+  {
+    title: string;
+    target: string;
+    field?: string;
+    note: string;
+    skip: string;
+    saved: string;
+    to: (value: string) => string;
+  }
 > = {
   payees: {
     title: "Give them one name",
+    target: "one name",
+    field: "New payee name",
+    note: "Match the complete imported description, payee, and recipient account. New names take priority over existing payee patterns.",
+    skip: ".",
     saved: "Payee names saved.",
     to: (value) => value,
   },
   categories: {
     title: "Choose one category",
+    target: "one category",
+    field: "New category",
+    note: `${NAME_NOTE} New categories take priority over existing category patterns. Exclusions still apply.`,
+    skip: EXCLUDED_SKIP,
     saved: "Categories saved.",
     to: (value) => rowLabel(...splitPair(value)),
   },
+  countries: {
+    title: "Choose one country",
+    target: "one country",
+    field: "New country",
+    note: `${NAME_NOTE} New countries take priority over existing country patterns and the card name.`,
+    skip: NAME_SKIP,
+    saved: "Countries saved.",
+    to: (value) => value,
+  },
   family: {
     title: "Mark them as family",
+    target: "family",
+    note: `${NAME_NOTE} Money in becomes family deposits and money out becomes peer payments. Category and giro rules still take priority.`,
+    skip: EXCLUDED_SKIP,
     saved: "Family rules saved.",
     to: () => "family",
+  },
+  subscriptions: {
+    title: "Mark them as subscriptions",
+    target: "subscription",
+    note: `${NAME_NOTE} Not a subscription rules still take priority.`,
+    skip: NAME_SKIP,
+    saved: "Subscription rules saved.",
+    to: () => "subscriptions",
+  },
+  "not-subscriptions": {
+    title: "Mark them as not subscriptions",
+    target: "not a subscription",
+    note: `${NAME_NOTE} The rows leave Subscriptions & recurring.`,
+    skip: NAME_SKIP,
+    saved: "Not a subscription rules saved.",
+    to: () => "not subscriptions",
   },
 };
 
@@ -54,7 +102,7 @@ export const BulkTransactions = ({
   onClose,
   onSaved,
 }: BulkTransactionsProps) => {
-  const family = file === "family";
+  const valued = COPY[file].field !== undefined;
   const [value, setValue] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -71,7 +119,7 @@ export const BulkTransactions = ({
   for (const key of plan.keys) query.append("key", key);
   const tooLarge = query.toString().length > 7000;
   const ready =
-    (family || value.trim()) &&
+    (!valued || value.trim()) &&
     plan.keys.length > 0 &&
     changed > 0 &&
     !stale &&
@@ -122,6 +170,7 @@ export const BulkTransactions = ({
           ) : (
             <BulkPreview
               selected={selected}
+              all={all}
               file={file}
               pairs={pairs}
               rules={rules}
@@ -179,7 +228,7 @@ export const BulkTransactions = ({
 
 interface BulkPreviewProps extends Pick<
   BulkTransactionsProps,
-  "selected" | "file" | "pairs" | "rules"
+  "selected" | "all" | "file" | "pairs" | "rules"
 > {
   value: string;
   setValue: (value: string) => void;
@@ -193,6 +242,7 @@ interface BulkPreviewProps extends Pick<
 
 const BulkPreview = ({
   selected,
+  all,
   file,
   pairs,
   rules,
@@ -205,15 +255,19 @@ const BulkPreview = ({
   tooLarge,
   failed,
 }: BulkPreviewProps) => {
-  const rename = file === "payees";
-  const family = file === "family";
+  const copy = COPY[file];
   const names = [...new Set(selected.map(merchantOf))];
+  const options =
+    file === "payees"
+      ? Object.values(rules.data?.files.payees ?? {})
+      : file === "countries"
+        ? all.flatMap((t) => t.country ?? [])
+        : [];
   return (
     <>
       <div>
         <p className="mb-2 text-xs text-muted-foreground">
-          {names.length} payee name(s) →{" "}
-          {family ? "family" : rename ? "one name" : "one category"}
+          {names.length} payee name(s) → {copy.target}
         </p>
         <div className="flex max-h-24 flex-wrap gap-1.5 overflow-y-auto">
           {names.map((name) => (
@@ -226,59 +280,46 @@ const BulkPreview = ({
           ))}
         </div>
       </div>
-      {!family && (
+      {copy.field && (
         <label className="block space-y-1 text-sm">
-          <span>{rename ? "New payee name" : "New category"}</span>
-          {rename ? (
-            <Input
-              autoFocus
-              className={`${FIELD} w-full`}
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              placeholder="Enter one name for these payees"
-              list="bulk-payees"
-              disabled={saving}
-            />
-          ) : (
+          <span>{copy.field}</span>
+          {file === "categories" ? (
             <fieldset disabled={saving}>
               <CategoryInput
-                label="New category"
+                label={copy.field}
                 value={value}
                 pairs={pairs}
                 onChange={setValue}
                 className={FIELD}
               />
             </fieldset>
+          ) : (
+            <Input
+              autoFocus
+              className={`${FIELD} w-full`}
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              placeholder={`Enter one ${file === "payees" ? "name" : "country"} for these payees`}
+              list="bulk-options"
+              disabled={saving}
+            />
           )}
         </label>
       )}
-      {rename && (
-        <datalist id="bulk-payees">
-          {[...new Set(Object.values(rules.data?.files.payees ?? {}))]
-            .sort()
-            .map((name) => (
-              <option key={name} value={name} />
-            ))}
-        </datalist>
-      )}
+      <datalist id="bulk-options">
+        {[...new Set(options)].sort().map((name) => (
+          <option key={name} value={name} />
+        ))}
+      </datalist>
       <div className="space-y-2 text-xs text-muted-foreground">
-        <p>
-          {family
-            ? "Match the imported payee name. Money in becomes family deposits and money out becomes peer payments. Category and giro rules still take priority."
-            : rename
-              ? "Match the complete imported description, payee, and recipient account. New names take priority over existing payee patterns."
-              : "Match the imported payee name. New categories take priority over existing category patterns. Exclusions still apply."}
-        </p>
+        <p>{copy.note}</p>
         <p>
           Save rules for matching past and future transactions. Filters do not
           limit these rules.
         </p>
         {plan.skipped > 0 && (
           <p>
-            {plan.skipped} selected transaction(s) cannot change
-            {rename
-              ? "."
-              : " because of exclusions or missing payment details."}
+            {plan.skipped} selected transaction(s) cannot change{copy.skip}
           </p>
         )}
         {stale && (
@@ -305,7 +346,7 @@ const BulkPreview = ({
           <strong>{plan.outside}</strong> outside selection
         </span>
         <span>
-          <strong>{family || value.trim() ? changed : 0}</strong> changes
+          <strong>{!copy.field || value.trim() ? changed : 0}</strong> changes
         </span>
       </div>
       {plan.outside > 0 && (

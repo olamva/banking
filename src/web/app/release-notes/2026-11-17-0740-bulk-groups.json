@@ -9,7 +9,7 @@
     },
     {
       "title": "More bulk actions",
-      "detail": "Mark selected payees as family, or show or hide them, from the … menu.",
+      "detail": "Set a country, family or subscription for many payees at once, or show or hide them.",
       "area": "transactions",
       "kind": "new"
     },

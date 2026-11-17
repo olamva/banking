@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { bulkChanges, bulkPlan } from "../../src/core/bulkRules.ts";
+import { BULK_FILES, bulkChanges, bulkPlan } from "../../src/core/bulkRules.ts";
 import { compile, haystackOf } from "../../src/core/match.ts";
 import type { Categorized } from "../../src/core/types.ts";
 
@@ -70,6 +70,23 @@ test("bulk family counts only rows that no stronger rule claims", () => {
     .map((categorySource) => ({ ...row, categorySource }))
     .map((t) => bulkChanges(t, "family", ""));
   assert.deepEqual(changes, [true, false, false, true]);
+});
+
+test("bulk country and subscription rules also cover excluded rows", () => {
+  const excluded = { ...row, excluded: true };
+  const keys = Object.fromEntries(
+    BULK_FILES.filter((file) => file !== "payees").map((file) => [
+      file,
+      bulkPlan([excluded], [excluded], file).keys,
+    ]),
+  );
+  assert.deepEqual(keys, {
+    categories: [],
+    family: [],
+    countries: ["shop (a+b)"],
+    subscriptions: ["shop (a+b)"],
+    "not-subscriptions": ["shop (a+b)"],
+  });
 });
 
 test("bulk edits refuse stale imported names and empty selections", () => {

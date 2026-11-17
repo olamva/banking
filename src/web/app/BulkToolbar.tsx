@@ -3,14 +3,18 @@ import { merchantOf } from "../../core/select.ts";
 import type { Categorized } from "../../core/types.ts";
 import { fmtNOKExact } from "./format.ts";
 import {
+  type IconSvgElement,
   CategoryIcon,
   CloseIcon,
+  CountryIcon,
   EditIcon,
   ExcludeIcon,
   FilterIcon,
+  HideIcon,
   Icon,
   MoreIcon,
   PeopleIcon,
+  RecurringIcon,
 } from "./icons.ts";
 import { Button } from "./ui/button.tsx";
 import { Checkbox } from "./ui/checkbox.tsx";
@@ -21,6 +25,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu.tsx";
+
+const MORE: [BulkFile, IconSvgElement, string][] = [
+  ["countries", CountryIcon, "Change country…"],
+  ["family", PeopleIcon, "Mark as family…"],
+  ["subscriptions", RecurringIcon, "Mark as subscription…"],
+  ["not-subscriptions", ExcludeIcon, "Not a subscription…"],
+];
 
 interface BulkToolbarProps {
   picked: Categorized[];
@@ -134,10 +145,12 @@ export const BulkToolbar = ({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-max">
-          <DropdownMenuItem onSelect={() => onBulk(picked, "family")}>
-            <Icon icon={PeopleIcon} size={14} />
-            Mark as family…
-          </DropdownMenuItem>
+          {MORE.map(([file, icon, label]) => (
+            <DropdownMenuItem key={file} onSelect={() => onBulk(picked, file)}>
+              <Icon icon={icon} size={14} />
+              {label}
+            </DropdownMenuItem>
+          ))}
           {onPayees && (
             <>
               <DropdownMenuSeparator />
@@ -146,7 +159,7 @@ export const BulkToolbar = ({
                 Show only {payees.length === 1 ? "this payee" : "these payees"}
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => onPayees(payees, true)}>
-                <Icon icon={ExcludeIcon} size={14} />
+                <Icon icon={HideIcon} size={14} />
                 Hide {payees.length === 1 ? "this payee" : "these payees"}
               </DropdownMenuItem>
             </>
