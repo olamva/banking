@@ -1,0 +1,11 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "Smarter filter search",
+      "detail": "Filter search now accepts English category names, such as \"groceries\" or \"salary\". It also accepts small typos and letters without æ, ø and å.",
+      "area": "filters",
+      "kind": "improved"
+    }
+  ]
+}

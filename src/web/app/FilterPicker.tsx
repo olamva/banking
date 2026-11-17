@@ -1,4 +1,5 @@
 import { useRef, useState, type ReactNode, type RefObject } from "react";
+import { MISS, searchRank } from "../../core/search.ts";
 import { toggled } from "./format.ts";
 import { kept } from "./options.ts";
 import {
@@ -144,6 +145,7 @@ export interface PickerListProps {
   label?: (value: string) => string;
   subs?: (option: string) => string[];
   subLabel?: (value: string) => string;
+  terms?: (value: string) => string[];
   people?: ReadonlySet<string>;
   uses?: ReadonlyMap<string, number>;
   total?: number;
@@ -160,6 +162,7 @@ export const PickerList = ({
   label = (v) => v,
   subs,
   subLabel = (v) => v,
+  terms,
   people,
   uses = new Map(),
   total = 0,
@@ -190,15 +193,20 @@ export const PickerList = ({
       ? ranked
       : ranked.filter((o) => people.has(o) === (kind === "people") || on(o));
   const childrenOf = (o: string) => byUse(subs?.(o) ?? []);
-  const hits = (name: string) => name.toLowerCase().includes(q);
+  const rankOfSub = (c: string) => searchRank(q, subLabel(c), terms?.(c));
+  const hits = (c: string) => rankOfSub(c) !== MISS;
+  const best = (o: string) =>
+    Math.min(
+      searchRank(q, label(o), terms?.(o)),
+      ...childrenOf(o).map(rankOfSub),
+    );
 
   const shown = q
-    ? listed.filter(
-        (o) =>
-          hits(label(o)) ||
-          on(o) ||
-          childrenOf(o).some((c) => hits(subLabel(c)) || on(c)),
-      )
+    ? listed
+        .map((o) => [o, best(o)] as const)
+        .filter(([o, r]) => r !== MISS || on(o) || childrenOf(o).some(on))
+        .sort((a, b) => a[1] - b[1])
+        .map(([o]) => o)
     : listed;
 
   const rankOf = (o: string) =>
@@ -207,7 +215,7 @@ export const PickerList = ({
 
   const rowsOf = (o: string): Row[] => {
     const all = childrenOf(o);
-    const kids = q === "" ? all : all.filter((c) => hits(subLabel(c)) || on(c));
+    const kids = q === "" ? all : all.filter((c) => hits(c) || on(c));
     const openByDefault =
       kids.length < all.length ||
       (all.length > 1 && kids.some((c) => pinned.includes(c)));

@@ -30,6 +30,7 @@ import {
   TransferIcon,
   type IconSvgElement,
 } from "./icons.ts";
+import { MISS, searchRank } from "../../core/search.ts";
 import { kept } from "./options.ts";
 import { Badge } from "./ui/badge.tsx";
 import { Button } from "./ui/button.tsx";
@@ -53,6 +54,7 @@ export interface AxisSpec {
   fullLabel?: (value: string) => string;
   subs?: (option: string) => string[];
   subLabel?: (value: string) => string;
+  terms?: (value: string) => string[];
   people?: ReadonlySet<string>;
   uses: ReadonlyMap<string, number>;
   total: number;
@@ -150,23 +152,19 @@ const Home = ({
     ] as const;
   });
 
-  const matches = (s: AxisSpec) => {
-    const rank = (v: string) => {
-      const name = nameOf(s)(v).toLowerCase();
-      return name.startsWith(q)
-        ? 0
-        : name.split(/[\s›/-]+/).some((w) => w.startsWith(q))
-          ? 1
-          : name.includes(q)
-            ? 2
-            : 3;
-    };
-    return candidates(s, filters)
-      .map((v) => [v, rank(v), s.uses.get(v) ?? 0] as const)
-      .filter(([, r]) => r < 3)
+  const matches = (s: AxisSpec) =>
+    candidates(s, filters)
+      .map(
+        (v) =>
+          [
+            v,
+            searchRank(q, nameOf(s)(v), s.terms?.(v)),
+            s.uses.get(v) ?? 0,
+          ] as const,
+      )
+      .filter(([, r]) => r !== MISS)
       .sort((a, b) => a[1] - b[1] || b[2] - a[2])
       .map(([v]) => v);
-  };
 
   return (
     <Command
@@ -384,6 +382,7 @@ export const FilterPanel = ({
           label={spec.label}
           subs={spec.subs}
           subLabel={spec.subLabel}
+          terms={spec.terms}
           people={spec.people}
           uses={spec.uses}
           total={spec.total}
