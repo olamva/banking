@@ -62,8 +62,6 @@ export const SpendLines = ({
   const plotW = Math.max(width - padL - 16, 20);
   const plotH = height - padB - padT;
   const maxVal = Math.max(...values, 1);
-  const step = niceStep(maxVal);
-  const gridMax = Math.ceil(maxVal / step) * step;
 
   const clusterW = plotW / Math.max(dense.length, 1);
   const px = (i: number) => padL + i * clusterW + clusterW / 2;
@@ -73,8 +71,10 @@ export const SpendLines = ({
     ? [0, dense.length - 1].map((x) => trend.intercept + trend.slope * x)
     : [];
 
-  const lows = [...(shows("trend") ? ends : []), ...values];
-  const gridMin = Math.min(0, ...lows.map((v) => Math.floor(v / step) * step));
+  const minVal = Math.min(0, ...(shows("trend") ? ends : []), ...values);
+  const step = niceStep(maxVal - minVal);
+  const gridMax = Math.ceil(maxVal / step) * step;
+  const gridMin = Math.floor(minVal / step) * step;
   const ticks = Array.from(
     { length: Math.round((gridMax - gridMin) / step) + 1 },
     (_, i) => gridMin + i * step,
