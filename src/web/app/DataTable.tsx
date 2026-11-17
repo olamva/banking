@@ -234,26 +234,19 @@ const List = ({
   );
 
   const head = (key: string) => (
-    <div className="flex border-b">
-      {group!.lead && (
-        <span className="flex items-center pt-3 pb-1.5 pl-(--card-spacing)">
-          {group!.lead(key, days!.get(key)!)}
-        </span>
-      )}
+    <div className="flex items-center gap-3 bg-muted/40 px-(--card-spacing)">
+      {group!.lead?.(key, days!.get(key)!)}
       <Button
         variant="ghost"
         aria-expanded={!closed.has(key)}
         onClick={() => toggle(key)}
-        className={cn(
-          "h-auto flex-1 justify-start gap-2 rounded-none px-(--card-spacing) pt-3 pb-1.5 text-xs font-medium text-muted-foreground aria-expanded:bg-transparent aria-expanded:text-muted-foreground",
-          group!.lead && "pl-3",
-        )}
+        className="h-8 flex-1 justify-start gap-2 rounded-none px-0 text-xs font-medium text-muted-foreground hover:bg-transparent aria-expanded:bg-transparent aria-expanded:text-muted-foreground dark:hover:bg-transparent"
       >
-        <Caret open={!closed.has(key)} />
         <span className="text-foreground">{group!.label(key)}</span>
         <span className="ml-auto tabular-nums">
           {group!.total(days!.get(key)!)}
         </span>
+        <Caret open={!closed.has(key)} />
       </Button>
     </div>
   );
