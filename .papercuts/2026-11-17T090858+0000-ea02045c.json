@@ -1,0 +1,11 @@
+{
+  "id": "ea02045c",
+  "ts": "2026-11-17T09:08:58+00:00",
+  "text": "banking pre-push release:check compares with origin/main tip, so a branch behind main fails with 'Keep the release X'; RELEASE_BASE=$(git merge-base HEAD origin/main) works around it",
+  "tags": [],
+  "who": "agent",
+  "model": "claude-opus-5-5",
+  "session": "e965f244",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3-82a7f482-cf8436d6a635287c",
+  "branch": "t3/82a7f482"
+}
