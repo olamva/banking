@@ -1,3 +1,4 @@
+import { plural } from "../../core/plural.ts";
 import type { RuleChange, RuleFile } from "../../core/ruleFiles.ts";
 import { Note } from "./Cards.tsx";
 import { versionAt, type RulesApi } from "./data.ts";
@@ -108,7 +109,7 @@ export const History = ({ file, rules }: HistoryProps) => {
       </div>
       {ahead > 0 && (
         <Note icon={InfoIcon} className="mb-2 shrink-0">
-          The next edit drops the {ahead} version(s) above this point.
+          The next edit drops the {plural(ahead, "version")} above this point.
         </Note>
       )}
       <ol className="min-h-0 flex-1 overflow-y-auto pr-1">
@@ -145,7 +146,7 @@ export const History = ({ file, rules }: HistoryProps) => {
                   ))}
                   {changes.length > CHANGES_SHOWN && (
                     <li className="text-[11px] text-muted-foreground">
-                      and {changes.length - CHANGES_SHOWN} more line(s).
+                      and {plural(changes.length - CHANGES_SHOWN, "more line")}.
                     </li>
                   )}
                 </ul>

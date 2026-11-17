@@ -9,6 +9,7 @@ import {
   type RuleMap,
   type Rules,
 } from "../../core/ruleFiles.ts";
+import { plural } from "../../core/plural.ts";
 import type { Categorized } from "../../core/types.ts";
 import type { RefreshStatus } from "../api.ts";
 
@@ -108,7 +109,7 @@ export const useRefresh = (
         setBad(!!last.stopped);
         setNote(
           last.stopped ??
-            `${last.fetched} file(s) fetched, ${last.rows} rows rebuilt.`,
+            `${plural(last.fetched, "file")} fetched, ${plural(last.rows, "row")} rebuilt.`,
         );
         onDone();
       })

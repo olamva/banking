@@ -1,3 +1,4 @@
+import { plural } from "../../core/plural.ts";
 import { CONFLICT_SIDES, type Conflict } from "./Checks.tsx";
 import type { PendingConflicts } from "./conflictGuard.ts";
 import { ErrorIcon, Icon } from "./icons.ts";
@@ -36,7 +37,7 @@ const ConflictCard = ({ conflict: c, fresh }: ConflictCardProps) => (
       </div>
     ))}
     <dd className="col-start-2 text-muted-foreground">
-      {c.rows} transaction(s)
+      {plural(c.rows, "transaction")}
     </dd>
   </dl>
 );

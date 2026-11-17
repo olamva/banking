@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { compileRule } from "../../core/match.ts";
+import { plural } from "../../core/plural.ts";
 import {
   CATEGORY_VALUED,
   isMapFile,
@@ -231,7 +232,7 @@ const PatternMatchNote = ({ pattern, txns, haystacks }: MatchNoteProps) => {
         {loading
           ? "Checking matches…"
           : (result?.error ??
-            `Matches ${matches.length} transaction(s) on record.`)}
+            `Matches ${plural(matches.length, "transaction")} on record.`)}
       </div>
       {!loading && !result?.error && matches.length > 0 && (
         <Button

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { overlaps, type Overlap } from "../../core/narrowings.ts";
+import { plural } from "../../core/plural.ts";
 import { reviewGroups, type ReviewGroup } from "../../core/review.ts";
 import {
   RULE_FILES,
@@ -112,8 +113,8 @@ export const ReviewView = ({
                   {t.amount < 0 ? "Money out" : "Money in"}
                 </p>
                 <p>
-                  {rowLabel(t.category, t.subcategory)} · {group.length}{" "}
-                  transaction(s) · {t.date}
+                  {rowLabel(t.category, t.subcategory)} ·{" "}
+                  {plural(group.length, "transaction")} · {t.date}
                 </p>
               </div>
               <Button
@@ -156,9 +157,6 @@ export const CONFLICT_SIDES = [
   { label: "Loses", key: "loser", value: "loserValue" },
 ] as const;
 
-const conflictRows =(c: Conflict) =>
-  `${c.rows} matching transaction(s): ${c.examples.join(", ")}`;
-
 interface ConflictsViewProps {
   conflicts: Conflict[];
   rules: RulesApi;
@@ -176,7 +174,7 @@ export const ConflictsView = ({ conflicts, rules }: ConflictsViewProps) => (
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="secondary">{RULE_LABEL[c.file]}</Badge>
             <span className="min-w-0 text-muted-foreground [overflow-wrap:anywhere]">
-              {conflictRows(c)}
+              {plural(c.rows, "transaction")}
             </span>
           </div>
           {CONFLICT_SIDES.map((side) => (
