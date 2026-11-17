@@ -78,7 +78,11 @@ install() {
   say "installed"
 }
 
+locked() { [[ "$(ioreg -n Root -d1 -a | plutil -extract IOConsoleUsers.0.CGSSessionScreenIsLocked raw -o - - 2>/dev/null)" == true ]]; }
+
 renew() {
+  locked && say "the screen is locked. Xcode cannot read its account until it unlocks. Waiting"
+  while locked; do sleep 5; done
   git -C "$src" fetch -q origin main && git -C "$src" checkout -q --detach FETCH_HEAD && bash "$src/infra/ios.sh" install
 }
 
