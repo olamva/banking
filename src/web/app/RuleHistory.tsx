@@ -16,7 +16,7 @@ import { Button } from "./ui/button.tsx";
 import { cn } from "./ui/utils.ts";
 
 const fmtStamp = (at: number): string =>
-  new Date(at).toLocaleString("nb-NO", {
+  new Date(at).toLocaleString("en-GB", {
     timeZone: "Europe/Oslo",
     dateStyle: "medium",
     timeStyle: "short",
