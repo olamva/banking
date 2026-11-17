@@ -7,14 +7,17 @@ import {
   emptyGroup,
   NO_GROUP,
   groupsOf,
+  matchesFilters,
   NO_COUNTRY,
+  NO_FILTERS,
   pruneGroups,
   withGroupAt,
 } from "../../core/select.ts";
+import type { Categorized } from "../../core/types.ts";
 import { FilterPanel, type AxisSpec, type Scope } from "./FilterPanel.tsx";
 import { categoryLabel, pairLabel, treeLabel } from "./format.ts";
 import { CloseIcon, FilterIcon, Icon } from "./icons.ts";
-import type { useFilterOptions } from "./options.ts";
+import { kept, type useFilterOptions } from "./options.ts";
 import { Badge } from "./ui/badge.tsx";
 import { Button } from "./ui/button.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover.tsx";
@@ -57,7 +60,7 @@ export const axisSpecs = (o: Options): AxisSpec[] => {
     );
   const country = (c: string) => (c === NO_COUNTRY ? "No country" : c);
   const tree = (c: string) => treeLabel(c, subsOf(c));
-  const specs: Omit<AxisSpec, "uses">[] = [
+  const specs: Omit<AxisSpec, "uses" | "total">[] = [
     {
       axis: "categories",
       name: "Category",
@@ -103,7 +106,7 @@ export const axisSpecs = (o: Options): AxisSpec[] => {
       fullLabel: country,
     },
   ];
-  return specs.map((s) => ({ ...s, uses: o.uses[s.axis] }));
+  return specs.map((s) => ({ ...s, uses: o.uses[s.axis], total: o.total }));
 };
 
 interface FilterButtonProps {
@@ -324,7 +327,11 @@ const AxisChip = ({ spec, filters, onFilters, onEdit }: AxisChipProps) => {
   const inn = filters[spec.axis];
   const out = filters[outKey];
   const name = spec.fullLabel ?? ((v: string) => v);
-  const words = [...inn, ...out];
+  const words = [...inn, ...out].toSorted(
+    (a, b) =>
+      Number(out.includes(a)) - Number(out.includes(b)) ||
+      kept(spec, a, out.includes(a)) - kept(spec, b, out.includes(b)),
+  );
   const sep = (i: number) => (i === 0 ? "" : i < inn.length ? " or " : ", ");
   const not = (i: number) => i >= inn.length;
   const parts = words
@@ -377,6 +384,7 @@ const PlainChip = ({
 
 interface FilterChipsProps {
   specs: AxisSpec[];
+  rows: Categorized[];
   filters: Filters;
   onFilters: (filters: Filters) => void;
   onEdit: (group: number, scope: Scope) => void;
@@ -384,15 +392,28 @@ interface FilterChipsProps {
 
 export const FilterChips = ({
   specs,
+  rows,
   filters,
   onFilters,
   onEdit,
 }: FilterChipsProps) => {
+  const only = (s: AxisSpec, g: Group): Filters => ({
+    ...NO_FILTERS,
+    [s.axis]: g[s.axis],
+    [AXES[s.axis]]: g[AXES[s.axis]],
+  });
   const groups = groupsOf(filters)
     .map((g, i) => ({
       i,
       g,
-      axes: specs.filter((s) => g[s.axis].length + g[AXES[s.axis]].length > 0),
+      axes: specs
+        .filter((s) => g[s.axis].length + g[AXES[s.axis]].length > 0)
+        .map((s) => ({
+          s,
+          n: rows.filter((t) => matchesFilters(t, only(s, g))).length,
+        }))
+        .toSorted((a, b) => a.n - b.n)
+        .map(({ s }) => s),
     }))
     .filter(({ axes }) => axes.length > 0);
   const chips = groups.reduce((n, { axes }) => n + axes.length, 0);

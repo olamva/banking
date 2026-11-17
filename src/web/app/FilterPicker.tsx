@@ -1,5 +1,6 @@
 import { useRef, useState, type ReactNode, type RefObject } from "react";
 import { toggled } from "./format.ts";
+import { kept } from "./options.ts";
 import {
   DropdownIcon,
   ExcludeIcon,
@@ -145,6 +146,7 @@ export interface PickerListProps {
   subLabel?: (value: string) => string;
   people?: ReadonlySet<string>;
   uses?: ReadonlyMap<string, number>;
+  total?: number;
   query?: string;
   onBack?: () => void;
 }
@@ -160,6 +162,7 @@ export const PickerList = ({
   subLabel = (v) => v,
   people,
   uses = new Map(),
+  total = 0,
   query: initialQuery = "",
   onBack,
 }: PickerListProps) => {
@@ -169,7 +172,13 @@ export const PickerList = ({
   const [kind, setKind] = useState<Kind>("all");
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const [limit, setLimit] = useState(PAGE);
-  const [pinned] = useState<readonly string[]>(() => [...picked, ...excluded]);
+  const [pinned] = useState<readonly string[]>(() =>
+    [...picked, ...excluded].toSorted(
+      (a, b) =>
+        kept({ uses, total }, a, excluded.includes(a)) -
+        kept({ uses, total }, b, excluded.includes(b)),
+    ),
+  );
   const [active, setActive] = useState("");
   const keys = useExcludeKey();
   const on = (v: string) => picked.includes(v) || excluded.includes(v);
@@ -192,8 +201,9 @@ export const PickerList = ({
       )
     : listed;
 
-  const isPinned = (o: string) =>
-    pinned.includes(o) || childrenOf(o).some((c) => pinned.includes(c));
+  const rankOf = (o: string) =>
+    pinned.findIndex((p) => p === o || childrenOf(o).includes(p));
+  const isPinned = (o: string) => rankOf(o) >= 0;
 
   const rowsOf = (o: string): Row[] => {
     const all = childrenOf(o);
@@ -209,7 +219,10 @@ export const PickerList = ({
       : [parent];
   };
 
-  const top = shown.filter(isPinned).flatMap(rowsOf);
+  const top = shown
+    .filter(isPinned)
+    .toSorted((a, b) => rankOf(a) - rankOf(b))
+    .flatMap(rowsOf);
   const rest = shown.filter((o) => !isPinned(o)).flatMap(rowsOf);
   const restShown = rest.slice(0, Math.max(limit - top.length, 0));
 

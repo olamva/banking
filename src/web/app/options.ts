@@ -22,6 +22,12 @@ import { subcategoryLabel } from "./format.ts";
 const withPicked = (offered: string[], picked: string[]): string[] =>
   [...new Set([...offered, ...picked])].sort((a, b) => a.localeCompare(b));
 
+export const kept = (
+  s: { uses: ReadonlyMap<string, number>; total: number },
+  value: string,
+  out: boolean,
+) => (out ? s.total - (s.uses.get(value) ?? 0) : (s.uses.get(value) ?? 0));
+
 const parentOf = (pair: string) => pair.slice(0, pair.indexOf("/"));
 const subLabelOf = (pair: string) =>
   subcategoryLabel(parentOf(pair), pair.slice(pair.indexOf("/") + 1) || null);
@@ -141,5 +147,6 @@ export const useFilterOptions = (
     accounts,
     countries,
     uses,
+    total: inPeriod.length,
   };
 };

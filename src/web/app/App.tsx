@@ -447,6 +447,7 @@ export const App = () => {
             {view !== "settings" && (
               <FilterChips
                 specs={specs}
+                rows={inPeriod}
                 filters={filters}
                 onFilters={setFilters}
                 onEdit={(group, next) => {

@@ -29,6 +29,7 @@ import {
   TransferIcon,
   type IconSvgElement,
 } from "./icons.ts";
+import { kept } from "./options.ts";
 import { Badge } from "./ui/badge.tsx";
 import { Button } from "./ui/button.tsx";
 import {
@@ -53,6 +54,7 @@ export interface AxisSpec {
   subLabel?: (value: string) => string;
   people?: ReadonlySet<string>;
   uses: ReadonlyMap<string, number>;
+  total: number;
 }
 
 export type Scope = Axis | "home";
@@ -107,7 +109,15 @@ const Home = ({
 }: HomeProps) => {
   const keys = useExcludeKey();
   const [pinned] = useState(() =>
-    specs.flatMap((s) => valuesOf(s, filters).map((v) => `${s.axis}:${v}`)),
+    specs
+      .flatMap((s) =>
+        valuesOf(s, filters).map((v) => ({
+          id: `${s.axis}:${v}`,
+          n: kept(s, v, filters[AXES[s.axis]].includes(v)),
+        })),
+      )
+      .toSorted((a, b) => a.n - b.n)
+      .map((p) => p.id),
   );
   const q = query.trim().toLowerCase();
 
@@ -375,6 +385,7 @@ export const FilterPanel = ({
           subLabel={spec.subLabel}
           people={spec.people}
           uses={spec.uses}
+          total={spec.total}
           query={carried}
           onBack={back}
         />
