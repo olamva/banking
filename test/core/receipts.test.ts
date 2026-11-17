@@ -88,6 +88,7 @@ before(async () => {
       bank("steam-back", "2026-09-25", 599, "PAYPAL *STEAM GAMES"),
       bank("salary", "2026-09-15", 10202.8, "POWER NORGE AS"),
       bank("tip", "2026-09-16", 24.92, "BOA RE PAYPAL PTE LTD"),
+      bank("payout", "2026-09-25", 852.64, "BOA RE PAYPAL PTE LTD"),
     ],
   });
   put("data/raw/receipts/coop/A0-coop-1.json", {
@@ -291,6 +292,15 @@ before(async () => {
       "Varsling om mottatt betaling",
     ),
   );
+  put(
+    "data/raw/receipts/gmail/payout.eml",
+    mail(
+      "PayPal <service@paypal.com>",
+      "24 Sep 2026 10:00:00 +0200",
+      "<p>Forespurt overføringsbeløp: $94,30 USD</p>",
+      "Pengene er på vei til bankkontoen din",
+    ),
+  );
   await rebuildAll();
   const db = openDb(process.env.DB_FILE!);
   rows = queryRange(db, "0000-00", "9999-99");
@@ -425,6 +435,15 @@ test("a payslip with its amount in a PDF reaches the next pay from that sender",
   );
 });
 
+test("a payout in dollars reaches the krone deposit at a plausible rate", () => {
+  assert.equal(receiptOf("payout"), "gmail/payout");
+  assert.equal(
+    receiptOf("tip"),
+    undefined,
+    "2 dollars never became 24,92 kroner",
+  );
+});
+
 test("a Coop receipt dated just after Oslo midnight reaches that day's card row", () => {
   assert.equal(receiptOf("extra"), "coop/A0:/coop-1");
   const receipt = rows.find((t) => t.id === "extra")!.receipt!;
@@ -447,7 +466,7 @@ test("a Coop receipt dated just after Oslo midnight reaches that day's card row"
 });
 
 test("a broken or undated receipt file leaves the rest of the rebuild intact", () => {
-  assert.equal(rows.length, 12);
+  assert.equal(rows.length, 13);
   assert.ok(
     errors.mock.calls.some((c) =>
       String(c.arguments[0]).includes("broken.json"),

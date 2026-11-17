@@ -1,0 +1,11 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Payout mails in other currencies",
+      "detail": "A payout mail in dollars or euros now attaches to its krone deposit at a plausible rate.",
+      "area": "receipts",
+      "kind": "improved"
+    }
+  ]
+}

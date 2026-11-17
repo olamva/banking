@@ -36,6 +36,7 @@ export type Found = {
   fit?: (paid: number) => Receipt;
   incoming?: boolean;
   pdf?: boolean;
+  foreign?: { amount: number; currency: string }[];
 };
 
 type RemaRow = {
@@ -306,6 +307,15 @@ export const coopReceipt = ({ period, details }: CoopFile): Found => {
 const INCOMING =
   /refund|refusjon|tilbakebetal|kreditnota|credit note|payout|utbetaling|sent you a payment|har sendt deg|fått inn penger|mottatt betaling|på vei til bankkontoen|lønnsslipp|payslip/i;
 
+const FOREIGN = /(\d{1,3}(?:[ .,]\d{3})+|\d+)[.,](\d{2}) ?(USD|EUR|GBP|AUD)\b/g;
+
+const NOK_PER: Record<string, [number, number]> = {
+  USD: [6, 12],
+  EUR: [7, 13],
+  GBP: [9, 15],
+  AUD: [4, 9],
+};
+
 const MONEY =
   /(\d{1,3}(?:[ .,]\d{3})+|\d+)(?:[.,](\d{2})(?!\d)|,-)|(?:kr\.?|nok) ?(\d{1,3}(?: \d{3})+|\d+)(?![\d.,]| \d)|(\d{1,3}(?: \d{3})+|\d+) ?(?:kr|nok)\b/gi;
 
@@ -355,6 +365,10 @@ export async function mailReceipt(id: string, raw: Uint8Array): Promise<Found> {
     ],
     incoming,
     pdf: mail.attachments.some((a) => /\.pdf$/i.test(a.filename ?? "")),
+    foreign: [...text.matchAll(FOREIGN)].map((m) => ({
+      amount: Number(m[1]!.replace(/[ .,]/g, "")) + Number(m[2]) / 100,
+      currency: m[3]!,
+    })),
   };
 }
 
@@ -390,7 +404,13 @@ export function matchReceipts<T extends Txn>(
     ].flatMap((cents) =>
       near(byCents.get(f.incoming ? cents : -cents) ?? [], false),
     );
-    return exact.length || !(f.incoming && f.pdf) ? exact : near(income, true);
+    if (exact.length || !f.incoming) return exact;
+    const converts = (t: T) =>
+      f.foreign?.some(({ amount, currency }) => {
+        const [low, high] = NOK_PER[currency]!;
+        return t.amount >= amount * low && t.amount <= amount * high;
+      });
+    return near(f.pdf ? income : income.filter(converts), true);
   });
   pairs.sort(
     (a, b) =>
