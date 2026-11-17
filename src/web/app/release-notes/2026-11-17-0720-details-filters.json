@@ -1,0 +1,11 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "Filter from transaction details",
+      "detail": "Tap the payee, category, account or country in the details to filter by it or exclude it.",
+      "area": "transactions",
+      "kind": "new"
+    }
+  ]
+}
