@@ -6,6 +6,8 @@ This repository serves one user.
 
 Create a PR into `main`. Put feedback requests in its description.
 Add a release file to `src/web/app/release-notes/` for important features and major changes. The README gives its format.
+Add a `patch` release for a fix or a small change that I can see in the app, such as a layout or a control.
+Decide on the release again before each push. A PR that grows can need a release that its first commit did not.
 Limit releases to changes in the app, including performance. Scripts, CI and terminal output get `no release`.
 Apply the `no release` label to every other PR. CI requires one of the two.
 Run `pnpm check` before each push. The pre-push hook also runs it and `pnpm release:check`. Never use `--no-verify`.
