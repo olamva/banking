@@ -1,0 +1,11 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Readable axis below zero",
+      "detail": "The monthly chart keeps a few axis labels when refunds push a month below zero.",
+      "area": "overview",
+      "kind": "fixed"
+    }
+  ]
+}
