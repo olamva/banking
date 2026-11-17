@@ -313,7 +313,7 @@ export const TransactionsCard = ({
           start={count}
           controls={
             <>
-              {onBulk && (
+              {onBulk && picked.length > 0 && (
                 <BulkToolbar
                   picked={picked}
                   onBulk={onBulk}
