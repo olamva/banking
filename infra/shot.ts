@@ -25,6 +25,7 @@ const { values: o, positionals: paths } = parseArgs({
     element: { type: "string" },
     full: { type: "boolean", default: false },
     out: { type: "string" },
+    mock: { type: "string", multiple: true, default: [] },
   },
 });
 
@@ -41,7 +42,8 @@ if (!paths.length) {
   --hover <selector>    Hover this element before the capture
   --element <selector>  Capture only this element
   --full                Capture the full page
-  --out <dir>           Output directory (default the T3 attachments directory)`);
+  --out <dir>           Output directory (default the T3 attachments directory)
+  --mock <path>=><json> Answer requests to this path with this JSON; repeat for more`);
   process.exit(1);
 }
 
@@ -97,6 +99,12 @@ const shoot = async (
   const visible = (selector: string) =>
     page.locator(selector).filter({ visible: true }).first();
   try {
+    for (const mock of o.mock!) {
+      const at = mock.indexOf("=>");
+      await page.route(`**${mock.slice(0, at)}`, (r) =>
+        r.fulfill({ json: JSON.parse(mock.slice(at + 2)) }),
+      );
+    }
     await page.goto(url, { waitUntil: "networkidle" });
     for (const target of o.click!) {
       await visible(target).click();

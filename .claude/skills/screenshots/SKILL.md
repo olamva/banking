@@ -33,6 +33,9 @@ pnpm shot '/?view=transactions&p=all' --before origin/main
 | `--element <selector>`       | Capture one element.                                                 |
 | `--full`                     | Capture the full page.                                               |
 | `--out <dir>`                | Output directory.                                                    |
+| `--mock <path>=><json>`      | Answer requests to the path with the JSON. Repeat it for more paths. |
+
+Use `--mock` to show a state that needs the bank, such as a running refresh. Never press Refresh in a capture without a mock for `/api/refresh/start`.
 
 Use Playwright selectors: CSS, `text=Categories`, or `role=button[name="Categories"]`.
 
