@@ -17,6 +17,7 @@ import {
   RecurringIcon,
 } from "./icons.ts";
 import { Button } from "./ui/button.tsx";
+import { ButtonGroup } from "./ui/button-group.tsx";
 import { Checkbox } from "./ui/checkbox.tsx";
 import {
   DropdownMenu,
@@ -25,6 +26,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu.tsx";
+import { cn } from "./ui/utils.ts";
 
 const BULK: [BulkFile, IconSvgElement, string][] = [
   ["payees", EditIcon, "Rename payees"],
@@ -34,8 +36,6 @@ const BULK: [BulkFile, IconSvgElement, string][] = [
   ["subscriptions", RecurringIcon, "Mark as subscription"],
   ["not-subscriptions", ExcludeIcon, "Not a subscription"],
 ];
-
-const GAP = 4;
 
 interface Action {
   icon: IconSvgElement;
@@ -146,9 +146,9 @@ export const BulkToolbar = ({ picked, onBulk, onPayees }: BulkToolbarProps) => {
   const measure = () => {
     if (!box.current || !ruler.current) return;
     const [more = 0, ...widths] = [...ruler.current.children].map(
-      (c) => (c as HTMLElement).offsetWidth + GAP,
+      (c) => (c as HTMLElement).offsetWidth,
     );
-    const room = box.current.clientWidth + GAP;
+    const room = box.current.clientWidth;
     let used = 0;
     let n = 0;
     while (n < widths.length && used + widths[n]! <= room - more)
@@ -163,12 +163,18 @@ export const BulkToolbar = ({ picked, onBulk, onPayees }: BulkToolbarProps) => {
   }, []);
 
   const more = (
-    <Button variant="ghost" size="icon-sm" aria-label="More bulk actions">
+    <Button variant="outline" size="icon-sm" aria-label="More bulk actions">
       <Icon icon={MoreIcon} size={14} />
     </Button>
   );
-  const inline = (a: Action) => (
-    <Button key={a.label} variant="ghost" size="sm" onClick={a.run}>
+  const inline = (a: Action, fill = false) => (
+    <Button
+      key={a.label}
+      variant="outline"
+      size="sm"
+      onClick={a.run}
+      className={cn("text-xs", fill && "max-sm:flex-1")}
+    >
       <Icon icon={a.icon} size={14} />
       {a.label}
     </Button>
@@ -178,30 +184,34 @@ export const BulkToolbar = ({ picked, onBulk, onPayees }: BulkToolbarProps) => {
   return (
     <div
       ref={box}
-      className="relative flex min-w-0 flex-1 items-center gap-1 max-sm:order-last max-sm:-ml-2.5 max-sm:basis-full sm:basis-0 sm:justify-end"
+      className="relative flex min-w-0 flex-1 max-sm:order-last max-sm:basis-full sm:basis-0 sm:justify-end"
     >
       <div aria-hidden className="invisible absolute inset-0 overflow-hidden">
-        <div ref={ruler} className="flex w-max gap-1">
+        <div ref={ruler} className="flex w-max">
           {more}
-          {actions.map(inline)}
+          {actions.map((a) => inline(a))}
         </div>
       </div>
-      {actions.slice(0, fit).map(inline)}
-      {rest.length > 0 && (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>{more}</DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-max">
-            {rest.map((a, i) => [
-              a.split && i > 0 && <DropdownMenuSeparator key={`${a.label}-`} />,
-              <DropdownMenuItem key={a.label} onSelect={a.run}>
-                <Icon icon={a.icon} size={14} />
-                {a.label}
-                {a.dialog && "…"}
-              </DropdownMenuItem>,
-            ])}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
+      <ButtonGroup className="max-sm:w-full">
+        {actions.slice(0, fit).map((a) => inline(a, true))}
+        {rest.length > 0 && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>{more}</DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-max">
+              {rest.map((a, i) => [
+                a.split && i > 0 && (
+                  <DropdownMenuSeparator key={`${a.label}-`} />
+                ),
+                <DropdownMenuItem key={a.label} onSelect={a.run}>
+                  <Icon icon={a.icon} size={14} />
+                  {a.label}
+                  {a.dialog && "…"}
+                </DropdownMenuItem>,
+              ])}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </ButtonGroup>
     </div>
   );
 };
