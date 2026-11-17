@@ -3,7 +3,7 @@
   "highlights": [
     {
       "title": "Smarter filter search",
-      "detail": "Filter search now accepts English category names, such as \"groceries\" or \"salary\". It also accepts small typos and letters without æ, ø and å.",
+      "detail": "Search filters by English names, such as \"groceries\". Typos and o for ø also match.",
       "area": "filters",
       "kind": "improved"
     }
