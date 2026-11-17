@@ -234,7 +234,7 @@ const List = ({
   );
 
   const head = (key: string) => (
-    <div className="flex items-center gap-3 bg-muted/40 px-(--card-spacing)">
+    <div className="flex items-center gap-3 bg-muted/40 px-3">
       {group!.lead?.(key, days!.get(key)!)}
       <Button
         variant="ghost"
@@ -260,7 +260,7 @@ const List = ({
       <div
         onClick={onRow && ((e) => !highlighting(e) && onRow(i))}
         className={cn(
-          "flex min-h-12 items-start gap-3 border-b border-border/70 px-(--card-spacing) py-3 tabular-nums sm:min-h-10 sm:items-center sm:py-2",
+          "flex min-h-12 items-start gap-3 border-b border-border/70 px-3 py-3 tabular-nums sm:min-h-10 sm:items-center sm:py-2",
           last && "border-b-0",
           onRow && "cursor-pointer hover:bg-muted/60 active:bg-muted/60",
           rowClassName?.(i),
@@ -331,7 +331,7 @@ const List = ({
       <ListSort columns={columns} controls={controls} start={start} />
       <ul
         ref={list}
-        className="relative -mx-(--card-spacing) border-t"
+        className="relative -mx-3 border-t"
         style={{ height: v.getTotalSize() }}
       >
         {v.getVirtualItems().map((vi) => {
