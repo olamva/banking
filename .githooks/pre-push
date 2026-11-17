@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+unset $(git rev-parse --local-env-vars)
 
 zero=0000000000000000000000000000000000000000
 head=$(git rev-parse HEAD)
