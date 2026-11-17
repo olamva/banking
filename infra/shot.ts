@@ -21,6 +21,7 @@ const { values: o, positionals: paths } = parseArgs({
     fill: { type: "string", multiple: true, default: [] },
     type: { type: "string" },
     wait: { type: "string" },
+    hover: { type: "string" },
     element: { type: "string" },
     full: { type: "boolean", default: false },
     out: { type: "string" },
@@ -37,6 +38,7 @@ if (!paths.length) {
   --fill <sel>=><text>  Fill a field after the clicks; repeat for more fields
   --type <text>         Type into the focused element after the fills
   --wait <selector>     Wait for this element before the capture
+  --hover <selector>    Hover this element before the capture
   --element <selector>  Capture only this element
   --full                Capture the full page
   --out <dir>           Output directory (default the T3 attachments directory)`);
@@ -106,6 +108,7 @@ const shoot = async (
     }
     if (o.type) await page.keyboard.type(o.type);
     if (o.wait) await visible(o.wait).waitFor();
+    if (o.hover) await visible(o.hover).hover();
     await page.evaluate(() => document.fonts.ready);
     const shot = { path: file, animations: "disabled" as const };
     if (o.element) await visible(o.element).screenshot(shot);

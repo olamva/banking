@@ -1,0 +1,17 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Group headers react to hover",
+      "detail": "A group header gets darker when you move the pointer over it.",
+      "area": "transactions",
+      "kind": "improved"
+    },
+    {
+      "title": "None first in Group by",
+      "detail": "The None option is at the top of the Group by menu, above a line.",
+      "area": "transactions",
+      "kind": "improved"
+    }
+  ]
+}

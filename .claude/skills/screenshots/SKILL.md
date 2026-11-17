@@ -29,6 +29,7 @@ pnpm shot '/?view=transactions&p=all' --before origin/main
 | `--fill <selector>=><text>`  | Fill a field after the clicks. Repeat it for more fields.            |
 | `--type <text>`              | Type into the focused element after the fills. `\n` presses Enter.   |
 | `--wait <selector>`          | Wait for a visible element.                                          |
+| `--hover <selector>`         | Hover a visible element after the wait. Use `--size desktop`.        |
 | `--element <selector>`       | Capture one element.                                                 |
 | `--full`                     | Capture the full page.                                               |
 | `--out <dir>`                | Output directory.                                                    |
