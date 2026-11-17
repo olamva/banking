@@ -11,6 +11,7 @@ import {
   SelectGroup,
   SelectItem,
   SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "./ui/select.tsx";
@@ -50,7 +51,9 @@ export const GroupBySelect = ({ value, onChange }: GroupBySelectProps) => (
     <SelectContent position="popper" align="end">
       <SelectGroup>
         <SelectLabel>Group by</SelectLabel>
-        {[...Object.keys(TXN_GROUPS), "None"].map((g) => (
+        <SelectItem value="None">None</SelectItem>
+        <SelectSeparator />
+        {Object.keys(TXN_GROUPS).map((g) => (
           <SelectItem key={g} value={g}>
             {g}
           </SelectItem>

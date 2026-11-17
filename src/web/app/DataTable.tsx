@@ -234,7 +234,7 @@ const List = ({
   );
 
   const head = (key: string) => (
-    <div className="flex items-center gap-3 bg-muted/40 px-3">
+    <div className="flex items-center gap-3 bg-muted/40 px-3 transition-colors hover:bg-muted">
       {group!.lead?.(key, days!.get(key)!)}
       <Button
         variant="ghost"
