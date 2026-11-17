@@ -71,8 +71,8 @@ export const ConflictDialog = ({ pending }: ConflictDialogProps) =>
           {pending.others.length > 0 && (
             <Button onClick={pending.removeOthers}>
               {pending.others.length === 1
-                ? "Remove the other rule"
-                : `Remove ${pending.others.length} other rules`}
+                ? "Remove the old rule"
+                : `Remove ${pending.others.length} old rules`}
             </Button>
           )}
         </DialogFooter>
