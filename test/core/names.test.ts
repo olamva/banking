@@ -108,6 +108,29 @@ test("a cut-off branch with an extra word reads as the full branch", () => {
   ]);
 });
 
+test("a merchant name with a joined word is not part of the branch", () => {
+  const rows = [
+    card("Cafe Sito", "CAFE-SITO REALF"),
+    card("Duty Free", "DUTY-FREE GARDERMOEN"),
+  ];
+  assert.deepEqual(rows.map(branchFinder(rows)), ["Realf", "Gardermoen"]);
+});
+
+test("a town after a street is the branch when no other place is left", () => {
+  const rows = [
+    card("Circle K", "CIRCLE K VOLDA INDUSTRIGATA VOLDA"),
+    card("Naustet Grill", "NAUSTET GRILL HAMNEGT. VOLDA"),
+    card("Obs Bygg", "OBS BYGG VOLDA PRESTEGATA VOLDA"),
+    card("Sebastian Bakken", "Sebastian Bakken, Oslo, NORWAY"),
+  ];
+  assert.deepEqual(rows.map(branchFinder(rows)), [
+    "Volda",
+    "Volda",
+    "Volda",
+    null,
+  ]);
+});
+
 test("a company form is not a branch", () => {
   const rows = [
     card("Sesam", "Sesam AS"),
