@@ -1,0 +1,11 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Strictest filters come first",
+      "detail": "Active filters sort by how many transactions they remove, so the strictest filter shows first.",
+      "area": "filters",
+      "kind": "improved"
+    }
+  ]
+}
