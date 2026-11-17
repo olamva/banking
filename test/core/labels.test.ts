@@ -31,10 +31,23 @@ function row(overrides: Partial<Categorized>): Categorized {
   };
 }
 
-test("the bank names itself, so no file has to list its 68 pairs", () => {
+test("the bank names a pair that has no English name", () => {
+  const l = buildLabels([
+    row({
+      bankCategory: "bolig",
+      bankSub: "husleie",
+      bankCategoryName: "Bolig",
+      bankSubName: "Husleie",
+    }),
+  ]);
+  assert.equal(l.category("bolig"), "Bolig");
+  assert.equal(l.subcategory("bolig", "husleie"), "Husleie");
+});
+
+test("an English name wins over the Norwegian bank name", () => {
   const l = buildLabels([row({})]);
-  assert.equal(l.category("dagligvarer"), "Dagligvarer");
-  assert.equal(l.subcategory("dagligvarer", "dagligvarer"), "Matvarer");
+  assert.equal(l.category("dagligvarer"), "Groceries");
+  assert.equal(l.subcategory("dagligvarer", "dagligvarer"), "Food");
 });
 
 test("rules/labels.json wins over the bank, which is what a rename is for", () => {
@@ -53,15 +66,15 @@ test("our renamed main still finds the bank name of the sub underneath it", () =
   const l = buildLabels([
     row({
       bankCategory: "faste_boutgifter",
-      bankSub: "stroem",
+      bankSub: "fjernvarme",
       bankCategoryName: "Faste boutgifter",
-      bankSubName: "Strøm",
-      category: "faste_utgifter",
-      subcategory: "stroem",
+      bankSubName: "Fjernvarme",
+      category: "boutgifter",
+      subcategory: "fjernvarme",
     }),
   ]);
-  assert.equal(l.subcategory("faste_utgifter", "stroem"), "Strøm");
-  assert.equal(l.category("faste_utgifter"), "Faste utgifter");
+  assert.equal(l.subcategory("boutgifter", "fjernvarme"), "Fjernvarme");
+  assert.equal(l.category("boutgifter"), "Boutgifter");
 });
 
 test("a row with no second level says so rather than showing an empty cell", () => {

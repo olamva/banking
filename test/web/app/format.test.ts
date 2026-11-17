@@ -90,7 +90,7 @@ test("bankLabel keeps a main the bank sent no sub for whole", () => {
 });
 
 test("fmtDate reads the date as the Oslo day it already is", () => {
-  assert.equal(fmtDate("2026-07-01"), "1. juli 2026");
+  assert.equal(fmtDate("2026-07-01"), "1 July 2026");
 });
 
 test("txnFields names a field after its key when it reads as one", () => {
@@ -138,13 +138,13 @@ test("a category nobody registered keeps the ordinary text colour", () => {
   assert.equal(categoryColor("a_main_from_next_month"), "var(--color-ink)");
 });
 
-test("a row with no subcategory reads as its category, never as Annet", () => {
+test("a row with no subcategory reads as its category, never as Other", () => {
   setLabels(buildLabels([row]));
-  assert.equal(rowLabel("ukategorisert", null), "Ukategorisert");
+  assert.equal(rowLabel("ukategorisert", null), "Uncategorized");
   assert.notEqual(rowLabel("ukategorisert", null), NO_SUB);
   assert.equal(
     rowLabel("dagligvarer", "andre_dagligvarer"),
-    "Andre dagligvarer",
+    "Other groceries",
     "a named sub is still the sub's own name",
   );
 });

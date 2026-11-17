@@ -1,0 +1,11 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "Categories and dates in English",
+      "detail": "Category names, weekdays and months now show in English, such as \"Groceries\" and \"Friday 13 Nov\".",
+      "area": "app",
+      "kind": "improved"
+    }
+  ]
+}

@@ -103,7 +103,7 @@ export const txnFields = (
 export { bankLabel } from "../../core/labels.ts";
 
 export const fmtDateTime = (ms: number): string =>
-  new Date(ms).toLocaleString("nb-NO", {
+  new Date(ms).toLocaleString("en-GB", {
     day: "numeric",
     month: "long",
     year: "numeric",
@@ -113,7 +113,7 @@ export const fmtDateTime = (ms: number): string =>
   });
 
 export const fmtDate = (date: string): string =>
-  new Date(`${date}T00:00:00Z`).toLocaleDateString("nb-NO", {
+  new Date(`${date}T00:00:00Z`).toLocaleDateString("en-GB", {
     day: "numeric",
     month: "long",
     year: "numeric",
@@ -143,7 +143,7 @@ export const flagOf = (country: string): string => {
 };
 
 export const fmtShortDate = (date: string): string =>
-  new Date(`${date}T00:00:00Z`).toLocaleDateString("nb-NO", {
+  new Date(`${date}T00:00:00Z`).toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
     ...(!date.startsWith(String(new Date().getFullYear())) && {
@@ -155,14 +155,14 @@ export const fmtShortDate = (date: string): string =>
 export const shortDateSizes = (dates: string[]): string[] => {
   const year = new Date().getFullYear();
   const y = dates.some((d) => !d.startsWith(String(year))) ? year - 1 : year;
-  return ["03", "08"].map((m) => fmtShortDate(`${y}-${m}-28`));
+  return [fmtShortDate(`${y}-09-28`)];
 };
 
 export const fmtDay = (date: string): string =>
-  `${new Date(`${date}T00:00:00Z`).toLocaleDateString("nb-NO", { weekday: "long", timeZone: "UTC" })} ${fmtShortDate(date)}`;
+  `${new Date(`${date}T00:00:00Z`).toLocaleDateString("en-GB", { weekday: "long", timeZone: "UTC" })} ${fmtShortDate(date)}`;
 
 export const fmtMonth = (month: string): string =>
-  new Date(`${month}-01T00:00:00Z`).toLocaleDateString("nb-NO", {
+  new Date(`${month}-01T00:00:00Z`).toLocaleDateString("en-GB", {
     month: "long",
     year: "numeric",
     timeZone: "UTC",
@@ -170,14 +170,14 @@ export const fmtMonth = (month: string): string =>
 
 export const monthLabel = (month: string): string => {
   const [y, m] = month.split("-").map(Number);
-  return new Date(Date.UTC(y!, m! - 1, 1)).toLocaleDateString("nb-NO", {
+  return new Date(Date.UTC(y!, m! - 1, 1)).toLocaleDateString("en-GB", {
     month: "short",
     timeZone: "UTC",
   });
 };
 
 export const pointLabel = (at: string): string =>
-  at.length > 7 ? `${Number(at.slice(8))}. ${monthLabel(at)}` : monthLabel(at);
+  at.length > 7 ? `${Number(at.slice(8))} ${monthLabel(at)}` : monthLabel(at);
 
 export const toggled = <T>(set: ReadonlySet<T>, value: T): Set<T> => {
   const next = new Set(set);
