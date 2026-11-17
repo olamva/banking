@@ -1,0 +1,23 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "Select a whole day or group",
+      "detail": "Tick a group header to select all its transactions for a bulk edit.",
+      "area": "transactions",
+      "kind": "new"
+    },
+    {
+      "title": "More bulk actions",
+      "detail": "Mark selected payees as family, or show or hide them, from the … menu.",
+      "area": "transactions",
+      "kind": "new"
+    },
+    {
+      "title": "One toolbar row on desktop",
+      "detail": "The count, selection, grouping and sort controls now share one row.",
+      "area": "transactions",
+      "kind": "improved"
+    }
+  ]
+}

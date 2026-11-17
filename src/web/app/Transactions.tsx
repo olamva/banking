@@ -232,6 +232,7 @@ interface TransactionsCardProps {
   onItem?: (txn: Categorized, raw: string, action: ItemAction) => void;
   onFile?: (txn: Categorized, file: RuleFile) => void;
   onBulk?: (txns: Categorized[], file: BulkFile) => void;
+  onPayees?: (payees: string[], hide: boolean) => void;
   group: string;
   onGroup: (group: string) => void;
   sort: string;
@@ -252,6 +253,7 @@ export const TransactionsCard = ({
   onItem,
   onFile,
   onBulk,
+  onPayees,
   group,
   onGroup,
   sort,
@@ -294,28 +296,38 @@ export const TransactionsCard = ({
   );
   const { branches, ruled } = useBranches(all ?? txns, branchRules);
 
+  const count = (
+    <p className="flex items-center gap-0.5 text-sm text-muted-foreground tabular-nums">
+      {txns.length} {txns.length === 1 ? "transaction" : "transactions"}
+      {info}
+    </p>
+  );
+
   return (
     <section className="min-w-0">
-      <div className="mb-2 flex min-h-8 flex-wrap items-center justify-between gap-2">
-        <p className="flex items-center gap-0.5 text-sm text-muted-foreground tabular-nums">
-          {txns.length} {txns.length === 1 ? "transaction" : "transactions"}
-          {info}
-        </p>
-        {onBulk && (
-          <BulkToolbar
-            picked={picked}
-            onBulk={onBulk}
-            onClear={() => setSelected(new Set())}
-          />
-        )}
-      </div>
       {sorted.length === 0 ? (
-        <Empty>No transactions match the current filters.</Empty>
+        <>
+          <div className="mb-2 flex min-h-8 items-center">{count}</div>
+          <Empty>No transactions match the current filters.</Empty>
+        </>
       ) : (
         <DataTable
           list
           onRow={(i) => onOpen(sorted[i] ?? null)}
-          controls={<GroupBySelect value={groupBy} onChange={onGroup} />}
+          start={count}
+          controls={
+            <>
+              {onBulk && (
+                <BulkToolbar
+                  picked={picked}
+                  onBulk={onBulk}
+                  onPayees={onPayees}
+                  onClear={() => setSelected(new Set())}
+                />
+              )}
+              <GroupBySelect value={groupBy} onChange={onGroup} />
+            </>
+          }
           group={
             grouping
               ? {
@@ -328,6 +340,16 @@ export const TransactionsCard = ({
                           100,
                       ) / 100,
                     ),
+                  ...(onBulk && {
+                    lead: (key: string, indices: number[]) => (
+                      <BulkSelectAll
+                        label={`Select ${grouping.label(key)}`}
+                        txns={indices.map((i) => sorted[i]!)}
+                        selected={selected}
+                        onSelect={setSelected}
+                      />
+                    ),
+                  }),
                 }
               : undefined
           }
@@ -339,10 +361,10 @@ export const TransactionsCard = ({
                     label: "Select transactions",
                     header: (
                       <BulkSelectAll
-                        checked={selected.size === txns.length}
-                        onChange={(checked) =>
-                          setSelected(checked ? new Set(txns) : new Set())
-                        }
+                        label="Select all transactions"
+                        txns={txns}
+                        selected={selected}
+                        onSelect={setSelected}
                       />
                     ),
                     min: true,

@@ -285,6 +285,15 @@ test("bulk edits insert and replace rules in one reversible history step", () =>
   assert.equal(asMap("payees")["new"], "Unified");
 });
 
+test("bulk family edits append new patterns once in one reversible step", () => {
+  put("family", ["mor", "far"]);
+  rules.saveBulk("family", ["far", "søster", "søster"], "");
+  assert.deepEqual(rules.load("family"), ["mor", "far", "søster"]);
+  assert.equal(rules.versions("family").length, 2);
+  rules.undo("family");
+  assert.deepEqual(rules.load("family"), ["mor", "far"]);
+});
+
 test("bulk validation rejects the entire edit before writing any history", () => {
   put("payees", { shop: "Old" });
   assert.throws(

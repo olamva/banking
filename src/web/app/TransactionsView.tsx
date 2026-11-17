@@ -112,6 +112,23 @@ export const TransactionsView = ({
         onItem={onItem}
         onFile={onFile}
         onBulk={onBulk}
+        onPayees={(payees, hide) =>
+          onFilters((f) => {
+            const other = (list: string[]) =>
+              list.filter((p) => !payees.includes(p));
+            return hide
+              ? {
+                  ...f,
+                  merchants: other(f.merchants),
+                  merchantsOut: [...other(f.merchantsOut), ...payees],
+                }
+              : {
+                  ...f,
+                  merchants: payees,
+                  merchantsOut: other(f.merchantsOut),
+                };
+          })
+        }
         {...table}
       />
       {item && (

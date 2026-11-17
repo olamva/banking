@@ -322,7 +322,7 @@ export const useRules = (onRebuilt: () => void): RulesApi => {
       return run(`/api/rules/bulk?${q}`, "Saved bulk edit.", (data) =>
         changedFile(data, file, (rules) =>
           Array.isArray(rules)
-            ? rules
+            ? [...new Set([...rules, ...keys])]
             : {
                 ...Object.fromEntries(keys.map((key) => [key, value])),
                 ...Object.fromEntries(

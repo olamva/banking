@@ -1,8 +1,24 @@
 import { haystackOf } from "./match.ts";
-import type { Filters } from "./select.ts";
+import { merchantOf, type Filters } from "./select.ts";
 import type { Categorized } from "./types.ts";
 
-export type BulkFile = "payees" | "categories";
+export type BulkFile = "payees" | "categories" | "family";
+
+const BEFORE_FAMILY = new Set([
+  "Excluded",
+  "Category rule",
+  "Giro rule",
+  "Family rule",
+]);
+
+export const bulkChanges = (txn: Categorized, file: BulkFile, value: string) =>
+  file === "family"
+    ? !BEFORE_FAMILY.has(txn.categorySource ?? "")
+    : (file === "payees"
+        ? merchantOf(txn)
+        : txn.subcategory
+          ? `${txn.category}/${txn.subcategory}`
+          : txn.category) !== value;
 
 export const payeePattern = (txn: Categorized): string | null =>
   txn.excluded
@@ -11,7 +27,7 @@ export const payeePattern = (txn: Categorized): string | null =>
 
 export const bulkKey = (txn: Categorized, file: BulkFile): string | null => {
   if (txn.originalCounterparty === undefined) return null;
-  if (file === "categories") return payeePattern(txn);
+  if (file !== "payees") return payeePattern(txn);
   const text = haystackOf(txn);
   return text.trim()
     ? `/^${text
@@ -47,7 +63,7 @@ export const bulkFilters = (
   value: string,
 ): Filters => {
   const axis = file === "payees" ? "merchants" : "categories";
-  return filters[axis].length
+  return file !== "family" && filters[axis].length
     ? { ...filters, [axis]: [...new Set([...filters[axis], value])] }
     : filters;
 };

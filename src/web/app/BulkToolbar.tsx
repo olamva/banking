@@ -2,29 +2,69 @@ import type { BulkFile } from "../../core/bulkRules.ts";
 import { merchantOf } from "../../core/select.ts";
 import type { Categorized } from "../../core/types.ts";
 import { fmtNOKExact } from "./format.ts";
-import { CategoryIcon, CloseIcon, EditIcon, Icon } from "./icons.ts";
+import {
+  CategoryIcon,
+  CloseIcon,
+  EditIcon,
+  ExcludeIcon,
+  FilterIcon,
+  Icon,
+  MoreIcon,
+  PeopleIcon,
+} from "./icons.ts";
 import { Button } from "./ui/button.tsx";
 import { Checkbox } from "./ui/checkbox.tsx";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu.tsx";
 
 interface BulkToolbarProps {
   picked: Categorized[];
   onBulk: (txns: Categorized[], file: BulkFile) => void;
+  onPayees?: (payees: string[], hide: boolean) => void;
   onClear: () => void;
 }
 
 interface BulkSelectAllProps {
-  checked: boolean;
-  onChange: (checked: boolean) => void;
+  label: string;
+  txns: Categorized[];
+  selected: Set<Categorized>;
+  onSelect: (selected: Set<Categorized>) => void;
 }
 
-export const BulkSelectAll = ({ checked, onChange }: BulkSelectAllProps) => (
-  <Checkbox
-    aria-label="Select all transactions"
-    checked={checked}
-    onCheckedChange={(c) => onChange(c === true)}
-    className="align-middle"
-  />
-);
+export const BulkSelectAll = ({
+  label,
+  txns,
+  selected,
+  onSelect,
+}: BulkSelectAllProps) => {
+  const count = txns.filter((t) => selected.has(t)).length;
+  return (
+    <Checkbox
+      aria-label={label}
+      checked={
+        count > 0 && count === txns.length
+          ? true
+          : count > 0
+            ? "indeterminate"
+            : false
+      }
+      onCheckedChange={(c) => {
+        const next = new Set(selected);
+        for (const t of txns) {
+          if (c === true) next.add(t);
+          else next.delete(t);
+        }
+        onSelect(next);
+      }}
+      className="align-middle"
+    />
+  );
+};
 
 interface BulkCheckboxProps {
   txn: Categorized;
@@ -51,9 +91,16 @@ export const BulkCheckbox = ({
   />
 );
 
-export const BulkToolbar = ({ picked, onBulk, onClear }: BulkToolbarProps) =>
-  picked.length > 0 && (
-    <div className="flex flex-wrap items-center justify-end gap-1">
+export const BulkToolbar = ({
+  picked,
+  onBulk,
+  onPayees,
+  onClear,
+}: BulkToolbarProps) => {
+  if (picked.length === 0) return null;
+  const payees = [...new Set(picked.map(merchantOf))];
+  return (
+    <div className="flex flex-wrap items-center gap-1 max-sm:order-last max-sm:basis-full">
       <Button
         variant="secondary"
         size="sm"
@@ -69,7 +116,7 @@ export const BulkToolbar = ({ picked, onBulk, onClear }: BulkToolbarProps) =>
         onClick={() => onBulk(picked, "payees")}
       >
         <Icon icon={EditIcon} size={14} />
-        Rename payees
+        Rename<span className="max-sm:hidden">payees</span>
       </Button>
       <Button
         variant="ghost"
@@ -77,7 +124,35 @@ export const BulkToolbar = ({ picked, onBulk, onClear }: BulkToolbarProps) =>
         onClick={() => onBulk(picked, "categories")}
       >
         <Icon icon={CategoryIcon} size={14} />
-        Change category
+        <span className="sm:hidden">Category</span>
+        <span className="max-sm:hidden">Change category</span>
       </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon-sm" aria-label="More bulk actions">
+            <Icon icon={MoreIcon} size={14} />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-max">
+          <DropdownMenuItem onSelect={() => onBulk(picked, "family")}>
+            <Icon icon={PeopleIcon} size={14} />
+            Mark as family…
+          </DropdownMenuItem>
+          {onPayees && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => onPayees(payees, false)}>
+                <Icon icon={FilterIcon} size={14} />
+                Show only {payees.length === 1 ? "this payee" : "these payees"}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => onPayees(payees, true)}>
+                <Icon icon={ExcludeIcon} size={14} />
+                Hide {payees.length === 1 ? "this payee" : "these payees"}
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
+};

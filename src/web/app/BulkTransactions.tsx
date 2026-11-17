@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { bulkPlan, type BulkFile } from "../../core/bulkRules.ts";
+import { bulkChanges, bulkPlan, type BulkFile } from "../../core/bulkRules.ts";
 import { merchantOf } from "../../core/select.ts";
 import type { Categorized } from "../../core/types.ts";
 import type { RulesApi } from "./data.ts";
@@ -13,6 +13,27 @@ import {
   DialogDescription,
   DialogTitle,
 } from "./ui/dialog.tsx";
+
+const COPY: Record<
+  BulkFile,
+  { title: string; saved: string; to: (value: string) => string }
+> = {
+  payees: {
+    title: "Give them one name",
+    saved: "Payee names saved.",
+    to: (value) => value,
+  },
+  categories: {
+    title: "Choose one category",
+    saved: "Categories saved.",
+    to: (value) => rowLabel(...splitPair(value)),
+  },
+  family: {
+    title: "Mark them as family",
+    saved: "Family rules saved.",
+    to: () => "family",
+  },
+};
 
 interface BulkTransactionsProps {
   selected: Categorized[];
@@ -33,7 +54,7 @@ export const BulkTransactions = ({
   onClose,
   onSaved,
 }: BulkTransactionsProps) => {
-  const rename = file === "payees";
+  const family = file === "family";
   const [value, setValue] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -42,20 +63,15 @@ export const BulkTransactions = ({
     () => bulkPlan(selected, all, file),
     [selected, all, file],
   );
-  const changed = plan.matches.filter(
-    (t) =>
-      (rename
-        ? merchantOf(t)
-        : t.subcategory
-          ? `${t.category}/${t.subcategory}`
-          : t.category) !== value.trim(),
+  const changed = plan.matches.filter((t) =>
+    bulkChanges(t, file, value.trim()),
   ).length;
   const stale = selected.some((t) => t.originalCounterparty === undefined);
   const query = new URLSearchParams({ file, value: value.trim() });
   for (const key of plan.keys) query.append("key", key);
   const tooLarge = query.toString().length > 7000;
   const ready =
-    value.trim() &&
+    (family || value.trim()) &&
     plan.keys.length > 0 &&
     changed > 0 &&
     !stale &&
@@ -89,17 +105,15 @@ export const BulkTransactions = ({
               Bulk edit · {selected.length} selected
             </DialogDescription>
             <DialogTitle className="text-lg font-semibold">
-              {rename ? "Give them one name" : "Choose one category"}
+              {COPY[file].title}
             </DialogTitle>
           </div>
           {saved ? (
             <div role="status" className="border-y py-4 text-sm">
-              <p className="font-semibold">
-                {rename ? "Payee names saved." : "Categories saved."}
-              </p>
+              <p className="font-semibold">{COPY[file].saved}</p>
               <p className="mt-1 wrap-anywhere">
-                {changed} transaction(s) change to{" "}
-                {rename ? value.trim() : rowLabel(...splitPair(value.trim()))}.
+                {changed} transaction(s) change to {COPY[file].to(value.trim())}
+                .
               </p>
               <p className="mt-2 text-xs text-muted-foreground">
                 Use rule history to undo this entire edit.
@@ -192,12 +206,14 @@ const BulkPreview = ({
   failed,
 }: BulkPreviewProps) => {
   const rename = file === "payees";
+  const family = file === "family";
   const names = [...new Set(selected.map(merchantOf))];
   return (
     <>
       <div>
         <p className="mb-2 text-xs text-muted-foreground">
-          {names.length} payee name(s) → one {rename ? "name" : "category"}
+          {names.length} payee name(s) →{" "}
+          {family ? "family" : rename ? "one name" : "one category"}
         </p>
         <div className="flex max-h-24 flex-wrap gap-1.5 overflow-y-auto">
           {names.map((name) => (
@@ -210,30 +226,32 @@ const BulkPreview = ({
           ))}
         </div>
       </div>
-      <label className="block space-y-1 text-sm">
-        <span>{rename ? "New payee name" : "New category"}</span>
-        {rename ? (
-          <Input
-            autoFocus
-            className={`${FIELD} w-full`}
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            placeholder="Enter one name for these payees"
-            list="bulk-payees"
-            disabled={saving}
-          />
-        ) : (
-          <fieldset disabled={saving}>
-            <CategoryInput
-              label="New category"
+      {!family && (
+        <label className="block space-y-1 text-sm">
+          <span>{rename ? "New payee name" : "New category"}</span>
+          {rename ? (
+            <Input
+              autoFocus
+              className={`${FIELD} w-full`}
               value={value}
-              pairs={pairs}
-              onChange={setValue}
-              className={FIELD}
+              onChange={(e) => setValue(e.target.value)}
+              placeholder="Enter one name for these payees"
+              list="bulk-payees"
+              disabled={saving}
             />
-          </fieldset>
-        )}
-      </label>
+          ) : (
+            <fieldset disabled={saving}>
+              <CategoryInput
+                label="New category"
+                value={value}
+                pairs={pairs}
+                onChange={setValue}
+                className={FIELD}
+              />
+            </fieldset>
+          )}
+        </label>
+      )}
       {rename && (
         <datalist id="bulk-payees">
           {[...new Set(Object.values(rules.data?.files.payees ?? {}))]
@@ -245,9 +263,11 @@ const BulkPreview = ({
       )}
       <div className="space-y-2 text-xs text-muted-foreground">
         <p>
-          {rename
-            ? "Match the complete imported description, payee, and recipient account. New names take priority over existing payee patterns."
-            : "Match the imported payee name. New categories take priority over existing category patterns. Exclusions still apply."}
+          {family
+            ? "Match the imported payee name. Money in becomes family deposits and money out becomes peer payments. Category and giro rules still take priority."
+            : rename
+              ? "Match the complete imported description, payee, and recipient account. New names take priority over existing payee patterns."
+              : "Match the imported payee name. New categories take priority over existing category patterns. Exclusions still apply."}
         </p>
         <p>
           Save rules for matching past and future transactions. Filters do not
@@ -285,7 +305,7 @@ const BulkPreview = ({
           <strong>{plan.outside}</strong> outside selection
         </span>
         <span>
-          <strong>{value.trim() ? changed : 0}</strong> changes
+          <strong>{family || value.trim() ? changed : 0}</strong> changes
         </span>
       </div>
       {plan.outside > 0 && (
