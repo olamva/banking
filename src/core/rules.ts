@@ -6,6 +6,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
+import { BULK_FILES } from "./bulkRules.ts";
 import { compile, compileRule, splitCategory } from "./match.ts";
 import { RULES_DIR } from "./paths.ts";
 import {
@@ -189,11 +190,13 @@ export function saveBulk(
   keys: string[],
   value: string,
 ): number {
-  if (file !== "payees" && file !== "categories" && file !== "items")
-    throw new Error("Bulk edits support payees, categories and items");
+  if (file !== "items" && !(BULK_FILES as readonly string[]).includes(file))
+    throw new Error(`Bulk edits do not support ${file}.json`);
   if (keys.length === 0) throw new Error("Select at least one transaction");
   for (const key of keys) check({ file, key, value });
-  const existing = load(file) as Record<string, string>;
+  const existing = load(file);
+  if (Array.isArray(existing))
+    return commit(file, [...new Set([...existing, ...keys])]);
   const changes = Object.fromEntries(keys.map((key) => [key, value]));
   return commit(file, {
     ...changes,
