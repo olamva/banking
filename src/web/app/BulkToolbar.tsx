@@ -6,7 +6,6 @@ import { fmtNOKExact } from "./format.ts";
 import {
   type IconSvgElement,
   CategoryIcon,
-  CloseIcon,
   CountryIcon,
   EditIcon,
   ExcludeIcon,
@@ -50,7 +49,6 @@ interface BulkToolbarProps {
   picked: Categorized[];
   onBulk: (txns: Categorized[], file: BulkFile) => void;
   onPayees?: (payees: string[], hide: boolean) => void;
-  onClear: () => void;
 }
 
 interface BulkSelectAllProps {
@@ -77,10 +75,10 @@ export const BulkSelectAll = ({
             ? "indeterminate"
             : false
       }
-      onCheckedChange={(c) => {
+      onCheckedChange={() => {
         const next = new Set(selected);
         for (const t of txns) {
-          if (c === true) next.add(t);
+          if (count === 0) next.add(t);
           else next.delete(t);
         }
         onSelect(next);
@@ -115,12 +113,7 @@ export const BulkCheckbox = ({
   />
 );
 
-export const BulkToolbar = ({
-  picked,
-  onBulk,
-  onPayees,
-  onClear,
-}: BulkToolbarProps) => {
+export const BulkToolbar = ({ picked, onBulk, onPayees }: BulkToolbarProps) => {
   const box = useRef<HTMLDivElement>(null);
   const ruler = useRef<HTMLDivElement>(null);
   const [fit, setFit] = useState(0);
@@ -152,10 +145,10 @@ export const BulkToolbar = ({
 
   const measure = () => {
     if (!box.current || !ruler.current) return;
-    const [chip = 0, more = 0, ...widths] = [...ruler.current.children].map(
+    const [more = 0, ...widths] = [...ruler.current.children].map(
       (c) => (c as HTMLElement).offsetWidth + GAP,
     );
-    const room = box.current.clientWidth + GAP - chip;
+    const room = box.current.clientWidth + GAP;
     let used = 0;
     let n = 0;
     while (n < widths.length && used + widths[n]! <= room - more)
@@ -169,12 +162,6 @@ export const BulkToolbar = ({
     return () => observer.disconnect();
   }, []);
 
-  const chip = (
-    <Button variant="secondary" size="sm" aria-live="polite" onClick={onClear}>
-      {picked.length} selected
-      <Icon icon={CloseIcon} size={12} />
-    </Button>
-  );
   const more = (
     <Button variant="ghost" size="icon-sm" aria-label="More bulk actions">
       <Icon icon={MoreIcon} size={14} />
@@ -191,16 +178,14 @@ export const BulkToolbar = ({
   return (
     <div
       ref={box}
-      className="relative flex min-w-0 flex-1 items-center gap-1 max-sm:order-last max-sm:basis-full sm:basis-0 sm:justify-end"
+      className="relative flex min-w-0 flex-1 items-center gap-1 max-sm:order-last max-sm:-ml-2.5 max-sm:basis-full sm:basis-0 sm:justify-end"
     >
       <div aria-hidden className="invisible absolute inset-0 overflow-hidden">
         <div ref={ruler} className="flex w-max gap-1">
-          {chip}
           {more}
           {actions.map(inline)}
         </div>
       </div>
-      {chip}
       {actions.slice(0, fit).map(inline)}
       {rest.length > 0 && (
         <DropdownMenu>

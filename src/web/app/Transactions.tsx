@@ -293,8 +293,13 @@ export const TransactionsCard = ({
   const { branches, ruled } = useBranches(all ?? txns, branchRules);
 
   const count = (
-    <p className="flex items-center gap-0.5 text-sm text-muted-foreground tabular-nums">
-      {txns.length} {txns.length === 1 ? "transaction" : "transactions"}
+    <p
+      aria-live="polite"
+      className="flex items-center gap-0.5 text-sm text-muted-foreground tabular-nums"
+    >
+      {picked.length > 0
+        ? `${picked.length}/${txns.length} selected`
+        : `${txns.length} ${txns.length === 1 ? "transaction" : "transactions"}`}
       {info}
     </p>
   );
@@ -318,7 +323,6 @@ export const TransactionsCard = ({
                   picked={picked}
                   onBulk={onBulk}
                   onPayees={onPayees}
-                  onClear={() => setSelected(new Set())}
                 />
               )}
               <GroupBySelect value={groupBy} onChange={onGroup} />
