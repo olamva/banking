@@ -4,6 +4,7 @@ import {
   ErrorIcon,
   Icon,
   LoadingIcon,
+  PendingIcon,
   RefreshIcon,
   TickIcon,
 } from "./icons.ts";
@@ -79,19 +80,33 @@ export const RefreshButton = ({ refresh }: { refresh: Refresh }) => {
         {refresh.steps.length ? (
           <ul className="flex flex-col gap-1.5">
             {refresh.steps.map((s) => (
-              <li key={s.name} className="flex items-center gap-2">
+              <li
+                key={s.name}
+                className={cn(
+                  "flex items-center gap-2",
+                  s.ms === null && "text-muted-foreground",
+                )}
+              >
                 <Icon
-                  icon={s.done ? TickIcon : LoadingIcon}
+                  icon={
+                    s.ms === null
+                      ? PendingIcon
+                      : s.done
+                        ? TickIcon
+                        : LoadingIcon
+                  }
                   size={14}
                   className={cn(
                     "text-muted-foreground",
-                    !s.done && "animate-spin",
+                    s.ms !== null && !s.done && "animate-spin",
                   )}
                 />
                 <span className="flex-1">{s.name}</span>
-                <span className="text-muted-foreground tabular-nums">
-                  {seconds(s.ms)}
-                </span>
+                {s.ms !== null && (
+                  <span className="text-muted-foreground tabular-nums">
+                    {seconds(s.ms)}
+                  </span>
+                )}
               </li>
             ))}
           </ul>

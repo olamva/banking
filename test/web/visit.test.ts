@@ -32,8 +32,10 @@ test("only the first visit of the day on the hosted server starts a refresh, and
   await refresh().catch(() => {});
   assert.ok(network.mock.callCount() > 0);
   assert.deepEqual(Object.keys(status()), ["running", "steps", "last"]);
-  assert.ok(status().steps.length > 0);
-  assert.ok(status().steps.every((s: { done: boolean }) => s.done));
+  assert.deepEqual(
+    status().steps.map((s: { ms: number | null }) => s.ms === null),
+    [false, false, true],
+  );
   assert.equal(status().running, false);
   assert.ok(status().last.at);
 

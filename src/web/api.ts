@@ -225,19 +225,28 @@ export type Refreshed = {
   stopped: string | null;
 };
 
-export type Step = { name: string; ms: number; done: boolean };
-let steps: { name: string; start: number; end: number | null }[] = [];
+const STEPS = [
+  "Fetching transactions",
+  "Fetching receipts",
+  "Rebuilding database",
+] as const;
 
-const step = <T>(name: string, work: () => Promise<T>): Promise<T> => {
-  const s = { name, start: Date.now(), end: null as number | null };
-  steps.push(s);
+export type Step = { name: string; ms: number | null; done: boolean };
+let steps: { name: string; start: number | null; end: number | null }[] = [];
+
+const step = <T>(
+  name: (typeof STEPS)[number],
+  work: () => Promise<T>,
+): Promise<T> => {
+  const s = steps.find((s) => s.name === name)!;
+  s.start = Date.now();
   return work().finally(() => {
     s.end = Date.now();
   });
 };
 
 async function run(): Promise<Refreshed> {
-  steps = [];
+  steps = STEPS.map((name) => ({ name, start: null, end: null }));
   const { syncAll } = await import("../net/sync.ts");
   const { syncReceipts } = await import("../net/receipts.ts");
   const { rebuildAll } = await import("../core/pipeline.ts");
@@ -298,7 +307,7 @@ export function refreshRoute(
     running: !!running,
     steps: steps.map((s) => ({
       name: s.name,
-      ms: (s.end ?? Date.now()) - s.start,
+      ms: s.start === null ? null : (s.end ?? Date.now()) - s.start,
       done: s.end !== null,
     })),
     last,
