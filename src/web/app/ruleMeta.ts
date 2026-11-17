@@ -1,12 +1,13 @@
 import {
   FILE_LABEL,
   RULE_GROUPS,
+  RULE_NOTE,
   type RuleFile,
   type Rules,
 } from "../../core/ruleFiles.ts";
 import { ErrorIcon, WarningIcon, type IconSvgElement } from "./icons.ts";
 
-export { RULE_NOTE } from "../../core/ruleFiles.ts";
+export { RULE_NOTE };
 
 export const CHECKS = ["review", "conflicts"] as const;
 
@@ -34,6 +35,14 @@ export const RULE_LABEL: Record<RuleTab, string> = {
   review: "Review",
   conflicts: "Conflicts",
   ...FILE_LABEL,
+};
+
+export const TAB_NOTE: Partial<Record<RuleTab, string>> = {
+  ...RULE_NOTE,
+  review:
+    "These payees have no category rule. The bank or a guess sets their category. Save a category rule to confirm one. Guessed categories come first.",
+  conflicts:
+    "These rules assign different values to the same transactions. They have the same number of conditions, so the first matching rule wins. Narrow a pattern to fix a conflict.",
 };
 
 export const TAB_GROUPS: [string, RuleTab[]][] = [
