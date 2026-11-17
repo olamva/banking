@@ -1,5 +1,6 @@
 import { ConflictItem } from "./Checks.tsx";
 import type { PendingConflicts } from "./conflictGuard.ts";
+import { ErrorIcon, Icon } from "./icons.ts";
 import { Button } from "./ui/button.tsx";
 import {
   Dialog,
@@ -19,14 +20,17 @@ export const ConflictDialog = ({ pending }: ConflictDialogProps) =>
     <Dialog open onOpenChange={(o) => !o && pending.cancel()}>
       <DialogContent className="max-h-[88dvh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>This change makes a rule conflict</DialogTitle>
+          <DialogTitle className="flex items-center gap-2 text-destructive">
+            <Icon icon={ErrorIcon} size={18} />
+            This change makes a rule conflict
+          </DialogTitle>
           <DialogDescription className="text-xs">
             Two rules give different values to the same transactions. The first
             rule wins. Remove the other rule now, or save and fix it later in
             Settings › Conflicts.
           </DialogDescription>
         </DialogHeader>
-        <ul>
+        <ul className="flex flex-col gap-2">
           {pending.conflicts.map((c) => (
             <ConflictItem
               key={`${c.winner}|${c.loser}`}
@@ -39,7 +43,7 @@ export const ConflictDialog = ({ pending }: ConflictDialogProps) =>
           <Button variant="outline" onClick={pending.cancel}>
             Cancel
           </Button>
-          <Button variant="outline" onClick={pending.fixLater}>
+          <Button variant="destructive" onClick={pending.fixLater}>
             Save and fix later
           </Button>
           {pending.others.length > 0 && (

@@ -10,7 +10,7 @@ import type { Categorized } from "../../core/types.ts";
 import { Empty } from "./Cards.tsx";
 import type { RulesApi } from "./data.ts";
 import { rowLabel } from "./format.ts";
-import { Icon, WarningIcon } from "./icons.ts";
+import { ErrorIcon, Icon, WarningIcon } from "./icons.ts";
 import { FileDialog } from "./RuleDialog.tsx";
 import { RULE_LABEL, entriesOf, type RuleTab } from "./ruleMeta.ts";
 import { Badge } from "./ui/badge.tsx";
@@ -194,8 +194,11 @@ export const ConflictItem = ({
   onRemove,
   busy,
 }: ConflictItemProps) => (
-  <li className="space-y-1 border-b py-2.5 text-xs break-words last:border-0 [overflow-wrap:anywhere]">
-    <Badge variant="secondary">{RULE_LABEL[c.file]}</Badge>
+  <li className="space-y-1.5 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs break-words dark:bg-destructive/10 [overflow-wrap:anywhere]">
+    <Badge variant="destructive">
+      <Icon icon={ErrorIcon} size={12} />
+      {RULE_LABEL[c.file]}
+    </Badge>
     <ConflictRule
       pattern={c.winner}
       value={c.winnerValue}
@@ -225,7 +228,7 @@ interface ConflictsViewProps {
 export const ConflictsView = ({ conflicts, rules }: ConflictsViewProps) => (
   <section className="flex min-w-0 flex-col">
     {conflicts.length === 0 && <Empty>No rules conflict.</Empty>}
-    <ul>
+    <ul className="flex flex-col gap-2">
       {conflicts.map((c) => (
         <ConflictItem
           key={`${c.file}|${c.winner}|${c.loser}`}
