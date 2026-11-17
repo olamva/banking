@@ -110,8 +110,9 @@ Keep the `title` to 40 characters and the `detail` to 100 characters. Write one 
 Set `area` to `transactions`, `overview`, `items`, `receipts`, `filters`, `rules`, `iphone` or `app`.
 Set `kind` to `new`, `improved` or `fixed`.
 Write short notes for important new features and major changes.
+Use `patch` for a fix or a small change that a user can see.
 Do not generate notes from commit messages.
-Exclude routine fixes, maintenance, and internal changes.
+Exclude maintenance and internal changes.
 Apply the `no release` label to a PR without a release.
 CI runs `pnpm release:check` and fails a PR with neither a new release nor the label.
 Dependabot PRs need no label.
