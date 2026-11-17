@@ -1,0 +1,23 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Bulk actions fit the row",
+      "detail": "The bulk actions show as one button group. The actions that do not fit go into the ⋯ menu.",
+      "area": "transactions",
+      "kind": "improved"
+    },
+    {
+      "title": "Selection in the count",
+      "detail": "The count reads X/Y selected. Tick the select-all box again to clear the selection.",
+      "area": "transactions",
+      "kind": "improved"
+    },
+    {
+      "title": "Cleaner group headers",
+      "detail": "Group headers line up with the rows, and the rows have space at the edge again.",
+      "area": "transactions",
+      "kind": "fixed"
+    }
+  ]
+}
