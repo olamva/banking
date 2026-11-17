@@ -175,6 +175,9 @@ function check({ file, key, value, remove }: Edit): void {
     throw new Error(`"${value}" is not category or category/subcategory`);
 }
 
+// One entry in, one entry out, on both shapes. A map keeps its insertion order,
+// so a new key lands at the end and every other line stays where the reader
+// left it.
 export function save(edit: Edit): number {
   const { file, key, value, remove, was } = edit;
   check(edit);
