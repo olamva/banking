@@ -7,16 +7,16 @@ import {
   type RuleFile,
 } from "../../core/ruleFiles.ts";
 import type { Categorized } from "../../core/types.ts";
-import { Empty, Loading, Panel } from "./Cards.tsx";
+import { Empty, InfoTip, Loading, Panel } from "./Cards.tsx";
 import { ConflictsView, ReviewView, type Checks } from "./Checks.tsx";
-import { SearchBox } from "./SearchBox.tsx";
 import type { RulesApi } from "./data.ts";
 import { AddedIcon, ErrorIcon, Icon } from "./icons.ts";
+import { SearchBox } from "./SearchBox.tsx";
 import {
   CHECK_ICON,
   RULE_LABEL,
-  RULE_NOTE,
   TAB_GROUPS,
+  TAB_NOTE,
   checkTone,
   entriesOf,
   type Check,
@@ -34,6 +34,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select.tsx";
+import { useSidebar } from "./ui/sidebar.tsx";
 import {
   AddForm,
   CELL,
@@ -194,6 +195,7 @@ export interface RulesViewProps {
   // both step it.
   file: RuleTab;
   checks: Checks;
+  find: string;
 }
 
 export const RulesView = ({
@@ -202,12 +204,12 @@ export const RulesView = ({
   pairs,
   file: chosen,
   checks,
+  find,
 }: RulesViewProps) => {
   // The largest rule file draws two fields for each entry. A held arrow steps
   // through the eight tabs faster than that draws. The deferred value lets the
   // tabs answer at once and the body follow one step behind.
   const file = useDeferredValue(chosen);
-  const [find, setFind] = useState("");
   const haystacks = useMemo(() => txns.map(haystackOf), [txns]);
   const data = rules.data;
   const stale = txns.some((t) => t.originalCounterparty === undefined);
@@ -254,95 +256,79 @@ export const RulesView = ({
         txns={txns}
         pairs={pairs}
         groups={checks.review}
+        search={needle}
       />
     );
   if (file === "conflicts")
     return <ConflictsView conflicts={checks.conflicts} />;
 
-  return (
-    <section className="flex min-w-0 flex-col gap-4">
-      <p className="text-sm text-muted-foreground">{RULE_NOTE[file]}</p>
+  return data === null ? (
+    <Loading />
+  ) : (
+    <div className="grid min-w-0 items-start gap-x-10 gap-y-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
+      <section className="flex min-w-0 flex-col">
+        <AddForm
+          file={file}
+          rules={rules}
+          txns={txns}
+          haystacks={haystacks}
+          pairs={pairs}
+        />
 
-      {data === null ? (
-        <Loading />
-      ) : (
-        <div className="grid min-w-0 items-start gap-x-10 gap-y-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
-          <Panel
-            title={RULE_LABEL[file]}
-            description={`${entries.length} rule(s)`}
-            action={
-              <SearchBox
-                value={find}
-                onChange={setFind}
-                placeholder="Find a rule…"
-                className="w-36 sm:w-56"
-              />
-            }
-          >
-            <AddForm
-              file={file}
-              rules={rules}
-              txns={txns}
-              haystacks={haystacks}
-              pairs={pairs}
-            />
-
-            {!hasMatches ? (
-              <Empty>
-                {entries.length === 0
-                  ? "No rules in this file yet."
-                  : "No rule matches that."}
-              </Empty>
-            ) : (
-              <>
-                <div
-                  className={`hidden border-b pb-1.5 text-xs font-medium text-muted-foreground ${grouped ? "sm:grid sm:grid-cols-[1fr_1.4fr] sm:gap-2" : rowsFor(isMapFile(file))}`}
-                >
-                  {grouped ? (
-                    <>
-                      <span className="px-2">{VALUE_LABEL[file]}</span>
-                      <span className="px-2">{KEY_LABEL[file]}s</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="px-2">{KEY_LABEL[file]}</span>
-                      {isMapFile(file) && (
-                        <span className="px-2">{VALUE_LABEL[file]}</span>
-                      )}
-                      <span className="w-6" />
-                    </>
+        {!hasMatches ? (
+          <Empty>
+            {entries.length === 0
+              ? "No rules in this file yet."
+              : "No rule matches that."}
+          </Empty>
+        ) : (
+          <>
+            <div
+              className={`hidden border-b pb-1.5 text-xs font-medium text-muted-foreground ${grouped ? "sm:grid sm:grid-cols-[1fr_1.4fr] sm:gap-2" : rowsFor(isMapFile(file))}`}
+            >
+              {grouped ? (
+                <>
+                  <span className="px-2">{VALUE_LABEL[file]}</span>
+                  <span className="px-2">{KEY_LABEL[file]}s</span>
+                </>
+              ) : (
+                <>
+                  <span className="px-2">{KEY_LABEL[file]}</span>
+                  {isMapFile(file) && (
+                    <span className="px-2">{VALUE_LABEL[file]}</span>
                   )}
-                </div>
-                <ul>
-                  {grouped
-                    ? shownGroups.map(([value, keys]) => (
-                        <GroupEntry
-                          key={value}
-                          file={file}
-                          value={value}
-                          keys={keys}
-                          pairs={pairs}
-                          rules={rules}
-                        />
-                      ))
-                    : shown.map(([k, v]) => (
-                        <Entry
-                          key={k}
-                          file={file}
-                          entryKey={k}
-                          value={v}
-                          rules={rules}
-                        />
-                      ))}
-                </ul>
-              </>
-            )}
-          </Panel>
+                  <span className="w-6" />
+                </>
+              )}
+            </div>
+            <ul>
+              {grouped
+                ? shownGroups.map(([value, keys]) => (
+                    <GroupEntry
+                      key={value}
+                      file={file}
+                      value={value}
+                      keys={keys}
+                      pairs={pairs}
+                      rules={rules}
+                    />
+                  ))
+                : shown.map(([k, v]) => (
+                    <Entry
+                      key={k}
+                      file={file}
+                      entryKey={k}
+                      value={v}
+                      rules={rules}
+                    />
+                  ))}
+            </ul>
+          </>
+        )}
+      </section>
 
-          <History file={file} rules={rules} />
-        </div>
-      )}
-    </section>
+      <History file={file} rules={rules} />
+    </div>
   );
 };
 
@@ -352,15 +338,45 @@ interface RuleFileSelectProps {
   counts: Partial<Record<RuleTab, number>>;
 }
 
-export const RuleFileSelect = ({
-  file,
-  onFile,
-  counts,
-}: RuleFileSelectProps) => (
+interface RuleSearchProps {
+  file: RuleTab;
+  find: string;
+  onFind: (find: string) => void;
+}
+
+export const RuleSearch = ({ file, find, onFind }: RuleSearchProps) =>
+  (isRuleFile(file) || file === "review") && (
+    <SearchBox
+      hotkey
+      value={find}
+      onChange={onFind}
+      placeholder={file === "review" ? "Find a payee" : "Find a rule"}
+      className="max-sm:basis-full sm:w-64 lg:w-80"
+    />
+  );
+
+export const RuleHeading = (props: RuleFileSelectProps) => {
+  const { isMobile, open } = useSidebar();
+  const note = TAB_NOTE[props.file];
+  return (
+    <>
+      {open && !isMobile ? (
+        <span className="truncate">{RULE_LABEL[props.file]}</span>
+      ) : (
+        <RuleFileSelect {...props} />
+      )}
+      {note && (
+        <InfoTip label={`About ${RULE_LABEL[props.file]}`}>{note}</InfoTip>
+      )}
+    </>
+  );
+};
+
+const RuleFileSelect = ({ file, onFile, counts }: RuleFileSelectProps) => (
   <Select value={file} onValueChange={(f) => onFile(f as RuleTab)}>
     <SelectTrigger
       aria-label="Settings tab"
-      className="min-w-0 flex-1 sm:w-64 sm:flex-none"
+      className="min-w-0 flex-1 font-normal sm:w-64 sm:flex-none"
     >
       <SelectValue />
     </SelectTrigger>

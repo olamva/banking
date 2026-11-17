@@ -455,9 +455,6 @@ export const AddForm = ({
         setValue("");
       }}
     >
-      <span className="text-xs font-medium text-muted-foreground">
-        New rule
-      </span>
       <div className="flex flex-wrap items-center gap-2">
         <PatternField
           value={key}

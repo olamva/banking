@@ -1,0 +1,17 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "Settings search in the header",
+      "detail": "Find a rule or a payee from the header, or press ⌘F or / to start.",
+      "area": "rules",
+      "kind": "improved"
+    },
+    {
+      "title": "Quieter settings pages",
+      "detail": "The page name is in the header. An info button holds the help text.",
+      "area": "rules",
+      "kind": "improved"
+    }
+  ]
+}
