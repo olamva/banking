@@ -10,7 +10,8 @@ import type { Categorized } from "../../core/types.ts";
 import { Empty } from "./Cards.tsx";
 import type { RulesApi } from "./data.ts";
 import { rowLabel } from "./format.ts";
-import { ErrorIcon, Icon, WarningIcon } from "./icons.ts";
+import { Icon, WarningIcon } from "./icons.ts";
+import { Entry } from "./RuleFields.tsx";
 import { FileDialog } from "./RuleDialog.tsx";
 import { RULE_LABEL, entriesOf, type RuleTab } from "./ruleMeta.ts";
 import { Badge } from "./ui/badge.tsx";
@@ -150,75 +151,13 @@ export const ReviewView = ({
   );
 };
 
-interface ConflictRuleProps {
-  label?: string;
-  pattern: string;
-  value: string;
-  fresh?: boolean;
-  onRemove?: () => void;
-  busy?: boolean;
-}
+export const CONFLICT_SIDES = [
+  { label: "Wins", key: "winner", value: "winnerValue" },
+  { label: "Overridden", key: "loser", value: "loserValue" },
+] as const;
 
-const ConflictRule = ({
-  label,
-  pattern,
-  value,
-  fresh,
-  onRemove,
-  busy,
-}: ConflictRuleProps) => (
-  <div className="flex min-w-0 items-center gap-2">
-    <p className="min-w-0 flex-1">
-      {label && `${label} `}
-      <code>{pattern}</code> → {value}
-      {fresh && <span className="text-muted-foreground"> (new)</span>}
-    </p>
-    {onRemove && (
-      <Button variant="outline" size="sm" disabled={busy} onClick={onRemove}>
-        Remove
-      </Button>
-    )}
-  </div>
-);
-
-interface ConflictItemProps {
-  conflict: Conflict;
-  fresh?: string[];
-  onRemove?: (pattern: string) => void;
-  busy?: boolean;
-}
-
-export const ConflictItem = ({
-  conflict: c,
-  fresh = [],
-  onRemove,
-  busy,
-}: ConflictItemProps) => (
-  <li className="space-y-1.5 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs break-words dark:bg-destructive/10 [overflow-wrap:anywhere]">
-    <Badge variant="destructive">
-      <Icon icon={ErrorIcon} size={12} />
-      {RULE_LABEL[c.file]}
-    </Badge>
-    <ConflictRule
-      pattern={c.winner}
-      value={c.winnerValue}
-      fresh={fresh.includes(c.winner)}
-      onRemove={onRemove && (() => onRemove(c.winner))}
-      busy={busy}
-    />
-    <ConflictRule
-      label="Overrides"
-      pattern={c.loser}
-      value={c.loserValue}
-      fresh={fresh.includes(c.loser)}
-      onRemove={onRemove && (() => onRemove(c.loser))}
-      busy={busy}
-    />
-    <p className="text-muted-foreground">
-      {c.rows} matching transaction(s): {c.examples.join(", ")}
-    </p>
-  </li>
-);
+export const conflictRows = (c: Conflict) =>
+  `${c.rows} matching transaction(s): ${c.examples.join(", ")}`;
 
 interface ConflictsViewProps {
   conflicts: Conflict[];
@@ -228,14 +167,34 @@ interface ConflictsViewProps {
 export const ConflictsView = ({ conflicts, rules }: ConflictsViewProps) => (
   <section className="flex min-w-0 flex-col">
     {conflicts.length === 0 && <Empty>No rules conflict.</Empty>}
-    <ul className="flex flex-col gap-2">
+    <ul>
       {conflicts.map((c) => (
-        <ConflictItem
+        <li
           key={`${c.file}|${c.winner}|${c.loser}`}
-          conflict={c}
-          busy={rules.busy}
-          onRemove={(pattern) => void rules.remove(c.file, pattern)}
-        />
+          className="flex min-w-0 flex-col gap-2 border-b py-3 text-xs last:border-0"
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="secondary">{RULE_LABEL[c.file]}</Badge>
+            <span className="min-w-0 text-muted-foreground [overflow-wrap:anywhere]">
+              {conflictRows(c)}
+            </span>
+          </div>
+          {CONFLICT_SIDES.map((side) => (
+            <div key={side.key} className="flex flex-col gap-1">
+              <span className="font-medium text-muted-foreground">
+                {side.label}
+              </span>
+              <ul className="[&>li]:flex-nowrap [&>li>:not(button)]:min-w-0 [&>li>:not(button)]:border-input">
+                <Entry
+                  file={c.file}
+                  entryKey={c[side.key]}
+                  value={c[side.value]}
+                  rules={rules}
+                />
+              </ul>
+            </div>
+          ))}
+        </li>
       ))}
     </ul>
   </section>

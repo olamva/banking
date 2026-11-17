@@ -8,8 +8,8 @@
       "kind": "new"
     },
     {
-      "title": "Remove a rule from Conflicts",
-      "detail": "Each conflict has a Remove button for each of its two rules.",
+      "title": "Fix conflicts in place",
+      "detail": "Edit or remove either rule of a conflict in Settings › Conflicts.",
       "area": "rules",
       "kind": "improved"
     }
