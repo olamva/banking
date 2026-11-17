@@ -71,12 +71,21 @@ export function branchFinder(
   const rawBranch = (t: (typeof txns)[number]) => {
     if (!t.originalCounterparty || !t.counterparty) return null;
     if (!CARD_PAYMENT.has(t.typeText ?? "")) return null;
-    const own = new Set(t.counterparty.split(/\s+/).map(wordKey));
+    const own = new Set(
+      [...t.counterparty.split(/\s+/), t.counterparty].map(wordKey),
+    );
     const words = named(t.originalCounterparty)
       .split(/\s+/)
       .filter((w) => !COMPANY_FORM.test(w));
     while (words.length && own.has(wordKey(words[0]!))) words.shift();
-    const branch = words.join(" ");
+    const tail = t.originalCounterparty.split(/[\s,]+/);
+    const town =
+      t.originalCounterparty.split(",").length < COUNTRY_SEGMENTS &&
+      tail.slice(1, -1).some((w) => !/\d/.test(w) && STREET.test(w))
+        ? tail.at(-1)!
+        : "";
+    const branch =
+      words.join(" ") || (own.has(wordKey(town)) ? "" : titleCase(town));
     if (
       !branch ||
       wordKey(branch) === wordKey(t.counterparty) ||
