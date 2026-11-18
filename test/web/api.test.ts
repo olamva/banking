@@ -174,7 +174,7 @@ test("rebuild applies rules before names and preserves money through the payload
   });
   assert.deepEqual([...netByReason(rows)], [["internal transfer", 0]]);
   assert.deepEqual(JSON.parse(payload()).names, { food: "Food" });
-  rmSync(join(dir, "data/raw/2026-07/card.json"));
+  put("data/raw/2026-07/card.json", { transactions: [] });
   assert.equal(await rebuildAll(), 4);
   assert.deepEqual(
     readRows()

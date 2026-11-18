@@ -1,0 +1,11 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Faster refresh",
+      "detail": "The database step of a refresh now reuses the closed months and finishes much sooner.",
+      "area": "app",
+      "kind": "improved"
+    }
+  ]
+}
