@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, renameSync, rmSync } from "node:fs";
+import { existsSync, readdirSync, renameSync, rmSync, statSync } from "node:fs";
 import { mkdir, readdir, readFile } from "node:fs/promises";
 import { basename, dirname } from "node:path";
 import {
@@ -157,22 +157,46 @@ export function netByReason(rows: Categorized[]): Map<string, number> {
   return net;
 }
 
+const stamp = (dir: string): string =>
+  readdirSync(dir)
+    .filter((f) => f.endsWith(".json"))
+    .map((f) => `${f}:${statSync(`${dir}/${f}`).ctimeMs}`)
+    .join();
+
+const built = new Map<string, { key: string; rows: Categorized[] }>();
+let loaded: { stamp: string; rules: ReturnType<typeof loadRules> } | null =
+  null;
+let warned = "";
+
 async function build(): Promise<number> {
   const months = monthsOnDisk();
-  const rules = await loadRules();
+  const ruleStamp = stamp(RULES_DIR);
+  if (loaded?.stamp !== ruleStamp)
+    loaded = { stamp: ruleStamp, rules: loadRules() };
+  const rules = await loaded.rules.catch((e: unknown) => {
+    loaded = null;
+    throw e;
+  });
   const rows = (
     await Promise.all(
-      months.map((month) =>
-        pipeline(month, { rename: false }, rules).catch((e: unknown) => {
-          throw new Error(
-            `${RAW}/${month}: ${e instanceof Error ? e.message : e}`,
-            { cause: e },
-          );
-        }),
-      ),
+      months.map(async (month) => {
+        const key = ruleStamp + stamp(`${RAW}/${month}`);
+        if (built.get(month)?.key === key) return built.get(month)!.rows;
+        const fresh = await pipeline(month, { rename: false }, rules).catch(
+          (e: unknown) => {
+            throw new Error(
+              `${RAW}/${month}: ${e instanceof Error ? e.message : e}`,
+              { cause: e },
+            );
+          },
+        );
+        built.set(month, { key, rows: fresh });
+        return fresh;
+      }),
     )
   ).flat();
-  const loose = narrowings(rows, rules.categories);
+  const loose = warned === ruleStamp ? [] : narrowings(rows, rules.categories);
+  warned = ruleStamp;
   for (const l of loose) {
     console.error(
       `\nwarning: ${JSON.stringify(l.pattern)} only works where it sits, losing rows to ` +

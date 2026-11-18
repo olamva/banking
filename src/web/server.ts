@@ -301,14 +301,14 @@ export const server = createServer(async (req, res) => {
 if (process.argv[1] === import.meta.filename) {
   const port = Number(process.env.PORT ?? 8080);
   const { DB_FILE } = await import("../core/paths.ts");
-  if (!existsSync(DB_FILE)) {
-    const { rebuildAll } = await import("../core/pipeline.ts");
-    ready = rebuildAll().catch((e: unknown) =>
-      console.error(
-        `rebuild on start failed: ${e instanceof Error ? e.message : e}`,
-      ),
-    );
-  }
+  const missing = !existsSync(DB_FILE);
+  const { rebuildAll } = await import("../core/pipeline.ts");
+  const warm = rebuildAll().catch((e: unknown) =>
+    console.error(
+      `rebuild on start failed: ${e instanceof Error ? e.message : e}`,
+    ),
+  );
+  if (missing) ready = warm;
   // The server trusts X-Forwarded-Email, so only the proxy on this host may
   // reach it.
   server.listen(port, "127.0.0.1", () => console.error(`listening on ${port}`));
