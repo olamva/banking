@@ -1,0 +1,11 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "One transaction on the overview",
+      "detail": "A filter that matches one transaction ever shows its details instead of one-bar charts.",
+      "area": "overview",
+      "kind": "improved"
+    }
+  ]
+}

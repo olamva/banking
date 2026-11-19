@@ -1,0 +1,11 @@
+{
+  "id": "e6b8477a",
+  "ts": "2026-11-19T08:11:07+00:00",
+  "text": "pnpm shot first goto times out at 10s on a cold Vite start; the same command passes on retry",
+  "tags": [],
+  "who": "agent",
+  "model": "claude-opus-5-5",
+  "session": "f00e2b89",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3-7a33eea9-9d72c14f58629e95",
+  "branch": "t3/single-transaction-overview"
+}

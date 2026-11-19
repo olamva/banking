@@ -31,7 +31,7 @@ import {
 } from "../../core/stats.ts";
 import { plural } from "../../core/plural.ts";
 import type { Categorized } from "../../core/types.ts";
-import { Empty, InfoTip, Panel, StatTile, deltaInfo } from "./Cards.tsx";
+import { InfoTip, Panel, StatTile, deltaInfo } from "./Cards.tsx";
 import { DivergingBars, HorizontalBars } from "./Charts.tsx";
 import { GROUP_LABEL, useChartGroup, type Group } from "./chartGroup.ts";
 import { mapRules, type RulesApi } from "./data.ts";
@@ -39,6 +39,7 @@ import { Items } from "./Items.tsx";
 import { SpendLines } from "./SpendLines.tsx";
 import type { Bucket } from "./axis.ts";
 import { SubscriptionsCard } from "./Transactions.tsx";
+import { earlyView } from "./TxnDialog.tsx";
 import { categoryLabel, fmtNOK, subcategoryLabel } from "./format.ts";
 import {
   CategoryIcon,
@@ -350,8 +351,10 @@ export const Dashboard = ({
   const shown = matching(all);
   const { by, offered: groupsOffered, top, setGroup } = useChartGroup(shown);
 
-  if (shown.length === 0)
-    return <Empty>No transactions match the current filters.</Empty>;
+  const early = earlyView(shown, matching(txns), filters, (axis, v, out) =>
+    pick(onFilters, axis)(v, out),
+  );
+  if (early) return early;
 
   const vs =
     p.prev && txns.some((t) => inRange(t, p.prev!.from, p.prev!.to))
