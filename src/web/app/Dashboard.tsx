@@ -402,7 +402,11 @@ export const Dashboard = ({
           income: anyIncome,
           spend: anySpend,
           band: running || bucket === "month",
-          trend: !running && anySpend,
+          trend:
+            !running &&
+            anySpend &&
+            (bucket === "day" ||
+              series.filter((s) => s.totalOut > 0).length * 2 >= series.length),
           compare,
         }
       : { income: false, spend: false, band: false, trend: false, compare: [] };
