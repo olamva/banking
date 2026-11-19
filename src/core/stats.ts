@@ -453,7 +453,9 @@ export function yearStats(
   const months = sorted.map(({ month, txns }) => ({ month, ...totals(txns) }));
 
   const agg = aggregateCents(sorted.flatMap((m) => m.txns));
-  const n = months.length || 1;
+  const n = months.length
+    ? monthIndex(months.at(-1)!.month) - monthIndex(months[0]!.month) + 1
+    : 1;
 
   return {
     year,

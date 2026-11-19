@@ -72,7 +72,7 @@ export const SpendLines = ({
     : [];
 
   const minVal = Math.min(0, ...(shows("trend") ? ends : []), ...values);
-  const step = niceStep(maxVal - minVal);
+  const step = Math.max(1, niceStep(maxVal - minVal));
   const gridMax = Math.ceil(maxVal / step) * step;
   const gridMin = Math.floor(minVal / step) * step;
   const ticks = Array.from(

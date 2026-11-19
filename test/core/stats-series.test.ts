@@ -251,6 +251,14 @@ test("yearStats builds a monthly series and per-category totals across the year"
   assert.equal(stats.averageMonth.totalOut, 200);
 });
 
+test("yearStats averages over the empty months between the first and last", () => {
+  const months = ["2025-12", "2026-03"].map((month) => ({
+    month,
+    txns: [txn({ id: month, amount: 400, category: "innskudd", date: `${month}-28` })],
+  }));
+  assert.equal(yearStats("all", months).averageMonth.totalIn, 200);
+});
+
 test("subcategories share within their own parent, not across the page", () => {
   const s = monthStats("2026-07", [
     txn({

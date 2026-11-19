@@ -1,0 +1,17 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Account filter overview",
+      "detail": "An account filter hides one-bar cards and compares only with a period that has rows for the account.",
+      "area": "overview",
+      "kind": "improved"
+    },
+    {
+      "title": "Monthly average",
+      "detail": "The average per month now counts the empty months between the first and last row.",
+      "area": "overview",
+      "kind": "fixed"
+    }
+  ]
+}

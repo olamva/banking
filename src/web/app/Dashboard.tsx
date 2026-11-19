@@ -145,7 +145,9 @@ const tileSub = (
     key === "totalOut" && stats.refunded > 0
       ? `after ${fmtNOK(stats.refunded)} refunded`
       : "",
-    yearly ? `${fmtNOK(yearly.averageMonth[key])} / month` : "",
+    yearly && Math.round(yearly.averageMonth[key]) !== 0
+      ? `${fmtNOK(yearly.averageMonth[key])} / month`
+      : "",
   ]
     .filter(Boolean)
     .join(" · ") || undefined;
@@ -353,14 +355,11 @@ export const Dashboard = ({
   if (shown.length === 0)
     return <Empty>No transactions match the current filters.</Empty>;
 
-  const vs =
-    p.prev && txns.some((t) => inRange(t, p.prev!.from, p.prev!.to))
-      ? p.prev
-      : null;
-
-  const previous = vs
-    ? matching(txns.filter((t) => inRange(t, vs.from, vs.to)))
+  const previous = p.prev
+    ? matching(txns.filter((t) => inRange(t, p.prev!.from, p.prev!.to)))
     : [];
+
+  const vs = previous.length > 0 ? p.prev : null;
 
   const stats = monthStats(p.label, shown, vs ? previous : undefined);
   const prev = monthStats("previous", previous);
@@ -479,7 +478,7 @@ export const Dashboard = ({
         single={single}
         grid={p.kind === "all" ? CARD_GRID_3 : CARD_GRID}
         vsLabel={vs?.label}
-        minBars={byItem ? 2 : 1}
+        minBars={byItem || filters.accounts.length > 0 ? 2 : 1}
       />
 
       {!byItem && items}
