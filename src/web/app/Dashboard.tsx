@@ -24,6 +24,7 @@ import {
   subscriptionGroups,
   totals,
   visibleDeltas,
+  withGaps,
   yearStats,
   type ExcludedSummary,
   type SeriesPoint,
@@ -316,6 +317,12 @@ const alignTo = (series: SeriesPoint[], compare: SeriesPoint[], p: Period) =>
 
 const oneCategory = (f: Filters) => f.categories.length === 1 && !f.or.length;
 
+const sparse = (rows: Categorized[]) =>
+  rows.length * 12 < withGaps(monthlySeries(rows)).length;
+
+const timeline = (points: unknown[], rows: Categorized[]) =>
+  points.length > 1 && !sparse(rows);
+
 interface DashboardProps {
   txns: Categorized[];
   all: Categorized[];
@@ -366,7 +373,7 @@ export const Dashboard = ({
   const prev = monthStats("previous", previous);
 
   const months = byMonth(shown);
-  const yearly = months.length > 1 ? yearStats(p.label, months) : null;
+  const yearly = timeline(months, shown) ? yearStats(p.label, months) : null;
 
   const running = grain === "running";
   const bucket: Bucket = grain === "month" ? "month" : "day";
@@ -435,7 +442,7 @@ export const Dashboard = ({
           one sitting in the grid shifts what "odd" means for everything after
           it, and the last card is left alone in half a row exactly when the
           rule below exists to prevent that. */}
-      {series.length > 1 && (
+      {timeline(series, shown) && (
         <div className="mb-8">
           <Panel
             title={`${chartSubject(by, anyIncome, anySpend)}${GRAIN_SUFFIX[grain]}`}
