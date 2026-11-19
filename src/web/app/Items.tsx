@@ -47,8 +47,8 @@ type Sort =
 
 const subLabel = (pair: string) => pair.slice(pair.indexOf("/") + 1);
 
-const categoryBars = (items: Item[]): BarItem[] =>
-  [...Map.groupBy(items, (i) => topCategory(i.category))]
+const categoryBars = (items: Item[]): BarItem[] => {
+  const tops = [...Map.groupBy(items, (i) => topCategory(i.category))]
     .map(([top, list]) => ({
       label: top,
       total: list.reduce((n, i) => n + i.spent, 0),
@@ -62,6 +62,8 @@ const categoryBars = (items: Item[]): BarItem[] =>
         .sort((a, b) => b.total - a.total),
     }))
     .sort((a, b) => b.total - a.total);
+  return tops.length === 1 ? tops[0]!.subs : tops;
+};
 
 const Change = ({ change }: { change: number | null }) =>
   change !== null && (
@@ -181,6 +183,7 @@ export const Items = ({
     sort: sort === key ? (descending ? "desc" : "asc") : null,
   });
 
+  const oneTop = new Set(whole.map((i) => topCategory(i.category))).size === 1;
   const tableRows: ReactNode[][] = sorted.map((i) => [
     <span className="block truncate sm:max-w-96">
       {i.name}
@@ -191,7 +194,7 @@ export const Items = ({
         </span>
       )}
     </span>,
-    topCategory(i.category),
+    oneTop ? subLabel(i.category) : topCategory(i.category),
     i.count,
     fmtQty(i.qty, i.unit),
     fmtNOK(i.spent),
@@ -205,6 +208,7 @@ export const Items = ({
     .filter((i) => i.change !== null && Math.abs(i.change) >= MIN_SWING)
     .toSorted((a, b) => a.change! - b.change!);
 
+  const bars = categoryBars(kept);
   const bought = kept.reduce((n, i) => n + i.count, 0);
   const receipts = new Set(
     kept.flatMap((i) => i.purchases.map((p) => p.receipt)),
@@ -270,19 +274,21 @@ export const Items = ({
           onClose={() => setPicked(null)}
         />
       )}
-      {kept.length > 0 && (
+      {(bars.length > 1 || swings.length > 0) && (
         <div className={cn(grid, "mb-8")}>
-          <Panel
-            title="Spending by item category"
-            icon={CategoryIcon}
-            description="Select a category to show only its items."
-          >
-            <HorizontalBars
-              items={categoryBars(kept)}
-              onPick={pickKind}
-              onPickSub={pickKind}
-            />
-          </Panel>
+          {bars.length > 1 && (
+            <Panel
+              title="Spending by item category"
+              icon={CategoryIcon}
+              description="Select a category to show only its items."
+            >
+              <HorizontalBars
+                items={bars}
+                onPick={pickKind}
+                onPickSub={pickKind}
+              />
+            </Panel>
+          )}
           {swings.length > 0 && (
             <Panel
               title="Biggest price changes"
