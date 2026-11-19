@@ -8,7 +8,12 @@ import {
   withItems,
 } from "../../src/core/items.ts";
 import type { Receipt, ReceiptLine } from "../../src/core/receipts.ts";
-import { matchesFilters, NO_FILTERS } from "../../src/core/select.ts";
+import {
+  itemSpend,
+  matchesFilters,
+  NO_FILTERS,
+  NO_GROUP,
+} from "../../src/core/select.ts";
 import type { Categorized } from "../../src/core/types.ts";
 
 const line = (
@@ -228,6 +233,45 @@ test("the item filter keeps receipts by the item name, after rules rename lines"
   assert.deepEqual(ids({ items: ["Tortillachips Ost"] }), ["8", "9"]);
   assert.deepEqual(ids({ items: ["Tine Lettmelk 0.5%"] }), ["7"]);
   assert.deepEqual(ids({ itemsOut: ["tortillachips ost"] }), ["7", "none"]);
+});
+
+test("an item filter counts only the item lines, unless an OR group keeps the whole receipt", () => {
+  const rows = withItems([
+    {
+      ...txn("11", "2026-09-17T10:00:00Z", [
+        line("Butterchicken Saritas", 27.2),
+        line("Tine Lettmelk", 900),
+      ]),
+      amount: -927.2,
+      counterparty: "Rema 1000",
+    },
+    {
+      ...txn("12", "2026-09-28T10:00:00Z", [
+        line("Butterchicken Saritas", 27.2),
+        line("Butterchicken Saritas", 27.2),
+        line("Grandiosa", 245.6),
+      ]),
+      amount: -300,
+      counterparty: "Coop",
+    },
+  ]);
+  const spent = (f: Partial<typeof NO_FILTERS>) => {
+    const filters = { ...NO_FILTERS, ...f };
+    return itemSpend(
+      rows.filter((t) => matchesFilters(t, filters)),
+      filters,
+      {},
+      {},
+    ).map((t) => t.amount);
+  };
+  assert.deepEqual(spent({ items: ["Butterchicken Saritas"] }), [-27.2, -54.4]);
+  assert.deepEqual(
+    spent({
+      items: ["Butterchicken Saritas"],
+      or: [{ ...NO_GROUP, merchants: ["Coop"] }],
+    }),
+    [-27.2, -300],
+  );
 });
 
 test("the item category filter keeps receipts with a line in that category", () => {

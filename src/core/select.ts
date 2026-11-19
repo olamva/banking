@@ -1,4 +1,11 @@
-import { nameKey, topCategory } from "./items.ts";
+import {
+  itemsOf,
+  nameKey,
+  purchasesOf,
+  topCategory,
+  type Purchase,
+} from "./items.ts";
+import type { RuleMap } from "./ruleFiles.ts";
 import type { Categorized } from "./types.ts";
 
 export type Group = Record<Axis | (typeof AXES)[Axis], string[]>;
@@ -159,7 +166,72 @@ export const searchesItem = (key: string, search: string): boolean =>
     .split(" ")
     .every((w) => key.includes(w));
 
-export const markedItem = (key: string, f: Filters, kind = ""): boolean =>
+const hasItemFilter = (g: Filters) =>
+  g.items.length + g.itemsOut.length + g.kinds.length + g.kindsOut.length > 0;
+
+const keepsItems = (g: Filters) => g.items.length + g.kinds.length > 0;
+
+const looseGroup = (g: Filters): Filters => ({
+  ...g,
+  items: [],
+  itemsOut: [],
+  kinds: [],
+  kindsOut: [],
+});
+
+const itemIn = (g: Filters, key: string, category: string) => {
+  const kind = [topCategory(category), category];
+  return (
+    (!g.items.length || g.items.some((i) => nameKey(i) === key)) &&
+    !g.itemsOut.some((i) => nameKey(i) === key) &&
+    (!g.kinds.length || kind.some((k) => g.kinds.includes(k))) &&
+    !kind.some((k) => g.kindsOut.includes(k))
+  );
+};
+
+export const keepsItemsOnly = (f: Filters): boolean =>
+  groupsOf(f).some(keepsItems);
+
+export function filteredPurchases(
+  rows: Categorized[],
+  filters: Filters,
+  names: RuleMap,
+  categories: RuleMap,
+): Purchase[] {
+  const groups = liveGroups(filters);
+  const loose = groups.map(looseGroup);
+  const txns = rows.filter((t) => loose.some((g) => matchesFilters(t, g)));
+  const all = purchasesOf(txns, names, filters.withoutDeposit, categories);
+  if (!groups.some(hasItemFilter)) return all;
+  const kindOf = new Map(itemsOf(all).map((i) => [i.key, i.category]));
+  const txnOf = new Map(txns.map((t) => [t.receipt, t]));
+  return all.filter((p) =>
+    groups.some(
+      (g, i) =>
+        matchesFilters(txnOf.get(p.receipt)!, loose[i]!) &&
+        itemIn(g, p.key, kindOf.get(p.key)!),
+    ),
+  );
+}
+
+export function itemSpend(
+  rows: Categorized[],
+  filters: Filters,
+  names: RuleMap,
+  categories: RuleMap,
+): Categorized[] {
+  const whole = liveGroups(filters).filter((g) => !keepsItems(g));
+  const spent = new Map<Purchase["receipt"], number>();
+  for (const p of filteredPurchases(rows, filters, names, categories))
+    spent.set(p.receipt, (spent.get(p.receipt) ?? 0) + p.amount);
+  return rows.map((t) =>
+    !t.receipt || whole.some((g) => matchesFilters(t, g))
+      ? t
+      : { ...t, amount: -Math.round((spent.get(t.receipt) ?? 0) * 100) / 100 },
+  );
+}
+
+export const markedItem =(key: string, f: Filters, kind = ""): boolean =>
   groupsOf(f).some(
     (g) =>
       g.items.some((i) => nameKey(i) === key) ||

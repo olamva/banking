@@ -2,15 +2,14 @@ import { useDeferredValue, useMemo, useState, type ReactNode } from "react";
 import {
   itemsOf,
   nameKey,
-  purchasesOf,
   shelfPrice,
   topCategory,
   type Item,
 } from "../../core/items.ts";
 import {
   cycleFilter,
-  liveGroups,
-  matchesFilters,
+  filteredPurchases,
+  keepsItemsOnly,
   type Filters,
 } from "../../core/select.ts";
 import { plural } from "../../core/plural.ts";
@@ -22,24 +21,18 @@ import { mapRules, type RulesApi } from "./data.ts";
 import { fmtNOK, fmtNOKExact, fmtPct, fmtShortDate } from "./format.ts";
 import { CategoryIcon, ChangesIcon, Icon, ItemsIcon } from "./icons.ts";
 import { SwitchField } from "./FilterBar.tsx";
-import { fmtGap, fmtQty, ItemSheet } from "./ItemSheet.tsx";
+import {
+  fmtGap,
+  fmtQty,
+  ItemBody,
+  ItemFacts,
+  ItemSheet,
+  itemSummary,
+} from "./ItemSheet.tsx";
 import { Button } from "./ui/button.tsx";
 import { cn } from "./ui/utils.ts";
 
 const MIN_SWING = 0.05;
-
-const hasItemFilter = (g: Filters) =>
-  g.items.length + g.itemsOut.length + g.kinds.length + g.kindsOut.length > 0;
-
-const itemIn = (g: Filters, key: string, category: string) => {
-  const kind = [topCategory(category), category];
-  return (
-    (!g.items.length || g.items.some((i) => nameKey(i) === key)) &&
-    !g.itemsOut.some((i) => nameKey(i) === key) &&
-    (!g.kinds.length || kind.some((k) => g.kinds.includes(k))) &&
-    !kind.some((k) => g.kindsOut.includes(k))
-  );
-};
 
 type Sort =
   | "name"
@@ -142,28 +135,10 @@ export const Items = ({
   const categories = mapRules(rules, "item-categories");
   const pickKind = (value: string, exclude: boolean) =>
     onFilters(cycleFilter(filters, "kinds", value, exclude));
-  const purchases = useMemo(() => {
-    const groups = liveGroups({ ...filters, search });
-    const loose = groups.map((g) => ({
-      ...g,
-      items: [],
-      itemsOut: [],
-      kinds: [],
-      kindsOut: [],
-    }));
-    const txns = rows.filter((t) => loose.some((g) => matchesFilters(t, g)));
-    const all = purchasesOf(txns, names, filters.withoutDeposit, categories);
-    if (groups.every((g) => !hasItemFilter(g))) return all;
-    const kindOf = new Map(itemsOf(all).map((i) => [i.key, i.category]));
-    const txnOf = new Map(txns.map((t) => [t.receipt, t]));
-    return all.filter((p) =>
-      groups.some(
-        (g, i) =>
-          matchesFilters(txnOf.get(p.receipt)!, loose[i]!) &&
-          itemIn(g, p.key, kindOf.get(p.key)!),
-      ),
-    );
-  }, [rows, filters, search, names, categories]);
+  const purchases = useMemo(
+    () => filteredPurchases(rows, { ...filters, search }, names, categories),
+    [rows, filters, search, names, categories],
+  );
   const whole = useMemo(() => itemsOf(purchases), [purchases]);
   const items = useMemo(
     () => (bySize ? itemsOf(purchases, true) : whole),
@@ -236,6 +211,34 @@ export const Items = ({
   ).size;
 
   if (items.length === 0) return null;
+
+  const lone = keepsItemsOnly(filters) && whole.length === 1 ? whole[0]! : null;
+  if (lone)
+    return (
+      <section className={className}>
+        <Panel
+          title={lone.name}
+          icon={ItemsIcon}
+          description={itemSummary(lone)}
+        >
+          <ItemFacts item={lone} className="mb-5 sm:grid-cols-6" />
+          <ItemBody
+            key={lone.key}
+            item={lone}
+            names={[]}
+            rules={rules}
+            onRename={(name) =>
+              onFilters({
+                ...filters,
+                items: filters.items.map((i) =>
+                  nameKey(i) === lone.key ? name : i,
+                ),
+              })
+            }
+          />
+        </Panel>
+      </section>
+    );
 
   return (
     <section className={className}>
