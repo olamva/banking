@@ -1,0 +1,11 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Items bought once",
+      "detail": "An item bought once no longer shows a price chart with one point or a spending chart with one step.",
+      "area": "items",
+      "kind": "improved"
+    }
+  ]
+}

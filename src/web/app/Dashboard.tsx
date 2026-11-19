@@ -267,7 +267,7 @@ const Breakdowns = ({
               </Panel>
             )}
 
-            {tone === "spend" && !single && deltas.length > 0 && (
+            {tone === "spend" && !single && deltas.length >= minBars && (
               <Panel title={`Biggest changes vs ${vsLabel}`} icon={ChangesIcon}>
                 <DivergingBars deltas={deltas} onPick={onCategory} />
               </Panel>
@@ -313,6 +313,9 @@ const alignTo = (series: SeriesPoint[], compare: SeriesPoint[], p: Period) =>
   p.kind === "recent"
     ? compare.map((c, i) => ({ ...c, at: series[i]?.at ?? c.at }))
     : compare;
+
+const charted = (series: SeriesPoint[], byItem: boolean, rows: number) =>
+  series.length > 1 && (!byItem || rows > 1);
 
 const oneCategory = (f: Filters) => f.categories.length === 1 && !f.or.length;
 
@@ -435,7 +438,7 @@ export const Dashboard = ({
           one sitting in the grid shifts what "odd" means for everything after
           it, and the last card is left alone in half a row exactly when the
           rule below exists to prevent that. */}
-      {series.length > 1 && (
+      {charted(series, byItem, shown.length + previous.length) && (
         <div className="mb-8">
           <Panel
             title={`${chartSubject(by, anyIncome, anySpend)}${GRAIN_SUFFIX[grain]}`}

@@ -37,8 +37,12 @@ export const ItemFacts = ({ item, className }: ItemFactsProps) => {
     ["Purchases", String(item.count)],
     ["Quantity", fmtQty(item.qty, item.unit)],
     ["Spent", fmtNOKExact(item.spent)],
-    ["Average price", fmtNOKExact(item.price)],
-    ["Usual gap", fmtGap(item.medianDays) || "–"],
+    ...(item.count > 1
+      ? ([
+          ["Average price", fmtNOKExact(item.price)],
+          ["Usual gap", fmtGap(item.medianDays) || "–"],
+        ] as [string, string][])
+      : []),
     ["Last bought", fmtDate(item.last)],
   ];
   return (
@@ -80,20 +84,22 @@ export const ItemBody = ({
 
   return (
     <div className={cn("space-y-5", className)}>
-      <section>
-        <h3 className="mb-1 text-xs font-medium text-muted-foreground">
-          Price
-        </h3>
-        <PriceChart
-          lines={[
-            ...Map.groupBy(item.purchases.toReversed(), (p) => p.sizeKey),
-          ].map(([, list]) => ({
-            name: list[0]!.size ?? "No size",
-            purchases: list,
-          }))}
-          onPick={(p) => setShown(item.purchases.indexOf(p))}
-        />
-      </section>
+      {item.purchases.length > 1 && (
+        <section>
+          <h3 className="mb-1 text-xs font-medium text-muted-foreground">
+            Price
+          </h3>
+          <PriceChart
+            lines={[
+              ...Map.groupBy(item.purchases.toReversed(), (p) => p.sizeKey),
+            ].map(([, list]) => ({
+              name: list[0]!.size ?? "No size",
+              purchases: list,
+            }))}
+            onPick={(p) => setShown(item.purchases.indexOf(p))}
+          />
+        </section>
+      )}
       <form
         className="space-y-2"
         onSubmit={(e) => {
