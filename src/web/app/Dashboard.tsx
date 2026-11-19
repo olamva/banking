@@ -7,10 +7,12 @@ import {
 import {
   AXES,
   axisBounds,
+  dropsItemsOnly,
   inRange,
   itemSpend,
   keepsItemsOnly,
   matchesFilters,
+  withoutItems,
   type Axis,
   type Filters,
   type Period,
@@ -342,6 +344,8 @@ export const Dashboard = ({
   const names = mapRules(rules, "items");
   const kinds = mapRules(rules, "item-categories");
   const matching = (rows: Categorized[]) => {
+    if (dropsItemsOnly(filters))
+      return withoutItems(rows, filters, names, kinds);
     const kept = rows.filter((t) => matchesFilters(t, filters));
     return keepsItemsOnly(filters)
       ? itemSpend(kept, filters, names, kinds)

@@ -13,6 +13,7 @@ import {
   matchesFilters,
   NO_FILTERS,
   NO_GROUP,
+  withoutItems,
 } from "../../src/core/select.ts";
 import type { Categorized } from "../../src/core/types.ts";
 
@@ -296,6 +297,30 @@ test("the item category filter keeps receipts with a line in that category", () 
   assert.deepEqual(ids({ kinds: ["Dairy & eggs/Milk"] }), ["7"]);
   assert.deepEqual(ids({ kinds: ["Fruit & veg"] }), ["9", "10"]);
   assert.deepEqual(ids({ kindsOut: ["Alcohol"] }), ["7", "9", "10", "none"]);
+});
+
+test("an item exclusion removes only the item lines from each receipt", () => {
+  const rows = [
+    {
+      ...txn("13", "2026-10-01T10:00:00Z", [
+        line("Ringnes Pils", 32),
+        line("Tine Lettmelk", 20),
+      ]),
+      amount: -50,
+    },
+    {
+      ...txn("14", "2026-10-02T10:00:00Z", [line("Ringnes Pils", 32)]),
+      amount: -30,
+    },
+    { receipt: undefined, amount: -100 } as Categorized,
+  ].map((t) => ({ ...t, category: "dagligvarer" }) as Categorized);
+  const shown = withoutItems(
+    withItems(rows, {}, { "/pils/": "Alcohol" }),
+    { ...NO_FILTERS, kindsOut: ["Alcohol"] },
+    {},
+    { "/pils/": "Alcohol" },
+  );
+  assert.deepEqual(shown.map((t) => t.amount), [-18, -100]);
 });
 
 test("prices each purchase by kilo, litre or piece across pack sizes", () => {

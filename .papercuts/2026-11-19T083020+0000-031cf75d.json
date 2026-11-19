@@ -1,0 +1,11 @@
+{
+  "id": "031cf75d",
+  "ts": "2026-11-19T08:30:20+00:00",
+  "text": "pnpm shot times out at 10 s per step when parallel threads push load average past 150",
+  "tags": [],
+  "who": "agent",
+  "model": "claude-opus-5-5",
+  "session": "e55d57d8",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3-23ac9848-a42b8a045fc86954",
+  "branch": "t3/item-exclusion-receipt-totals"
+}

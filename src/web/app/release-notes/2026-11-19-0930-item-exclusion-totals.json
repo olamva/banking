@@ -1,0 +1,11 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Item exclusion totals",
+      "detail": "An excluded item now removes only its lines from each receipt, not the whole receipt.",
+      "area": "overview",
+      "kind": "fixed"
+    }
+  ]
+}
