@@ -1,0 +1,11 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Transfers on the overview",
+      "detail": "A filter that keeps only internal transfers now tells how many there are and their sum, not an empty chart.",
+      "area": "overview",
+      "kind": "fixed"
+    }
+  ]
+}

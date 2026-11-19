@@ -1,0 +1,11 @@
+{
+  "id": "13342c65",
+  "ts": "2026-11-19T08:15:42+00:00",
+  "text": "pnpm shot hits its 10 s goto timeout when several worktrees run captures at once",
+  "tags": [],
+  "who": "agent",
+  "model": "claude-opus-5-5",
+  "session": "ef909c6f",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3-fa1bd300-0ecb496a072da430",
+  "branch": "t3/show-excluded-transfer-filter"
+}

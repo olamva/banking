@@ -314,7 +314,18 @@ const alignTo = (series: SeriesPoint[], compare: SeriesPoint[], p: Period) =>
     ? compare.map((c, i) => ({ ...c, at: series[i]?.at ?? c.at }))
     : compare;
 
-const oneCategory = (f: Filters) => f.categories.length === 1 && !f.or.length;
+const NothingCounted = ({ rows }: { rows: Categorized[] }) => {
+  const { count, total } = totals(rows).excluded;
+  return (
+    <Empty>
+      {count === 0
+        ? "No transactions match the current filters."
+        : `${plural(count, "transaction")} for ${fmtNOK(total)} match these filters. They are internal transfers or card bill payments. Totals and charts do not count them. Open Transactions to see them.`}
+    </Empty>
+  );
+};
+
+const oneCategory =(f: Filters) => f.categories.length === 1 && !f.or.length;
 
 interface DashboardProps {
   txns: Categorized[];
@@ -350,8 +361,7 @@ export const Dashboard = ({
   const shown = matching(all);
   const { by, offered: groupsOffered, top, setGroup } = useChartGroup(shown);
 
-  if (shown.length === 0)
-    return <Empty>No transactions match the current filters.</Empty>;
+  if (shown.every((t) => t.excluded)) return <NothingCounted rows={shown} />;
 
   const vs =
     p.prev && txns.some((t) => inRange(t, p.prev!.from, p.prev!.to))
