@@ -181,6 +181,10 @@ export const Items = ({
     sort: sort === key ? (descending ? "desc" : "asc") : null,
   });
 
+  const bars = categoryBars(kept);
+  const oneKind = bars.length === 1 ? bars[0]!.label : null;
+  const showBars = bars.length > 1 || (bars[0]?.subs?.length ?? 0) > 1;
+
   const tableRows: ReactNode[][] = sorted.map((i) => [
     <span className="block truncate sm:max-w-96">
       {i.name}
@@ -191,7 +195,7 @@ export const Items = ({
         </span>
       )}
     </span>,
-    topCategory(i.category),
+    ...(oneKind ? [] : [topCategory(i.category)]),
     i.count,
     fmtQty(i.qty, i.unit),
     fmtNOK(i.spent),
@@ -256,6 +260,7 @@ export const Items = ({
         <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
           {plural(receipts, "receipt")} · {plural(bought, "purchase")} ·{" "}
           {fmtNOK(kept.reduce((n, i) => n + i.spent, 0))}
+          {oneKind && ` · ${oneKind}`}
         </p>
       </div>
       {open && (
@@ -270,19 +275,21 @@ export const Items = ({
           onClose={() => setPicked(null)}
         />
       )}
-      {kept.length > 0 && (
+      {(showBars || swings.length > 0) && (
         <div className={cn(grid, "mb-8")}>
-          <Panel
-            title="Spending by item category"
-            icon={CategoryIcon}
-            description="Select a category to show only its items."
-          >
-            <HorizontalBars
-              items={categoryBars(kept)}
-              onPick={pickKind}
-              onPickSub={pickKind}
-            />
-          </Panel>
+          {showBars && (
+            <Panel
+              title="Spending by item category"
+              icon={CategoryIcon}
+              description="Select a category to show only its items."
+            >
+              <HorizontalBars
+                items={bars}
+                onPick={pickKind}
+                onPickSub={pickKind}
+              />
+            </Panel>
+          )}
           {swings.length > 0 && (
             <Panel
               title="Biggest price changes"
@@ -331,7 +338,9 @@ export const Items = ({
             scroll
             columns={[
               sortable("Item", "name", false, "title"),
-              sortable("Category", "category", false, "meta"),
+              ...(oneKind
+                ? []
+                : [sortable("Category", "category", false, "meta")]),
               sortable("Purchases", "count", true, "labeled"),
               sortable("Quantity", "qty", true),
               sortable("Spent", "spent", true, "end"),
