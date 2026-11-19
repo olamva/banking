@@ -3,7 +3,7 @@
   "highlights": [
     {
       "title": "Fewer repeats for some items",
-      "detail": "A filter to two or more items shows the item table without the category and price change cards, and the total shows one time.",
+      "detail": "A filter to a few items drops the item category and price change cards, which repeat the table.",
       "area": "items",
       "kind": "improved"
     }
