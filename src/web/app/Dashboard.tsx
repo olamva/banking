@@ -7,8 +7,9 @@ import {
 import {
   AXES,
   axisBounds,
-  groupsOf,
   inRange,
+  itemSpend,
+  keepsItemsOnly,
   matchesFilters,
   type Axis,
   type Filters,
@@ -30,10 +31,10 @@ import {
 } from "../../core/stats.ts";
 import { plural } from "../../core/plural.ts";
 import type { Categorized } from "../../core/types.ts";
-import { Empty, InfoTip, Note, Panel, StatTile, deltaInfo } from "./Cards.tsx";
+import { Empty, InfoTip, Panel, StatTile, deltaInfo } from "./Cards.tsx";
 import { DivergingBars, HorizontalBars } from "./Charts.tsx";
 import { GROUP_LABEL, useChartGroup, type Group } from "./chartGroup.ts";
-import type { RulesApi } from "./data.ts";
+import { mapRules, type RulesApi } from "./data.ts";
 import { Items } from "./Items.tsx";
 import { SpendLines } from "./SpendLines.tsx";
 import type { Bucket } from "./axis.ts";
@@ -43,7 +44,6 @@ import {
   CategoryIcon,
   ChangesIcon,
   CounterpartyIcon,
-  InfoIcon,
   MonthlyIcon,
   RefundIcon,
 } from "./icons.ts";
@@ -183,6 +183,7 @@ interface BreakdownsProps {
   single: boolean;
   grid: string;
   vsLabel?: string;
+  minBars: number;
 }
 
 const Breakdowns = ({
@@ -192,6 +193,7 @@ const Breakdowns = ({
   single,
   grid,
   vsLabel,
+  minBars,
 }: BreakdownsProps) => {
   const catBars = (
     categories: Stats["categories"],
@@ -252,7 +254,9 @@ const Breakdowns = ({
         {sides.map(({ tone, side, cats, cps }) => (
           // A fragment adds no DOM child, so the grid still counts the cards.
           <Fragment key={tone}>
-            {!single && cats.length > 0 && (
+            {!single &&
+              (cats.length >= minBars ||
+                (cats[0]?.subs.length ?? 0) >= minBars) && (
               <Panel title={`${side} by category`} icon={CategoryIcon}>
                 <HorizontalBars
                   items={cats}
@@ -269,7 +273,7 @@ const Breakdowns = ({
               </Panel>
             )}
 
-            {cps.length > 0 && (
+            {cps.length >= minBars && (
               <Panel title={`${side} by merchant`} icon={CounterpartyIcon}>
                 <HorizontalBars items={cps} onPick={onMerchant} tone={tone} />
               </Panel>
@@ -335,9 +339,15 @@ export const Dashboard = ({
   offered,
   onGrain,
 }: DashboardProps) => {
-  // `all` is the period. `txns` is the record, and only the comparison period
-  // needs it, because that period sits outside this one.
-  const shown = all.filter((t) => matchesFilters(t, filters));
+  const names = mapRules(rules, "items");
+  const kinds = mapRules(rules, "item-categories");
+  const matching = (rows: Categorized[]) => {
+    const kept = rows.filter((t) => matchesFilters(t, filters));
+    return keepsItemsOnly(filters)
+      ? itemSpend(kept, filters, names, kinds)
+      : kept;
+  };
+  const shown = matching(all);
   const { by, offered: groupsOffered, top, setGroup } = useChartGroup(shown);
 
   if (shown.length === 0)
@@ -349,9 +359,7 @@ export const Dashboard = ({
       : null;
 
   const previous = vs
-    ? txns
-        .filter((t) => inRange(t, vs.from, vs.to))
-        .filter((t) => matchesFilters(t, filters))
+    ? matching(txns.filter((t) => inRange(t, vs.from, vs.to)))
     : [];
 
   const stats = monthStats(p.label, shown, vs ? previous : undefined);
@@ -395,9 +403,7 @@ export const Dashboard = ({
         }
       : { income: false, spend: false, band: false, trend: false, compare: [] };
 
-  const byItem = groupsOf(filters).some(
-    (g) => g.items.length + g.kinds.length > 0,
-  );
+  const byItem = keepsItemsOnly(filters);
   const items = (
     <Items
       rows={all}
@@ -423,13 +429,6 @@ export const Dashboard = ({
           />
         }
       />
-
-      {byItem && (
-        <Note icon={InfoIcon} className="-mt-1 mb-4">
-          An item filter keeps each whole receipt that has the item. These
-          totals are receipt totals. Items from receipts shows the item amounts.
-        </Note>
-      )}
 
       {/* Outside the grid, not a `col-span-full` inside it. `nth-child` counts
           DOM children, but a full-width card owns a whole row on its own — so
@@ -480,6 +479,7 @@ export const Dashboard = ({
         single={single}
         grid={p.kind === "all" ? CARD_GRID_3 : CARD_GRID}
         vsLabel={vs?.label}
+        minBars={byItem ? 2 : 1}
       />
 
       {!byItem && items}

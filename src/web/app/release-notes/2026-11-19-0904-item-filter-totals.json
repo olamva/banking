@@ -1,0 +1,17 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Item filter totals",
+      "detail": "An item filter now counts only the item lines, not the whole receipt.",
+      "area": "overview",
+      "kind": "fixed"
+    },
+    {
+      "title": "One item on the overview",
+      "detail": "A filter to one item shows its facts, price chart and purchases on the page.",
+      "area": "items",
+      "kind": "improved"
+    }
+  ]
+}
