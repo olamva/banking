@@ -3,7 +3,7 @@
   "highlights": [
     {
       "title": "Item search totals",
-      "detail": "A search that finds one item and no merchant now counts only the item lines and shows the item on the page.",
+      "detail": "A search for one item now counts only the item lines and shows the item on the page.",
       "area": "overview",
       "kind": "fixed"
     }
