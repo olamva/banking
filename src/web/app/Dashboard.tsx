@@ -267,7 +267,7 @@ const Breakdowns = ({
               </Panel>
             )}
 
-            {tone === "spend" && !single && deltas.length > 0 && (
+            {tone === "spend" && !single && deltas.length >= minBars && (
               <Panel title={`Biggest changes vs ${vsLabel}`} icon={ChangesIcon}>
                 <DivergingBars deltas={deltas} onPick={onCategory} />
               </Panel>
@@ -315,6 +315,16 @@ const alignTo = (series: SeriesPoint[], compare: SeriesPoint[], p: Period) =>
     : compare;
 
 const oneCategory = (f: Filters) => f.categories.length === 1 && !f.or.length;
+
+const fewestBars = (
+  byItem: boolean,
+  groups: SubscriptionGroup[],
+  rows: Categorized[],
+) => (byItem || (groups.length === 1 && groups[0]!.count === rows.length) ? 2 : 1);
+
+const trends = (series: SeriesPoint[]) =>
+  series.some((s) => s.totalOut > 0) &&
+  new Set(series.map((s) => s.totalOut)).size > 1;
 
 interface DashboardProps {
   txns: Categorized[];
@@ -398,12 +408,13 @@ export const Dashboard = ({
           income: anyIncome,
           spend: anySpend,
           band: running || bucket === "month",
-          trend: !running && anySpend,
+          trend: !running && trends(series),
           compare,
         }
       : { income: false, spend: false, band: false, trend: false, compare: [] };
 
   const byItem = keepsItemsOnly(filters);
+  const subs = subscriptionGroups(shown);
   const items = (
     <Items
       rows={all}
@@ -474,12 +485,12 @@ export const Dashboard = ({
 
       <Breakdowns
         stats={stats}
-        groups={subscriptionGroups(shown)}
+        groups={subs}
         onFilters={onFilters}
         single={single}
         grid={p.kind === "all" ? CARD_GRID_3 : CARD_GRID}
         vsLabel={vs?.label}
-        minBars={byItem ? 2 : 1}
+        minBars={fewestBars(byItem, subs, shown)}
       />
 
       {!byItem && items}
