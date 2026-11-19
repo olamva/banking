@@ -11,6 +11,7 @@ import {
   itemSpend,
   keepsItemsOnly,
   matchesFilters,
+  searchAsItem,
   type Axis,
   type Filters,
   type Period,
@@ -331,7 +332,7 @@ interface DashboardProps {
 export const Dashboard = ({
   txns,
   all,
-  filters,
+  filters: picked,
   onFilters,
   rules,
   period: p,
@@ -339,6 +340,7 @@ export const Dashboard = ({
   offered,
   onGrain,
 }: DashboardProps) => {
+  const filters = searchAsItem(all, picked);
   const names = mapRules(rules, "items");
   const kinds = mapRules(rules, "item-categories");
   const matching = (rows: Categorized[]) => {
