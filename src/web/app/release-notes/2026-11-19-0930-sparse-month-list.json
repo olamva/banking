@@ -1,0 +1,11 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Short list for a quiet month",
+      "detail": "A month with three transactions or fewer now lists them instead of a mostly empty chart.",
+      "area": "overview",
+      "kind": "improved"
+    }
+  ]
+}

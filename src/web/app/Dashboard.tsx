@@ -38,7 +38,7 @@ import { mapRules, type RulesApi } from "./data.ts";
 import { Items } from "./Items.tsx";
 import { SpendLines } from "./SpendLines.tsx";
 import type { Bucket } from "./axis.ts";
-import { SubscriptionsCard } from "./Transactions.tsx";
+import { SubscriptionsCard, TxnList } from "./Transactions.tsx";
 import { categoryLabel, fmtNOK, subcategoryLabel } from "./format.ts";
 import {
   CategoryIcon,
@@ -267,7 +267,7 @@ const Breakdowns = ({
               </Panel>
             )}
 
-            {tone === "spend" && !single && deltas.length > 0 && (
+            {tone === "spend" && !single && deltas.length >= minBars && (
               <Panel title={`Biggest changes vs ${vsLabel}`} icon={ChangesIcon}>
                 <DivergingBars deltas={deltas} onPick={onCategory} />
               </Panel>
@@ -316,6 +316,24 @@ const alignTo = (series: SeriesPoint[], compare: SeriesPoint[], p: Period) =>
 
 const oneCategory = (f: Filters) => f.categories.length === 1 && !f.or.length;
 
+const isSparse = (p: Period, n: number) => p.kind === "month" && n <= 3;
+
+const comparison = (
+  p: Period,
+  txns: Categorized[],
+  matching: (rows: Categorized[]) => Categorized[],
+  sparse: boolean,
+) => {
+  const last =
+    p.prev && txns.some((t) => inRange(t, p.prev!.from, p.prev!.to))
+      ? p.prev
+      : null;
+  const previous = last
+    ? matching(txns.filter((t) => inRange(t, last.from, last.to)))
+    : [];
+  return { vs: sparse && previous.length === 0 ? null : last, previous };
+};
+
 interface DashboardProps {
   txns: Categorized[];
   all: Categorized[];
@@ -341,11 +359,10 @@ export const Dashboard = ({
 }: DashboardProps) => {
   const names = mapRules(rules, "items");
   const kinds = mapRules(rules, "item-categories");
+  const byItem = keepsItemsOnly(filters);
   const matching = (rows: Categorized[]) => {
     const kept = rows.filter((t) => matchesFilters(t, filters));
-    return keepsItemsOnly(filters)
-      ? itemSpend(kept, filters, names, kinds)
-      : kept;
+    return byItem ? itemSpend(kept, filters, names, kinds) : kept;
   };
   const shown = matching(all);
   const { by, offered: groupsOffered, top, setGroup } = useChartGroup(shown);
@@ -353,14 +370,8 @@ export const Dashboard = ({
   if (shown.length === 0)
     return <Empty>No transactions match the current filters.</Empty>;
 
-  const vs =
-    p.prev && txns.some((t) => inRange(t, p.prev!.from, p.prev!.to))
-      ? p.prev
-      : null;
-
-  const previous = vs
-    ? matching(txns.filter((t) => inRange(t, vs.from, vs.to)))
-    : [];
+  const sparse = !byItem && isSparse(p, shown.length);
+  const { vs, previous } = comparison(p, txns, matching, sparse);
 
   const stats = monthStats(p.label, shown, vs ? previous : undefined);
   const prev = monthStats("previous", previous);
@@ -403,7 +414,6 @@ export const Dashboard = ({
         }
       : { income: false, spend: false, band: false, trend: false, compare: [] };
 
-  const byItem = keepsItemsOnly(filters);
   const items = (
     <Items
       rows={all}
@@ -435,7 +445,9 @@ export const Dashboard = ({
           one sitting in the grid shifts what "odd" means for everything after
           it, and the last card is left alone in half a row exactly when the
           rule below exists to prevent that. */}
-      {series.length > 1 && (
+      {sparse ? (
+        <TxnList txns={shown} className="mb-8" />
+      ) : series.length > 1 && (
         <div className="mb-8">
           <Panel
             title={`${chartSubject(by, anyIncome, anySpend)}${GRAIN_SUFFIX[grain]}`}
@@ -479,7 +491,7 @@ export const Dashboard = ({
         single={single}
         grid={p.kind === "all" ? CARD_GRID_3 : CARD_GRID}
         vsLabel={vs?.label}
-        minBars={byItem ? 2 : 1}
+        minBars={byItem || sparse ? 2 : 1}
       />
 
       {!byItem && items}

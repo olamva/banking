@@ -16,16 +16,49 @@ import {
   categoryColor,
   categoryLabel,
   fmtNOK,
+  fmtNOKExact,
   fmtShortDate,
   rowLabel,
   shortDateSizes,
 } from "./format.ts";
-import { CardIcon, Icon, ReceiptIcon, RecurringIcon } from "./icons.ts";
+import {
+  CardIcon,
+  Icon,
+  ReceiptIcon,
+  RecurringIcon,
+  TransactionsIcon,
+} from "./icons.ts";
+import { plural } from "../../core/plural.ts";
 import type { ItemAction } from "./ReceiptLines.tsx";
 import { TxnDialog } from "./TxnDialog.tsx";
 import { GroupBySelect, TXN_GROUPS, useBranches } from "./TxnGroups.tsx";
 import { Badge } from "./ui/badge.tsx";
 import { cn } from "./ui/utils.ts";
+
+export const TxnList = ({
+  txns,
+  className,
+}: {
+  txns: Categorized[];
+  className?: string;
+}) => (
+  <Panel
+    title={plural(txns.length, "transaction")}
+    icon={TransactionsIcon}
+    className={className}
+  >
+    <ul className="divide-y text-sm">
+      {txns.map((t, i) => (
+        <li key={i} className="flex justify-between gap-4 py-2">
+          <span className="min-w-0 truncate">
+            {fmtShortDate(t.date)} · {merchantOf(t)}
+          </span>
+          <span className="tabular-nums">{fmtNOKExact(t.amount)}</span>
+        </li>
+      ))}
+    </ul>
+  </Panel>
+);
 
 export const useAccountCell = (txns: Categorized[]) => {
   const main = useMemo(() => {

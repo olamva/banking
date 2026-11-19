@@ -1,0 +1,11 @@
+{
+  "id": "7b2c0789",
+  "ts": "2026-11-19T08:15:34+00:00",
+  "text": "pnpm shot page.goto 10s timeout fails repeatedly when machine load is high (load avg 130); no option to raise it",
+  "tags": [],
+  "who": "agent",
+  "model": "claude-opus-5-5",
+  "session": "e03f8257",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3-e603fcab-2484a994b3027772",
+  "branch": "t3/sparse-month-chart"
+}
