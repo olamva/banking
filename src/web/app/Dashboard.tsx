@@ -31,7 +31,7 @@ import {
 } from "../../core/stats.ts";
 import { plural } from "../../core/plural.ts";
 import type { Categorized } from "../../core/types.ts";
-import { Empty, InfoTip, Panel, StatTile, deltaInfo } from "./Cards.tsx";
+import { InfoTip, NoMatches, Panel, StatTile, deltaInfo } from "./Cards.tsx";
 import { DivergingBars, HorizontalBars } from "./Charts.tsx";
 import { GROUP_LABEL, useChartGroup, type Group } from "./chartGroup.ts";
 import { mapRules, type RulesApi } from "./data.ts";
@@ -323,6 +323,7 @@ interface DashboardProps {
   onFilters: SetFilters;
   rules: RulesApi;
   period: Period;
+  onPeriod: (period: string) => void;
   grain: Grain;
   offered: Grain[];
   onGrain: (grain: Grain) => void;
@@ -335,6 +336,7 @@ export const Dashboard = ({
   onFilters,
   rules,
   period: p,
+  onPeriod,
   grain,
   offered,
   onGrain,
@@ -351,7 +353,7 @@ export const Dashboard = ({
   const { by, offered: groupsOffered, top, setGroup } = useChartGroup(shown);
 
   if (shown.length === 0)
-    return <Empty>No transactions match the current filters.</Empty>;
+    return <NoMatches elsewhere={matching(txns)} onPeriod={onPeriod} />;
 
   const vs =
     p.prev && txns.some((t) => inRange(t, p.prev!.from, p.prev!.to))

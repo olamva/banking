@@ -1,0 +1,11 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Find matches in other periods",
+      "detail": "An empty overview counts the matches in other periods and opens the latest month or all time.",
+      "area": "overview",
+      "kind": "improved"
+    }
+  ]
+}
