@@ -315,7 +315,12 @@ const alignTo = (series: SeriesPoint[], compare: SeriesPoint[], p: Period) =>
     ? compare.map((c, i) => ({ ...c, at: series[i]?.at ?? c.at }))
     : compare;
 
-const oneCategory = (f: Filters) => f.categories.length === 1 && !f.or.length;
+const trendFits = (series: SeriesPoint[], bucket: Bucket) => {
+  const spent = series.filter((s) => s.totalOut > 0).length;
+  return spent > 0 && (bucket === "day" || spent * 2 >= series.length);
+};
+
+const oneCategory =(f: Filters) => f.categories.length === 1 && !f.or.length;
 
 interface DashboardProps {
   txns: Categorized[];
@@ -402,11 +407,7 @@ export const Dashboard = ({
           income: anyIncome,
           spend: anySpend,
           band: running || bucket === "month",
-          trend:
-            !running &&
-            anySpend &&
-            (bucket === "day" ||
-              series.filter((s) => s.totalOut > 0).length * 2 >= series.length),
+          trend: !running && trendFits(series, bucket),
           compare,
         }
       : { income: false, spend: false, band: false, trend: false, compare: [] };
