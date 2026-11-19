@@ -1,0 +1,11 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "One merchant on the overview",
+      "detail": "A filter to one merchant no longer shows one-bar merchant and category cards.",
+      "area": "overview",
+      "kind": "improved"
+    }
+  ]
+}
