@@ -77,6 +77,28 @@ test("spendTrend never reads income", () => {
   assert.deepEqual(fit, { slope: 100, intercept: 100 });
 });
 
+test("a year with spend in two months charts and averages all twelve", () => {
+  const rows = [
+    txn({ id: "1", amount: -300, date: "2025-03-10" }),
+    txn({ id: "2", amount: -900, date: "2025-11-02" }),
+  ];
+  const series = monthlySeries(rows, "2025-01-01", "2025-12-31");
+  assert.equal(series.length, 12);
+  assert.deepEqual(
+    series.map((p) => p.totalOut),
+    [0, 0, 300, 0, 0, 0, 0, 0, 0, 0, 900, 0],
+  );
+  const year = yearStats(
+    "2025",
+    [
+      { month: "2025-03", txns: [rows[0]!] },
+      { month: "2025-11", txns: [rows[1]!] },
+    ],
+    12,
+  );
+  assert.equal(year.averageMonth.totalOut, 100);
+});
+
 test("withGaps keeps every calendar month between the first and the last", () => {
   const m = (at: string): SeriesPoint => ({ at, totalIn: 0, totalOut: 0 });
 

@@ -21,6 +21,7 @@ import {
   dailySeries,
   monthStats,
   monthlySeries,
+  monthsBetween,
   subscriptionGroups,
   totals,
   visibleDeltas,
@@ -365,17 +366,20 @@ export const Dashboard = ({
   const stats = monthStats(p.label, shown, vs ? previous : undefined);
   const prev = monthStats("previous", previous);
 
+  const { from, to } = axisBounds(all, p);
+
   const months = byMonth(shown);
-  const yearly = months.length > 1 ? yearStats(p.label, months) : null;
+  const yearly =
+    months.length > 1
+      ? yearStats(p.label, months, monthsBetween(from, to).length)
+      : null;
 
   const running = grain === "running";
   const bucket: Bucket = grain === "month" ? "month" : "day";
 
-  const { from, to } = axisBounds(all, p);
-
   const build = (rows: Categorized[], a: string, b: string) => {
     const raw =
-      bucket === "day" ? dailySeries(rows, a, b) : monthlySeries(rows);
+      bucket === "day" ? dailySeries(rows, a, b) : monthlySeries(rows, a, b);
     return running ? cumulative(raw) : raw;
   };
 

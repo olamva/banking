@@ -367,8 +367,19 @@ export function dailySeries(
   return eachDay(from, to).map((at) => point(at, buckets.get(at) ?? []));
 }
 
-export function monthlySeries(txns: Categorized[]): SeriesPoint[] {
-  return byMonth(txns).map(({ month, txns }) => point(month, txns));
+export const monthsBetween = (from: string, to: string): string[] => [
+  ...new Set(eachDay(from, to).map((d) => d.slice(0, 7))),
+];
+
+export function monthlySeries(
+  txns: Categorized[],
+  from?: string,
+  to?: string,
+): SeriesPoint[] {
+  if (!from || !to)
+    return byMonth(txns).map(({ month, txns }) => point(month, txns));
+  const buckets = Map.groupBy(txns, (t) => t.date.slice(0, 7));
+  return monthsBetween(from, to).map((m) => point(m, buckets.get(m) ?? []));
 }
 
 export function topSpendGroups(
@@ -447,13 +458,14 @@ export function spendTrend(
 export function yearStats(
   year: string,
   monthsTxns: { month: string; txns: Categorized[] }[],
+  span = monthsTxns.length,
 ): YearStats {
   const sorted = [...monthsTxns].sort((a, b) => a.month.localeCompare(b.month));
 
   const months = sorted.map(({ month, txns }) => ({ month, ...totals(txns) }));
 
   const agg = aggregateCents(sorted.flatMap((m) => m.txns));
-  const n = months.length || 1;
+  const n = span || 1;
 
   return {
     year,
