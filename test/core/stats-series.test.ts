@@ -249,6 +249,7 @@ test("yearStats builds a monthly series and per-category totals across the year"
   );
   assert.equal(dagligvarer?.total, 300);
   assert.equal(stats.averageMonth.totalOut, 200);
+  assert.equal(yearStats("2026", months, 4).averageMonth.totalOut, 100);
 });
 
 test("subcategories share within their own parent, not across the page", () => {

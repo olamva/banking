@@ -20,6 +20,7 @@ import {
   cumulative,
   dailySeries,
   monthStats,
+  monthIndex,
   monthlySeries,
   subscriptionGroups,
   totals,
@@ -365,13 +366,12 @@ export const Dashboard = ({
   const stats = monthStats(p.label, shown, vs ? previous : undefined);
   const prev = monthStats("previous", previous);
 
-  const months = byMonth(shown);
-  const yearly = months.length > 1 ? yearStats(p.label, months) : null;
+  const { from, to } = axisBounds(all, p);
+  const span = monthIndex(to) - monthIndex(from) + 1;
+  const yearly = span > 1 ? yearStats(p.label, byMonth(shown), span) : null;
 
   const running = grain === "running";
   const bucket: Bucket = grain === "month" ? "month" : "day";
-
-  const { from, to } = axisBounds(all, p);
 
   const build = (rows: Categorized[], a: string, b: string) => {
     const raw =

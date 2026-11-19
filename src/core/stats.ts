@@ -415,7 +415,7 @@ export type YearStats = {
   excluded: ExcludedSummary;
 };
 
-const monthIndex = (month: string): number => {
+export const monthIndex = (month: string): number => {
   const [y, m] = month.split("-").map(Number);
   return y! * 12 + (m! - 1);
 };
@@ -447,13 +447,14 @@ export function spendTrend(
 export function yearStats(
   year: string,
   monthsTxns: { month: string; txns: Categorized[] }[],
+  span = monthsTxns.length,
 ): YearStats {
   const sorted = [...monthsTxns].sort((a, b) => a.month.localeCompare(b.month));
 
   const months = sorted.map(({ month, txns }) => ({ month, ...totals(txns) }));
 
   const agg = aggregateCents(sorted.flatMap((m) => m.txns));
-  const n = months.length || 1;
+  const n = span || 1;
 
   return {
     year,
