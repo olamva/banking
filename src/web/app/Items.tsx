@@ -168,7 +168,8 @@ export const Items = ({
     key: Sort,
     num = false,
     phone?: Column["phone"],
-  ): Column => ({
+  ): Column & { key: Sort } => ({
+    key,
     label,
     num,
     phone,
@@ -180,6 +181,19 @@ export const Items = ({
     },
     sort: sort === key ? (descending ? "desc" : "asc") : null,
   });
+
+  const columns = [
+    sortable("Item", "name", false, "title"),
+    sortable("Category", "category", false, "meta"),
+    sortable("Purchases", "count", true, "labeled"),
+    sortable("Quantity", "qty", true),
+    sortable("Spent", "spent", true, "end"),
+    sortable("Average price", "price", true),
+    sortable("Price change", "change", true, "labeled"),
+    sortable("Usual gap", "medianDays", true),
+    sortable("Last bought", "last", false, "labeled"),
+  ];
+  const filled = columns.map((c) => sorted.some((i) => value(i, c.key) !== null));
 
   const tableRows: ReactNode[][] = sorted.map((i) => [
     <span className="block truncate sm:max-w-96">
@@ -329,18 +343,8 @@ export const Items = ({
         ) : (
           <DataTable
             scroll
-            columns={[
-              sortable("Item", "name", false, "title"),
-              sortable("Category", "category", false, "meta"),
-              sortable("Purchases", "count", true, "labeled"),
-              sortable("Quantity", "qty", true),
-              sortable("Spent", "spent", true, "end"),
-              sortable("Average price", "price", true),
-              sortable("Price change", "change", true, "labeled"),
-              sortable("Usual gap", "medianDays", true),
-              sortable("Last bought", "last", false, "labeled"),
-            ]}
-            rows={tableRows}
+            columns={columns.filter((_, n) => filled[n])}
+            rows={tableRows.map((row) => row.filter((_, n) => filled[n]))}
             onRow={(index) => setPicked(sorted[index]!.key)}
             rowClassName={(index) =>
               sorted[index]!.key === picked ? "bg-muted" : ""
