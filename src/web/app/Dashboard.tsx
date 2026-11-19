@@ -36,6 +36,7 @@ import { DivergingBars, HorizontalBars } from "./Charts.tsx";
 import { GROUP_LABEL, useChartGroup, type Group } from "./chartGroup.ts";
 import { mapRules, type RulesApi } from "./data.ts";
 import { Items } from "./Items.tsx";
+import { PERSON_LABEL, grossRows, onePerson, personView } from "./person.ts";
 import { SpendLines } from "./SpendLines.tsx";
 import type { Bucket } from "./axis.ts";
 import { SubscriptionsCard } from "./Transactions.tsx";
@@ -126,6 +127,7 @@ interface TotalsProps {
   yearly: ReturnType<typeof yearStats> | null;
   vsLabel?: string;
   info?: ReactNode;
+  person: boolean;
 }
 
 // Spent and Income each hide when that side of the period is empty. Net needs
@@ -150,31 +152,38 @@ const tileSub = (
     .filter(Boolean)
     .join(" · ") || undefined;
 
-const Totals = ({ stats, prev, yearly, vsLabel, info }: TotalsProps) => (
-  <div className="mb-8 grid grid-cols-[repeat(auto-fit,minmax(min(150px,100%),1fr))] gap-x-10 gap-y-5 max-sm:grid-cols-2 max-sm:[&>*:last-child:nth-child(odd)]:col-span-full">
-    {TILES.map(([key, label, goodIfUp]) =>
-      (
-        key === "net"
-          ? stats.totalIn > 0 && stats.totalOut !== 0
-          : stats[key] !== 0
-      )
-        ? [
-            <StatTile
-              key={key}
-              label={label}
-              value={fmtNOK(stats[key])}
-              sub={tileSub(key, stats, yearly)}
-              info={key === "totalOut" && info}
-              vs={vsLabel}
-              delta={
-                vsLabel ? deltaInfo(stats[key], prev[key], goodIfUp) : undefined
-              }
-            />,
-          ]
-        : [],
-    )}
-  </div>
-);
+const Totals = ({ person, ...props }: TotalsProps) => {
+  const { stats, prev, yearly, vsLabel, info } = person
+    ? personView(props)
+    : props;
+  return (
+    <div className="mb-8 grid grid-cols-[repeat(auto-fit,minmax(min(150px,100%),1fr))] gap-x-10 gap-y-5 max-sm:grid-cols-2 max-sm:[&>*:last-child:nth-child(odd)]:col-span-full">
+      {TILES.map(([key, label, goodIfUp]) =>
+        (
+          key === "net"
+            ? stats.totalIn > 0 && stats.totalOut !== 0
+            : stats[key] !== 0
+        )
+          ? [
+              <StatTile
+                key={key}
+                label={person ? PERSON_LABEL[key] : label}
+                value={fmtNOK(stats[key])}
+                sub={tileSub(key, stats, yearly)}
+                info={key === "totalOut" && info}
+                vs={vsLabel}
+                delta={
+                  vsLabel
+                    ? deltaInfo(stats[key], prev[key], goodIfUp)
+                    : undefined
+                }
+              />,
+            ]
+          : [],
+      )}
+    </div>
+  );
+};
 
 interface BreakdownsProps {
   stats: Stats;
@@ -279,7 +288,7 @@ const Breakdowns = ({
               </Panel>
             )}
 
-            {tone === "spend" && refunds.length > 0 && (
+            {tone === "spend" && refunds.length >= minBars && (
               <Panel
                 title="Refunds by merchant"
                 icon={RefundIcon}
@@ -373,7 +382,9 @@ export const Dashboard = ({
 
   const { from, to } = axisBounds(all, p);
 
-  const build = (rows: Categorized[], a: string, b: string) => {
+  const person = onePerson(filters, shown);
+  const build = (input: Categorized[], a: string, b: string) => {
+    const rows = grossRows(person, input);
     const raw =
       bucket === "day" ? dailySeries(rows, a, b) : monthlySeries(rows);
     return running ? cumulative(raw) : raw;
@@ -422,6 +433,7 @@ export const Dashboard = ({
         prev={prev}
         yearly={yearly}
         vsLabel={vs?.label}
+        person={person}
         info={
           <ExcludedInfo
             excluded={totals(all).excluded}
@@ -479,7 +491,7 @@ export const Dashboard = ({
         single={single}
         grid={p.kind === "all" ? CARD_GRID_3 : CARD_GRID}
         vsLabel={vs?.label}
-        minBars={byItem ? 2 : 1}
+        minBars={[byItem, person].includes(true) ? 2 : 1}
       />
 
       {!byItem && items}
