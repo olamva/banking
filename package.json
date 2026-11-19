@@ -22,6 +22,7 @@
     "rules:push": "bash infra/rules-push.sh",
     "ios": "bash infra/ios.sh",
     "traffic": "bash infra/traffic.sh",
+    "refresh:times": "bash infra/refresh-times.sh",
     "rules:pull": "bash infra/rules-pull.sh",
     "seed:site": "bash infra/seed-token.sh",
     "lint": "oxlint",

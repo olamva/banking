@@ -273,7 +273,24 @@ export type RefreshStatus = {
 };
 let last: RefreshStatus["last"] = null;
 
+const logRefresh = (start: number): void =>
+  console.info(
+    JSON.stringify({
+      event: "refresh",
+      time: new Date(start).toISOString(),
+      totalMs: Date.now() - start,
+      steps: Object.fromEntries(
+        steps.map((s) => [
+          s.name,
+          s.start === null || s.end === null ? null : s.end - s.start,
+        ]),
+      ),
+      error: last && "error" in last ? last.error : null,
+    }),
+  );
+
 export function refresh(): Promise<Refreshed> {
+  const start = Date.now();
   running ??= run()
     .then(
       (r) => {
@@ -290,6 +307,7 @@ export function refresh(): Promise<Refreshed> {
     )
     .finally(() => {
       running = null;
+      logRefresh(start);
     });
   return running;
 }
