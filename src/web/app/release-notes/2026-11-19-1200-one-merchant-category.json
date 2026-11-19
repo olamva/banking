@@ -1,0 +1,11 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "One-merchant categories",
+      "detail": "A filter to a main category with one merchant no longer shows a merchant chart with one bar.",
+      "area": "overview",
+      "kind": "improved"
+    }
+  ]
+}
