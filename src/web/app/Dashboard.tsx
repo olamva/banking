@@ -316,6 +316,8 @@ const alignTo = (series: SeriesPoint[], compare: SeriesPoint[], p: Period) =>
 
 const oneCategory = (f: Filters) => f.categories.length === 1 && !f.or.length;
 
+const minBars = (f: Filters) => (keepsItemsOnly(f) || f.withReceipt ? 2 : 1);
+
 interface DashboardProps {
   txns: Categorized[];
   all: Categorized[];
@@ -479,7 +481,7 @@ export const Dashboard = ({
         single={single}
         grid={p.kind === "all" ? CARD_GRID_3 : CARD_GRID}
         vsLabel={vs?.label}
-        minBars={byItem ? 2 : 1}
+        minBars={minBars(filters)}
       />
 
       {!byItem && items}
