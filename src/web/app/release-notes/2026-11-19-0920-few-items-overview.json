@@ -1,0 +1,11 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Fewer repeats for some items",
+      "detail": "A filter to two or more items shows the item table without the category and price change cards, and the total shows one time.",
+      "area": "items",
+      "kind": "improved"
+    }
+  ]
+}
