@@ -316,6 +316,9 @@ const alignTo = (series: SeriesPoint[], compare: SeriesPoint[], p: Period) =>
 
 const oneCategory = (f: Filters) => f.categories.length === 1 && !f.or.length;
 
+const recurring = (p: Period, rows: Categorized[]) =>
+  p.from && p.from === p.to ? [] : subscriptionGroups(rows);
+
 interface DashboardProps {
   txns: Categorized[];
   all: Categorized[];
@@ -474,7 +477,7 @@ export const Dashboard = ({
 
       <Breakdowns
         stats={stats}
-        groups={subscriptionGroups(shown)}
+        groups={recurring(p, shown)}
         onFilters={onFilters}
         single={single}
         grid={p.kind === "all" ? CARD_GRID_3 : CARD_GRID}

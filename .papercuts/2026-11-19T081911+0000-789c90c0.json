@@ -1,0 +1,11 @@
+{
+  "id": "789c90c0",
+  "ts": "2026-11-19T08:19:11+00:00",
+  "text": "pnpm shot fails: cold Vite page load takes ~14s, over its fixed 10s networkidle timeout; no flag to raise it",
+  "tags": [],
+  "who": "agent",
+  "model": "claude-opus-5-5",
+  "session": "9da373f0",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3-03e8a86f-a7e9222e9c307470",
+  "branch": "t3/single-day-overview"
+}
