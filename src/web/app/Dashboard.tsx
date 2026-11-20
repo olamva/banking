@@ -7,6 +7,7 @@ import {
 import {
   AXES,
   axisBounds,
+  closeOpenMonth,
   groupsOf,
   inRange,
   itemSpend,
@@ -306,7 +307,8 @@ const chartBounds = (
   p: Period,
   compared: boolean,
 ) => {
-  if (f.countries.length !== 1 || compared) return axisBounds(all, p);
+  if (f.countries.length !== 1 || compared)
+    return closeOpenMonth(axisBounds(all, p), shown, p);
   const dates = shown.map((t) => t.date).sort();
   return { from: dates[0]!, to: dates.at(-1)! };
 };

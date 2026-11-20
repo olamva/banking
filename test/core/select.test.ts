@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   axisBounds,
+  closeOpenMonth,
   inRange,
   markedItem,
   matchesFilters,
@@ -54,6 +55,22 @@ test("axisBounds stops a running period at the record, not at its last calendar 
 
   assert.equal(axisBounds(rows, period("2026", now), now).to, "2026-08-09");
   assert.equal(axisBounds(rows, period("2025", now), now).to, "2025-12-31");
+});
+
+test("closeOpenMonth ends the axis before a current month that has no rows yet", () => {
+  const now = "2026-11-20";
+  const july = [txn({ id: "1", amount: -95, date: "2026-07-24" })];
+  const year = period("2026", now);
+  const bounds = axisBounds(july, year, now);
+
+  assert.equal(closeOpenMonth(bounds, july, year, now).to, "2026-10-31");
+
+  const november = [...july, txn({ id: "2", amount: -95, date: "2026-11-03" })];
+  assert.equal(closeOpenMonth(bounds, november, year, now).to, "2026-11-20");
+
+  const recent = period("90d", now);
+  const recentBounds = axisBounds(july, recent, now);
+  assert.equal(closeOpenMonth(recentBounds, july, recent, now).to, "2026-11-20");
 });
 
 test("axisBounds never stops short of a row dated past today", () => {

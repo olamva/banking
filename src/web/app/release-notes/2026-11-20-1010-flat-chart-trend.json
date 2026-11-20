@@ -2,10 +2,10 @@
   "bump": "patch",
   "highlights": [
     {
-      "title": "No trend on a flat chart",
-      "detail": "A chart with the same amount in each month, such as one subscription, no longer draws a trend line.",
+      "title": "Flat subscription chart",
+      "detail": "The chart and the monthly average skip the current month until it has a charge. A flat chart draws no trend line.",
       "area": "overview",
-      "kind": "improved"
+      "kind": "fixed"
     }
   ]
 }

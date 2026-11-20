@@ -350,6 +350,18 @@ export function axisBounds(
   };
 }
 
+export const closeOpenMonth = (
+  b: { from: string; to: string },
+  shown: Categorized[],
+  p: Period,
+  now = todayOslo(),
+) =>
+  p.kind === "recent" ||
+  b.to.slice(0, 7) !== now.slice(0, 7) ||
+  shown.some((t) => t.date.startsWith(b.to.slice(0, 7)))
+    ? b
+    : { ...b, to: shiftDay(`${b.to.slice(0, 7)}-01`, -1) };
+
 const byLocale = (a: string, b: string) => a.localeCompare(b);
 
 const distinct = (
