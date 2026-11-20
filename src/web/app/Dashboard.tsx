@@ -12,6 +12,7 @@ import {
   itemSpend,
   keepsItemsOnly,
   matchesFilters,
+  searchAsItem,
   type Axis,
   type Filters,
   type Period,
@@ -340,7 +341,7 @@ interface DashboardProps {
 export const Dashboard = ({
   txns,
   all,
-  filters,
+  filters: picked,
   onFilters,
   rules,
   period: p,
@@ -349,6 +350,7 @@ export const Dashboard = ({
   offered,
   onGrain,
 }: DashboardProps) => {
+  const filters = searchAsItem(all, picked);
   const names = mapRules(rules, "items");
   const kinds = mapRules(rules, "item-categories");
   const matching = (rows: Categorized[]) => {
@@ -391,7 +393,7 @@ export const Dashboard = ({
   const single = oneCategory(filters);
 
   const anyIncome = series.some((s) => s.totalIn > 0);
-  const anySpend = series.some((s) => s.totalOut > 0);
+  const anySpend = series.some((s) => s.totalOut !== 0);
 
   const groups = top.map((g) => ({
     name: g.name,

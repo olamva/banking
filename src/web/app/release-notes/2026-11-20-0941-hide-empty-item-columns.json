@@ -1,0 +1,11 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "No empty item columns",
+      "detail": "The bought items table hides a column when no item has a value for it.",
+      "area": "items",
+      "kind": "improved"
+    }
+  ]
+}
