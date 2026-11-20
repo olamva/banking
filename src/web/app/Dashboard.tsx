@@ -23,7 +23,7 @@ import {
   dailySeries,
   monthStats,
   monthlySeries,
-  subscriptionGroups,
+  subscriptionGroupsIn,
   totals,
   visibleDeltas,
   withGaps,
@@ -486,7 +486,7 @@ export const Dashboard = ({
 
       <Breakdowns
         stats={stats}
-        groups={subscriptionGroups(shown)}
+        groups={subscriptionGroupsIn(p, shown)}
         onFilters={onFilters}
         single={single}
         grid={p.kind === "all" ? CARD_GRID_3 : CARD_GRID}
