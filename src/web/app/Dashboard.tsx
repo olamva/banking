@@ -394,7 +394,7 @@ export const Dashboard = ({
   const single = oneCategory(filters);
 
   const anyIncome = series.some((s) => s.totalIn > 0);
-  const anySpend = series.some((s) => s.totalOut > 0);
+  const anySpend = series.some((s) => s.totalOut !== 0);
 
   const groups = top.map((g) => ({
     name: g.name,
