@@ -458,14 +458,15 @@ export function spendTrend(
 export function yearStats(
   year: string,
   monthsTxns: { month: string; txns: Categorized[] }[],
-  span = monthsTxns.length,
+  from?: string,
+  to?: string,
 ): YearStats {
   const sorted = [...monthsTxns].sort((a, b) => a.month.localeCompare(b.month));
 
   const months = sorted.map(({ month, txns }) => ({ month, ...totals(txns) }));
 
   const agg = aggregateCents(sorted.flatMap((m) => m.txns));
-  const n = span || 1;
+  const n = (from && to ? monthsBetween(from, to) : months).length || 1;
 
   return {
     year,

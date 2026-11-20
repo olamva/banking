@@ -94,7 +94,8 @@ test("a year with spend in two months charts and averages all twelve", () => {
       { month: "2025-03", txns: [rows[0]!] },
       { month: "2025-11", txns: [rows[1]!] },
     ],
-    12,
+    "2025-01-01",
+    "2025-12-31",
   );
   assert.equal(year.averageMonth.totalOut, 100);
 });

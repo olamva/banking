@@ -1,0 +1,11 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Fewer repeats for some items",
+      "detail": "A filter to a few items drops the item category and price change cards, which repeat the table.",
+      "area": "items",
+      "kind": "improved"
+    }
+  ]
+}
