@@ -323,11 +323,10 @@ const sparse = (rows: Categorized[]) =>
 const timeline = (points: unknown[], rows: Categorized[]) =>
   points.length > 1 && !sparse(rows);
 
-const minBarsOf = (f: Filters, rows: Categorized[]) =>
+const minBarsOf = (f: Filters) =>
   keepsItemsOnly(f) ||
   f.withReceipt ||
-  (f.or.length > 0 && groupsOf(f).every((g) => g.merchants.length > 0)) ||
-  subscriptionGroups(rows)[0]?.count === rows.length
+  groupsOf(f).every((g) => g.merchants.length > 0)
     ? 2
     : 1;
 
@@ -379,17 +378,19 @@ export const Dashboard = ({
   const stats = monthStats(p.label, shown, vs ? previous : undefined);
   const prev = monthStats("previous", previous);
 
+  const { from, to } = chartBounds(shown, all, filters, p, vs !== null);
+
   const months = byMonth(shown);
-  const yearly = timeline(months, shown) ? yearStats(p.label, months) : null;
+  const yearly = timeline(months, shown)
+    ? yearStats(p.label, months, from, to)
+    : null;
 
   const running = grain === "running";
   const bucket: Bucket = grain === "month" ? "month" : "day";
 
-  const { from, to } = chartBounds(shown, all, filters, p, vs !== null);
-
   const build = (rows: Categorized[], a: string, b: string) => {
     const raw =
-      bucket === "day" ? dailySeries(rows, a, b) : monthlySeries(rows);
+      bucket === "day" ? dailySeries(rows, a, b) : monthlySeries(rows, a, b);
     return running ? cumulative(raw) : raw;
   };
 
@@ -488,7 +489,7 @@ export const Dashboard = ({
         single={single}
         grid={p.kind === "all" ? CARD_GRID_3 : CARD_GRID}
         vsLabel={vs?.label}
-        minBars={minBarsOf(filters, shown)}
+        minBars={minBarsOf(filters)}
       />
 
       {!byItem && items}
