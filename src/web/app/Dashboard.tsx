@@ -49,7 +49,7 @@ import { grossRows, onePerson, personView, type Labels } from "./person.ts";
 import { SpendLines } from "./SpendLines.tsx";
 import type { Bucket } from "./axis.ts";
 import { SubscriptionsCard } from "./Transactions.tsx";
-import { categoryLabel, fmtNOK, subcategoryLabel } from "./format.ts";
+import { categoryLabel, fmtNOK, perMonth, subcategoryLabel } from "./format.ts";
 import {
   CategoryIcon,
   ChangesIcon,
@@ -131,7 +131,7 @@ const tileSub = (
     key === "totalOut" && stats.refunded > 0
       ? `after ${fmtNOK(stats.refunded)} refunded`
       : "",
-    yearly ? `${fmtNOK(yearly.averageMonth[key])} / month` : "",
+    yearly ? perMonth(yearly.averageMonth[key]) : "",
   ]
     .filter(Boolean)
     .join(" · ") || undefined;
@@ -313,6 +313,11 @@ const chartBounds = (
 };
 
 const oneCategory = (f: Filters) => f.categories.length === 1 && !f.or.length;
+
+const trends = (series: SeriesPoint[]) =>
+  series.some((s) => s.totalOut > 0) &&
+  new Set(series.map((s) => s.totalOut)).size > 1;
+
 const sparse = (rows: Categorized[]) =>
   rows.length * 12 < withGaps(monthlySeries(rows)).length;
 
@@ -321,8 +326,10 @@ const timeline = (points: unknown[], rows: Categorized[]) =>
 
 const minBarsOf = (f: Filters) =>
   keepsItemsOnly(f) ||
+  f.accounts.length > 0 ||
   f.withReceipt ||
-  groupsOf(f).every((g) => g.merchants.length > 0)
+  groupsOf(f).every((g) => g.merchants.length > 0) ||
+  (oneCategory(f) && !f.categories[0]!.includes("/"))
     ? 2
     : 1;
 
@@ -411,7 +418,7 @@ export const Dashboard = ({
           income: anyIncome,
           spend: anySpend,
           band: running || bucket === "month",
-          trend: !running && anySpend,
+          trend: !running && trends(series),
           compare,
         }
       : { income: false, spend: false, band: false, trend: false, compare: [] };
