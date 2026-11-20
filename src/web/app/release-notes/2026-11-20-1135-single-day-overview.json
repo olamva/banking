@@ -1,0 +1,11 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "One day on the overview",
+      "detail": "A one-day range shows its date and no longer repeats each charge in a subscriptions list.",
+      "area": "overview",
+      "kind": "improved"
+    }
+  ]
+}

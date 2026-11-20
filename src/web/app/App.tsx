@@ -335,6 +335,7 @@ export const App = () => {
         grain={grain}
         offered={grains}
         onGrain={setChosenGrain}
+        onTransactions={() => setView("transactions")}
       />
     ),
     transactions: () => (

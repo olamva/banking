@@ -21,7 +21,8 @@ import {
   dropsItemsOnly,
   withoutItems,
 } from "../../core/itemExclusion.ts";
-import { ExcludedInfo, pick } from "./Dashboard.tsx";
+import { pick } from "./Dashboard.tsx";
+import { ExcludedInfo } from "./Excluded.tsx";
 import { mapRules, type RulesApi } from "./data.ts";
 import { ItemSheet } from "./ItemSheet.tsx";
 import type { ItemAction } from "./ReceiptLines.tsx";

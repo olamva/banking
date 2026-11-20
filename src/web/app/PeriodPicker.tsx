@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { RECENT_DAYS, type PeriodKind } from "../../core/select.ts";
+import { fmtShortDate } from "./format.ts";
 import { CalendarIcon, Icon, NextIcon, PrevIcon } from "./icons.ts";
 import { Button } from "./ui/button.tsx";
 import { ButtonGroup } from "./ui/button-group.tsx";
@@ -35,7 +36,9 @@ const periodLabel = (kind: PeriodKind, period: string): string =>
     : kind === "recent"
       ? `Last ${parseInt(period)} days`
       : kind === "custom"
-        ? "Custom range"
+        ? /^(.+)\.\.\1$/.test(period)
+          ? fmtShortDate(period.slice(0, 10))
+          : "Custom range"
         : kind === "year"
           ? period
           : `${MONTH_NAMES[Number(period.slice(5)) - 1]} ${period.slice(0, 4)}`;

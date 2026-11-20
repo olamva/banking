@@ -153,6 +153,12 @@ function commit(file: RuleFile, next: Rules): number {
   return place(file, snapshot(file, next), next);
 }
 
+export const recordEdits = (): void =>
+  RULE_FILES.forEach((file) => {
+    if (existsSync(live(file)) && current(file) === null)
+      place(file, snapshot(file, load(file)), load(file));
+  });
+
 export type Edit = {
   file: RuleFile;
   key: string;
