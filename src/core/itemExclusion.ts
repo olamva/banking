@@ -1,7 +1,6 @@
-import { purchasesOf, type Purchase } from "./items.ts";
+import { itemsOf, nameKey, purchasesOf, topCategory } from "./items.ts";
 import type { RuleMap } from "./ruleFiles.ts";
 import {
-  filteredPurchases,
   groupsOf,
   hasItemFilter,
   keepsItemsOnly,
@@ -12,28 +11,44 @@ import {
 } from "./select.ts";
 import type { Categorized } from "./types.ts";
 
-export const dropsItemsOnly = (f: Filters): boolean =>
+export const droppedItem = (key: string, f: Filters, kind = ""): boolean =>
+  groupsOf(f).some(
+    (g) =>
+      g.itemsOut.some((i) => nameKey(i) === key) ||
+      g.kindsOut.some((k) => k === kind || k === topCategory(kind)),
+  );
+
+export const dropsItemsOnly =(f: Filters): boolean =>
   !keepsItemsOnly(f) && groupsOf(f).some(hasItemFilter);
 
 export function withoutItems(
   rows: Categorized[],
+  record: Categorized[],
   filters: Filters,
   names: RuleMap,
   categories: RuleMap,
 ): Categorized[] {
+  const kindOf = new Map(
+    itemsOf(purchasesOf(record, names, false, categories)).map((i) => [
+      i.key,
+      i.category,
+    ]),
+  );
   const loose = liveGroups(filters).map(looseGroup);
   const kept = rows.filter((t) => loose.some((g) => matchesFilters(t, g)));
-  const sum = (ps: Purchase[]) => {
-    const by = new Map<Purchase["receipt"], number>();
-    for (const p of ps) by.set(p.receipt, (by.get(p.receipt) ?? 0) + p.amount);
-    return by;
-  };
-  const all = sum(purchasesOf(kept, names, filters.withoutDeposit, categories));
-  const left = sum(filteredPurchases(kept, filters, names, categories));
+  const lines = Map.groupBy(
+    purchasesOf(kept, names, filters.withoutDeposit, categories),
+    (p) => p.receipt,
+  );
   return kept.flatMap((t) => {
-    if (!t.receipt || !all.has(t.receipt)) return [t];
-    if (!left.has(t.receipt)) return [];
-    const gone = all.get(t.receipt)! - left.get(t.receipt)!;
-    return [{ ...t, amount: Math.round((t.amount + gone) * 100) / 100 }];
+    const all = t.receipt && lines.get(t.receipt);
+    if (!all) return [t];
+    const gone = all.filter((p) =>
+      droppedItem(p.key, filters, kindOf.get(p.key)),
+    );
+    if (!gone.length) return [t];
+    if (gone.length === all.length) return [];
+    const cut = gone.reduce((s, p) => s + p.amount, 0);
+    return [{ ...t, amount: Math.round((t.amount + cut) * 100) / 100 }];
   });
 }

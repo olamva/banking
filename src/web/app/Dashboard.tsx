@@ -351,7 +351,7 @@ export const Dashboard = ({
   const kinds = mapRules(rules, "item-categories");
   const matching = (rows: Categorized[]) => {
     if (dropsItemsOnly(filters))
-      return withoutItems(rows, filters, names, kinds);
+      return withoutItems(rows, txns, filters, names, kinds);
     const kept = rows.filter((t) => matchesFilters(t, filters));
     return keepsItemsOnly(filters)
       ? itemSpend(kept, filters, names, kinds)

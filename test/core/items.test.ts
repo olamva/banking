@@ -326,25 +326,31 @@ test("the item category filter keeps receipts with a line in that category", () 
 });
 
 test("an item exclusion removes only the item lines from each receipt", () => {
-  const rows = [
-    {
-      ...txn("13", "2026-10-01T10:00:00Z", [
-        line("Ringnes Pils", 32),
-        line("Tine Lettmelk", 20),
+  const record = withItems(
+    [
+      {
+        ...txn("13", "2026-10-01T10:00:00Z", [
+          line("Ringnes Pils", 32),
+          line("Tine Lettmelk", 20),
+        ]),
+        amount: -50,
+      },
+      {
+        ...txn("14", "2026-10-02T10:00:00Z", [line("Ringnes Pils", 32)]),
+        amount: -30,
+      },
+      { receipt: undefined, amount: -100 } as Categorized,
+      txn("15", "2026-09-01T10:00:00Z", [
+        { ...line("Ringnes Pils", 32), group: { code: "152110", name: "ØL" } },
       ]),
-      amount: -50,
-    },
-    {
-      ...txn("14", "2026-10-02T10:00:00Z", [line("Ringnes Pils", 32)]),
-      amount: -30,
-    },
-    { receipt: undefined, amount: -100 } as Categorized,
-  ].map((t) => ({ ...t, category: "dagligvarer" }) as Categorized);
+    ].map((t) => ({ ...t, category: "dagligvarer" }) as Categorized),
+  );
   const shown = withoutItems(
-    withItems(rows, {}, { "/pils/": "Alcohol" }),
+    record.slice(0, 3),
+    record,
     { ...NO_FILTERS, kindsOut: ["Alcohol"] },
     {},
-    { "/pils/": "Alcohol" },
+    {},
   );
   assert.deepEqual(shown.map((t) => t.amount), [-18, -100]);
 });

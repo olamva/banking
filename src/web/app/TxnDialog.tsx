@@ -42,6 +42,7 @@ import { cn } from "./ui/utils.ts";
 interface TxnDialogProps {
   txn: Categorized;
   marked?: string[];
+  struck?: string[];
   onClose: () => void;
   onPick?: (axis: Axis, value: string, exclude: boolean) => void;
   onFile?: (file: RuleFile) => void;
@@ -157,6 +158,7 @@ const EditButton = ({
 export const TxnDialog = ({
   txn,
   marked,
+  struck,
   onClose,
   onPick,
   onFile,
@@ -316,6 +318,7 @@ export const TxnDialog = ({
             <ReceiptLines
               receipt={txn.receipt}
               marked={marked}
+              struck={struck}
               onItem={onItem}
             />
           )}

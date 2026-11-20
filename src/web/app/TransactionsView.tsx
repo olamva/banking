@@ -16,6 +16,11 @@ import {
 } from "../../core/select.ts";
 import { totals } from "../../core/stats.ts";
 import type { Categorized } from "../../core/types.ts";
+import {
+  droppedItem,
+  dropsItemsOnly,
+  withoutItems,
+} from "../../core/itemExclusion.ts";
 import { pick } from "./Dashboard.tsx";
 import { ExcludedInfo } from "./Excluded.tsx";
 import { mapRules, type RulesApi } from "./data.ts";
@@ -48,16 +53,23 @@ export const TransactionsView = ({
   ...table
 }: TransactionsViewProps) => {
   const search = useDeferredValue(filters.search);
-  const shown = rows.filter((txn) =>
-    matchesFilters(txn, { ...filters, search }),
-  );
   const names = mapRules(rules, "items");
   const kinds = mapRules(rules, "item-categories");
+  const { shown, record } = useMemo(() => {
+    const live = { ...filters, search };
+    if (!dropsItemsOnly(live))
+      return { shown: rows.filter((t) => matchesFilters(t, live)), record: all };
+    const cut = withoutItems(rows, all, live, names, kinds);
+    const swap = new Map(cut.map((t) => [t.id, t]));
+    return { shown: cut, record: all.map((t) => swap.get(t.id) ?? t) };
+  }, [rows, all, filters, search, names, kinds]);
   const [picked, setPicked] = useState<string | null>(null);
   const [open, setOpen] = useState<Categorized | null>(null);
   const [back, setBack] = useState<Categorized | null>(null);
   const needed =
-    !!picked || (!!open && groupsOf(filters).some((g) => g.kinds.length > 0));
+    !!picked ||
+    (!!open &&
+      groupsOf(filters).some((g) => g.kinds.length + g.kindsOut.length > 0));
   const items = useMemo(
     () =>
       needed
@@ -66,11 +78,14 @@ export const TransactionsView = ({
     [needed, all, names, kinds, filters.withoutDeposit],
   );
   const item = items.find((i) => i.key === picked);
-  const marked = purchasesOf(open ? [open] : [], names)
-    .filter((p) =>
-      markedItem(p.key, filters, items.find((i) => i.key === p.key)?.category),
-    )
-    .map((p) => p.raw);
+  const lines = (keep: typeof markedItem) =>
+    purchasesOf(open ? [open] : [], names)
+      .filter((p) =>
+        keep(p.key, filters, items.find((i) => i.key === p.key)?.category),
+      )
+      .map((p) => p.raw);
+  const marked = lines(markedItem);
+  const struck = lines(droppedItem);
 
   const onItem = (txn: Categorized, raw: string, action: ItemAction) => {
     const bought = purchasesOf([txn], names).find((p) => p.raw === raw);
@@ -102,11 +117,12 @@ export const TransactionsView = ({
             shown={filters.showExcluded}
           />
         }
-        all={all}
+        all={record}
         branchRules={mapRules(rules, "branches")}
         open={open}
         marked={marked}
-        onOpen={setOpen}
+        struck={struck}
+        onOpen={(t) => setOpen(t && (rows.find((r) => r.id === t.id) ?? t))}
         onPick={(axis) => pick(onFilters, axis)}
         onItem={onItem}
         onFile={onFile}

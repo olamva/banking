@@ -216,6 +216,7 @@ interface TransactionsCardProps {
   branchRules?: RuleMap;
   open: Categorized | null;
   marked?: string[];
+  struck?: string[];
   onOpen: (txn: Categorized | null) => void;
   onPick: (axis: Axis) => (value: string, exclude: boolean) => void;
   onItem?: (txn: Categorized, raw: string, action: ItemAction) => void;
@@ -235,6 +236,7 @@ export const TransactionsCard = ({
   branchRules,
   open,
   marked,
+  struck,
   onOpen,
   onPick,
   onItem,
@@ -437,6 +439,7 @@ export const TransactionsCard = ({
         <TxnDialog
           txn={open}
           marked={marked}
+          struck={struck}
           onClose={() => onOpen(null)}
           onPick={(axis, value, exclude) => {
             onOpen(null);

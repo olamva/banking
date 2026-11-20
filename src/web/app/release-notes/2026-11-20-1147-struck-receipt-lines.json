@@ -1,0 +1,11 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Excluded receipt lines",
+      "detail": "An excluded item no longer hides its receipt. The receipt strikes out its line and counts the rest.",
+      "area": "transactions",
+      "kind": "fixed"
+    }
+  ]
+}
