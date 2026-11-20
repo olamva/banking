@@ -1,0 +1,11 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Open month on the overview",
+      "detail": "The chart and the monthly average skip the current month until it has a transaction.",
+      "area": "overview",
+      "kind": "fixed"
+    }
+  ]
+}

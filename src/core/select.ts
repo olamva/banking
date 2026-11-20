@@ -271,7 +271,7 @@ const RECENT = /^([1-9]\d{0,3})d$/;
 
 export const RECENT_DAYS = [7, 30, 90, 365];
 
-const shiftDay = (day: string, by: number): string =>
+export const shiftDay = (day: string, by: number): string =>
   new Date(Date.parse(`${day}T00:00:00Z`) + by * 86_400_000)
     .toISOString()
     .slice(0, 10);
@@ -349,18 +349,6 @@ export function axisBounds(
     to: p.to && p.to < edge ? p.to : edge,
   };
 }
-
-export const closeOpenMonth = (
-  b: { from: string; to: string },
-  shown: Categorized[],
-  p: Period,
-  now = todayOslo(),
-) =>
-  p.kind === "recent" ||
-  b.to.slice(0, 7) !== now.slice(0, 7) ||
-  shown.some((t) => t.date.startsWith(b.to.slice(0, 7)))
-    ? b
-    : { ...b, to: shiftDay(`${b.to.slice(0, 7)}-01`, -1) };
 
 const byLocale = (a: string, b: string) => a.localeCompare(b);
 
