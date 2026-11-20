@@ -6,7 +6,6 @@ import {
 } from "react";
 import {
   AXES,
-  axisBounds,
   groupsOf,
   inRange,
   itemSpend,
@@ -17,6 +16,7 @@ import {
   type Filters,
   type Period,
 } from "../../core/select.ts";
+import { settledBounds } from "../../core/bounds.ts";
 import {
   byMonth,
   cumulative,
@@ -307,7 +307,7 @@ const chartBounds = (
   p: Period,
   compared: boolean,
 ) => {
-  if (f.countries.length !== 1 || compared) return axisBounds(all, p);
+  if (f.countries.length !== 1 || compared) return settledBounds(all, shown, p);
   const dates = shown.map((t) => t.date).sort();
   return { from: dates[0]!, to: dates.at(-1)! };
 };

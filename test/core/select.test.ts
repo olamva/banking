@@ -8,6 +8,7 @@ import {
   NO_FILTERS,
   period,
 } from "../../src/core/select.ts";
+import { settledBounds } from "../../src/core/bounds.ts";
 import type { Categorized } from "../../src/core/types.ts";
 
 function txn(
@@ -54,6 +55,19 @@ test("axisBounds stops a running period at the record, not at its last calendar 
 
   assert.equal(axisBounds(rows, period("2026", now), now).to, "2026-08-09");
   assert.equal(axisBounds(rows, period("2025", now), now).to, "2025-12-31");
+});
+
+test("settledBounds ends the axis before a current month that has no rows yet", () => {
+  const now = "2026-11-20";
+  const july = [txn({ id: "1", amount: -95, date: "2026-07-24" })];
+  const year = period("2026", now);
+
+  assert.equal(settledBounds(july, july, year, now).to, "2026-10-31");
+
+  const november = [...july, txn({ id: "2", amount: -95, date: "2026-11-03" })];
+  assert.equal(settledBounds(november, november, year, now).to, "2026-11-20");
+  assert.equal(settledBounds(july, july, period("90d", now), now).to, now);
+  assert.equal(settledBounds(july, july, period("2025", now), now).to, "2025-12-31");
 });
 
 test("axisBounds never stops short of a row dated past today", () => {

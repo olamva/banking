@@ -271,7 +271,7 @@ const RECENT = /^([1-9]\d{0,3})d$/;
 
 export const RECENT_DAYS = [7, 30, 90, 365];
 
-const shiftDay = (day: string, by: number): string =>
+export const shiftDay = (day: string, by: number): string =>
   new Date(Date.parse(`${day}T00:00:00Z`) + by * 86_400_000)
     .toISOString()
     .slice(0, 10);
