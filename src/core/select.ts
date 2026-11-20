@@ -180,12 +180,12 @@ export function searchAsItem(rows: Categorized[], f: Filters): Filters {
     : f;
 }
 
-const hasItemFilter = (g: Filters) =>
+export const hasItemFilter = (g: Filters) =>
   g.items.length + g.itemsOut.length + g.kinds.length + g.kindsOut.length > 0;
 
 const keepsItems = (g: Filters) => g.items.length + g.kinds.length > 0;
 
-const looseGroup = (g: Filters): Filters => ({
+export const looseGroup = (g: Filters): Filters => ({
   ...g,
   items: [],
   itemsOut: [],
@@ -245,7 +245,7 @@ export function itemSpend(
   );
 }
 
-export const markedItem =(key: string, f: Filters, kind = ""): boolean =>
+export const markedItem = (key: string, f: Filters, kind = ""): boolean =>
   groupsOf(f).some(
     (g) =>
       g.items.some((i) => nameKey(i) === key) ||
