@@ -312,6 +312,11 @@ const chartBounds = (
 };
 
 const oneCategory = (f: Filters) => f.categories.length === 1 && !f.or.length;
+
+const trends = (series: SeriesPoint[]) =>
+  series.some((s) => s.totalOut > 0) &&
+  new Set(series.map((s) => s.totalOut)).size > 1;
+
 const sparse = (rows: Categorized[]) =>
   rows.length * 12 < withGaps(monthlySeries(rows)).length;
 
@@ -410,7 +415,7 @@ export const Dashboard = ({
           income: anyIncome,
           spend: anySpend,
           band: running || bucket === "month",
-          trend: !running && anySpend,
+          trend: !running && trends(series),
           compare,
         }
       : { income: false, spend: false, band: false, trend: false, compare: [] };
