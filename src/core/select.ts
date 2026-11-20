@@ -180,12 +180,12 @@ export function searchAsItem(rows: Categorized[], f: Filters): Filters {
     : f;
 }
 
-const hasItemFilter = (g: Filters) =>
+export const hasItemFilter = (g: Filters) =>
   g.items.length + g.itemsOut.length + g.kinds.length + g.kindsOut.length > 0;
 
 const keepsItems = (g: Filters) => g.items.length + g.kinds.length > 0;
 
-const looseGroup = (g: Filters): Filters => ({
+export const looseGroup = (g: Filters): Filters => ({
   ...g,
   items: [],
   itemsOut: [],
@@ -243,32 +243,6 @@ export function itemSpend(
       ? t
       : { ...t, amount: -Math.round((spent.get(t.receipt) ?? 0) * 100) / 100 },
   );
-}
-
-export const dropsItemsOnly = (f: Filters): boolean =>
-  !keepsItemsOnly(f) && groupsOf(f).some(hasItemFilter);
-
-export function withoutItems(
-  rows: Categorized[],
-  filters: Filters,
-  names: RuleMap,
-  categories: RuleMap,
-): Categorized[] {
-  const loose = liveGroups(filters).map(looseGroup);
-  const kept = rows.filter((t) => loose.some((g) => matchesFilters(t, g)));
-  const sum = (ps: Purchase[]) => {
-    const by = new Map<Purchase["receipt"], number>();
-    for (const p of ps) by.set(p.receipt, (by.get(p.receipt) ?? 0) + p.amount);
-    return by;
-  };
-  const all = sum(purchasesOf(kept, names, filters.withoutDeposit, categories));
-  const left = sum(filteredPurchases(kept, filters, names, categories));
-  return kept.flatMap((t) => {
-    if (!t.receipt || !all.has(t.receipt)) return [t];
-    if (!left.has(t.receipt)) return [];
-    const gone = all.get(t.receipt)! - left.get(t.receipt)!;
-    return [{ ...t, amount: Math.round((t.amount + gone) * 100) / 100 }];
-  });
 }
 
 export const markedItem = (key: string, f: Filters, kind = ""): boolean =>

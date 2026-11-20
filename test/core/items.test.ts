@@ -15,8 +15,8 @@ import {
   NO_FILTERS,
   NO_GROUP,
   searchAsItem,
-  withoutItems,
 } from "../../src/core/select.ts";
+import { withoutItems } from "../../src/core/itemExclusion.ts";
 import type { Categorized } from "../../src/core/types.ts";
 
 const line = (

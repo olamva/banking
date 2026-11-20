@@ -7,18 +7,17 @@ import {
 import {
   AXES,
   axisBounds,
-  dropsItemsOnly,
   groupsOf,
   inRange,
   itemSpend,
   keepsItemsOnly,
   matchesFilters,
   searchAsItem,
-  withoutItems,
   type Axis,
   type Filters,
   type Period,
 } from "../../core/select.ts";
+import { dropsItemsOnly, withoutItems } from "../../core/itemExclusion.ts";
 import {
   byMonth,
   cumulative,
