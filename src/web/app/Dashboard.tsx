@@ -7,6 +7,7 @@ import {
 import {
   AXES,
   axisBounds,
+  groupsOf,
   inRange,
   itemSpend,
   keepsItemsOnly,
@@ -31,7 +32,7 @@ import {
 } from "../../core/stats.ts";
 import { plural } from "../../core/plural.ts";
 import type { Categorized } from "../../core/types.ts";
-import { Empty, InfoTip, Panel, StatTile, deltaInfo } from "./Cards.tsx";
+import { InfoTip, NoMatches, Panel, StatTile, deltaInfo } from "./Cards.tsx";
 import { DivergingBars, HorizontalBars } from "./Charts.tsx";
 import { GROUP_LABEL, useChartGroup, type Group } from "./chartGroup.ts";
 import { mapRules, type RulesApi } from "./data.ts";
@@ -267,7 +268,7 @@ const Breakdowns = ({
               </Panel>
             )}
 
-            {tone === "spend" && !single && deltas.length > 0 && (
+            {tone === "spend" && !single && deltas.length >= minBars && (
               <Panel title={`Biggest changes vs ${vsLabel}`} icon={ChangesIcon}>
                 <DivergingBars deltas={deltas} onPick={onCategory} />
               </Panel>
@@ -314,7 +315,25 @@ const alignTo = (series: SeriesPoint[], compare: SeriesPoint[], p: Period) =>
     ? compare.map((c, i) => ({ ...c, at: series[i]?.at ?? c.at }))
     : compare;
 
+const chartBounds = (
+  shown: Categorized[],
+  all: Categorized[],
+  f: Filters,
+  p: Period,
+  compared: boolean,
+) => {
+  if (f.countries.length !== 1 || compared) return axisBounds(all, p);
+  const dates = shown.map((t) => t.date).sort();
+  return { from: dates[0]!, to: dates.at(-1)! };
+};
+
 const oneCategory = (f: Filters) => f.categories.length === 1 && !f.or.length;
+
+const minBarsOf = (f: Filters) =>
+  keepsItemsOnly(f) ||
+  (f.or.length > 0 && groupsOf(f).every((g) => g.merchants.length > 0))
+    ? 2
+    : 1;
 
 interface DashboardProps {
   txns: Categorized[];
@@ -323,6 +342,7 @@ interface DashboardProps {
   onFilters: SetFilters;
   rules: RulesApi;
   period: Period;
+  onPeriod: (period: string) => void;
   grain: Grain;
   offered: Grain[];
   onGrain: (grain: Grain) => void;
@@ -335,6 +355,7 @@ export const Dashboard = ({
   onFilters,
   rules,
   period: p,
+  onPeriod,
   grain,
   offered,
   onGrain,
@@ -351,16 +372,12 @@ export const Dashboard = ({
   const { by, offered: groupsOffered, top, setGroup } = useChartGroup(shown);
 
   if (shown.length === 0)
-    return <Empty>No transactions match the current filters.</Empty>;
+    return <NoMatches elsewhere={matching(txns)} onPeriod={onPeriod} />;
 
-  const vs =
-    p.prev && txns.some((t) => inRange(t, p.prev!.from, p.prev!.to))
-      ? p.prev
-      : null;
-
-  const previous = vs
-    ? matching(txns.filter((t) => inRange(t, vs.from, vs.to)))
+  const previous = p.prev
+    ? matching(txns.filter((t) => inRange(t, p.prev!.from, p.prev!.to)))
     : [];
+  const vs = previous.length > 0 ? p.prev : null;
 
   const stats = monthStats(p.label, shown, vs ? previous : undefined);
   const prev = monthStats("previous", previous);
@@ -371,7 +388,7 @@ export const Dashboard = ({
   const running = grain === "running";
   const bucket: Bucket = grain === "month" ? "month" : "day";
 
-  const { from, to } = axisBounds(all, p);
+  const { from, to } = chartBounds(shown, all, filters, p, vs !== null);
 
   const build = (rows: Categorized[], a: string, b: string) => {
     const raw =
@@ -430,11 +447,6 @@ export const Dashboard = ({
         }
       />
 
-      {/* Outside the grid, not a `col-span-full` inside it. `nth-child` counts
-          DOM children, but a full-width card owns a whole row on its own — so
-          one sitting in the grid shifts what "odd" means for everything after
-          it, and the last card is left alone in half a row exactly when the
-          rule below exists to prevent that. */}
       {series.length > 1 && (
         <div className="mb-8">
           <Panel
@@ -479,7 +491,7 @@ export const Dashboard = ({
         single={single}
         grid={p.kind === "all" ? CARD_GRID_3 : CARD_GRID}
         vsLabel={vs?.label}
-        minBars={byItem ? 2 : 1}
+        minBars={minBarsOf(filters)}
       />
 
       {!byItem && items}
