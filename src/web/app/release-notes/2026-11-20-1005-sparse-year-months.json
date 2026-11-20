@@ -1,0 +1,11 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Empty months count as zero",
+      "detail": "A month with no spending shows as zero and counts in the average per month.",
+      "area": "overview",
+      "kind": "fixed"
+    }
+  ]
+}
