@@ -3,6 +3,7 @@ import { topSpendGroups } from "../../core/stats.ts";
 import type { Categorized } from "../../core/types.ts";
 import { categoryLabel, rowLabel } from "./format.ts";
 import { useShortcuts } from "./Shortcuts.tsx";
+import type { Grain } from "./url.ts";
 
 export type Group = "total" | "merchant" | "category";
 
@@ -13,6 +14,33 @@ export const GROUP_LABEL: Record<Group, string> = {
   merchant: "Merchant",
   category: "Category",
 };
+
+export const GRAIN_SUFFIX: Record<Grain, string> = {
+  running: ", running total",
+  day: " by day",
+  month: " by month",
+};
+
+export const GRAIN_LABEL: Record<Grain, string> = {
+  running: "Running total",
+  day: "Per day",
+  month: "Per month",
+};
+
+export const chartSubject = (
+  by: Group,
+  anyIncome: boolean,
+  anySpend: boolean,
+) =>
+  by === "merchant"
+    ? "Top merchants"
+    : by === "category"
+      ? "Top categories"
+      : anyIncome
+        ? anySpend
+          ? "Income & spend"
+          : "Income"
+        : "Spending";
 
 const GROUPS: Group[] = ["total", "merchant", "category"];
 
