@@ -2,11 +2,11 @@ import { personMerchants, type Filters } from "../../core/select.ts";
 import type { MonthStats } from "../../core/stats.ts";
 import type { Categorized } from "../../core/types.ts";
 
-export const PERSON_LABEL = {
-  totalOut: "Paid",
-  totalIn: "Received",
-  net: "Net",
-};
+const PERSON_LABEL = { totalOut: "Paid", totalIn: "Received", net: "Net" };
+
+export interface Labels {
+  names?: typeof PERSON_LABEL;
+}
 
 export const onePerson = (f: Filters, rows: Categorized[]) =>
   f.merchants.length === 1 &&
@@ -21,8 +21,18 @@ const asPerson = (s: MonthStats): MonthStats => ({
 });
 
 export const personView = <T extends { stats: MonthStats; prev: MonthStats }>(
+  person: boolean,
   p: T,
-) => ({ ...p, stats: asPerson(p.stats), prev: asPerson(p.prev), yearly: null });
+) =>
+  person
+    ? {
+        ...p,
+        stats: asPerson(p.stats),
+        prev: asPerson(p.prev),
+        yearly: null,
+        names: PERSON_LABEL,
+      }
+    : p;
 
 export const grossRows = (person: boolean, rows: Categorized[]) =>
   person

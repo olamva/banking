@@ -37,7 +37,7 @@ import { DivergingBars, HorizontalBars } from "./Charts.tsx";
 import { GROUP_LABEL, useChartGroup, type Group } from "./chartGroup.ts";
 import { mapRules, type RulesApi } from "./data.ts";
 import { Items } from "./Items.tsx";
-import { PERSON_LABEL, grossRows, onePerson, personView } from "./person.ts";
+import { grossRows, onePerson, personView, type Labels } from "./person.ts";
 import { SpendLines } from "./SpendLines.tsx";
 import type { Bucket } from "./axis.ts";
 import { SubscriptionsCard } from "./Transactions.tsx";
@@ -122,13 +122,12 @@ const GRAIN_LABEL: Record<Grain, string> = {
 
 type Stats = ReturnType<typeof monthStats>;
 
-interface TotalsProps {
+interface TotalsProps extends Labels {
   stats: Stats;
   prev: Stats;
   yearly: ReturnType<typeof yearStats> | null;
   vsLabel?: string;
   info?: ReactNode;
-  person: boolean;
 }
 
 // Spent and Income each hide when that side of the period is empty. Net needs
@@ -153,38 +152,31 @@ const tileSub = (
     .filter(Boolean)
     .join(" · ") || undefined;
 
-const Totals = ({ person, ...props }: TotalsProps) => {
-  const { stats, prev, yearly, vsLabel, info } = person
-    ? personView(props)
-    : props;
-  return (
-    <div className="mb-8 grid grid-cols-[repeat(auto-fit,minmax(min(150px,100%),1fr))] gap-x-10 gap-y-5 max-sm:grid-cols-2 max-sm:[&>*:last-child:nth-child(odd)]:col-span-full">
-      {TILES.map(([key, label, goodIfUp]) =>
-        (
-          key === "net"
-            ? stats.totalIn > 0 && stats.totalOut !== 0
-            : stats[key] !== 0
-        )
-          ? [
-              <StatTile
-                key={key}
-                label={person ? PERSON_LABEL[key] : label}
-                value={fmtNOK(stats[key])}
-                sub={tileSub(key, stats, yearly)}
-                info={key === "totalOut" && info}
-                vs={vsLabel}
-                delta={
-                  vsLabel
-                    ? deltaInfo(stats[key], prev[key], goodIfUp)
-                    : undefined
-                }
-              />,
-            ]
-          : [],
-      )}
-    </div>
-  );
-};
+const Totals = ({ stats, prev, yearly, vsLabel, info, names }: TotalsProps) => (
+  <div className="mb-8 grid grid-cols-[repeat(auto-fit,minmax(min(150px,100%),1fr))] gap-x-10 gap-y-5 max-sm:grid-cols-2 max-sm:[&>*:last-child:nth-child(odd)]:col-span-full">
+    {TILES.map(([key, label, goodIfUp]) =>
+      (
+        key === "net"
+          ? stats.totalIn > 0 && stats.totalOut !== 0
+          : stats[key] !== 0
+      )
+        ? [
+            <StatTile
+              key={key}
+              label={names?.[key] ?? label}
+              value={fmtNOK(stats[key])}
+              sub={tileSub(key, stats, yearly)}
+              info={key === "totalOut" && info}
+              vs={vsLabel}
+              delta={
+                vsLabel ? deltaInfo(stats[key], prev[key], goodIfUp) : undefined
+              }
+            />,
+          ]
+        : [],
+    )}
+  </div>
+);
 
 interface BreakdownsProps {
   stats: Stats;
@@ -338,8 +330,7 @@ const chartBounds = (
 
 const oneCategory = (f: Filters) => f.categories.length === 1 && !f.or.length;
 
-const minBarsOf = (f: Filters, person: boolean) =>
-  person ||
+const minBarsOf = (f: Filters) =>
   keepsItemsOnly(f) ||
   (f.or.length > 0 && groupsOf(f).every((g) => g.merchants.length > 0))
     ? 2
@@ -401,10 +392,9 @@ export const Dashboard = ({
   const { from, to } = chartBounds(shown, all, filters, p, vs !== null);
 
   const person = onePerson(filters, shown);
-  const build = (input: Categorized[], a: string, b: string) => {
-    const rows = grossRows(person, input);
-    const raw =
-      bucket === "day" ? dailySeries(rows, a, b) : monthlySeries(rows);
+  const build = (rows: Categorized[], a: string, b: string) => {
+    const g = grossRows(person, rows);
+    const raw = bucket === "day" ? dailySeries(g, a, b) : monthlySeries(g);
     return running ? cumulative(raw) : raw;
   };
 
@@ -447,11 +437,8 @@ export const Dashboard = ({
   return (
     <>
       <Totals
-        stats={stats}
-        prev={prev}
-        yearly={yearly}
+        {...personView(person, { stats, prev, yearly })}
         vsLabel={vs?.label}
-        person={person}
         info={
           <ExcludedInfo
             excluded={totals(all).excluded}
@@ -504,7 +491,7 @@ export const Dashboard = ({
         single={single}
         grid={p.kind === "all" ? CARD_GRID_3 : CARD_GRID}
         vsLabel={vs?.label}
-        minBars={minBarsOf(filters, person)}
+        minBars={person ? 2 : minBarsOf(filters)}
       />
 
       {!byItem && items}
