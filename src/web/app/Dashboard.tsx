@@ -31,7 +31,7 @@ import {
 } from "../../core/stats.ts";
 import { plural } from "../../core/plural.ts";
 import type { Categorized } from "../../core/types.ts";
-import { Empty, InfoTip, Panel, StatTile, deltaInfo } from "./Cards.tsx";
+import { InfoTip, Panel, StatTile, deltaInfo } from "./Cards.tsx";
 import { DivergingBars, HorizontalBars } from "./Charts.tsx";
 import { GROUP_LABEL, useChartGroup, type Group } from "./chartGroup.ts";
 import { mapRules, type RulesApi } from "./data.ts";
@@ -48,6 +48,7 @@ import {
   RefundIcon,
 } from "./icons.ts";
 import { ChoiceToggle } from "./ChoiceToggle.tsx";
+import { NothingCounted } from "./NothingCounted.tsx";
 import type { Grain } from "./url.ts";
 
 const CARD_GRID =
@@ -314,18 +315,7 @@ const alignTo = (series: SeriesPoint[], compare: SeriesPoint[], p: Period) =>
     ? compare.map((c, i) => ({ ...c, at: series[i]?.at ?? c.at }))
     : compare;
 
-const NothingCounted = ({ rows }: { rows: Categorized[] }) => {
-  const { count, total } = totals(rows).excluded;
-  return (
-    <Empty>
-      {count === 0
-        ? "No transactions match the current filters."
-        : `${plural(count, "transaction")} for ${fmtNOK(total)} match these filters. They are internal transfers or card bill payments. Totals and charts do not count them. Open Transactions to see them.`}
-    </Empty>
-  );
-};
-
-const oneCategory =(f: Filters) => f.categories.length === 1 && !f.or.length;
+const oneCategory = (f: Filters) => f.categories.length === 1 && !f.or.length;
 
 interface DashboardProps {
   txns: Categorized[];
@@ -337,6 +327,7 @@ interface DashboardProps {
   grain: Grain;
   offered: Grain[];
   onGrain: (grain: Grain) => void;
+  onTransactions: () => void;
 }
 
 export const Dashboard = ({
@@ -349,6 +340,7 @@ export const Dashboard = ({
   grain,
   offered,
   onGrain,
+  onTransactions,
 }: DashboardProps) => {
   const names = mapRules(rules, "items");
   const kinds = mapRules(rules, "item-categories");
@@ -361,7 +353,8 @@ export const Dashboard = ({
   const shown = matching(all);
   const { by, offered: groupsOffered, top, setGroup } = useChartGroup(shown);
 
-  if (shown.every((t) => t.excluded)) return <NothingCounted rows={shown} />;
+  if (shown.every((t) => t.excluded))
+    return <NothingCounted rows={shown} onTransactions={onTransactions} />;
 
   const vs =
     p.prev && txns.some((t) => inRange(t, p.prev!.from, p.prev!.to))

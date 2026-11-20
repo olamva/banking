@@ -3,7 +3,7 @@
   "highlights": [
     {
       "title": "Transfers on the overview",
-      "detail": "A filter to only internal transfers now gives their count and sum, not an empty chart.",
+      "detail": "A filter to only internal transfers now gives their count and a link to them, not an empty chart.",
       "area": "overview",
       "kind": "fixed"
     }
