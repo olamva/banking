@@ -7,6 +7,7 @@ import {
 import {
   AXES,
   axisBounds,
+  groupsOf,
   inRange,
   itemSpend,
   keepsItemsOnly,
@@ -267,7 +268,7 @@ const Breakdowns = ({
               </Panel>
             )}
 
-            {tone === "spend" && !single && deltas.length > 0 && (
+            {tone === "spend" && !single && deltas.length >= minBars && (
               <Panel title={`Biggest changes vs ${vsLabel}`} icon={ChangesIcon}>
                 <DivergingBars deltas={deltas} onPick={onCategory} />
               </Panel>
@@ -315,6 +316,12 @@ const alignTo = (series: SeriesPoint[], compare: SeriesPoint[], p: Period) =>
     : compare;
 
 const oneCategory = (f: Filters) => f.categories.length === 1 && !f.or.length;
+
+const minBarsOf = (f: Filters) =>
+  keepsItemsOnly(f) ||
+  (f.or.length > 0 && groupsOf(f).every((g) => g.merchants.length > 0))
+    ? 2
+    : 1;
 
 interface DashboardProps {
   txns: Categorized[];
@@ -479,7 +486,7 @@ export const Dashboard = ({
         single={single}
         grid={p.kind === "all" ? CARD_GRID_3 : CARD_GRID}
         vsLabel={vs?.label}
-        minBars={byItem ? 2 : 1}
+        minBars={minBarsOf(filters)}
       />
 
       {!byItem && items}
