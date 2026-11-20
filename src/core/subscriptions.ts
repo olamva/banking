@@ -1,4 +1,4 @@
-import { merchantOf } from "./select.ts";
+import { merchantOf, type Period } from "./select.ts";
 import type { Categorized } from "./types.ts";
 import type { MonthStats } from "./stats.ts";
 
@@ -62,6 +62,9 @@ export function subscriptionGroups(txns: Categorized[]): SubscriptionGroup[] {
     }))
     .sort((a, b) => b.total - a.total);
 }
+
+export const subscriptionGroupsIn = (p: Period, txns: Categorized[]) =>
+  p.from && p.from === p.to ? [] : subscriptionGroups(txns);
 
 export function subsAndRecurring(stats: MonthStats): Categorized[] {
   const seen = new Set<string>();

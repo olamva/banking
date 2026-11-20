@@ -23,7 +23,7 @@ import {
   dailySeries,
   monthStats,
   monthlySeries,
-  subscriptionGroups,
+  subscriptionGroupsIn,
   totals,
   visibleDeltas,
   withGaps,
@@ -333,9 +333,6 @@ const minBarsOf = (f: Filters) =>
     ? 2
     : 1;
 
-const recurring = (p: Period, rows: Categorized[]) =>
-  p.from && p.from === p.to ? [] : subscriptionGroups(rows);
-
 interface DashboardProps {
   txns: Categorized[];
   all: Categorized[];
@@ -489,7 +486,7 @@ export const Dashboard = ({
 
       <Breakdowns
         stats={stats}
-        groups={recurring(p, shown)}
+        groups={subscriptionGroupsIn(p, shown)}
         onFilters={onFilters}
         single={single}
         grid={p.kind === "all" ? CARD_GRID_3 : CARD_GRID}
