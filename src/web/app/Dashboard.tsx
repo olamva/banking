@@ -373,17 +373,19 @@ export const Dashboard = ({
   const stats = monthStats(p.label, shown, vs ? previous : undefined);
   const prev = monthStats("previous", previous);
 
+  const { from, to } = chartBounds(shown, all, filters, p, vs !== null);
+
   const months = byMonth(shown);
-  const yearly = timeline(months, shown) ? yearStats(p.label, months) : null;
+  const yearly = timeline(months, shown)
+    ? yearStats(p.label, months, from, to)
+    : null;
 
   const running = grain === "running";
   const bucket: Bucket = grain === "month" ? "month" : "day";
 
-  const { from, to } = chartBounds(shown, all, filters, p, vs !== null);
-
   const build = (rows: Categorized[], a: string, b: string) => {
     const raw =
-      bucket === "day" ? dailySeries(rows, a, b) : monthlySeries(rows);
+      bucket === "day" ? dailySeries(rows, a, b) : monthlySeries(rows, a, b);
     return running ? cumulative(raw) : raw;
   };
 

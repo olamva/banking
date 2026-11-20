@@ -27,6 +27,17 @@ interface SpendLinesProps {
   groups: GroupSeries[];
 }
 
+const trendOf = (
+  dense: (SeriesPoint | null)[],
+  bucket: Bucket,
+  offered: boolean,
+) =>
+  offered &&
+  (bucket === "day" ||
+    dense.filter((p) => p && p.totalOut > 0).length * 2 >= dense.length)
+    ? spendTrend(dense)
+    : null;
+
 export const SpendLines = ({
   series,
   bucket,
@@ -66,7 +77,7 @@ export const SpendLines = ({
   const clusterW = plotW / Math.max(dense.length, 1);
   const px = (i: number) => padL + i * clusterW + clusterW / 2;
 
-  const trend = offersTrend ? spendTrend(dense) : null;
+  const trend = trendOf(dense, bucket, offersTrend);
   const ends = trend
     ? [0, dense.length - 1].map((x) => trend.intercept + trend.slope * x)
     : [];
