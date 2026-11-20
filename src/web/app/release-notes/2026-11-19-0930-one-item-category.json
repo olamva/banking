@@ -3,7 +3,7 @@
   "highlights": [
     {
       "title": "One item category",
-      "detail": "When all items share one category, the summary names it instead of a chart and a column.",
+      "detail": "When all items share one category, the item summary names it instead of a table column.",
       "area": "items",
       "kind": "improved"
     }

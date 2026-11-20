@@ -1,0 +1,11 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Spending line below zero",
+      "detail": "The chart now draws the spending line when refunds are larger than spending.",
+      "area": "overview",
+      "kind": "fixed"
+    }
+  ]
+}
