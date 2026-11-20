@@ -318,7 +318,9 @@ const timeline = (points: unknown[], rows: Categorized[]) =>
   points.length > 1 && !sparse(rows);
 
 const minBarsOf = (f: Filters) =>
-  keepsItemsOnly(f) || groupsOf(f).every((g) => g.merchants.length > 0)
+  keepsItemsOnly(f) ||
+  f.withReceipt ||
+  groupsOf(f).every((g) => g.merchants.length > 0)
     ? 2
     : 1;
 
