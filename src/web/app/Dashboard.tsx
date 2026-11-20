@@ -7,6 +7,7 @@ import {
 import {
   AXES,
   axisBounds,
+  groupsOf,
   inRange,
   itemSpend,
   keepsItemsOnly,
@@ -24,6 +25,7 @@ import {
   subscriptionGroups,
   totals,
   visibleDeltas,
+  withGaps,
   yearStats,
   type ExcludedSummary,
   type SeriesPoint,
@@ -31,9 +33,15 @@ import {
 } from "../../core/stats.ts";
 import { plural } from "../../core/plural.ts";
 import type { Categorized } from "../../core/types.ts";
-import { Empty, InfoTip, Panel, StatTile, deltaInfo } from "./Cards.tsx";
+import { InfoTip, NoMatches, Panel, StatTile, deltaInfo } from "./Cards.tsx";
 import { DivergingBars, HorizontalBars } from "./Charts.tsx";
-import { GROUP_LABEL, useChartGroup, type Group } from "./chartGroup.ts";
+import {
+  GRAIN_LABEL,
+  GRAIN_SUFFIX,
+  GROUP_LABEL,
+  chartSubject,
+  useChartGroup,
+} from "./chartGroup.ts";
 import { mapRules, type RulesApi } from "./data.ts";
 import { Items } from "./Items.tsx";
 import { SpendLines } from "./SpendLines.tsx";
@@ -64,10 +72,9 @@ interface ExcludedInfoProps {
 export const ExcludedInfo = ({ excluded, shown }: ExcludedInfoProps) =>
   shown || excluded.count === 0 ? null : (
     <InfoTip label="About internal transfers" className="-my-1">
-      {plural(excluded.count, "transaction")}{" "}
-      for {fmtNOK(excluded.total)} in this period are internal transfers or card
-      bill payments. They are not counted. Turn on Show internal transfers in
-      Filter to see them.
+      {plural(excluded.count, "transaction")} for {fmtNOK(excluded.total)} in
+      this period are internal transfers or card bill payments. They are not
+      counted. Turn on Show internal transfers in Filter to see them.
     </InfoTip>
   );
 
@@ -94,29 +101,6 @@ export const pick =
 
 const slugsByLabel = (slugs: string[]) =>
   new Map(slugs.map((s) => [categoryLabel(s), s]));
-
-const GRAIN_SUFFIX: Record<Grain, string> = {
-  running: ", running total",
-  day: " by day",
-  month: " by month",
-};
-
-const chartSubject = (by: Group, anyIncome: boolean, anySpend: boolean) =>
-  by === "merchant"
-    ? "Top merchants"
-    : by === "category"
-      ? "Top categories"
-      : anyIncome
-        ? anySpend
-          ? "Income & spend"
-          : "Income"
-        : "Spending";
-
-const GRAIN_LABEL: Record<Grain, string> = {
-  running: "Running total",
-  day: "Per day",
-  month: "Per month",
-};
 
 type Stats = ReturnType<typeof monthStats>;
 
@@ -257,17 +241,17 @@ const Breakdowns = ({
             {!single &&
               (cats.length >= minBars ||
                 (cats[0]?.subs.length ?? 0) >= minBars) && (
-              <Panel title={`${side} by category`} icon={CategoryIcon}>
-                <HorizontalBars
-                  items={cats}
-                  onPick={onCategory}
-                  onPickSub={onSubcategory}
-                  tone={tone}
-                />
-              </Panel>
-            )}
+                <Panel title={`${side} by category`} icon={CategoryIcon}>
+                  <HorizontalBars
+                    items={cats}
+                    onPick={onCategory}
+                    onPickSub={onSubcategory}
+                    tone={tone}
+                  />
+                </Panel>
+              )}
 
-            {tone === "spend" && !single && deltas.length > 0 && (
+            {tone === "spend" && !single && deltas.length >= minBars && (
               <Panel title={`Biggest changes vs ${vsLabel}`} icon={ChangesIcon}>
                 <DivergingBars deltas={deltas} onPick={onCategory} />
               </Panel>
@@ -314,7 +298,32 @@ const alignTo = (series: SeriesPoint[], compare: SeriesPoint[], p: Period) =>
     ? compare.map((c, i) => ({ ...c, at: series[i]?.at ?? c.at }))
     : compare;
 
+const chartBounds = (
+  shown: Categorized[],
+  all: Categorized[],
+  f: Filters,
+  p: Period,
+  compared: boolean,
+) => {
+  if (f.countries.length !== 1 || compared) return axisBounds(all, p);
+  const dates = shown.map((t) => t.date).sort();
+  return { from: dates[0]!, to: dates.at(-1)! };
+};
+
 const oneCategory = (f: Filters) => f.categories.length === 1 && !f.or.length;
+
+const sparse = (rows: Categorized[]) =>
+  rows.length * 12 < withGaps(monthlySeries(rows)).length;
+
+const timeline = (points: unknown[], rows: Categorized[]) =>
+  points.length > 1 && !sparse(rows);
+
+const minBarsOf = (f: Filters) =>
+  keepsItemsOnly(f) ||
+  f.withReceipt ||
+  (f.or.length > 0 && groupsOf(f).every((g) => g.merchants.length > 0))
+    ? 2
+    : 1;
 
 interface DashboardProps {
   txns: Categorized[];
@@ -323,6 +332,7 @@ interface DashboardProps {
   onFilters: SetFilters;
   rules: RulesApi;
   period: Period;
+  onPeriod: (period: string) => void;
   grain: Grain;
   offered: Grain[];
   onGrain: (grain: Grain) => void;
@@ -335,6 +345,7 @@ export const Dashboard = ({
   onFilters,
   rules,
   period: p,
+  onPeriod,
   grain,
   offered,
   onGrain,
@@ -351,27 +362,23 @@ export const Dashboard = ({
   const { by, offered: groupsOffered, top, setGroup } = useChartGroup(shown);
 
   if (shown.length === 0)
-    return <Empty>No transactions match the current filters.</Empty>;
+    return <NoMatches elsewhere={matching(txns)} onPeriod={onPeriod} />;
 
-  const vs =
-    p.prev && txns.some((t) => inRange(t, p.prev!.from, p.prev!.to))
-      ? p.prev
-      : null;
-
-  const previous = vs
-    ? matching(txns.filter((t) => inRange(t, vs.from, vs.to)))
+  const previous = p.prev
+    ? matching(txns.filter((t) => inRange(t, p.prev!.from, p.prev!.to)))
     : [];
+  const vs = previous.length > 0 ? p.prev : null;
 
   const stats = monthStats(p.label, shown, vs ? previous : undefined);
   const prev = monthStats("previous", previous);
 
   const months = byMonth(shown);
-  const yearly = months.length > 1 ? yearStats(p.label, months) : null;
+  const yearly = timeline(months, shown) ? yearStats(p.label, months) : null;
 
   const running = grain === "running";
   const bucket: Bucket = grain === "month" ? "month" : "day";
 
-  const { from, to } = axisBounds(all, p);
+  const { from, to } = chartBounds(shown, all, filters, p, vs !== null);
 
   const build = (rows: Categorized[], a: string, b: string) => {
     const raw =
@@ -430,12 +437,7 @@ export const Dashboard = ({
         }
       />
 
-      {/* Outside the grid, not a `col-span-full` inside it. `nth-child` counts
-          DOM children, but a full-width card owns a whole row on its own — so
-          one sitting in the grid shifts what "odd" means for everything after
-          it, and the last card is left alone in half a row exactly when the
-          rule below exists to prevent that. */}
-      {series.length > 1 && (
+      {timeline(series, shown) && (
         <div className="mb-8">
           <Panel
             title={`${chartSubject(by, anyIncome, anySpend)}${GRAIN_SUFFIX[grain]}`}
@@ -479,7 +481,7 @@ export const Dashboard = ({
         single={single}
         grid={p.kind === "all" ? CARD_GRID_3 : CARD_GRID}
         vsLabel={vs?.label}
-        minBars={byItem ? 2 : 1}
+        minBars={minBarsOf(filters)}
       />
 
       {!byItem && items}

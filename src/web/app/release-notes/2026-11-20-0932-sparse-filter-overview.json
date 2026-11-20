@@ -1,0 +1,11 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Rare purchases on the overview",
+      "detail": "A filter with less than one purchase a year hides the empty monthly chart and the monthly average.",
+      "area": "overview",
+      "kind": "improved"
+    }
+  ]
+}

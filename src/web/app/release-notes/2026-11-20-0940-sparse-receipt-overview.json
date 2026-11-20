@@ -1,0 +1,11 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Fewer empty receipt cards",
+      "detail": "With receipts on, the overview hides a category or merchant card that has only one bar.",
+      "area": "overview",
+      "kind": "improved"
+    }
+  ]
+}

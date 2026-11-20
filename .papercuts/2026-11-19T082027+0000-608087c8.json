@@ -1,0 +1,11 @@
+{
+  "id": "608087c8",
+  "ts": "2026-11-19T08:20:27+00:00",
+  "text": "pnpm shot page.goto 10s timeout fails when parallel threads push load average near 100",
+  "tags": [],
+  "who": "agent",
+  "model": "claude-opus-5-5",
+  "session": "6b237049",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3-175e200d-66b3e596907cc321",
+  "branch": "t3/empty-filter-period"
+}
