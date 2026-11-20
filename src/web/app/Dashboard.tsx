@@ -48,7 +48,7 @@ import { Items } from "./Items.tsx";
 import { SpendLines } from "./SpendLines.tsx";
 import type { Bucket } from "./axis.ts";
 import { SubscriptionsCard } from "./Transactions.tsx";
-import { categoryLabel, fmtNOK, subcategoryLabel } from "./format.ts";
+import { categoryLabel, fmtNOK, perMonth, subcategoryLabel } from "./format.ts";
 import {
   CategoryIcon,
   ChangesIcon,
@@ -130,7 +130,7 @@ const tileSub = (
     key === "totalOut" && stats.refunded > 0
       ? `after ${fmtNOK(stats.refunded)} refunded`
       : "",
-    yearly ? `${fmtNOK(yearly.averageMonth[key])} / month` : "",
+    yearly ? perMonth(yearly.averageMonth[key]) : "",
   ]
     .filter(Boolean)
     .join(" · ") || undefined;
@@ -320,6 +320,7 @@ const timeline = (points: unknown[], rows: Categorized[]) =>
 
 const minBarsOf = (f: Filters) =>
   keepsItemsOnly(f) ||
+  f.accounts.length > 0 ||
   f.withReceipt ||
   groupsOf(f).every((g) => g.merchants.length > 0) ||
   (oneCategory(f) && !f.categories[0]!.includes("/"))
