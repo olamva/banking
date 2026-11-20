@@ -1,0 +1,11 @@
+{
+  "id": "5877b509",
+  "ts": "2026-11-19T08:14:45+00:00",
+  "text": "pnpm shot page.goto hits its 10 s timeout on a cold Vite start, often on the first run and with --before",
+  "tags": [],
+  "who": "agent",
+  "model": "claude-opus-5-5",
+  "session": "a06e84a4",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3-82fa7ae4-336d7163cf4d8d86",
+  "branch": "t3/overview-multi-item-filter"
+}
