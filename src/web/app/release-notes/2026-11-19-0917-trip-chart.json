@@ -1,0 +1,17 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Trip chart",
+      "detail": "A filter to one country shows the chart only for the days of the trip.",
+      "area": "overview",
+      "kind": "improved"
+    },
+    {
+      "title": "No empty comparison",
+      "detail": "The overview compares with the previous period only when the filter matches rows in it.",
+      "area": "overview",
+      "kind": "fixed"
+    }
+  ]
+}
