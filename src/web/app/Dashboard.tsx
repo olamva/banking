@@ -43,6 +43,7 @@ import {
 } from "./chartGroup.ts";
 import { mapRules, type RulesApi } from "./data.ts";
 import { Items } from "./Items.tsx";
+import { grossRows, onePerson, personView, type Labels } from "./person.ts";
 import { SpendLines } from "./SpendLines.tsx";
 import type { Bucket } from "./axis.ts";
 import { SubscriptionsCard } from "./Transactions.tsx";
@@ -90,7 +91,7 @@ const slugsByLabel = (slugs: string[]) =>
 
 type Stats = ReturnType<typeof monthStats>;
 
-interface TotalsProps {
+interface TotalsProps extends Labels {
   stats: Stats;
   prev: Stats;
   yearly: ReturnType<typeof yearStats> | null;
@@ -120,7 +121,7 @@ const tileSub = (
     .filter(Boolean)
     .join(" · ") || undefined;
 
-const Totals = ({ stats, prev, yearly, vsLabel, info }: TotalsProps) => (
+const Totals = ({ stats, prev, yearly, vsLabel, info, names }: TotalsProps) => (
   <div className="mb-8 grid grid-cols-[repeat(auto-fit,minmax(min(150px,100%),1fr))] gap-x-10 gap-y-5 max-sm:grid-cols-2 max-sm:[&>*:last-child:nth-child(odd)]:col-span-full">
     {TILES.map(([key, label, goodIfUp]) =>
       (
@@ -131,7 +132,7 @@ const Totals = ({ stats, prev, yearly, vsLabel, info }: TotalsProps) => (
         ? [
             <StatTile
               key={key}
-              label={label}
+              label={names?.[key] ?? label}
               value={fmtNOK(stats[key])}
               sub={tileSub(key, stats, yearly)}
               info={key === "totalOut" && info}
@@ -249,7 +250,7 @@ const Breakdowns = ({
               </Panel>
             )}
 
-            {tone === "spend" && refunds.length > 0 && (
+            {tone === "spend" && refunds.length >= minBars && (
               <Panel
                 title="Refunds by merchant"
                 icon={RefundIcon}
@@ -380,9 +381,10 @@ export const Dashboard = ({
   const running = grain === "running";
   const bucket: Bucket = grain === "month" ? "month" : "day";
 
+  const person = onePerson(filters, shown);
   const build = (rows: Categorized[], a: string, b: string) => {
-    const raw =
-      bucket === "day" ? dailySeries(rows, a, b) : monthlySeries(rows, a, b);
+    const g = grossRows(person, rows);
+    const raw = (bucket === "day" ? dailySeries : monthlySeries)(g, a, b);
     return running ? cumulative(raw) : raw;
   };
 
@@ -425,9 +427,7 @@ export const Dashboard = ({
   return (
     <>
       <Totals
-        stats={stats}
-        prev={prev}
-        yearly={yearly}
+        {...personView(person, { stats, prev, yearly })}
         vsLabel={vs?.label}
         info={
           <ExcludedInfo
