@@ -10,9 +10,11 @@ import {
 import type { Receipt, ReceiptLine } from "../../src/core/receipts.ts";
 import {
   itemSpend,
+  keepsItemsOnly,
   matchesFilters,
   NO_FILTERS,
   NO_GROUP,
+  searchAsItem,
   withoutItems,
 } from "../../src/core/select.ts";
 import type { Categorized } from "../../src/core/types.ts";
@@ -273,6 +275,30 @@ test("an item filter counts only the item lines, unless an OR group keeps the wh
     }),
     [-27.2, -300],
   );
+});
+
+test("a search for one item and no merchant counts only the item lines", () => {
+  const rows = withItems([
+    {
+      ...txn("13", "2026-09-17T10:00:00Z", [
+        line("Butterchicken Saritas", 27.2),
+        line("Grandiosa", 900),
+      ]),
+      amount: -927.2,
+      description: "",
+      counterparty: "Rema 1000",
+    },
+  ]);
+  const spent = (search: string) => {
+    const filters = searchAsItem(rows, { ...NO_FILTERS, search });
+    const kept = rows.filter((t) => matchesFilters(t, filters));
+    return keepsItemsOnly(filters)
+      ? itemSpend(kept, filters, {}, {}).map((t) => t.amount)
+      : kept.map((t) => t.amount);
+  };
+  assert.deepEqual(spent("butter"), [-27.2]);
+  assert.deepEqual(spent("rema"), [-927.2]);
+  assert.deepEqual(spent("sa"), [-927.2]);
 });
 
 test("the item category filter keeps receipts with a line in that category", () => {

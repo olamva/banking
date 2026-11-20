@@ -153,18 +153,32 @@ function matchesGroup(t: Categorized, f: Filters): boolean {
   if (!shown(f.accounts, f.accountsOut, [t.account])) return false;
   if (!shown(f.countries, f.countriesOut, [countryOf(t)])) return false;
   if (f.search) {
-    const q = f.search.toLowerCase();
-    const hay = (t.description + " " + (t.counterparty ?? "")).toLowerCase();
     const item = t.items?.some((k) => searchesItem(k, f.search));
-    if (!hay.includes(q) && !item) return false;
+    if (!searchesText(t, f.search) && !item) return false;
   }
   return true;
 }
+
+const searchesText = (t: Categorized, search: string) =>
+  (t.description + " " + (t.counterparty ?? ""))
+    .toLowerCase()
+    .includes(search.toLowerCase());
 
 export const searchesItem = (key: string, search: string): boolean =>
   nameKey(search)
     .split(" ")
     .every((w) => key.includes(w));
+
+export function searchAsItem(rows: Categorized[], f: Filters): Filters {
+  if (!f.search || f.or.length || keepsItemsOnly(f)) return f;
+  const hits = rows.filter((t) => matchesFilters(t, f));
+  const keys = new Set(
+    hits.flatMap((t) => t.items?.filter((k) => searchesItem(k, f.search)) ?? []),
+  );
+  return keys.size === 1 && !hits.some((t) => searchesText(t, f.search))
+    ? { ...f, search: "", items: [...keys] }
+    : f;
+}
 
 const hasItemFilter = (g: Filters) =>
   g.items.length + g.itemsOut.length + g.kinds.length + g.kindsOut.length > 0;
