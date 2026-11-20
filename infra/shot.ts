@@ -94,7 +94,7 @@ const shoot = async (
     colorScheme: theme as "dark" | "light",
     hasTouch: o.size === "phone",
   });
-  context.setDefaultTimeout(10_000);
+  context.setDefaultTimeout(60_000);
   const page = await context.newPage();
   const visible = (selector: string) =>
     page.locator(selector).filter({ visible: true }).first();

@@ -1,5 +1,12 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, beforeEach, test } from "node:test";
@@ -307,4 +314,19 @@ test("bulk validation rejects the entire edit before writing any history", () =>
   );
   assert.deepEqual(asMap("payees"), { shop: "Old" });
   assert.deepEqual(rules.versions("payees"), []);
+});
+
+test("recordEdits records a hand edit byte for byte and leaves absent files alone", () => {
+  rules.save({ file: "payees", key: "shop", value: "Old" });
+  put("payees", { shop: "Hand" });
+  rules.recordEdits();
+  const [newest] = rules.versions("payees");
+  assert.equal(rules.current("payees"), newest);
+  assert.equal(
+    readFileSync(`${dir}/.history/${newest}-payees.json`, "utf8"),
+    readFileSync(`${dir}/payees.json`, "utf8"),
+  );
+  rules.recordEdits();
+  assert.equal(rules.versions("payees").length, 3);
+  assert.equal(existsSync(`${dir}/giro.json`), false);
 });

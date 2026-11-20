@@ -104,7 +104,12 @@ if (
   const head = headNotes();
   const problems = releaseProblems(
     head,
-    baseNames(process.env.RELEASE_BASE ?? "origin/main"),
+    baseNames(
+      process.env.RELEASE_BASE ??
+        execFileSync("git", ["merge-base", "HEAD", "origin/main"], {
+          encoding: "utf8",
+        }).trim(),
+    ),
     process.env.RELEASE_EXEMPT === "true",
   );
   for (const problem of problems) console.error(problem);
