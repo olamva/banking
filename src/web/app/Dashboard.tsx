@@ -323,15 +323,11 @@ const sparse = (rows: Categorized[]) =>
 const timeline = (points: unknown[], rows: Categorized[]) =>
   points.length > 1 && !sparse(rows);
 
-const minBarsOf = (
-  f: Filters,
-  groups: SubscriptionGroup[],
-  rows: Categorized[],
-) =>
+const minBarsOf = (f: Filters, rows: Categorized[]) =>
   keepsItemsOnly(f) ||
   f.withReceipt ||
   (f.or.length > 0 && groupsOf(f).every((g) => g.merchants.length > 0)) ||
-  (groups.length === 1 && groups[0]!.count === rows.length)
+  subscriptionGroups(rows)[0]?.count === rows.length
     ? 2
     : 1;
 
@@ -422,7 +418,6 @@ export const Dashboard = ({
       : { income: false, spend: false, band: false, trend: false, compare: [] };
 
   const byItem = keepsItemsOnly(filters);
-  const subs = subscriptionGroups(shown);
   const items = (
     <Items
       rows={all}
@@ -488,12 +483,12 @@ export const Dashboard = ({
 
       <Breakdowns
         stats={stats}
-        groups={subs}
+        groups={subscriptionGroups(shown)}
         onFilters={onFilters}
         single={single}
         grid={p.kind === "all" ? CARD_GRID_3 : CARD_GRID}
         vsLabel={vs?.label}
-        minBars={minBarsOf(filters, subs, shown)}
+        minBars={minBarsOf(filters, shown)}
       />
 
       {!byItem && items}
