@@ -315,6 +315,18 @@ const alignTo = (series: SeriesPoint[], compare: SeriesPoint[], p: Period) =>
     ? compare.map((c, i) => ({ ...c, at: series[i]?.at ?? c.at }))
     : compare;
 
+const chartBounds = (
+  shown: Categorized[],
+  all: Categorized[],
+  f: Filters,
+  p: Period,
+  compared: boolean,
+) => {
+  if (f.countries.length !== 1 || compared) return axisBounds(all, p);
+  const dates = shown.map((t) => t.date).sort();
+  return { from: dates[0]!, to: dates.at(-1)! };
+};
+
 const oneCategory = (f: Filters) => f.categories.length === 1 && !f.or.length;
 
 const minBarsOf = (f: Filters) =>
@@ -360,14 +372,10 @@ export const Dashboard = ({
   if (shown.length === 0)
     return <Empty>No transactions match the current filters.</Empty>;
 
-  const vs =
-    p.prev && txns.some((t) => inRange(t, p.prev!.from, p.prev!.to))
-      ? p.prev
-      : null;
-
-  const previous = vs
-    ? matching(txns.filter((t) => inRange(t, vs.from, vs.to)))
+  const previous = p.prev
+    ? matching(txns.filter((t) => inRange(t, p.prev!.from, p.prev!.to)))
     : [];
+  const vs = previous.length > 0 ? p.prev : null;
 
   const stats = monthStats(p.label, shown, vs ? previous : undefined);
   const prev = monthStats("previous", previous);
@@ -378,7 +386,7 @@ export const Dashboard = ({
   const running = grain === "running";
   const bucket: Bucket = grain === "month" ? "month" : "day";
 
-  const { from, to } = axisBounds(all, p);
+  const { from, to } = chartBounds(shown, all, filters, p, vs !== null);
 
   const build = (rows: Categorized[], a: string, b: string) => {
     const raw =
