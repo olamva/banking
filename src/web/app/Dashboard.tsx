@@ -394,8 +394,7 @@ export const Dashboard = ({
   const person = onePerson(filters, shown);
   const build = (rows: Categorized[], a: string, b: string) => {
     const g = grossRows(person, rows);
-    const raw =
-      bucket === "day" ? dailySeries(g, a, b) : monthlySeries(g, a, b);
+    const raw = (bucket === "day" ? dailySeries : monthlySeries)(g, a, b);
     return running ? cumulative(raw) : raw;
   };
 
@@ -492,7 +491,7 @@ export const Dashboard = ({
         single={single}
         grid={p.kind === "all" ? CARD_GRID_3 : CARD_GRID}
         vsLabel={vs?.label}
-        minBars={person ? 2 : minBarsOf(filters)}
+        minBars={minBarsOf(filters)}
       />
 
       {!byItem && items}
