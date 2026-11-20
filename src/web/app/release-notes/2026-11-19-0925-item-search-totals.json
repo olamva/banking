@@ -1,0 +1,11 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Item search totals",
+      "detail": "A search for one item now counts only the item lines and shows the item on the page.",
+      "area": "overview",
+      "kind": "fixed"
+    }
+  ]
+}
