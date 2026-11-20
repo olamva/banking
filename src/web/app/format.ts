@@ -8,6 +8,9 @@ const kr = (s: string): string => `${s.replace("−", "− ")} kr`;
 
 export const fmtNOK = (n: number): string => kr(NOK.format(Math.round(n)));
 
+export const perMonth = (n: number): string =>
+  Math.round(n) ? `${fmtNOK(n)} / month` : "";
+
 const NOK_ORE = new Intl.NumberFormat("nb-NO", {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
