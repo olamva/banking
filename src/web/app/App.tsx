@@ -331,6 +331,7 @@ export const App = () => {
         onFilters={setFilters}
         rules={rules}
         period={p}
+        onPeriod={setChosen}
         grain={grain}
         offered={grains}
         onGrain={setChosenGrain}
