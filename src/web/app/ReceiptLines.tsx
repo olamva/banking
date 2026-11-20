@@ -79,12 +79,19 @@ const ITEM_ACTIONS: [ItemAction, string, IconSvgElement][] = [
 interface ItemProps {
   line: ReceiptLine;
   marked: boolean;
+  struck?: boolean;
   onItem?: (raw: string, action: ItemAction) => void;
 }
 
-const Item = ({ line, marked, onItem }: ItemProps) => {
+const Item = ({ line, marked, struck, onItem }: ItemProps) => {
   const [open, setOpen] = useState(false);
-  const body = <ItemBody line={line} />;
+  const body = (
+    <span
+      className={`block ${struck ? "text-muted-foreground line-through" : ""}`}
+    >
+      <ItemBody line={line} />
+    </span>
+  );
   if (!onItem)
     return (
       <div
@@ -164,10 +171,11 @@ const ItemBody = ({ line }: { line: ReceiptLine }) => (
 interface SlipProps {
   receipt: Receipt;
   marked?: string[];
+  struck?: string[];
   onItem?: ItemProps["onItem"];
 }
 
-export const Slip = ({ receipt, marked, onItem }: SlipProps) => {
+export const Slip = ({ receipt, marked, struck, onItem }: SlipProps) => {
   const lines = merged(receipt.lines);
   const saved = total(lines.flatMap((l) => l.discounts ?? []));
   return (
@@ -182,6 +190,7 @@ export const Slip = ({ receipt, marked, onItem }: SlipProps) => {
           key={i}
           line={l}
           marked={!!marked?.includes(l.name)}
+          struck={!!struck?.includes(l.name)}
           {...(isBought(l) && { onItem })}
         />
       ))}
@@ -216,7 +225,12 @@ export const Slip = ({ receipt, marked, onItem }: SlipProps) => {
   );
 };
 
-export const ReceiptLines = ({ receipt, marked, onItem }: SlipProps) => (
+export const ReceiptLines = ({
+  receipt,
+  marked,
+  struck,
+  onItem,
+}: SlipProps) => (
   <section className="text-xs">
     <h3 className="flex flex-wrap items-baseline gap-x-1.5 font-medium text-muted-foreground">
       Receipt
@@ -245,7 +259,12 @@ export const ReceiptLines = ({ receipt, marked, onItem }: SlipProps) => (
     )}
     {!!receipt.lines.length && (
       <div className={receipt.source === "gmail" ? "pt-1" : "pt-2"}>
-        <Slip receipt={receipt} marked={marked} onItem={onItem} />
+        <Slip
+          receipt={receipt}
+          marked={marked}
+          struck={struck}
+          onItem={onItem}
+        />
       </div>
     )}
   </section>

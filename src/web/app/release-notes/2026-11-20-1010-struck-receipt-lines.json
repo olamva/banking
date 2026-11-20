@@ -1,0 +1,11 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Excluded receipt lines",
+      "detail": "An item exclusion keeps a receipt with other items in the transaction list, counts only the other lines, and strikes out the excluded lines on the receipt.",
+      "area": "transactions",
+      "kind": "fixed"
+    }
+  ]
+}
