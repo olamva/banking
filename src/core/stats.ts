@@ -485,5 +485,6 @@ export function yearStats(
 export {
   subsAndRecurring,
   subscriptionGroups,
+  subscriptionGroupsIn,
   type SubscriptionGroup,
 } from "./subscriptions.ts";

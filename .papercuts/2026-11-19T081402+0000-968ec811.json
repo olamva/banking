@@ -1,0 +1,11 @@
+{
+  "id": "968ec811",
+  "ts": "2026-11-19T08:14:02+00:00",
+  "text": "pnpm shot page.goto times out at 10s on a cold Vite server; a retry succeeds",
+  "tags": [],
+  "who": "agent",
+  "model": "claude-opus-5-5",
+  "session": "40e48823",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3-33514e06-ba2fcc27589f5d3c",
+  "branch": "t3/income-only-overview"
+}

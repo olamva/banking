@@ -1,0 +1,11 @@
+{
+  "id": "3df323c3",
+  "ts": "2026-11-19T08:18:58+00:00",
+  "text": "pnpm shot page.goto networkidle times out at 10s on about half the runs while other threads run Vite; retries succeed",
+  "tags": [],
+  "who": "agent",
+  "model": "claude-opus-5-5",
+  "session": "01be9cda",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3-909d9f25-1d6018d639a488a3",
+  "branch": "t3/single-category-overview"
+}
