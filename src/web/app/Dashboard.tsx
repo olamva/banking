@@ -29,13 +29,11 @@ import {
   visibleDeltas,
   withGaps,
   yearStats,
-  type ExcludedSummary,
   type SeriesPoint,
   type SubscriptionGroup,
 } from "../../core/stats.ts";
-import { plural } from "../../core/plural.ts";
 import type { Categorized } from "../../core/types.ts";
-import { InfoTip, NoMatches, Panel, StatTile, deltaInfo } from "./Cards.tsx";
+import { NoMatches, Panel, StatTile, deltaInfo } from "./Cards.tsx";
 import { DivergingBars, HorizontalBars } from "./Charts.tsx";
 import {
   GRAIN_LABEL,
@@ -59,6 +57,7 @@ import {
   RefundIcon,
 } from "./icons.ts";
 import { ChoiceToggle } from "./ChoiceToggle.tsx";
+import { ExcludedInfo, NothingCounted } from "./Excluded.tsx";
 import type { Grain } from "./url.ts";
 
 const CARD_GRID =
@@ -66,20 +65,6 @@ const CARD_GRID =
 
 const CARD_GRID_3 =
   "grid grid-cols-[repeat(auto-fit,minmax(min(300px,100%),1fr))] gap-x-10 gap-y-8 [&>*:last-child:nth-child(3n+1)]:col-span-full";
-
-interface ExcludedInfoProps {
-  excluded: ExcludedSummary;
-  shown: boolean;
-}
-
-export const ExcludedInfo = ({ excluded, shown }: ExcludedInfoProps) =>
-  shown || excluded.count === 0 ? null : (
-    <InfoTip label="About internal transfers" className="-my-1">
-      {plural(excluded.count, "transaction")} for {fmtNOK(excluded.total)} in
-      this period are internal transfers or card bill payments. They are not
-      counted. Turn on Show internal transfers in Filter to see them.
-    </InfoTip>
-  );
 
 type SetFilters = Dispatch<SetStateAction<Filters>>;
 
@@ -345,6 +330,7 @@ interface DashboardProps {
   grain: Grain;
   offered: Grain[];
   onGrain: (grain: Grain) => void;
+  onTransactions: () => void;
 }
 
 export const Dashboard = ({
@@ -358,6 +344,7 @@ export const Dashboard = ({
   grain,
   offered,
   onGrain,
+  onTransactions,
 }: DashboardProps) => {
   const filters = searchAsItem(all, picked);
   const names = mapRules(rules, "items");
@@ -375,6 +362,9 @@ export const Dashboard = ({
 
   if (shown.length === 0)
     return <NoMatches elsewhere={matching(txns)} onPeriod={onPeriod} />;
+
+  if (shown.every((t) => t.excluded))
+    return <NothingCounted rows={shown} onTransactions={onTransactions} />;
 
   const previous = p.prev
     ? matching(txns.filter((t) => inRange(t, p.prev!.from, p.prev!.to)))
