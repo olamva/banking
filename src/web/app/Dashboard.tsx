@@ -40,7 +40,7 @@ import { Items } from "./Items.tsx";
 import { SpendLines } from "./SpendLines.tsx";
 import type { Bucket } from "./axis.ts";
 import { SubscriptionsCard } from "./Transactions.tsx";
-import { categoryLabel, fmtNOK, subcategoryLabel } from "./format.ts";
+import { categoryLabel, fmtNOK, perMonth, subcategoryLabel } from "./format.ts";
 import {
   CategoryIcon,
   ChangesIcon,
@@ -65,10 +65,9 @@ interface ExcludedInfoProps {
 export const ExcludedInfo = ({ excluded, shown }: ExcludedInfoProps) =>
   shown || excluded.count === 0 ? null : (
     <InfoTip label="About internal transfers" className="-my-1">
-      {plural(excluded.count, "transaction")}{" "}
-      for {fmtNOK(excluded.total)} in this period are internal transfers or card
-      bill payments. They are not counted. Turn on Show internal transfers in
-      Filter to see them.
+      {plural(excluded.count, "transaction")} for {fmtNOK(excluded.total)} in
+      this period are internal transfers or card bill payments. They are not
+      counted. Turn on Show internal transfers in Filter to see them.
     </InfoTip>
   );
 
@@ -146,9 +145,7 @@ const tileSub = (
     key === "totalOut" && stats.refunded > 0
       ? `after ${fmtNOK(stats.refunded)} refunded`
       : "",
-    yearly && Math.round(yearly.averageMonth[key]) !== 0
-      ? `${fmtNOK(yearly.averageMonth[key])} / month`
-      : "",
+    yearly ? perMonth(yearly.averageMonth[key]) : "",
   ]
     .filter(Boolean)
     .join(" · ") || undefined;
@@ -260,15 +257,15 @@ const Breakdowns = ({
             {!single &&
               (cats.length >= minBars ||
                 (cats[0]?.subs.length ?? 0) >= minBars) && (
-              <Panel title={`${side} by category`} icon={CategoryIcon}>
-                <HorizontalBars
-                  items={cats}
-                  onPick={onCategory}
-                  onPickSub={onSubcategory}
-                  tone={tone}
-                />
-              </Panel>
-            )}
+                <Panel title={`${side} by category`} icon={CategoryIcon}>
+                  <HorizontalBars
+                    items={cats}
+                    onPick={onCategory}
+                    onPickSub={onSubcategory}
+                    tone={tone}
+                  />
+                </Panel>
+              )}
 
             {tone === "spend" && !single && deltas.length >= minBars && (
               <Panel title={`Biggest changes vs ${vsLabel}`} icon={ChangesIcon}>
@@ -382,8 +379,6 @@ export const Dashboard = ({
     : [];
   const vs = previous.length > 0 ? p.prev : null;
 
-  const vs = previous.length > 0 ? p.prev : null;
-
   const stats = monthStats(p.label, shown, vs ? previous : undefined);
   const prev = monthStats("previous", previous);
 
@@ -403,8 +398,6 @@ export const Dashboard = ({
 
   const series = build(shown, from, to);
   const compare = vs ? alignTo(series, build(previous, vs.from, vs.to), p) : [];
-
-  const single = oneCategory(filters);
 
   const anyIncome = series.some((s) => s.totalIn > 0);
   const anySpend = series.some((s) => s.totalOut > 0);
@@ -493,7 +486,7 @@ export const Dashboard = ({
         stats={stats}
         groups={subscriptionGroups(shown)}
         onFilters={onFilters}
-        single={single}
+        single={oneCategory(filters)}
         grid={p.kind === "all" ? CARD_GRID_3 : CARD_GRID}
         vsLabel={vs?.label}
         minBars={minBarsOf(filters)}

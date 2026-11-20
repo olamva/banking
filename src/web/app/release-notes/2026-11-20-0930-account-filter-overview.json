@@ -3,7 +3,7 @@
   "highlights": [
     {
       "title": "Account filter overview",
-      "detail": "An account filter hides one-bar cards and compares only with a period that has rows for the account.",
+      "detail": "An account filter hides category and merchant cards with one bar.",
       "area": "overview",
       "kind": "improved"
     },
