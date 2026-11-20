@@ -25,6 +25,7 @@ import {
   subscriptionGroups,
   totals,
   visibleDeltas,
+  withGaps,
   yearStats,
   type ExcludedSummary,
   type SeriesPoint,
@@ -34,7 +35,13 @@ import { plural } from "../../core/plural.ts";
 import type { Categorized } from "../../core/types.ts";
 import { InfoTip, NoMatches, Panel, StatTile, deltaInfo } from "./Cards.tsx";
 import { DivergingBars, HorizontalBars } from "./Charts.tsx";
-import { GROUP_LABEL, useChartGroup, type Group } from "./chartGroup.ts";
+import {
+  GRAIN_LABEL,
+  GRAIN_SUFFIX,
+  GROUP_LABEL,
+  chartSubject,
+  useChartGroup,
+} from "./chartGroup.ts";
 import { mapRules, type RulesApi } from "./data.ts";
 import { Items } from "./Items.tsx";
 import { SpendLines } from "./SpendLines.tsx";
@@ -94,29 +101,6 @@ export const pick =
 
 const slugsByLabel = (slugs: string[]) =>
   new Map(slugs.map((s) => [categoryLabel(s), s]));
-
-const GRAIN_SUFFIX: Record<Grain, string> = {
-  running: ", running total",
-  day: " by day",
-  month: " by month",
-};
-
-const chartSubject = (by: Group, anyIncome: boolean, anySpend: boolean) =>
-  by === "merchant"
-    ? "Top merchants"
-    : by === "category"
-      ? "Top categories"
-      : anyIncome
-        ? anySpend
-          ? "Income & spend"
-          : "Income"
-        : "Spending";
-
-const GRAIN_LABEL: Record<Grain, string> = {
-  running: "Running total",
-  day: "Per day",
-  month: "Per month",
-};
 
 type Stats = ReturnType<typeof monthStats>;
 
@@ -328,6 +312,12 @@ const chartBounds = (
 
 const oneCategory = (f: Filters) => f.categories.length === 1 && !f.or.length;
 
+const sparse = (rows: Categorized[]) =>
+  rows.length * 12 < withGaps(monthlySeries(rows)).length;
+
+const timeline = (points: unknown[], rows: Categorized[]) =>
+  points.length > 1 && !sparse(rows);
+
 const minBarsOf = (f: Filters) =>
   keepsItemsOnly(f) ||
   f.accounts.length > 0 ||
@@ -383,7 +373,7 @@ export const Dashboard = ({
   const prev = monthStats("previous", previous);
 
   const months = byMonth(shown);
-  const yearly = months.length > 1 ? yearStats(p.label, months) : null;
+  const yearly = timeline(months, shown) ? yearStats(p.label, months) : null;
 
   const running = grain === "running";
   const bucket: Bucket = grain === "month" ? "month" : "day";
@@ -445,7 +435,7 @@ export const Dashboard = ({
         }
       />
 
-      {series.length > 1 && (
+      {timeline(series, shown) && (
         <div className="mb-8">
           <Panel
             title={`${chartSubject(by, anyIncome, anySpend)}${GRAIN_SUFFIX[grain]}`}
