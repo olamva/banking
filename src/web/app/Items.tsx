@@ -216,6 +216,7 @@ export const Items = ({
 
   if (items.length === 0) return null;
 
+  const named = keepsItemsOnly(filters) && whole.length <= filters.items.length;
   const lone = keepsItemsOnly(filters) && whole.length === 1 ? whole[0]! : null;
   if (lone)
     return (
@@ -258,8 +259,8 @@ export const Items = ({
           </InfoTip>
         </h2>
         <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
-          {plural(receipts, "receipt")} · {plural(bought, "purchase")} ·{" "}
-          {fmtNOK(kept.reduce((n, i) => n + i.spent, 0))}
+          {plural(receipts, "receipt")} · {plural(bought, "purchase")}
+          {!named && ` · ${fmtNOK(kept.reduce((n, i) => n + i.spent, 0))}`}
         </p>
       </div>
       {open && (
@@ -274,7 +275,7 @@ export const Items = ({
           onClose={() => setPicked(null)}
         />
       )}
-      {(bars.length > 1 || swings.length > 0) && (
+      {!named && (bars.length > 1 || swings.length > 0) && (
         <div className={cn(grid, "mb-8")}>
           {bars.length > 1 && (
             <Panel
