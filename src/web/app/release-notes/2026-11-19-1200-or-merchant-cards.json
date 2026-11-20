@@ -1,0 +1,11 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Merchant comparison cards",
+      "detail": "An Also include filter of merchants hides cards that show only one bar.",
+      "area": "overview",
+      "kind": "improved"
+    }
+  ]
+}

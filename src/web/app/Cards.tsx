@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
-import { fmtNOK, fmtPct } from "./format.ts";
+import { plural } from "../../core/plural.ts";
+import type { Categorized } from "../../core/types.ts";
+import { fmtMonth, fmtNOK, fmtPct } from "./format.ts";
 import {
   DownIcon,
   ExpandIcon,
@@ -20,6 +22,33 @@ export const Empty = ({ children }: { children: ReactNode }) => (
     {children}
   </div>
 );
+
+interface NoMatchesProps {
+  elsewhere: Categorized[];
+  onPeriod: (period: string) => void;
+}
+
+export const NoMatches = ({ elsewhere, onPeriod }: NoMatchesProps) => {
+  const last = elsewhere
+    .reduce((d, t) => (t.date > d ? t.date : d), "")
+    .slice(0, 7);
+  return last ? (
+    <Empty>
+      No transactions match the current filters in this period. They match{" "}
+      {plural(elsewhere.length, "transaction")} in other periods.
+      <div className="mt-4 flex flex-wrap justify-center gap-2">
+        <Button variant="outline" size="sm" onClick={() => onPeriod(last)}>
+          Go to {fmtMonth(last)}
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => onPeriod("all")}>
+          Show all time
+        </Button>
+      </div>
+    </Empty>
+  ) : (
+    <Empty>No transactions match the current filters.</Empty>
+  );
+};
 
 interface NoteProps {
   icon: IconSvgElement;

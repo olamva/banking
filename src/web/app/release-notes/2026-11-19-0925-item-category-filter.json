@@ -1,0 +1,11 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Item category filter",
+      "detail": "An item category filter shows its subcategories and hides a chart with one bar.",
+      "area": "items",
+      "kind": "improved"
+    }
+  ]
+}
