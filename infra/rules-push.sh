@@ -21,6 +21,9 @@ if [ -n "$ahead" ]; then
   exit 1
 fi
 
+(cd "$repo" && node --input-type=module -e 'await (await import("./src/core/rules.ts")).recordEdits()')
+mine="$(local_history "$repo/rules")"
+
 # The stamps say who holds newer versions. They say nothing about where each
 # side stands in its own history, because a step through the stack rewrites the
 # live file and writes no version. Ask the content when neither side is ahead,
