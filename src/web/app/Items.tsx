@@ -196,7 +196,13 @@ export const Items = ({
     sortable("Usual gap", "medianDays", true),
     sortable("Last bought", "last", false, "labeled"),
   ];
-  const filled = columns.map((c) => sorted.some((i) => value(i, c.key) !== null));
+  const kinds = new Set(whole.map((i) => i.category));
+  const oneKind = kinds.size === 1 ? subLabel([...kinds][0]!) : null;
+  const filled = columns.map((c) =>
+    c.key === "category"
+      ? !oneKind
+      : sorted.some((i) => value(i, c.key) !== null),
+  );
 
   const tableRows: ReactNode[][] = sorted.map((i) => [
     <span className="block truncate sm:max-w-96">
@@ -275,6 +281,7 @@ export const Items = ({
         <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
           {plural(receipts, "receipt")} · {plural(bought, "purchase")}
           {!named && ` · ${fmtNOK(kept.reduce((n, i) => n + i.spent, 0))}`}
+          {oneKind && ` · ${oneKind}`}
         </p>
       </div>
       {open && (
