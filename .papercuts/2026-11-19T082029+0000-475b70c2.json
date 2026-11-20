@@ -1,0 +1,11 @@
+{
+  "id": "475b70c2",
+  "ts": "2026-11-19T08:20:29+00:00",
+  "text": "pnpm shot fails with page.goto 10s networkidle timeout when machine load is high (load avg ~100 from parallel threads)",
+  "tags": [],
+  "who": "agent",
+  "model": "claude-opus-5-5",
+  "session": "23b8abfe",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3-ce6dd7d3-449ac99aca7eda7c",
+  "branch": "t3/single-merchant-receipt-items"
+}

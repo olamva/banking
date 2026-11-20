@@ -1,0 +1,17 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Account filter overview",
+      "detail": "An account filter hides category and merchant cards with one bar.",
+      "area": "overview",
+      "kind": "improved"
+    },
+    {
+      "title": "Small amounts on the chart",
+      "detail": "The chart axis no longer repeats a value, and a monthly average of 0 kr is hidden.",
+      "area": "overview",
+      "kind": "fixed"
+    }
+  ]
+}

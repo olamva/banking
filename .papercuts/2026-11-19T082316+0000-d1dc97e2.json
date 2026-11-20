@@ -1,0 +1,11 @@
+{
+  "id": "d1dc97e2",
+  "ts": "2026-11-19T08:23:16+00:00",
+  "text": "pnpm shot has a fixed 10 s page timeout; every capture fails when sibling threads push load above 100",
+  "tags": [],
+  "who": "agent",
+  "model": "claude-opus-5-5",
+  "session": "be5d9cab",
+  "where": "/Users/olavassbotn/.t3/worktrees/banking/t3-57bc8966-e374113a866de042",
+  "branch": "t3/person-peer-payment-filter"
+}

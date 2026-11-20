@@ -1,0 +1,11 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Person filter totals",
+      "detail": "A filter to one person shows the money paid, the money received and the net, without a one-bar card.",
+      "area": "overview",
+      "kind": "fixed"
+    }
+  ]
+}
