@@ -77,6 +77,29 @@ test("spendTrend never reads income", () => {
   assert.deepEqual(fit, { slope: 100, intercept: 100 });
 });
 
+test("a year with spend in two months charts and averages all twelve", () => {
+  const rows = [
+    txn({ id: "1", amount: -300, date: "2025-03-10" }),
+    txn({ id: "2", amount: -900, date: "2025-11-02" }),
+  ];
+  const series = monthlySeries(rows, "2025-01-01", "2025-12-31");
+  assert.equal(series.length, 12);
+  assert.deepEqual(
+    series.map((p) => p.totalOut),
+    [0, 0, 300, 0, 0, 0, 0, 0, 0, 0, 900, 0],
+  );
+  const year = yearStats(
+    "2025",
+    [
+      { month: "2025-03", txns: [rows[0]!] },
+      { month: "2025-11", txns: [rows[1]!] },
+    ],
+    "2025-01-01",
+    "2025-12-31",
+  );
+  assert.equal(year.averageMonth.totalOut, 100);
+});
+
 test("withGaps keeps every calendar month between the first and the last", () => {
   const m = (at: string): SeriesPoint => ({ at, totalIn: 0, totalOut: 0 });
 
@@ -249,14 +272,6 @@ test("yearStats builds a monthly series and per-category totals across the year"
   );
   assert.equal(dagligvarer?.total, 300);
   assert.equal(stats.averageMonth.totalOut, 200);
-});
-
-test("yearStats averages over the empty months between the first and last", () => {
-  const months = ["2025-12", "2026-03"].map((month) => ({
-    month,
-    txns: [txn({ id: month, amount: 400, category: "innskudd", date: `${month}-28` })],
-  }));
-  assert.equal(yearStats("all", months).averageMonth.totalIn, 200);
 });
 
 test("subcategories share within their own parent, not across the page", () => {
