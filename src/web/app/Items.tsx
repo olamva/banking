@@ -47,8 +47,8 @@ type Sort =
 
 const subLabel = (pair: string) => pair.slice(pair.indexOf("/") + 1);
 
-const categoryBars = (items: Item[]): BarItem[] =>
-  [...Map.groupBy(items, (i) => topCategory(i.category))]
+const categoryBars = (items: Item[]): BarItem[] => {
+  const tops = [...Map.groupBy(items, (i) => topCategory(i.category))]
     .map(([top, list]) => ({
       label: top,
       total: list.reduce((n, i) => n + i.spent, 0),
@@ -62,6 +62,8 @@ const categoryBars = (items: Item[]): BarItem[] =>
         .sort((a, b) => b.total - a.total),
     }))
     .sort((a, b) => b.total - a.total);
+  return tops.length === 1 ? tops[0]!.subs : tops;
+};
 
 const Change = ({ change }: { change: number | null }) =>
   change !== null && (
@@ -168,7 +170,8 @@ export const Items = ({
     key: Sort,
     num = false,
     phone?: Column["phone"],
-  ): Column => ({
+  ): Column & { key: Sort } => ({
+    key,
     label,
     num,
     phone,
@@ -181,6 +184,20 @@ export const Items = ({
     sort: sort === key ? (descending ? "desc" : "asc") : null,
   });
 
+  const oneTop = new Set(whole.map((i) => topCategory(i.category))).size === 1;
+  const columns = [
+    sortable("Item", "name", false, "title"),
+    sortable("Category", "category", false, "meta"),
+    sortable("Purchases", "count", true, "labeled"),
+    sortable("Quantity", "qty", true),
+    sortable("Spent", "spent", true, "end"),
+    sortable("Average price", "price", true),
+    sortable("Price change", "change", true, "labeled"),
+    sortable("Usual gap", "medianDays", true),
+    sortable("Last bought", "last", false, "labeled"),
+  ];
+  const filled = columns.map((c) => sorted.some((i) => value(i, c.key) !== null));
+
   const tableRows: ReactNode[][] = sorted.map((i) => [
     <span className="block truncate sm:max-w-96">
       {i.name}
@@ -191,7 +208,7 @@ export const Items = ({
         </span>
       )}
     </span>,
-    topCategory(i.category),
+    oneTop ? subLabel(i.category) : topCategory(i.category),
     i.count,
     fmtQty(i.qty, i.unit),
     fmtNOK(i.spent),
@@ -205,6 +222,7 @@ export const Items = ({
     .filter((i) => i.change !== null && Math.abs(i.change) >= MIN_SWING)
     .toSorted((a, b) => a.change! - b.change!);
 
+  const bars = categoryBars(kept);
   const bought = kept.reduce((n, i) => n + i.count, 0);
   const receipts = new Set(
     kept.flatMap((i) => i.purchases.map((p) => p.receipt)),
@@ -212,6 +230,7 @@ export const Items = ({
 
   if (items.length === 0) return null;
 
+  const named = keepsItemsOnly(filters) && whole.length <= filters.items.length;
   const lone = keepsItemsOnly(filters) && whole.length === 1 ? whole[0]! : null;
   if (lone)
     return (
@@ -254,8 +273,8 @@ export const Items = ({
           </InfoTip>
         </h2>
         <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
-          {plural(receipts, "receipt")} · {plural(bought, "purchase")} ·{" "}
-          {fmtNOK(kept.reduce((n, i) => n + i.spent, 0))}
+          {plural(receipts, "receipt")} · {plural(bought, "purchase")}
+          {!named && ` · ${fmtNOK(kept.reduce((n, i) => n + i.spent, 0))}`}
         </p>
       </div>
       {open && (
@@ -270,19 +289,21 @@ export const Items = ({
           onClose={() => setPicked(null)}
         />
       )}
-      {kept.length > 0 && (
+      {!named && (bars.length > 1 || swings.length > 0) && (
         <div className={cn(grid, "mb-8")}>
-          <Panel
-            title="Spending by item category"
-            icon={CategoryIcon}
-            description="Select a category to show only its items."
-          >
-            <HorizontalBars
-              items={categoryBars(kept)}
-              onPick={pickKind}
-              onPickSub={pickKind}
-            />
-          </Panel>
+          {bars.length > 1 && (
+            <Panel
+              title="Spending by item category"
+              icon={CategoryIcon}
+              description="Select a category to show only its items."
+            >
+              <HorizontalBars
+                items={bars}
+                onPick={pickKind}
+                onPickSub={pickKind}
+              />
+            </Panel>
+          )}
           {swings.length > 0 && (
             <Panel
               title="Biggest price changes"
@@ -329,18 +350,8 @@ export const Items = ({
         ) : (
           <DataTable
             scroll
-            columns={[
-              sortable("Item", "name", false, "title"),
-              sortable("Category", "category", false, "meta"),
-              sortable("Purchases", "count", true, "labeled"),
-              sortable("Quantity", "qty", true),
-              sortable("Spent", "spent", true, "end"),
-              sortable("Average price", "price", true),
-              sortable("Price change", "change", true, "labeled"),
-              sortable("Usual gap", "medianDays", true),
-              sortable("Last bought", "last", false, "labeled"),
-            ]}
-            rows={tableRows}
+            columns={columns.filter((_, n) => filled[n])}
+            rows={tableRows.map((row) => row.filter((_, n) => filled[n]))}
             onRow={(index) => setPicked(sorted[index]!.key)}
             rowClassName={(index) =>
               sorted[index]!.key === picked ? "bg-muted" : ""
