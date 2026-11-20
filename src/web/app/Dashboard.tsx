@@ -389,6 +389,8 @@ export const Dashboard = ({
   const series = build(shown, from, to);
   const compare = vs ? alignTo(series, build(previous, vs.from, vs.to), p) : [];
 
+  const single = oneCategory(filters);
+
   const anyIncome = series.some((s) => s.totalIn > 0);
   const anySpend = series.some((s) => s.totalOut > 0);
 
@@ -476,7 +478,7 @@ export const Dashboard = ({
         stats={stats}
         groups={subscriptionGroups(shown)}
         onFilters={onFilters}
-        single={oneCategory(filters)}
+        single={single}
         grid={p.kind === "all" ? CARD_GRID_3 : CARD_GRID}
         vsLabel={vs?.label}
         minBars={minBarsOf(filters)}
