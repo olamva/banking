@@ -447,11 +447,6 @@ export const Dashboard = ({
         }
       />
 
-      {/* Outside the grid, not a `col-span-full` inside it. `nth-child` counts
-          DOM children, but a full-width card owns a whole row on its own — so
-          one sitting in the grid shifts what "odd" means for everything after
-          it, and the last card is left alone in half a row exactly when the
-          rule below exists to prevent that. */}
       {series.length > 1 && (
         <div className="mb-8">
           <Panel
