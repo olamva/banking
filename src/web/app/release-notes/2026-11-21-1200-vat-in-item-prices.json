@@ -1,0 +1,11 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "VAT in item prices",
+      "detail": "A receipt mail that shows VAT on a separate line now adds the VAT to the item prices.",
+      "area": "transactions",
+      "kind": "fixed"
+    }
+  ]
+}

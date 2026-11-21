@@ -95,7 +95,8 @@ before(async () => {
   ]);
   mail("claude", "Anthropic, PBC <invoice@anthropic.com>", "7 Oct 2026", [
     "<table>",
-    "<tr><td>Claude Pro</td><td>183,20 kr</td></tr>",
+    "<tr><td>Claude Pro</td><td>160,00 kr</td></tr>",
+    "<tr><td>Extra usage</td><td>23,20 kr</td></tr>",
     "<tr><td>Subtotal</td><td>183,20 kr</td></tr>",
     "<tr><td>VAT (25%)</td><td>45,80 kr</td></tr>",
     "<tr><td>Total</td><td>229,00 kr</td></tr>",
@@ -142,11 +143,14 @@ test("a mail that prints one item beside the total gives that item the total", (
   assert.deepEqual(receipt("steam").lines, [["Valheim", 1, 145, 145]]);
 });
 
-test("a mail receipt prints its fees and VAT, but Items leaves them out and splits off the size", () => {
+test("a mail receipt spreads a separate VAT line over its item prices", () => {
   assert.deepEqual(receipt("claude").lines, [
-    ["Claude Pro", 1, 183.2, 183.2],
-    ["VAT (25%)", 1, 45.8, 45.8],
+    ["Claude Pro", 1, 200, 200],
+    ["Extra usage", 1, 29, 29],
   ]);
+});
+
+test("Items leaves out mail receipt fees and splits off the size", () => {
   assert.deepEqual(
     purchasesOf(rows.filter((t) => t.id === "power" || t.id === "claude")).map(
       (p) => [p.raw, p.size],
@@ -155,6 +159,7 @@ test("a mail receipt prints its fees and VAT, but Items leaves them out and spli
       ["KULZ VANNKOKER", "1,7 l"],
       ["POINT BRØDRISTER", undefined],
       ["Claude Pro", undefined],
+      ["Extra usage", undefined],
     ],
   );
 });
