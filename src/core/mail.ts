@@ -390,10 +390,26 @@ const line = (c: Candidate): ReceiptLine => ({
   ...(c.fee && { fee: true }),
 });
 
+function withVat(lines: Candidate[]): Candidate[] {
+  const goods = lines.filter((c) => !c.tax);
+  const vat = lines.reduce((s, c) => s + (c.tax ? cents(c.amount) : 0), 0);
+  const base = goods.reduce((s, c) => s + cents(c.amount), 0);
+  if (!vat || !base) return lines;
+  let left = vat;
+  return goods.map(({ price: _, ...c }, i) => {
+    const add =
+      i === goods.length - 1
+        ? left
+        : Math.round((vat * cents(c.amount)) / base);
+    left -= add;
+    return { ...c, amount: (cents(c.amount) + add) / 100 };
+  });
+}
+
 type Items = Pick<Receipt, "lines" | "total" | "currency">;
 
 const items = (lines: Candidate[], total: Candidate): Items => ({
-  lines: lines.map(line),
+  lines: withVat(lines).map(line),
   total: total.amount,
   ...(total.currency && { currency: total.currency }),
 });
