@@ -1,0 +1,11 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "No repeated filter groups",
+      "detail": "A click on a merchant or category now removes a filter group that another group already covers.",
+      "area": "overview",
+      "kind": "fixed"
+    }
+  ]
+}

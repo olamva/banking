@@ -16,6 +16,7 @@ import {
   type Filters,
   type Period,
 } from "../../core/select.ts";
+import { dropNarrower } from "../../core/groups.ts";
 import { dropsItemsOnly, withoutItems } from "../../core/itemExclusion.ts";
 import { settledBounds } from "../../core/bounds.ts";
 import {
@@ -84,7 +85,11 @@ export const pick =
           [outKey]: out.includes(value) ? without(out) : [...out, value],
         };
       const only = values.length === 1 && values[0] === value;
-      return { ...f, [key]: only ? [] : [value], [outKey]: without(out) };
+      return dropNarrower({
+        ...f,
+        [key]: only ? [] : [value],
+        [outKey]: without(out),
+      });
     });
 
 const slugsByLabel = (slugs: string[]) =>

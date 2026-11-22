@@ -53,7 +53,7 @@ export const clearFilters = (f: Filters): Filters => ({
   withoutDeposit: f.withoutDeposit,
 });
 
-const groupOf = (f: Group): Group =>
+export const groupOf = (f: Group): Group =>
   Object.fromEntries(GROUP_KEYS.map((k) => [k, f[k]])) as Group;
 
 export const emptyGroup = (g: Group): boolean =>
