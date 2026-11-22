@@ -21,6 +21,7 @@ import {
   subcategoryOf,
 } from "../../src/core/select.ts";
 import type { Categorized } from "../../src/core/types.ts";
+import { dropNarrower } from "../../src/core/groups.ts";
 
 function txn(
   partial: Partial<Categorized> & { id: string; amount: number },
@@ -441,6 +442,43 @@ test("withGroupAt edits one group, and pruneGroups drops the empty ones", () => 
   assert.deepEqual([pruned.items, pruned.merchants], [["Monster"], []]);
   assert.deepEqual(pruned.or, [{ ...NO_GROUP, merchants: ["Kiwi"] }]);
   assert.equal(pruneGroups(f), f);
+});
+
+test("dropNarrower drops a group that another group already covers", () => {
+  const picked: Filters = {
+    ...NO_FILTERS,
+    merchants: ["Vinmonopolet"],
+    items: ["Smirnoff Ice"],
+    or: [{ ...NO_GROUP, merchants: ["Vinmonopolet"] }],
+  };
+  assert.deepEqual(dropNarrower(picked), {
+    ...NO_FILTERS,
+    merchants: ["Vinmonopolet"],
+  });
+
+  const apart: Filters = {
+    ...NO_FILTERS,
+    items: ["Smirnoff Ice"],
+    or: [{ ...NO_GROUP, merchants: ["Vinmonopolet"] }],
+  };
+  assert.deepEqual(dropNarrower(apart), apart);
+
+  const twins: Filters = {
+    ...NO_FILTERS,
+    merchants: ["Kiwi"],
+    or: [{ ...NO_GROUP, merchants: ["Kiwi"] }],
+  };
+  assert.deepEqual(dropNarrower(twins), { ...NO_FILTERS, merchants: ["Kiwi"] });
+
+  const wider: Filters = {
+    ...NO_FILTERS,
+    merchants: ["Kiwi"],
+    or: [{ ...NO_GROUP, merchants: ["Kiwi", "Rema"] }],
+  };
+  assert.deepEqual(dropNarrower(wider), {
+    ...NO_FILTERS,
+    merchants: ["Kiwi", "Rema"],
+  });
 });
 
 test("markedItem marks an item that any group names", () => {
