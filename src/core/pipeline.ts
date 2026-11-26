@@ -9,6 +9,7 @@ import {
   loadGiro,
   loadNotSubscriptions,
   loadPayees,
+  loadPrices,
   loadSubscriptions,
   renamePayees,
   setCountries,
@@ -22,6 +23,7 @@ import {
   coopReceipt,
   mailReceipt,
   matchReceipts,
+  priceReceipts,
   remaReceipt,
   trumfReceipt,
   type Found,
@@ -89,6 +91,7 @@ export async function loadRules() {
     family,
     notSubscriptions,
     payees,
+    prices,
   ] = await Promise.all([
     loadCountries(),
     loadCategories(),
@@ -97,6 +100,7 @@ export async function loadRules() {
     loadFamily(),
     loadNotSubscriptions(),
     loadPayees(),
+    loadPrices(),
   ]);
   return {
     accounts,
@@ -117,6 +121,7 @@ export async function loadRules() {
     family,
     notSubscriptions,
     payees,
+    prices,
   };
 }
 
@@ -215,7 +220,10 @@ async function build(): Promise<number> {
         `\nOne leg of a pair is being excluded while the other is counted.`,
     );
   }
-  const receipts = matchReceipts(rows, await receiptsOnDisk());
+  const receipts = new Map([
+    ...priceReceipts(rows, rules.prices),
+    ...matchReceipts(rows, await receiptsOnDisk()),
+  ]);
   await mkdir(dirname(DB_FILE), { recursive: true });
   const next = `${DB_FILE}.${process.pid}.tmp`;
   rmSync(next, { force: true });

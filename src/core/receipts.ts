@@ -1,5 +1,7 @@
 import PostalMime from "postal-mime";
 import { mailItems } from "./mail.ts";
+import { compileRule } from "./match.ts";
+import type { RuleMap } from "./ruleFiles.ts";
 import type { Txn } from "./types.ts";
 
 export type Entry = { label: string; amount: number };
@@ -18,7 +20,7 @@ export type ReceiptLine = {
 };
 
 export type Receipt = {
-  source: "rema" | "trumf" | "gmail" | "coop";
+  source: "rema" | "trumf" | "gmail" | "coop" | "price";
   id: string;
   at: number;
   store: string;
@@ -395,6 +397,35 @@ function sameStore(names: string[], t: Txn): boolean {
     (n) =>
       n.length >= 3 &&
       (letters(text).includes(n) || words.some((w) => n.includes(w))),
+  );
+}
+
+export function priceReceipts<T extends Txn>(
+  txns: T[],
+  prices: RuleMap,
+): Map<T, Receipt> {
+  const rules = Object.entries(prices)
+    .map(([key, name]) => ({ ...compileRule(key, "rules/prices.json"), name }))
+    .sort((a, b) => b.weight - a.weight);
+  return new Map(
+    txns.flatMap((t) => {
+      const name = rules.find((r) => r.matches(t))?.name;
+      return name
+        ? [
+            [
+              t,
+              {
+                source: "price",
+                id: t.id,
+                at: Date.parse(t.date),
+                store: t.counterparty ?? t.description,
+                lines: [{ name, qty: 1, price: -t.amount, amount: -t.amount }],
+                total: -t.amount,
+              },
+            ] as const,
+          ]
+        : [];
+    }),
   );
 }
 

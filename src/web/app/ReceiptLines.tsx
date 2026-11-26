@@ -1,7 +1,7 @@
 import { Fragment, useState, type ReactNode } from "react";
 import { isBought } from "../../core/items.ts";
 import type { Receipt, ReceiptLine, Entry } from "../../core/receipts.ts";
-import { fmtDateTime } from "./format.ts";
+import { fmtDate, fmtDateTime } from "./format.ts";
 import {
   ChangesIcon,
   ExcludeIcon,
@@ -182,7 +182,9 @@ export const Slip = ({ receipt, marked, struck, onItem }: SlipProps) => {
     <div className="mx-auto max-w-[380px] rounded-md border border-border bg-background px-4 py-3 font-mono text-[11px] leading-relaxed tabular-nums">
       <div className="text-center font-semibold uppercase">{receipt.store}</div>
       <div className="text-center text-muted-foreground">
-        {fmtDateTime(receipt.at)}
+        {receipt.source === "price"
+          ? fmtDate(new Date(receipt.at).toISOString().slice(0, 10))
+          : fmtDateTime(receipt.at)}
       </div>
       <Rule />
       {lines.map((l, i) => (
@@ -234,6 +236,9 @@ export const ReceiptLines = ({
   <section className="text-xs">
     <h3 className="flex flex-wrap items-baseline gap-x-1.5 font-medium text-muted-foreground">
       Receipt
+      {receipt.source === "price" && (
+        <span className="font-normal">guessed from the price</span>
+      )}
       {receipt.source === "gmail" && !receipt.lines.length && (
         <span className="font-normal">
           {receipt.store} · {fmtDateTime(receipt.at)}

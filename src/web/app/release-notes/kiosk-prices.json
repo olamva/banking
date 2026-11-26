@@ -1,0 +1,11 @@
+{
+  "bump": "minor",
+  "highlights": [
+    {
+      "title": "Items from the price",
+      "detail": "A price rule names the item on a row with no receipt, such as a kiosk drink.",
+      "area": "rules",
+      "kind": "new"
+    }
+  ]
+}
