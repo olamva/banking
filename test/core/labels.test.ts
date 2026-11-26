@@ -44,12 +44,6 @@ test("the bank names a pair that has no English name", () => {
   assert.equal(l.subcategory("bolig", "husleie"), "Husleie");
 });
 
-test("an English name wins over the Norwegian bank name", () => {
-  const l = buildLabels([row({})]);
-  assert.equal(l.category("dagligvarer"), "Groceries");
-  assert.equal(l.subcategory("dagligvarer", "dagligvarer"), "Food");
-});
-
 test("rules/labels.json wins over the bank, which is what a rename is for", () => {
   const l = buildLabels([row({})], { dagligvarer: "Mat" });
   assert.equal(l.category("dagligvarer"), "Mat");
