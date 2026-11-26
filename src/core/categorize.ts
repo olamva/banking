@@ -64,6 +64,9 @@ export const loadPayees = (path = `${RULES_DIR}/payees.json`) =>
 export const loadCountries = (path = `${RULES_DIR}/countries.json`) =>
   loadJson<RuleMap>(path, {});
 
+export const loadPrices = (path = `${RULES_DIR}/prices.json`) =>
+  loadJson<RuleMap>(path, {});
+
 type Find = (haystack: string) => string | undefined;
 
 const finders = new WeakMap<RuleMap, Find>();

@@ -173,7 +173,7 @@ function check({ file, key, value, remove }: Edit): void {
   if (!key.trim()) throw new Error("the pattern is empty");
   // A bad regex throws here rather than at the next rebuild, where it would
   // break every category at once.
-  if (file === "categories") compileRule(key, `${file}.json`);
+  if (file === "categories" || file === "prices") compileRule(key, `${file}.json`);
   else compile(key, `${file}.json`);
   if (remove) return;
   if (!isMap(file)) return;

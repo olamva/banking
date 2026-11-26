@@ -15,6 +15,7 @@ export const MAP_FILES = [
   "countries",
   "items",
   "item-categories",
+  "prices",
 ] as const;
 export const LIST_FILES = [
   "family",
@@ -37,6 +38,7 @@ export const FILE_LABEL: Record<RuleFile, string> = {
   countries: "Countries",
   items: "Item names",
   "item-categories": "Item categories",
+  prices: "Prices",
   labels: "Category names",
   family: "Family",
   subscriptions: "Subscriptions",
@@ -57,6 +59,8 @@ export const RULE_NOTE: Record<RuleFile, string> = {
     "Receipt line name to the name on the Items page. Items with the same name show as one item.",
   "item-categories":
     "Item name to the category on the Items page. Write it as category or category/sub. It beats the product group on the receipt.",
+  prices:
+    "Pattern and amount to the item it buys. A row with no receipt gets a one-line receipt with this item.",
   labels: "Slug to the name on the page. Write the slug as category/sub.",
   family:
     "A relative, by name or by account number. Money in is from family. Money out is a repayment.",
@@ -71,7 +75,15 @@ export const RULE_GROUPS: [string, RuleFile[]][] = [
   ],
   [
     "Display",
-    ["payees", "branches", "countries", "labels", "items", "item-categories"],
+    [
+      "payees",
+      "branches",
+      "countries",
+      "labels",
+      "items",
+      "item-categories",
+      "prices",
+    ],
   ],
 ];
 
