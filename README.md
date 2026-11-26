@@ -91,7 +91,7 @@ Refresh is the only control on the page that touches the network. It fetches the
 
 The page starts a refresh with `/api/refresh/start`, which answers at once. While the refresh runs, the page keeps its data, the Refresh button shows "Refreshing…", and the page asks `/api/refresh/status` every 2 seconds. When the refresh ends, the page reloads its data and shows the result. No request waits for the refresh, so a slow refresh never meets the proxy timeout. The iPhone app still calls `/api/refresh`, which waits for the result.
 
-The hosted server also refreshes itself just after midnight in Oslo, and when it answers the first `/api/txns` or `/api/app` request of each Oslo day. That answer does not wait. It carries `refreshing: true`, so the page shows the stored data and the indicator until the new data arrives. `data/visited` holds the date of that last first visit. `pnpm dev` refreshes only when you press Refresh.
+The hosted server also refreshes itself just after midnight in Oslo, and when it answers the first `/api/txns` or `/api/app` request that comes one hour or more after the last such refresh. That answer does not wait. It carries `refreshing: true`, so the page shows the stored data and the indicator until the new data arrives. `data/visited` holds the time of that last visit refresh in epoch milliseconds. `pnpm dev` refreshes only when you press Refresh.
 
 A month closes four days after it ends, which is the window a late card row books in. Only the open months cost a request. The code drops a pending row rather than counting it, so press Refresh again to collect the tail.
 

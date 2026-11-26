@@ -22,7 +22,7 @@ const { autoRefresh, refresh, refreshRoute, visit } =
 const status = () =>
   JSON.parse(refreshRoute("/api/refresh/status", undefined)!.body);
 
-test("only the first visit of the day on the hosted server starts a refresh, and the status reports it", async () => {
+test("only the first visit in an hour on the hosted server starts a refresh, and the status reports it", async () => {
   visit();
   assert.equal(status().running, false);
 
@@ -41,4 +41,10 @@ test("only the first visit of the day on the hosted server starts a refresh, and
 
   visit();
   assert.equal(status().running, false);
+
+  mock.timers.enable({ apis: ["Date"], now: Date.now() + 3_600_000 });
+  visit();
+  assert.equal(status().running, true);
+  mock.timers.reset();
+  await refresh().catch(() => {});
 });
