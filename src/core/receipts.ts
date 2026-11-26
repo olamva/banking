@@ -319,6 +319,8 @@ const NOK_PER: Record<string, [number, number]> = {
 const MONEY =
   /(\d{1,3}(?:[ .,]\d{3})+|\d+)(?:[.,](\d{2})(?!\d)|,-)|(?:kr\.?|nok) ?(\d{1,3}(?: \d{3})+|\d+)(?![\d.,]| \d)|(\d{1,3}(?: \d{3})+|\d+) ?(?:kr|nok)\b/gi;
 
+const GIFT = /(?:gift ?card|gavekort)\D{0,12}?(\d+(?:[.,]\d{2})?)(?!\d)/gi;
+
 export async function mailReceipt(id: string, raw: Uint8Array): Promise<Found> {
   const mail = await PostalMime.parse(raw);
   const text =
@@ -347,14 +349,21 @@ export async function mailReceipt(id: string, raw: Uint8Array): Promise<Found> {
       : receipt;
   };
   const fits = new Map<number, Receipt>();
+  const amounts = [...text.matchAll(MONEY)].map(
+    (m) =>
+      Number((m[1] ?? m[3] ?? m[4])!.replace(/[ .,]/g, "")) +
+      Number(m[2] ?? 0) / 100,
+  );
+  const gifts = [...text.matchAll(GIFT)].map((m) =>
+    Number(m[1]!.replace(",", ".")),
+  );
   return {
     receipt,
     fit: (paid) => fits.get(paid) ?? fits.set(paid, fitted(paid)).get(paid)!,
-    amounts: [...text.matchAll(MONEY)].map(
-      (m) =>
-        Number((m[1] ?? m[3] ?? m[4])!.replace(/[ .,]/g, "")) +
-        Number(m[2] ?? 0) / 100,
-    ),
+    amounts: [
+      ...amounts,
+      ...gifts.flatMap((g) => amounts.filter((a) => a > g).map((a) => a - g)),
+    ],
     names: [
       letters(domain),
       firstWord(mail.from?.name ?? ""),

@@ -349,10 +349,13 @@ function pick(
   withTax: boolean,
 ): Candidate[] {
   const segments: Candidate[][] = [[]];
-  for (const c of found)
-    if (c.total && !c.sub) segments.push([]);
-    else if (!c.total && (!c.skip || (withTax && c.tax)))
-      segments.at(-1)!.push(c);
+  for (const c of found) {
+    const segment = segments.at(-1)!;
+    const sum = segment.reduce((s, x) => s + cents(x.amount), 0);
+    if (c.total && !c.sub && c.amount && cents(c.amount) !== sum)
+      segments.push([]);
+    else if (!c.total && (!c.skip || (withTax && c.tax))) segment.push(c);
+  }
   return segments
     .flatMap((segment) =>
       segment.flatMap((_, i) => runsFrom(segment.slice(i), cents(target))),
