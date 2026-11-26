@@ -1,0 +1,17 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Town branches",
+      "detail": "One rule for a town now names each store there. A longer rule still wins.",
+      "area": "rules",
+      "kind": "improved"
+    },
+    {
+      "title": "No repeated town",
+      "detail": "A merchant named after its town, a transfer or a deposit shows no branch.",
+      "area": "transactions",
+      "kind": "fixed"
+    }
+  ]
+}

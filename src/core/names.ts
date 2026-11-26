@@ -34,24 +34,38 @@ const CARD_PAYMENT = new Set([
   "Varer",
   "Transaksjon",
   "Kredittkort",
+  "Bekreftet varekjøp BankAxept-terminal",
+  "Varekjøp i betalingsterminal m/kontantutbetaling",
+  "Kontantinnskudd",
+  "Minibank",
+  "Minibankuttak utenfor eget konsern",
 ]);
 
 const COMPANY_FORM = /^(as|asa|ab|da|ans|nuf|ltd|inc)$/i;
 
 const wordKey = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
 
+const words = (s: string) =>
+  ` ${s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim()} `;
+
 export function branchRule(
   rules: Record<string, string>,
-): (t: Parameters<typeof haystackOf>[0]) => string | null | undefined {
-  const ruled = Object.entries(rules).map(([pattern, value]) => ({
-    matches: compile(pattern, "rules/branches.json"),
-    value,
-  }));
+): (
+  t: Parameters<typeof haystackOf>[0] & { typeText: string | null },
+) => string | null | undefined {
+  const ruled = Object.entries(rules)
+    .map(([pattern, value]) => ({
+      pattern,
+      matches: compile(pattern, "rules/branches.json"),
+      value,
+    }))
+    .sort((a, b) => b.pattern.length - a.pattern.length);
   return (t) => {
+    if (!CARD_PAYMENT.has(t.typeText ?? "")) return undefined;
     const haystack = haystackOf(t);
     const hit = ruled.find((r) => r.matches(haystack));
     if (!hit) return undefined;
-    return wordKey(hit.value) === wordKey(t.counterparty ?? "")
+    return words(t.counterparty ?? "").includes(words(hit.value))
       ? null
       : hit.value;
   };
