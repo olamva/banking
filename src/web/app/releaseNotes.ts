@@ -43,7 +43,10 @@ export const BUMPS: Bump[] = ["major", "minor", "patch"];
 
 export const LIMITS = { highlights: 3, title: 40, detail: 100 };
 
-export const NOTE_NAME = /^(\d{4}-\d{2}-\d{2})-\d{4}-[a-z0-9-]+\.json$/;
+export const NOTE_NAME =
+  /^(\d{4}-\d{2}-\d{2})(?:-\d{4}|T\d{6})-[a-z0-9-]+\.json$/;
+
+export const PENDING_NAME = /^[a-z][a-z0-9-]*\.json$/;
 
 const base = (path: string) => path.slice(path.lastIndexOf("/") + 1);
 
@@ -57,7 +60,9 @@ export function versioned(notes: Record<string, Note>): Release[] {
       version = version.map((n, i) => (i < at ? n : i === at ? n + 1 : 0));
       return {
         version: version.join("."),
-        date: name.slice(0, 10),
+        date:
+          NOTE_NAME.exec(name)?.[1] ??
+          new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Oslo" }),
         bump,
         highlights,
       };
