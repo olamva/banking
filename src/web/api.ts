@@ -368,10 +368,11 @@ export function autoRefresh(): void {
 export function visit(): void {
   if (
     !auto ||
-    (existsSync(VISITED) && readFileSync(VISITED, "utf8") === today())
+    (existsSync(VISITED) &&
+      Date.now() - Number(readFileSync(VISITED, "utf8")) < 3_600_000)
   )
     return;
-  writeFileSync(VISITED, today());
+  writeFileSync(VISITED, String(Date.now()));
   void quietly(refresh());
 }
 

@@ -1,0 +1,11 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Hourly refresh on visit",
+      "detail": "The hosted site now gets new data on the first visit in each hour, not only once each day.",
+      "area": "app",
+      "kind": "improved"
+    }
+  ]
+}

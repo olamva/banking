@@ -59,7 +59,7 @@ Never rely on transaction IDs across syncs. SB1 changes them on every fetch and 
 Keep `/api/txns` reading only `data/banking.db`.
 Call the bank and receipt APIs only through `refresh` in `src/web/api.ts`.
 The one exception is `connectRoute` in `src/web/connect.ts`. It exchanges or checks one login when I select **Finish** in Settings. It fetches no transactions or receipts.
-Start `refresh` only from the Refresh button, the hosted server's midnight run, or the first payload request of each Oslo day.
+Start `refresh` only from the Refresh button, the hosted server's midnight run, or the first payload request in each hour since the last visit refresh.
 Run the midnight and first-visit refreshes only on the hosted server, through `autoRefresh` in `src/web/server.ts`.
 Never call the bank API on other page loads, reloads, filter changes, or timers.
 Let the page poll only `/api/refresh/status`. It reports the refresh state and never starts a refresh.
