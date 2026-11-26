@@ -8,6 +8,7 @@ import {
   KINDS,
   LIMITS,
   NOTE_NAME,
+  PENDING_NAME,
   versioned,
   type Note,
 } from "../src/web/app/releaseNotes.ts";
@@ -22,10 +23,8 @@ const isDate = (date: string) => {
 function noteProblems(name: string, note: Note): string[] {
   const problems: string[] = [];
   const date = NOTE_NAME.exec(name)?.[1];
-  if (!date || !isDate(date))
-    problems.push(
-      `${name} needs a name like 2026-11-11-1530-short-title.json.`,
-    );
+  if (date ? !isDate(date) : !PENDING_NAME.test(name))
+    problems.push(`${name} needs a name like short-title.json.`);
   if (!BUMPS.includes(note.bump))
     problems.push(`${name} needs a bump of major, minor or patch.`);
   if (
@@ -66,12 +65,12 @@ export function releaseProblems(
   );
   for (const name of base)
     if (!(name in head)) problems.push(`Keep the release ${name}.`);
-  const sorted = base.toSorted();
-  const [oldest = "", newest = ""] = [sorted[0], sorted.at(-1)];
   const added = Object.keys(head).filter((name) => !base.includes(name));
   for (const name of added)
-    if (name > oldest && name <= newest)
-      problems.push(`${name} must sort after ${newest} or before ${oldest}.`);
+    if (NOTE_NAME.test(name))
+      problems.push(
+        `Rename ${name} to its short title. A workflow adds the merge time.`,
+      );
   if (!added.length && !exempt)
     problems.push(
       `Add a release to ${DIR}, or apply the "no release" label to the PR.`,

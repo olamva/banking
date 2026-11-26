@@ -1,0 +1,31 @@
+name: Release stamp
+
+on:
+  push:
+    branches: [main]
+    paths: [src/web/app/release-notes/**]
+
+permissions:
+  contents: read
+
+concurrency: release-stamp
+
+jobs:
+  stamp:
+    name: Add the merge time to new releases
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: main
+          fetch-depth: 0
+          ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 26
+      - run: node infra/release-stamp.ts
+      - run: |
+          git diff --cached --quiet && exit 0
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "chore: stamp the release merge time"
+          git push
