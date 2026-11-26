@@ -19,13 +19,35 @@ test("a branch rule beats the branch the code reads", () => {
   const rows = [
     card("Bunnpris", "BUNNPRIS MUNKEG TR"),
     card("Bunnpris", "BUNNPRIS PRINSE, Trondheim, NORWAY"),
-    { ...card("Bunnpris", "BUNNPRIS MOHOLT"), typeText: "Straksbetaling" },
+    card("Bunnpris", "BUNNPRIS MOHOLT"),
   ];
   const branch = branchFinder(rows, {
     "bunnpris munkeg": "Munkegata",
     "/^bunnpris moholt/": "Moholt",
   });
   assert.deepEqual(rows.map(branch), ["Munkegata", "Prinse", "Moholt"]);
+});
+
+test("a town rule names the branch unless a longer rule or the merchant name says more", () => {
+  const rows = [
+    card("Pizzabakeren", "PIZZABAKEREN VO RØYSBAKKE VOLDA"),
+    card("Kiwi", "KIWI SKJELL RØYSBAKKEN VOLDA"),
+    card("Volda Filmteater", "VOLDA FILMTEATE STORGT. VOLDA"),
+    {
+      ...card("Kontantinnskudd", "Innskotsautomat Volda Volda"),
+      typeText: "Innskudd automat",
+    },
+  ];
+  const branch = branchFinder(rows, {
+    volda: "Volda",
+    "kiwi skjell": "Skjellebreida Volda",
+  });
+  assert.deepEqual(rows.map(branch), [
+    "Volda",
+    "Skjellebreida Volda",
+    null,
+    null,
+  ]);
 });
 
 test("a row with no branch rule has no ruled branch, even when one is guessed", () => {

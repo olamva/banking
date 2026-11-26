@@ -50,7 +50,7 @@ export const RULE_NOTE: Record<RuleFile, string> = {
   payees:
     "Pattern to the name on the page. A rename can never move money, so this file is safe to edit.",
   branches:
-    "Pattern to the branch name in a merchant group. It beats the branch the code reads off the card text.",
+    "Pattern to the branch name in a merchant group. It beats the branch the code reads off the card text. The longest matching pattern wins.",
   countries:
     "Pattern to the country on the row. It beats the country the code reads off the card name.",
   items:

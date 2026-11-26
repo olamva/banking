@@ -1,0 +1,17 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Town branches",
+      "detail": "One branch rule for a town now names every card purchase there. A longer rule still names a store in that town.",
+      "area": "rules",
+      "kind": "improved"
+    },
+    {
+      "title": "No repeated town",
+      "detail": "A merchant whose name already holds the town shows no branch, and transfers and deposits show none.",
+      "area": "transactions",
+      "kind": "fixed"
+    }
+  ]
+}
