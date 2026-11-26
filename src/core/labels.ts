@@ -50,7 +50,6 @@ const ENGLISH: Names = {
   "diverse/renter_og_gebyrer": "Interest and fees",
   "diverse/skatt": "Tax",
   "diverse/utlegg": "Outlays",
-  "diverse/vennebetaling": "Payments to friends",
   faste_utgifter: "Fixed costs",
   "faste_utgifter/boligutgifter": "Housing",
   "faste_utgifter/kommunale_avgifter": "Municipal fees",
