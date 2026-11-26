@@ -139,7 +139,12 @@ test("a category nobody registered keeps the ordinary text colour", () => {
 });
 
 test("a row with no subcategory reads as its category, never as Other", () => {
-  setLabels(buildLabels([row]));
+  setLabels(
+    buildLabels([row], {
+      ukategorisert: "Uncategorized",
+      "dagligvarer/andre_dagligvarer": "Other groceries",
+    }),
+  );
   assert.equal(rowLabel("ukategorisert", null), "Uncategorized");
   assert.notEqual(rowLabel("ukategorisert", null), NO_SUB);
   assert.equal(
