@@ -89,6 +89,7 @@ before(async () => {
       bank("salary", "2026-09-15", 10202.8, "POWER NORGE AS"),
       bank("tip", "2026-09-16", 24.92, "BOA RE PAYPAL PTE LTD"),
       bank("payout", "2026-09-25", 852.64, "BOA RE PAYPAL PTE LTD"),
+      bank("xxl", "2026-09-26", -477, "Vipps*XXL.NO Walley, Oslo"),
     ],
   });
   put("data/raw/receipts/coop/A0-coop-1.json", {
@@ -301,6 +302,15 @@ before(async () => {
       "Pengene er på vei til bankkontoen din",
     ),
   );
+  put(
+    "data/raw/receipts/gmail/xxl.eml",
+    mail(
+      "XXL <kundeservice@xxl.no>",
+      "25 Sep 2026 16:52:24 +0200",
+      "<p>Betaling Walley + Gift card kr800</p><p>Total kr 1277</p>",
+      "Ordrebekreftelse fra XXL",
+    ),
+  );
   await rebuildAll();
   const db = openDb(process.env.DB_FILE!);
   rows = queryRange(db, "0000-00", "9999-99");
@@ -421,6 +431,10 @@ test("each mail goes to one bank row, and each row takes the closest mail", () =
   assert.equal(rows.find((t) => t.id === "apple-1")!.receipt!.store, "Apple");
 });
 
+test("an order paid partly with a gift card reaches the row for the rest", () => {
+  assert.equal(receiptOf("xxl"), "gmail/xxl");
+});
+
 test("a refund mail reaches the money back, not the closer purchase", () => {
   assert.equal(receiptOf("steam-back"), "gmail/steam-back");
   assert.equal(receiptOf("steam-buy"), "gmail/steam-buy");
@@ -466,7 +480,7 @@ test("a Coop receipt dated just after Oslo midnight reaches that day's card row"
 });
 
 test("a broken or undated receipt file leaves the rest of the rebuild intact", () => {
-  assert.equal(rows.length, 13);
+  assert.equal(rows.length, 14);
   assert.ok(
     errors.mock.calls.some((c) =>
       String(c.arguments[0]).includes("broken.json"),

@@ -1,0 +1,11 @@
+{
+  "bump": "patch",
+  "highlights": [
+    {
+      "title": "Gift card orders",
+      "detail": "An order mail paid partly with a gift card now reaches the card row for the rest.",
+      "area": "receipts",
+      "kind": "fixed"
+    }
+  ]
+}
