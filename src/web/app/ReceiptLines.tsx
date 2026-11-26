@@ -234,7 +234,7 @@ export const ReceiptLines = ({
   onItem,
 }: SlipProps) => (
   <section className="text-xs">
-    <h3 className="flex flex-wrap items-baseline gap-x-1.5 font-medium text-muted-foreground">
+    <h3 className="flex flex-wrap items-baseline gap-x-1 font-medium text-muted-foreground">
       Receipt
       {receipt.source === "price" && (
         <span className="font-normal">guessed from the price</span>
