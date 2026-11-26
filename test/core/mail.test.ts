@@ -64,8 +64,19 @@ before(async () => {
       bank("paypal", "2026-10-06", -90.24, "PAYPAL *LACHYW02"),
       bank("claude", "2026-10-07", -229, "ANTHROPIC"),
       bank("apple", "2026-10-08", -1299, "APPLE.COM/BILL"),
+      bank("xxl", "2026-10-09", -1277, "Vipps*XXL.NO Walley"),
     ],
   });
+  mail("xxl", "XXL <kundeservice@xxl.no>", "9 Oct 2026", [
+    "<table>",
+    "<tr><td>Ulltrøye</td><td>1</td><td>kr 699</td><td>kr 699</td></tr>",
+    "<tr><td>Ullongs</td><td>1</td><td>kr 479</td><td>kr 479</td></tr>",
+    "<tr><td>Total</td><td>kr 1178</td></tr>",
+    "<tr><td>Levering</td><td>kr 99</td></tr>",
+    "<tr><td>Total rabatt</td><td>kr</td></tr>",
+    "<tr><td>Total</td><td>kr 1277</td></tr>",
+    "</table>",
+  ]);
   mail("power", "POWER Norge <noreply@power.no>", "2 Oct 2026", [
     "<table>",
     "<tr><td>Produkt</td><td>Antall</td><td>Sum</td></tr>",
@@ -131,6 +142,22 @@ test("a mail receipt lists the item rows that add up to its total", () => {
     total: 1176.5,
     currency: undefined,
   });
+});
+
+test("a mail that prints a total before its delivery keeps the delivery as a fee", () => {
+  assert.deepEqual(receipt("xxl"), {
+    lines: [
+      ["Ulltrøye", 1, 699, 699],
+      ["Ullongs", 1, 479, 479],
+      ["Levering", 1, 99, 99],
+    ],
+    total: 1277,
+    currency: undefined,
+  });
+  assert.deepEqual(
+    rows.find((t) => t.id === "xxl")!.receipt!.lines.map((l) => !!l.fee),
+    [false, false, true],
+  );
 });
 
 test("a mail without a total row lists the item that adds up to the card charge", () => {
